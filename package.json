@@ -1,0 +1,33 @@
+{
+  "name": "@cocreate/db",
+  "version": "0.0.0-development",
+  "description": "CoCreate DB module, based on the CoCreate Authenticate module starter.",
+  "keywords": [
+    "cocreate",
+    "database",
+    "db"
+  ],
+  "scripts": {
+    "start": "webpack --config webpack.config.js --watch",
+    "build": "NODE_ENV=production webpack --config webpack.config.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CoCreateJS/db.git"
+  },
+  "author": "CoCreate LLC",
+  "bugs": {
+    "url": "https://github.com/CoCreateJS/db/issues"
+  },
+  "type": "module",
+  "main": "./src/index.js",
+  "homepage": "https://CoCreateJS.com/docs/db",
+  "dependencies": {
+    "@cocreate/crud": "^0.0.0-stage",
+    "@cocreate/utils": "^2.0.2"
+  }
+}
