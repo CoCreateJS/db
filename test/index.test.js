@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { createUpdate, queryData } from '@cocreate/utils'
 import { createDB, createDistributedIndex, createIndex } from '../src/index.js'
+import { queryIndexCandidates } from '../src/query.js'
 
 const withIndex = async (run, options = {}) => {
     const directory = await mkdtemp(join(tmpdir(), 'cocreate-db-test-'))
@@ -134,7 +135,8 @@ test('object.create writes documents and indexes under a configured filesystem r
         assert.ok(keys['profile.city'].string)
         assert.ok(keys.active.boolean)
         assert.ok(keys.nickname.null)
-        assert.ok(keys.tags.string)
+        assert.ok(keys.tags.array)
+        assert.equal(keys.tags.string, undefined)
         for (const branches of Object.values(keys))
             for (const nodeId of Object.values(branches))
                 assert.ok(nodeFiles.has(`${nodeId}.json`))
@@ -184,7 +186,7 @@ test('object.create writes documents and indexes under a configured filesystem r
     })
 })
 
-test('database and array catalogs resolve stable IDs, report counts, rename, and cascade delete', async () => {
+test('database and array catalogs resolve stable IDs, report lengths, rename, and cascade delete', async () => {
     await withIndex(async (_index, directory) => {
         const db = createDB({ directory })
         const createdDatabase = await db.send({ method: 'database.create', database: 'example' })
@@ -194,7 +196,8 @@ test('database and array catalogs resolve stable IDs, report counts, rename, and
         const createdArray = await db.send({ method: 'array.create', database: 'example', array: 'users' })
         assert.equal(createdArray.success, true, createdArray.error)
         assert.match(createdArray.array[0]._id, /^[0-9a-f]{24}$/)
-        assert.equal(createdArray.array[0].count, 0)
+        assert.equal(createdArray.array[0].length, 0)
+        assert.equal('count' in createdArray.array[0], false)
 
         const createdObject = await db.send({
             method: 'object.create', database: 'example', array: 'users', object: { name: 'Ada' }
@@ -203,10 +206,11 @@ test('database and array catalogs resolve stable IDs, report counts, rename, and
 
         const databaseRead = await db.send({ method: 'database.read' })
         const database = databaseRead.database.find(item => item.name === 'example')
-        assert.equal(database.count, 1)
-        assert.equal(database.objectCount, 1)
-        assert.deepEqual(database.arrays.map(({ name, count }) => ({ name, count })), [
-            { name: 'users', count: 1 }
+        assert.equal(database.arrayLength, 1)
+        assert.equal(database.objectLength, 1)
+        assert.equal('count' in database, false)
+        assert.deepEqual(database.arrays.map(({ name, length }) => ({ name, length })), [
+            { name: 'users', length: 1 }
         ])
 
         const arrayRename = await db.send({
@@ -231,13 +235,53 @@ test('database and array catalogs resolve stable IDs, report counts, rename, and
 
         const deletedArray = await db.send({ method: 'array.delete', database: 'renamed', array: 'members' })
         assert.equal(deletedArray.success, true, deletedArray.error)
-        assert.equal(deletedArray.array[0].count, 1)
+        assert.equal(deletedArray.array[0].length, 1)
         assert.deepEqual((await db.send({ method: 'array.read', database: 'renamed' })).array, [])
 
         const deletedDatabase = await db.send({ method: 'database.delete', database: 'renamed' })
         assert.equal(deletedDatabase.success, true, deletedDatabase.error)
         assert.equal(deletedDatabase.database[0]._id, createdDatabase.database[0]._id)
         assert.deepEqual((await db.send({ method: 'database.read' })).database, [])
+    })
+})
+
+test('database and array reads migrate legacy count fields to persisted length metadata', async () => {
+    await withIndex(async (_index, directory) => {
+        const db = createDB({ directory })
+        const database = (await db.send({ method: 'database.create', database: 'legacy-lengths' })).database[0]
+        const array = (await db.send({ method: 'array.create', database: 'legacy-lengths', array: 'items' })).array[0]
+        await db.send({ method: 'object.create', database: 'legacy-lengths', array: 'items', object: { value: 1 } })
+
+        const databaseFile = join(directory, 'databases', database._id, 'database.json')
+        const arrayFile = join(directory, 'databases', database._id, 'arrays', array._id, 'array.json')
+        const databaseMetadata = JSON.parse(await readFile(databaseFile, 'utf8'))
+        const arrayMetadata = JSON.parse(await readFile(arrayFile, 'utf8'))
+        databaseMetadata.count = databaseMetadata.arrayLength
+        databaseMetadata.objectCount = databaseMetadata.objectLength
+        delete databaseMetadata.arrayLength
+        delete databaseMetadata.objectLength
+        arrayMetadata.count = arrayMetadata.length
+        delete arrayMetadata.length
+        await writeFile(databaseFile, JSON.stringify(databaseMetadata))
+        await writeFile(arrayFile, JSON.stringify(arrayMetadata))
+
+        const read = await db.send({ method: 'database.read' })
+        const migratedDatabase = read.database.find(record => record.name === 'legacy-lengths')
+        assert.equal(migratedDatabase.arrayLength, 1)
+        assert.equal(migratedDatabase.objectLength, 1)
+        assert.equal('count' in migratedDatabase, false)
+        assert.equal('objectCount' in migratedDatabase, false)
+        assert.equal(migratedDatabase.arrays[0].length, 1)
+        assert.equal('count' in migratedDatabase.arrays[0], false)
+
+        const persistedDatabase = JSON.parse(await readFile(databaseFile, 'utf8'))
+        const persistedArray = JSON.parse(await readFile(arrayFile, 'utf8'))
+        assert.equal(persistedDatabase.arrayLength, 1)
+        assert.equal(persistedDatabase.objectLength, 1)
+        assert.equal('count' in persistedDatabase, false)
+        assert.equal('objectCount' in persistedDatabase, false)
+        assert.equal(persistedArray.length, 1)
+        assert.equal('count' in persistedArray, false)
     })
 })
 
@@ -636,6 +680,80 @@ test('object.update changes indexed fields and unsets nested fields without chan
     })
 })
 
+test('object.update upserts a filtered record and creates its database and array', async () => {
+    await withIndex(async (_index, directory) => {
+        const db = createDB({ directory })
+        const first = await db.send({
+            method: 'object.update', database: 'dev', array: 'files',
+            filter: { query: { pathname: '/robots.txt' } },
+            object: { name: 'robots.txt', pathname: '/robots.txt', src: 'first version' },
+            upsert: true
+        })
+
+        assert.equal(first.success, true, first.error)
+        assert.equal(first.object.length, 1)
+        assert.equal(first.object[0].pathname, '/robots.txt')
+        assert.equal(first.object[0].src, 'first version')
+
+        const second = await db.send({
+            method: 'object.update', database: 'dev', array: 'files',
+            filter: { query: { pathname: '/robots.txt' } },
+            object: { name: 'robots.txt', pathname: '/robots.txt', src: 'updated version' },
+            upsert: true
+        })
+
+        assert.equal(second.success, true, second.error)
+        assert.equal(second.object.length, 1)
+        assert.equal(second.object[0]._id, first.object[0]._id)
+        assert.equal(second.object[0].src, 'updated version')
+
+        const read = await db.send({
+            method: 'object.read', database: 'dev', array: 'files',
+            filter: { query: { pathname: '/robots.txt' } }
+        })
+        assert.equal(read.object.length, 1)
+        assert.equal(read.object[0].src, 'updated version')
+
+        const databases = await db.send({ method: 'database.read' })
+        const database = databases.database.find(item => item.name === 'dev')
+        assert.equal(database.objectLength, 1)
+        assert.equal(database.arrayLength, 1)
+        assert.equal(database.arrays[0].name, 'files')
+        assert.equal(database.arrays[0].length, 1)
+    })
+})
+
+test('object.update upserts a missing object with an explicit ID', async () => {
+    await withIndex(async (_index, directory) => {
+        const db = createDB({ directory })
+        const object = {
+            _id: '6a6152c3007efd2634580623',
+            master: { status: 'running' },
+            worker1: { status: 'running' }
+        }
+        const response = await db.send({
+            method: 'object.update',
+            database: 'platform',
+            array: 'servers',
+            object,
+            upsert: true
+        })
+
+        assert.equal(response.success, true, response.error)
+        assert.equal(response.object.length, 1)
+        assert.equal(response.object[0]._id, object._id)
+        assert.deepEqual(response.object[0].master, object.master)
+
+        const read = await db.send({
+            method: 'object.read',
+            database: 'platform',
+            array: 'servers',
+            object: { _id: object._id }
+        })
+        assert.equal(read.object.length, 1)
+    })
+})
+
 test('object.read plans AND/OR queries, sorts multiple keys, projects fields, and returns source paging metadata', async () => {
     await withIndex(async (_index, directory) => {
         const db = createDB({ directory })
@@ -684,6 +802,155 @@ test('object.read plans AND/OR queries, sorts multiple keys, projects fields, an
         })
         assert.equal(noMatch.success, true, noMatch.error)
         assert.deepEqual(noMatch.object, [])
+    })
+})
+
+test('query planning narrows candidates before checking a broad array membership predicate', async () => {
+    let hostArrayScans = 0
+    const index = {
+        get: async (_database, _array, key) => ({
+            indexes: key === 'host'
+                ? { array: { count: 1000 } }
+                : key === 'pathname'
+                    ? { string: { count: 1000 } }
+                    : {}
+        }),
+        scan: async function* (_database, _array, key, { type } = {}) {
+            if (key === 'pathname' && type === 'string')
+                yield { value: '/index.html', objectId: 'matching-document' }
+            if (key === 'host' && type === 'array') {
+                hostArrayScans++
+                yield { value: ['*'], objectId: 'matching-document' }
+            }
+        }
+    }
+    const loaded = []
+    const result = await queryIndexCandidates(index, 'dev', 'files', {
+        host: { $in: ['dev.cocreatejs.com', '*'] },
+        pathname: '/index.html'
+    }, {
+        readObject: async objectId => {
+            loaded.push(objectId)
+            return { _id: objectId, host: ['*'], pathname: '/index.html' }
+        }
+    })
+
+    assert.deepEqual([...result.ids], ['matching-document'])
+    assert.deepEqual(loaded, ['matching-document'])
+    assert.equal(hostArrayScans, 0)
+})
+
+test('arrays are indexed as complete terminal values and query semantics remain shared', async () => {
+    await withIndex(async (_index, directory) => {
+        const db = createDB({ directory, maxIndexBytes: 512 })
+        const created = await db.send({
+            method: 'object.create',
+            database: 'array-values',
+            array: 'items',
+            object: {
+                user: { profile: { country: 'Panama' } },
+                tags: ['javascript', 'database', ['nested', 'array']],
+                projects: [
+                    { name: 'CoCreateDB', status: 'active' },
+                    { name: 'CoCreateJS', status: 'development' }
+                ]
+            }
+        })
+        const objectId = created.object[0]._id
+        const keys = await db.index.get('array-values', 'items', 'tags')
+        const nestedArrayKeys = await db.index.get('array-values', 'items', 'projects.name')
+        assert.ok(keys.indexes.array)
+        assert.deepEqual(nestedArrayKeys.indexes, {})
+
+        const indexedTags = []
+        for await (const entry of db.index.scan('array-values', 'items', 'tags', { type: 'array' }))
+            indexedTags.push(entry)
+        assert.equal(indexedTags.length, 1)
+        assert.deepEqual(indexedTags[0].value, ['javascript', 'database', ['nested', 'array']])
+
+        const membership = await db.send({
+            method: 'object.read', database: 'array-values', array: 'items',
+            filter: { query: { tags: 'javascript' } }
+        })
+        assert.equal(membership.object[0]._id, objectId)
+
+        const allValues = await db.send({
+            method: 'object.read', database: 'array-values', array: 'items',
+            filter: { query: { tags: { $all: ['javascript', 'database'] } } }
+        })
+        assert.equal(allValues.object[0]._id, objectId)
+
+        const size = await db.send({
+            method: 'object.read', database: 'array-values', array: 'items',
+            filter: { query: { tags: { $size: 3 } } }
+        })
+        assert.equal(size.object[0]._id, objectId)
+
+        const elementMatch = await db.send({
+            method: 'object.read', database: 'array-values', array: 'items',
+            filter: { query: { projects: { $elemMatch: { name: 'CoCreateJS', status: 'development' } } } }
+        })
+        assert.equal(elementMatch.object[0]._id, objectId)
+
+        const bracketPath = await db.send({
+            method: 'object.read', database: 'array-values', array: 'items',
+            filter: { query: { 'projects[0].name': 'CoCreateDB' } }
+        })
+        assert.equal(bracketPath.object[0]._id, objectId)
+
+        const bracketProjection = await db.send({
+            method: 'object.read', database: 'array-values', array: 'items',
+            filter: { key: { 'projects[0].name': 1 } }
+        })
+        assert.deepEqual(bracketProjection.object[0].projects, [{ name: 'CoCreateDB' }])
+
+        const bracketExclusion = await db.send({
+            method: 'object.read', database: 'array-values', array: 'items',
+            filter: { key: { 'projects[0].status': 0 } }
+        })
+        assert.equal(bracketExclusion.object[0].projects[0].status, undefined)
+        assert.equal(bracketExclusion.object[0].projects[1].status, 'development')
+
+        await db.send({
+            method: 'object.update', database: 'array-values', array: 'items',
+            object: { _id: objectId, tags: ['database', 'javascript', ['nested', 'array']] }
+        })
+        const updatedArray = await db.send({
+            method: 'object.read', database: 'array-values', array: 'items',
+            filter: { query: { tags: 'javascript' }, key: { 'user.profile.country': 1 } }
+        })
+        assert.deepEqual(updatedArray.object[0].user, { profile: { country: 'Panama' } })
+        assert.equal((await db.index.get('array-values', 'items', 'tags[0]')).indexes.string, undefined)
+    })
+})
+
+test('large terminal array values stay outside bounded index nodes and survive scans', async () => {
+    await withIndex(async (_index, directory) => {
+        const index = createIndex({ directory, maxBytes: 512 })
+        const array = Array.from({ length: 2000 }, (_, position) => `value-${position}-${'x'.repeat(32)}`)
+        await index.set('large-arrays', 'items', 'values', array, 'document-1')
+
+        const [entry] = await collect(index.scan('large-arrays', 'items', 'values', { type: 'array' }))
+        assert.deepEqual(entry.value, array)
+
+        const indexDirectory = join(directory, 'large-arrays', 'items', 'index')
+        const inspect = async path => {
+            const files = await readdir(path, { withFileTypes: true })
+            const sizes = []
+            for (const file of files) {
+                const target = join(path, file.name)
+                if (file.isDirectory()) sizes.push(...await inspect(target))
+                else if (file.name.endsWith('.json')) sizes.push({ path: target, size: (await stat(target)).size })
+            }
+            return sizes
+        }
+        const nodeSizes = await inspect(indexDirectory)
+        const indexNodes = nodeSizes.filter(file => !file.path.includes(`${join('values', '')}`))
+        const storedValues = nodeSizes.filter(file => file.path.includes(`${join('values', '')}`))
+        assert.ok(indexNodes.length > 0)
+        assert.ok(indexNodes.every(file => file.size <= 512))
+        assert.ok(storedValues.length > 1)
+        assert.ok(storedValues.every(file => file.size <= 512))
     })
 })
 
@@ -764,6 +1031,97 @@ test('Distributed Index scopes duplicate object IDs and deduplicates node refere
         assert.deepEqual(await db.updateDistributed({ ...first, operation: 'remove', nodeId: 'node-a' }), {
             changed: true,
             nodeIds: ['node-c']
+        })
+    })
+})
+
+test('Distributed Index tracks holders of individual bounded index partitions', async () => {
+    await withIndex(async (_, directory) => {
+        const distributed = createDistributedIndex({ directory, maxBytes: 1024 })
+        const partitionId = 'databases/db-id/arrays/array-id/index/age-root.json'
+
+        assert.deepEqual(await distributed.getPartition(partitionId), [])
+        assert.deepEqual(await distributed.updatePartition({
+            partitionId, nodeId: 'node-a', operation: 'add'
+        }), { changed: true, nodeIds: ['node-a'] })
+        assert.deepEqual(await distributed.updatePartition({
+            partitionId, nodeId: 'node-b', operation: 'add'
+        }), { changed: true, nodeIds: ['node-a', 'node-b'] })
+        assert.deepEqual(await distributed.updatePartition({
+            partitionId, nodeId: 'node-a', operation: 'add'
+        }), { changed: false, nodeIds: ['node-a', 'node-b'] })
+        assert.deepEqual(await distributed.listPartitions(), [
+            { partitionId, nodeIds: ['node-a', 'node-b'] }
+        ])
+        assert.deepEqual(await distributed.updatePartition({
+            partitionId, nodeId: 'node-a', operation: 'remove'
+        }), { changed: true, nodeIds: ['node-b'] })
+    })
+})
+
+test('CRUD writes register recursive index root and node files as locally held partitions', async () => {
+    await withIndex(async (_, directory) => {
+        const db = createDB({ directory, nodeId: 'node-local' })
+        const created = await db.send({
+            method: 'object.create',
+            database: 'partition-db',
+            array: 'users',
+            object: { name: 'Ada', age: 37 }
+        })
+        assert.equal(created.success, true, created.error)
+
+        const partitions = await db.listPartitions()
+        assert.ok(partitions.length > 0)
+        assert.ok(partitions.every(({ nodeIds }) => nodeIds.includes('node-local')))
+        assert.ok(partitions.some(({ partitionId }) => partitionId.endsWith('/index/index.json')))
+        assert.ok(partitions.some(({ partitionId }) => /\/index\/[a-f0-9]{32}\.json$/i.test(partitionId)))
+        assert.ok(partitions.every(({ partitionId }) => !partitionId.includes('/values/')))
+    })
+})
+
+test('object.read resolves cold database and array names, fetches full documents by stable IDs, then projects', async () => {
+    await withIndex(async (_remoteIndex, remoteDirectory) => {
+        const remote = createDB({ directory: remoteDirectory, nodeId: 'node-a' })
+        const database = (await remote.send({ method: 'database.create', database: 'cold-read' })).database[0]
+        const array = (await remote.send({ method: 'array.create', database: 'cold-read', array: 'users' })).array[0]
+        const created = await remote.send({
+            method: 'object.create', database: 'cold-read', array: 'users',
+            object: { name: 'Ada', profile: { city: 'Panama' }, private: { token: 'full-value' } }
+        })
+        const object = created.object[0]
+
+        await withIndex(async (_localIndex, localDirectory) => {
+            const local = createDB({
+                directory: localDirectory,
+                nodeId: 'node-b',
+                peerReader: async ({ nodeId, ...entity }) =>
+                    nodeId === 'node-a' ? remote.readLocalEntity(entity) : undefined
+            })
+            for (const entity of [
+                { databaseId: database._id },
+                { databaseId: database._id, arrayId: array._id },
+                { databaseId: database._id, arrayId: array._id, objectId: object._id }
+            ]) {
+                await local.updateDistributed({ ...entity, nodeId: 'node-a', operation: 'add' })
+            }
+
+            const result = await local.send({
+                method: 'object.read',
+                database: 'cold-read',
+                array: 'users',
+                object: { _id: object._id },
+                filter: { key: { name: 1, 'profile.city': 1 } }
+            })
+            assert.equal(result.object[0].name, 'Ada')
+            assert.equal(result.object[0].private, undefined)
+
+            const cached = await local.readLocalEntity({
+                type: 'object', databaseId: database._id, arrayId: array._id, objectId: object._id
+            })
+            assert.deepEqual(cached.private, { token: 'full-value' })
+            assert.deepEqual(await local.getDistributed({
+                databaseId: database._id, arrayId: array._id, objectId: object._id
+            }), ['node-a', 'node-b'])
         })
     })
 })

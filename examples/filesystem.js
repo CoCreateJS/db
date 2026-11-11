@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { createDB } from '../src/index.js'
 
 const directory = fileURLToPath(new URL('../example-storage/', import.meta.url))
-const db = createDB({ directory })
+const db = createDB({ directory, nodeId: 'example-node' })
 
 const created = await db.send({
     method: 'object.create',

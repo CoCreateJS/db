@@ -31,6 +31,13 @@ function readPosition(filter, database, array) {
 function copyPath(source, target, keys) {
     if (source === undefined) return target
     if (!keys.length) return clone(source)
+    if (Array.isArray(source) && /^\d+$/.test(keys[0])) {
+        const index = Number(keys[0])
+        const output = Array.isArray(target) ? [...target] : []
+        const projected = copyPath(source[index], output[index], keys.slice(1))
+        if (projected !== undefined) output[index] = projected
+        return output
+    }
     if (Array.isArray(source))
         return source.map((value, index) => copyPath(value, target?.[index], keys))
     if (!source || typeof source !== 'object') return target
@@ -44,6 +51,10 @@ function copyPath(source, target, keys) {
 
 function removePath(target, keys) {
     if (Array.isArray(target)) {
+        if (/^\d+$/.test(keys[0])) {
+            removePath(target[Number(keys[0])], keys.slice(1))
+            return
+        }
         for (const value of target) removePath(value, keys)
         return
     }

@@ -1,4 +1,5 @@
 import { link, mkdir, readFile, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 
@@ -105,16 +106,8 @@ export function flattenIndexValues(object, prefix = '', entries = []) {
         if (value === undefined) continue
         entries.push([`${EXISTS_INDEX_PREFIX}${path}`, true])
 
-        if (Array.isArray(value)) {
-            for (const item of value) {
-                if (Array.isArray(item))
-                    flattenIndexValues({ [path]: item }, '', entries)
-                else if (item && typeof item === 'object')
-                    flattenIndexValues(item, path, entries)
-                else if (typeOf(item))
-                    entries.push([path, item])
-            }
-        } else if (value && typeof value === 'object')
+        if (Array.isArray(value)) entries.push([path, value])
+        else if (value && typeof value === 'object')
             flattenIndexValues(value, path, entries)
         else if (typeOf(value))
             entries.push([path, value])
@@ -126,8 +119,12 @@ export function flattenIndexValues(object, prefix = '', entries = []) {
 export function uniqueIndexEntries(object) {
     const entries = new Map()
 
-    for (const [key, value] of flattenIndexValues(object))
-        entries.set(JSON.stringify([key, value]), [key, value])
+    for (const [key, value] of flattenIndexValues(object)) {
+        const identity = Array.isArray(value)
+            ? JSON.stringify([key, createHash('sha256').update(JSON.stringify(value)).digest('hex')])
+            : JSON.stringify([key, value])
+        entries.set(identity, [key, value])
+    }
 
     return [...entries.values()]
 }

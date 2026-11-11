@@ -1,19 +1,21 @@
 import { join, resolve } from 'node:path'
+import { rm } from 'node:fs/promises'
 import { createUpdate, ObjectId, queryData } from '@cocreate/utils'
-import { adjustArrayObjectCount, ensureArray, sendArray } from '../array/index.js'
-import { adjustDatabaseCounts, ensureDatabase, sendDatabase } from '../database/index.js'
+import { adjustArrayLength, ensureArray, materializeArray, sendArray } from '../array/index.js'
+import { adjustDatabaseLengths, ensureDatabase, materializeDatabase, sendDatabase } from '../database/index.js'
 import createIndex from '../index/index.js'
 import { createDistributedIndex } from '../distributed.js'
 import {
     ARRAY_CATALOG, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
     arrayDirectory, arrayMetadataPath, auditMetadata, databaseDirectory, databaseMetadataPath,
-    normalizeObject, objectPath, readJSON, setPath, typeOf
+    normalizeObject, objectPath, readJSON, replaceJSON, setPath, typeOf, flattenIndexValues
 } from '../storage.js'
 import { hasQueryConditions, normalizeQuery, queryIndexCandidates } from '../query.js'
 import { applyReadFilter } from '../read.js'
 import { createRecord, deleteRecord, findRecordByName, readRecordById, readRecords, updateRecord } from '../records.js'
 
 const clone = value => structuredClone(value)
+const isObjectId = value => typeof value === 'string' && /^[0-9a-f]{24}$/i.test(value)
 
 function assertSafeUpdatePath(path) {
     const keys = String(path).replace(/\[(\d+)\]/g, '.$1').split('.')
@@ -84,7 +86,7 @@ function applyObjectUpdate(current, input, request) {
  */
 export function createDB({
     directory = './storage', maxIndexBytes = 128 * 1024, cache = false,
-    nodeId, distributedAdapter
+    nodeId, distributedAdapter, peerReader, partitionAdapter, documentMutationAdapter
 } = {}) {
     const root = resolve(directory)
     const storageIndex = createIndex({
@@ -97,6 +99,18 @@ export function createDB({
             if (array === ARRAY_CATALOG)
                 return join(databaseDirectory(directory, database), 'arrays')
             return arrayDirectory(directory, database, array)
+        },
+        readPartition: path => partitionAdapter?.read?.(path),
+        onPartitionChange: change => {
+            if (!nodeId) return
+            const payload = { ...change, nodeId }
+            return partitionAdapter?.onLocalChange
+                ? partitionAdapter.onLocalChange(payload, updateLocalPartition)
+                : updateLocalPartition({
+                    partitionId: change.path,
+                    nodeId,
+                    operation: change.operation === 'remove' ? 'remove' : 'add'
+                })
         }
     })
     const distributedIndex = createDistributedIndex({
@@ -125,6 +139,10 @@ export function createDB({
 
     const updateLocalDistributed = payload => distributedIndex.update(payload)
     const getLocalDistributed = payload => distributedIndex.get(payload)
+    const listLocalDistributed = payload => distributedIndex.list(payload)
+    const updateLocalPartition = payload => distributedIndex.updatePartition(payload)
+    const getLocalPartition = partitionId => distributedIndex.getPartition(partitionId)
+    const listLocalPartitions = () => distributedIndex.listPartitions()
 
     const updateDistributed = async request => {
         const ids = await resolveDistributedIds(request)
@@ -141,6 +159,41 @@ export function createDB({
             : getLocalDistributed(ids)
     }
 
+    const listDistributed = async request => distributedAdapter?.list
+        ? distributedAdapter.list(request, listLocalDistributed)
+        : listLocalDistributed(request)
+
+    const updatePartition = payload => partitionAdapter?.update
+        ? partitionAdapter.update(payload, updateLocalPartition)
+        : updateLocalPartition(payload)
+
+    const getPartitionHolders = partitionId => partitionAdapter?.get
+        ? partitionAdapter.get(partitionId, getLocalPartition)
+        : getLocalPartition(partitionId)
+
+    const listPartitions = () => partitionAdapter?.list
+        ? partitionAdapter.list(listLocalPartitions)
+        : listLocalPartitions()
+
+    const markLocalPartition = async ({ path, operation, value, acquired = false, replicated = false }) => {
+        if (!nodeId) return
+        const payload = { partitionId: path, nodeId, operation: operation === 'remove' ? 'remove' : 'add' }
+        if (partitionAdapter?.onLocalChange)
+            return partitionAdapter.onLocalChange({ ...payload, path, operation, value, acquired, replicated }, updateLocalPartition)
+        return updateLocalPartition(payload)
+    }
+
+    const applyIndexPartition = async (path, value, { replicated = false } = {}) => {
+        const node = await storageIndex.applyPartition(path, value)
+        await markLocalPartition({ path, operation: 'set', value: node, acquired: !replicated, replicated })
+        return node
+    }
+
+    const removeIndexPartition = async (path, { replicated = false } = {}) => {
+        await storageIndex.removePartition(path)
+        await markLocalPartition({ path, operation: 'remove', acquired: !replicated, replicated })
+    }
+
     const markLocalAvailability = async (ids, operation) => {
         if (!nodeId) return
         const payload = { ...ids, nodeId, operation }
@@ -154,6 +207,30 @@ export function createDB({
         for await (const entry of storageIndex.scan(databaseId, arrayId, '_id', { type: 'string' }))
             ids.push(entry.value)
         return ids
+    }
+
+    const captureObjectHolders = async (database, array, object) => {
+        const holders = new Set()
+        for (const [key, value] of flattenIndexValues(object)) {
+            if (key === '_id') continue
+            const path = await storageIndex.locatePartition(database, array, key, value, object._id)
+            if (!path) continue
+            for (const holder of await getPartitionHolders(path)) holders.add(holder)
+        }
+        return holders
+    }
+
+    const publishObjectMutation = async (operation, databaseId, arrayId, object, holders) => {
+        if (!documentMutationAdapter?.publish || !holders.size) return
+        await documentMutationAdapter.publish({
+            operation,
+            databaseId,
+            arrayId,
+            object: clone(object),
+            database: await readJSON(databaseMetadataPath(root, databaseId)),
+            array: await readJSON(arrayMetadataPath(root, databaseId, arrayId)),
+            targets: [...holders].filter(id => id !== nodeId)
+        })
     }
 
     const prepareAvailabilityRemoval = async entities => {
@@ -176,7 +253,7 @@ export function createDB({
             await markLocalAvailability(entity, 'add')
     }
 
-    const createObjects = async (request, database, array) => {
+    const createObjects = async (request, database, array, { publishMutation = true } = {}) => {
         const values = request.object === undefined
             ? []
             : Array.isArray(request.object) ? request.object : [request.object]
@@ -202,21 +279,21 @@ export function createDB({
 
             const file = objectPath(root, database, array, object._id)
             let wroteObject = false
-            let countedArray = false
-            let countedDatabase = false
+            let arrayLengthUpdated = false
+            let databaseLengthUpdated = false
 
             try {
                 await createRecord(storageIndex, database, array, file, object)
                 wroteObject = true
-                await adjustArrayObjectCount(root, storageIndex, database, array, 1, request)
-                countedArray = true
-                await adjustDatabaseCounts(root, storageIndex, database, { objects: 1 }, request)
-                countedDatabase = true
+                await adjustArrayLength(root, storageIndex, database, array, 1, request)
+                arrayLengthUpdated = true
+                await adjustDatabaseLengths(root, storageIndex, database, { objects: 1 }, request)
+                databaseLengthUpdated = true
             } catch (error) {
-                if (countedDatabase)
-                    await adjustDatabaseCounts(root, storageIndex, database, { objects: -1 }, request).catch(() => {})
-                if (countedArray)
-                    await adjustArrayObjectCount(root, storageIndex, database, array, -1, request).catch(() => {})
+                if (databaseLengthUpdated)
+                    await adjustDatabaseLengths(root, storageIndex, database, { objects: -1 }, request).catch(() => {})
+                if (arrayLengthUpdated)
+                    await adjustArrayLength(root, storageIndex, database, array, -1, request).catch(() => {})
                 if (wroteObject)
                     await deleteRecord(storageIndex, database, array, file, object).catch(() => {})
                 throw error
@@ -228,24 +305,209 @@ export function createDB({
                 $database: [request.database ?? request.organization_id],
                 $array: [request.array]
             })
+            if (publishMutation) {
+                const holders = await captureObjectHolders(database, array, object)
+                await publishObjectMutation('set', database, array, object, holders)
+            }
         }
 
         return created
     }
 
-    const loadObject = async (database, array, objectId) => {
+    const readLocalObject = async (database, array, objectId) => {
         const file = objectPath(root, database, array, objectId)
-        const object = await readRecordById(storageIndex, database, array, () => file, objectId)
-        if (!object) throw new Error(`Object file not found: ${objectId}`)
-        return object
+        return readRecordById(storageIndex, database, array, () => file, objectId)
     }
 
-    const selectObjects = async (database, array, query) => {
-        const { ids } = await queryIndexCandidates(storageIndex, database, array, query)
+    const readLocalEntity = async ({ type, databaseId, arrayId, objectId }) => {
+        let file
+        let id
+        if (type === 'database') {
+            file = databaseMetadataPath(root, databaseId)
+            id = databaseId
+        } else if (type === 'array') {
+            file = arrayMetadataPath(root, databaseId, arrayId)
+            id = arrayId
+        } else if (type === 'object') {
+            file = objectPath(root, databaseId, arrayId, objectId)
+            id = objectId
+        } else {
+            throw new TypeError('Peer fetch type must be database, array, or object')
+        }
+        const record = await readJSON(file)
+        return record?._id === id ? record : undefined
+    }
+
+    const applyReplicatedObjectMutation = async ({ operation, database, array, object }) => {
+        if (!['set', 'remove'].includes(operation) || !object || !isObjectId(object._id))
+            throw new TypeError('Invalid replicated object mutation')
+        const databaseId = database?._id
+        const arrayId = array?._id
+        if (!isObjectId(databaseId) || !isObjectId(arrayId) || database._id !== databaseId || array._id !== arrayId)
+            throw new TypeError('Replicated object mutation requires database and array metadata')
+
+        await replaceJSON(databaseMetadataPath(root, databaseId), database)
+        await replaceJSON(arrayMetadataPath(root, databaseId, arrayId), array)
+        const file = objectPath(root, databaseId, arrayId, object._id)
+        if (operation === 'remove') await rm(file, { force: true })
+        else await replaceJSON(file, object)
+
+        await markLocalAvailability({ databaseId }, 'add')
+        await markLocalAvailability({ databaseId, arrayId }, 'add')
+        await markLocalAvailability({ databaseId, arrayId, objectId: object._id }, operation === 'remove' ? 'remove' : 'add')
+        return true
+    }
+
+    const acquireEntity = async (type, databaseId, arrayId, objectId) => {
+        if (!peerReader) return undefined
+        const refs = type === 'database'
+            ? await getDistributed({ databaseId })
+            : type === 'array'
+                ? await getDistributed({ databaseId, arrayId })
+                : await getDistributed({ databaseId, arrayId, objectId })
+
+        for (const remoteNodeId of refs) {
+            if (remoteNodeId === nodeId) continue
+            try {
+                const record = await peerReader({
+                    nodeId: remoteNodeId,
+                    type,
+                    databaseId,
+                    arrayId,
+                    objectId
+                })
+                if (record?._id === (type === 'database' ? databaseId : type === 'array' ? arrayId : objectId))
+                    return record
+            } catch { /* Try the next available holder. */ }
+        }
+        return undefined
+    }
+
+    const materializeDatabaseFromPeer = async (databaseId, source) => {
+        const record = source ?? await acquireEntity('database', databaseId)
+        if (!record) return undefined
+        const database = await materializeDatabase(root, storageIndex, record)
+        await markLocalAvailability({ databaseId }, 'add')
+        return database
+    }
+
+    const materializeArrayFromPeer = async (database, arrayId, source) => {
+        const record = source ?? await acquireEntity('array', database._id, arrayId)
+        if (!record) return undefined
+        const array = await materializeArray(root, storageIndex, database, record)
+        await markLocalAvailability({ databaseId: database._id }, 'add')
+        await markLocalAvailability({ databaseId: database._id, arrayId }, 'add')
+        return array
+    }
+
+    const resolveDatabaseFromPeers = async name => {
+        for (const { id, nodeIds } of await listDistributed()) {
+            if (!isObjectId(id)) continue
+            if (await readJSON(databaseMetadataPath(root, id))) continue
+            for (const remoteNodeId of nodeIds) {
+                if (remoteNodeId === nodeId || !peerReader) continue
+                try {
+                    const record = await peerReader({ nodeId: remoteNodeId, type: 'database', databaseId: id })
+                    if (record?.name !== name || record?._id !== id) continue
+                    return await materializeDatabaseFromPeer(id, record)
+                } catch { /* Try another holder for this database ID. */ }
+            }
+        }
+        return undefined
+    }
+
+    const resolveArrayFromPeers = async (database, name) => {
+        for (const { id, nodeIds } of await listDistributed({ databaseId: database._id })) {
+            if (!isObjectId(id)) continue
+            if (await readJSON(arrayMetadataPath(root, database._id, id))) continue
+            for (const remoteNodeId of nodeIds) {
+                if (remoteNodeId === nodeId || !peerReader) continue
+                try {
+                    const record = await peerReader({
+                        nodeId: remoteNodeId,
+                        type: 'array',
+                        databaseId: database._id,
+                        arrayId: id
+                    })
+                    if (record?.name !== name || record?._id !== id) continue
+                    return await materializeArrayFromPeer(database, id, record)
+                } catch { /* Try another holder for this array ID. */ }
+            }
+        }
+        return undefined
+    }
+
+    const resolveAllDatabasesFromPeers = async () => {
+        for (const { id } of await listDistributed())
+            if (isObjectId(id) && !(await readJSON(databaseMetadataPath(root, id))))
+                await materializeDatabaseFromPeer(id)
+    }
+
+    const resolveAllArraysFromPeers = async database => {
+        for (const { id } of await listDistributed({ databaseId: database._id }))
+            if (isObjectId(id) && !(await readJSON(arrayMetadataPath(root, database._id, id))))
+                await materializeArrayFromPeer(database, id)
+    }
+
+    const acquisitionPromises = new Map()
+    const materializeObjectFromPeer = async (databaseId, arrayId, objectId, request = {}) => {
+        const key = `${databaseId}/${arrayId}/${objectId}`
+        if (acquisitionPromises.has(key)) return acquisitionPromises.get(key)
+        const promise = (async () => {
+            const existing = await readLocalObject(databaseId, arrayId, objectId)
+            if (existing) return existing
+            const record = await acquireEntity('object', databaseId, arrayId, objectId)
+            if (!record) return undefined
+
+            try {
+                await createObjects({
+                    ...request,
+                    method: 'object.create',
+                    database: request.database,
+                    array: request.array,
+                    object: record
+                }, databaseId, arrayId, { publishMutation: false })
+            } catch (error) {
+                const concurrent = await readLocalObject(databaseId, arrayId, objectId)
+                if (!concurrent) throw error
+            }
+
+            await markLocalAvailability({ databaseId }, 'add')
+            await markLocalAvailability({ databaseId, arrayId }, 'add')
+            await markLocalAvailability({ databaseId, arrayId, objectId }, 'add')
+            return readLocalObject(databaseId, arrayId, objectId)
+        })()
+        acquisitionPromises.set(key, promise)
+        try {
+            return await promise
+        } finally {
+            acquisitionPromises.delete(key)
+        }
+    }
+
+    const loadObject = async (database, array, objectId, request = {}) => {
+        const object = await readLocalObject(database, array, objectId)
+        if (object) return object
+        const acquired = await materializeObjectFromPeer(database, array, objectId, request)
+        if (acquired) return acquired
+        throw new Error(`Object file not found: ${objectId}`)
+    }
+
+    const selectObjects = async (database, array, query, request = {}) => {
+        const hydrated = new Map()
+        const readForPlanning = async objectId => {
+            if (hydrated.has(objectId)) return hydrated.get(objectId)
+            const object = await loadObject(database, array, objectId, request)
+            hydrated.set(objectId, object)
+            return object
+        }
+        const { ids } = await queryIndexCandidates(storageIndex, database, array, query, {
+            readObject: readForPlanning
+        })
         const objects = []
 
         for (const objectId of ids) {
-            const object = await loadObject(database, array, objectId)
+            const object = hydrated.get(objectId) ?? await loadObject(database, array, objectId, request)
             if (queryData(object, query)) objects.push(object)
         }
 
@@ -254,7 +516,18 @@ export function createDB({
 
     const readObjects = async (request, database, array) => {
         const query = normalizeQuery(request)
-        const objects = await selectObjects(database, array, query)
+        const requestedId = query._id
+        const requestedIds = typeof requestedId === 'string'
+            ? [requestedId]
+            : requestedId && typeof requestedId === 'object' && !Array.isArray(requestedId)
+                ? requestedId.$eq ? [requestedId.$eq]
+                    : Array.isArray(requestedId.$in) ? requestedId.$in : []
+                : []
+        for (const objectId of requestedIds)
+            if (typeof objectId === 'string' && /^[0-9a-f]{24}$/i.test(objectId))
+                await materializeObjectFromPeer(database, array, objectId.toLowerCase(), request)
+
+        const objects = await selectObjects(database, array, query, request)
         return applyReadFilter(objects, request, {
             database: request.database ?? request.organization_id,
             array: request.array,
@@ -287,7 +560,21 @@ export function createDB({
                 throw new Error('Each object in a multi-object update must include _id')
 
             for (const input of identified) {
-                const current = await loadObject(database, array, String(input._id).toLowerCase())
+                const objectId = String(input._id).toLowerCase()
+                const current = await readLocalObject(database, array, objectId) ??
+                    await materializeObjectFromPeer(database, array, objectId, request)
+
+                if (!current) {
+                    if (request.upsert && inputs.length === 1)
+                        return createObjects({
+                            ...request,
+                            method: 'object.create',
+                            object: input
+                        }, database, array)
+
+                    throw new Error(`Object file not found: ${objectId}`)
+                }
+
                 targets.push({ current, input })
             }
         } else {
@@ -297,16 +584,29 @@ export function createDB({
                 throw new Error('A filtered update accepts one update object')
 
             const query = normalizeQuery(request)
-            const currentObjects = await selectObjects(database, array, query)
+            const currentObjects = await selectObjects(database, array, query, request)
             for (const current of currentObjects)
                 targets.push({ current, input: inputs[0] })
+        }
+
+        if (!targets.length && request.upsert) {
+            if (inputs.length !== 1)
+                throw new Error('An upsert accepts one object')
+            return createObjects({
+                ...request,
+                method: 'object.create',
+                object: inputs[0]
+            }, database, array)
         }
 
         const updatedObjects = []
 
         for (const { current, input } of targets) {
+            const holders = await captureObjectHolders(database, array, current)
             const updated = applyObjectUpdate(current, input, request)
             await updateStoredObject(database, array, current, updated)
+            for (const holder of await captureObjectHolders(database, array, updated)) holders.add(holder)
+            await publishObjectMutation('set', database, array, updated, holders)
             updatedObjects.push({
                 ...updated,
                 $storage: ['db'],
@@ -335,27 +635,28 @@ export function createDB({
             const query = normalizeQuery(request)
             if (!hasQueryConditions(query))
                 throw new Error('object.delete requires object._id or a query filter')
-            objects = await selectObjects(database, array, query)
+                objects = await selectObjects(database, array, query, request)
         }
 
         const deleted = []
 
         for (const object of objects) {
+            const holders = await captureObjectHolders(database, array, object)
             const file = objectPath(root, database, array, object._id)
-            let countedArray = false
-            let countedDatabase = false
+            let arrayLengthUpdated = false
+            let databaseLengthUpdated = false
 
             try {
                 await deleteRecord(storageIndex, database, array, file, object)
-                await adjustArrayObjectCount(root, storageIndex, database, array, -1, request)
-                countedArray = true
-                await adjustDatabaseCounts(root, storageIndex, database, { objects: -1 }, request)
-                countedDatabase = true
+                await adjustArrayLength(root, storageIndex, database, array, -1, request)
+                arrayLengthUpdated = true
+                await adjustDatabaseLengths(root, storageIndex, database, { objects: -1 }, request)
+                databaseLengthUpdated = true
             } catch (error) {
-                if (countedDatabase)
-                    await adjustDatabaseCounts(root, storageIndex, database, { objects: 1 }, request).catch(() => {})
-                if (countedArray)
-                    await adjustArrayObjectCount(root, storageIndex, database, array, 1, request).catch(() => {})
+                if (databaseLengthUpdated)
+                    await adjustDatabaseLengths(root, storageIndex, database, { objects: 1 }, request).catch(() => {})
+                if (arrayLengthUpdated)
+                    await adjustArrayLength(root, storageIndex, database, array, 1, request).catch(() => {})
                 if (!(await readJSON(file)))
                     await createRecord(storageIndex, database, array, file, object).catch(() => {})
                 throw error
@@ -367,6 +668,7 @@ export function createDB({
                 $database: [request.database ?? request.organization_id],
                 $array: [request.array]
             })
+            await publishObjectMutation('remove', database, array, object, holders)
         }
 
         return deleted
@@ -388,7 +690,7 @@ export function createDB({
             if (!arrayId) return { database, array, key, indexes: {} }
             return { ...(await storageIndex.get(databaseId, arrayId, key)), database, array }
         },
-        set: async (database, array, key, value, objectId) => {
+        set: async (database, array, key, value, objectId, request = {}) => {
             const databaseMetadata = await ensureDatabase(root, storageIndex, database, {}, request)
             const arrayMetadata = await ensureArray(root, storageIndex, databaseMetadata, array, {}, request)
             let existing = false
@@ -398,20 +700,20 @@ export function createDB({
             }
             await storageIndex.set(databaseMetadata._id, arrayMetadata._id, key, value, objectId)
             if (key === '_id' && !existing) {
-                let arrayCounted = false
+                let arrayLengthUpdated = false
                 try {
-                    await adjustArrayObjectCount(root, storageIndex, databaseMetadata._id, arrayMetadata._id, 1, request)
-                    arrayCounted = true
-                    await adjustDatabaseCounts(root, storageIndex, databaseMetadata._id, { objects: 1 }, request)
+                    await adjustArrayLength(root, storageIndex, databaseMetadata._id, arrayMetadata._id, 1, request)
+                    arrayLengthUpdated = true
+                    await adjustDatabaseLengths(root, storageIndex, databaseMetadata._id, { objects: 1 }, request)
                 } catch (error) {
-                    if (arrayCounted)
-                        await adjustArrayObjectCount(root, storageIndex, databaseMetadata._id, arrayMetadata._id, -1, request).catch(() => {})
+                    if (arrayLengthUpdated)
+                        await adjustArrayLength(root, storageIndex, databaseMetadata._id, arrayMetadata._id, -1, request).catch(() => {})
                     await storageIndex.remove(databaseMetadata._id, arrayMetadata._id, key, value, objectId).catch(() => {})
                     throw error
                 }
             }
         },
-        remove: async (database, array, key, value, objectId) => {
+        remove: async (database, array, key, value, objectId, request = {}) => {
             const databaseRecord = await findRecordByName(
                 storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
                 id => databaseMetadataPath(root, id), database
@@ -426,14 +728,14 @@ export function createDB({
             if (!arrayId) return false
             const removed = await storageIndex.remove(databaseId, arrayId, key, value, objectId)
             if (removed && key === '_id') {
-                let arrayCounted = false
+                let arrayLengthUpdated = false
                 try {
-                    await adjustArrayObjectCount(root, storageIndex, databaseId, arrayId, -1, request)
-                    arrayCounted = true
-                    await adjustDatabaseCounts(root, storageIndex, databaseId, { objects: -1 }, request)
+                    await adjustArrayLength(root, storageIndex, databaseId, arrayId, -1, request)
+                    arrayLengthUpdated = true
+                    await adjustDatabaseLengths(root, storageIndex, databaseId, { objects: -1 }, request)
                 } catch (error) {
-                    if (arrayCounted)
-                        await adjustArrayObjectCount(root, storageIndex, databaseId, arrayId, 1, request).catch(() => {})
+                    if (arrayLengthUpdated)
+                        await adjustArrayLength(root, storageIndex, databaseId, arrayId, 1, request).catch(() => {})
                     await storageIndex.set(databaseId, arrayId, key, value, objectId).catch(() => {})
                     throw error
                 }
@@ -462,6 +764,15 @@ export function createDB({
         index,
         updateDistributed,
         getDistributed,
+        listDistributed,
+        updatePartition,
+        getPartitionHolders,
+        listPartitions,
+        readIndexPartition: path => storageIndex.readPartition(path),
+        applyIndexPartition,
+        removeIndexPartition,
+        readLocalEntity,
+        applyReplicatedObjectMutation,
         clearDistributedCache: () => distributedIndex.clearCache(),
         async send(request) {
             const response = { ...request }
@@ -476,6 +787,7 @@ export function createDB({
                     throw new Error(`Unsupported CRUD method: ${request.method}`)
 
                 if (type === 'database') {
+                    if (method === 'read') await resolveAllDatabasesFromPeers()
                     let removedAvailability = []
                     if (method === 'delete' && nodeId) {
                         const names = request.database === undefined
@@ -517,6 +829,15 @@ export function createDB({
                 }
 
                 if (type === 'array') {
+                    if (method === 'read') {
+                        const databaseName = request.database
+                        let databaseRecord = await findRecordByName(
+                            storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
+                            id => databaseMetadataPath(root, id), databaseName
+                        )
+                        if (!databaseRecord) databaseRecord = await resolveDatabaseFromPeers(databaseName)
+                        if (databaseRecord) await resolveAllArraysFromPeers(databaseRecord)
+                    }
                     let removedAvailability = []
                     if (method === 'delete' && nodeId) {
                         const databaseName = request.database
@@ -578,7 +899,10 @@ export function createDB({
                     id => databaseMetadataPath(root, id), databaseName
                 )
 
-                if (method === 'create')
+                if (method === 'read' && !databaseMetadata)
+                    databaseMetadata = await resolveDatabaseFromPeers(databaseName)
+
+                if (method === 'create' || (method === 'update' && request.upsert))
                     databaseMetadata = await ensureDatabase(root, storageIndex, databaseName, {}, request)
 
                 let arrayMetadata = databaseMetadata
@@ -588,7 +912,10 @@ export function createDB({
                     )
                     : undefined
 
-                if (method === 'create')
+                if (method === 'read' && databaseMetadata && !arrayMetadata)
+                    arrayMetadata = await resolveArrayFromPeers(databaseMetadata, arrayName)
+
+                if (method === 'create' || (method === 'update' && request.upsert))
                     arrayMetadata = await ensureArray(root, storageIndex, databaseMetadata, arrayName, {}, request)
 
                 if (!databaseMetadata || !arrayMetadata) {

@@ -15,7 +15,7 @@
 import createIndex from './index/index.js'
 import { createDistributedIndex } from './distributed.js'
 import { createDB } from './object/index.js'
-import { initializeServerDB } from './server.js'
+import { DB_PROVIDER, initializeServerDB } from './server.js'
 
-export { createIndex, createDistributedIndex, createDB, initializeServerDB }
+export { createIndex, createDistributedIndex, createDB, initializeServerDB, DB_PROVIDER }
 export default createIndex

@@ -23,21 +23,36 @@ const validateConfig = (config, label) => {
 const databaseFile = (root, id) => databaseMetadataPath(root, id)
 const arrayFile = (root, databaseId, id) => arrayMetadataPath(root, databaseId, id)
 
+const normalizeDatabaseMetadata = value => {
+    const metadata = { ...value }
+    metadata.arrayLength ??= metadata.count ?? metadata.arrayCount ?? 0
+    metadata.objectLength ??= metadata.objectCount ?? 0
+    delete metadata.count
+    delete metadata.arrayCount
+    delete metadata.objectCount
+    return metadata
+}
+
 export async function ensureDatabase(root, index, name, config = {}, request = {}) {
     databaseName(name)
     const existing = await findRecordByName(
         index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
         id => databaseFile(root, id), name
     )
-    if (existing) return existing
+    if (existing) {
+        const normalized = normalizeDatabaseMetadata(existing)
+        if (JSON.stringify(normalized) !== JSON.stringify(existing))
+            return updateRecord(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, databaseFile(root, existing._id), existing, normalized)
+        return existing
+    }
 
     const id = ObjectId().toString()
     const audit = auditMetadata(request)
     const record = {
         _id: id,
         name,
-        count: 0,
-        objectCount: 0,
+        arrayLength: 0,
+        objectLength: 0,
         config: { ...validateConfig(config, 'database') },
         created: audit,
         updated: audit
@@ -52,43 +67,89 @@ export async function ensureDatabase(root, index, name, config = {}, request = {
     }
 }
 
-export async function adjustDatabaseCounts(root, index, databaseId, { arrays = 0, objects = 0 }, request = {}) {
+/** Materialize a remote database catalog record under its existing stable ID. */
+export async function materializeDatabase(root, index, source) {
+    databaseName(source?.name)
+    const record = normalizeDatabaseMetadata(source)
+    Object.assign(record, {
+        arrayLength: 0,
+        objectLength: 0,
+        config: source.config && typeof source.config === 'object' && !Array.isArray(source.config)
+            ? source.config
+            : {}
+    })
+    const file = databaseFile(root, record._id)
+    const current = await readJSON(file)
+    if (current) {
+        if (JSON.stringify(current) !== JSON.stringify(record))
+            await updateRecord(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, file, current, record)
+        return record
+    }
+
+    await mkdir(databaseDirectory(root, record._id), { recursive: true })
+    try {
+        return await createRecord(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, file, record)
+    } catch (error) {
+        await rm(databaseDirectory(root, record._id), { recursive: true, force: true }).catch(() => {})
+        throw error
+    }
+}
+
+export async function adjustDatabaseLengths(root, index, databaseId, { arrays = 0, objects = 0 }, request = {}) {
     const file = databaseFile(root, databaseId)
     const current = await readJSON(file)
     if (!current) throw new Error(`Database not found: ${databaseId}`)
 
-    const count = current.count + arrays
-    const objectCount = current.objectCount + objects
-    if (!Number.isSafeInteger(count) || count < 0 || !Number.isSafeInteger(objectCount) || objectCount < 0)
-        throw new Error('Database counts would become invalid')
+    const normalized = normalizeDatabaseMetadata(current)
+    const arrayLength = normalized.arrayLength + arrays
+    const objectLength = normalized.objectLength + objects
+    if (!Number.isSafeInteger(arrayLength) || arrayLength < 0 || !Number.isSafeInteger(objectLength) || objectLength < 0)
+        throw new Error('Database lengths would become invalid')
 
     return updateRecord(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, file, current, {
-        ...current,
-        count,
-        objectCount,
+        ...normalized,
+        arrayLength,
+        objectLength,
         updated: auditMetadata(request)
     })
 }
 
 async function databaseRecord(root, index, metadata) {
+    const normalizedMetadata = normalizeDatabaseMetadata(metadata)
+    if (JSON.stringify(normalizedMetadata) !== JSON.stringify(metadata))
+        metadata = await updateRecord(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
+            databaseFile(root, metadata._id), metadata, normalizedMetadata)
+
     const arrays = await readRecords(
         index,
         metadata._id,
         ARRAY_CATALOG,
         id => arrayFile(root, metadata._id, id)
     )
+    const normalizedArrays = await Promise.all(arrays.map(async array => {
+        const normalized = normalizeArrayCatalogRecord(array)
+        if (JSON.stringify(normalized) === JSON.stringify(array)) return array
+        return updateRecord(index, metadata._id, ARRAY_CATALOG,
+            arrayFile(root, metadata._id, array._id), array, normalized)
+    }))
 
     return {
-        ...metadata,
-        count: arrays.length,
-        arrayCount: arrays.length,
-        arrays: arrays.map(array => ({
-            ...array,
+        ...normalizeDatabaseMetadata(metadata),
+        arrayLength: normalizedArrays.length,
+        arrays: normalizedArrays.map(array => ({
+            ...normalizeArrayCatalogRecord(array),
             $storage: ['db'],
             $database: [metadata.name]
         })),
         $storage: ['db']
     }
+}
+
+function normalizeArrayCatalogRecord(value) {
+    const record = { ...value }
+    record.length ??= record.count ?? 0
+    delete record.count
+    return record
 }
 
 async function readDatabases(root, index, request) {
