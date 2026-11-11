@@ -1,13 +1,15 @@
 {
   "name": "@cocreate/db",
   "version": "0.0.0-development",
-  "description": "CoCreate DB module, based on the CoCreate Authenticate module starter.",
+  "description": "Filesystem-backed CoCreate object storage and automatic per-field indexing.",
   "keywords": [
     "cocreate",
     "database",
     "db"
   ],
   "scripts": {
+    "example:filesystem": "node examples/filesystem.js",
+    "test": "node --test",
     "start": "webpack --config webpack.config.js --watch",
     "build": "NODE_ENV=production webpack --config webpack.config.js"
   },
