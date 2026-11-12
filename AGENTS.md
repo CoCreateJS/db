@@ -133,7 +133,7 @@ Never interpret `{ first: {}, last: {} }` as valid runtime boundaries; these pla
 
 ## Implementation status and priorities
 
-**Current implementation:** the repository has a filesystem-backed index and `createDB({ directory })` with recursive database/array name catalogs, stable IDs, and database/array/object CRUD. A recursive Distributed Index maps regular index partition paths to holder node IDs. Partition files are acquired on demand over targeted Cluster requests; updated index-node JSON is sent only to current holders, while holder changes are propagated through Cluster. `@cocreate/cluster` registers `server.DB` through CoCreate CRUD's provider registry (`cocreate-db`) and routes worker writes through the primary. A legacy database/array/object availability index remains for exact-ID metadata/document acquisition. Arrays are terminal index values stored as bounded chunks; object properties still use dot-notation paths. **Do not mistake this for production-ready replication:** initial partition-map snapshot/bootstrap, local holder reconstruction, chunked array-value transfer, external file storage fallback, document synchronization, multi-file transactions, cross-server write coordination, and crash recovery remain unimplemented. Partition event retry/replay follows the Cluster delivery contract.
+**Current implementation:** the repository has a filesystem-backed index and `createDB({ directory })` with recursive database/array name catalogs, stable IDs, and database/array/object CRUD. A recursive Distributed Index maps regular index partition paths to holder node IDs. Partition files are acquired on demand over targeted Cluster requests; updated index-node JSON is sent only to current holders, while holder changes are propagated through Cluster. `@cocreate/cluster` registers `server.DB` through CoCreate CRUD's provider registry (`cocreate-db`) and routes worker CRUD reads and writes through the primary. A legacy database/array/object availability index remains for exact-ID metadata/document acquisition. Arrays are terminal index values stored as bounded chunks; object properties still use dot-notation paths. **Do not mistake this for production-ready replication:** initial partition-map snapshot/bootstrap, local holder reconstruction, chunked array-value transfer, external file storage fallback, document synchronization, multi-file transactions, cross-server write coordination, and crash recovery remain unimplemented. Partition event retry/replay follows the Cluster delivery contract.
 
 **Next priorities:** (1) bootstrap a clean node's partition map from the first initialized Mesh node and rebuild local holders after restart; (2) add external storage fallback for regular index/document files; (3) transfer bounded terminal-array value chunks; (4) replace legacy entity-location lookup with index-trail resolution; (5) decide whether optional message signing adds useful defense in depth; (6) harden partial-failure behavior and benchmark memory, I/O, and write amplification.
 
@@ -151,3 +151,19 @@ Never interpret `{ first: {}, last: {} }` as valid runtime boundaries; these pla
 3. Keep existing public naming, index invariants, and lightweight design unless explicitly asked to change them.
 4. For ambiguities (notably `Index.set`, type semantics, and commit protocol), surface the tradeoff and propose the smallest consistent solution rather than silently deciding. Catalog scaling currently uses a bounded recursive tree rooted at `index.json`.
 5. Make incremental changes with executable tests; report what was tested and what remains unsupported.
+
+
+### Write-path tuning and worker read consistency
+
+Index reads retain one detached caller copy; the optional index cache holds its
+own copy. Bulk partition lookup shares read-only catalog/node snapshots within a
+single pass and starts fresh after mutations. Standalone operations with no
+mutation publisher skip holder discovery; distributed operations retain all old
+and new holders, including subscribers to unchanged fields.
+
+Worker CRUD reads use the same primary-owned database/cache as worker writes and
+wait behind the primary request queue. This prevents independently cached worker
+catalogs/documents from hiding completed primary writes. It adds one IPC request
+for a worker CRUD read; cross-server replication remains a separate contract.
+Success still waits for the document and index update cycle. No background
+indexing acknowledgment mode or multi-file crash-atomic transaction was added.

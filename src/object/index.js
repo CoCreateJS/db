@@ -215,12 +215,11 @@ export function createDB({
 
     const captureObjectHolders = async (database, array, object) => {
         const holders = new Set()
-        for (const [key, value] of flattenIndexValues(object)) {
-            if (key === '_id') continue
-            const path = await storageIndex.locatePartition(database, array, key, value, object._id)
-            if (!path) continue
+        if (!documentMutationAdapter?.publish) return holders
+        const entries = flattenIndexValues(object).filter(([key]) => key !== '_id')
+        const paths = await storageIndex.locatePartitions(database, array, entries, object._id)
+        for (const path of paths)
             for (const holder of await getPartitionHolders(path)) holders.add(holder)
-        }
         return holders
     }
 

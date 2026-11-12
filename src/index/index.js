@@ -206,9 +206,11 @@ export function createIndex({
             return clone(value)
         }
 
-        cache?.set(file, value)
+        // readMemoryJSON already returns a detached value. Only the optional
+        // index cache needs another copy to retain its own immutable snapshot.
+        cache?.set(file, clone(value))
         await reportLocalPartition(file, value)
-        return clone(value)
+        return value
     }
 
     const writeJSON = async (file, value, { acquired = false, notify = true } = {}) => {
@@ -679,9 +681,17 @@ export function createIndex({
             }))
     }
 
-    const getCatalogEntry = async (dir, key, type) => {
+    const readLookupNode = async (file, load, nodes) => {
+        if (nodes?.has(file)) return nodes.get(file)
+        const node = await load()
+        nodes?.set(file, node)
+        return node
+    }
+
+    const getCatalogEntry = async (dir, key, type, nodes) => {
+        const read = id => readLookupNode(catalogNodeFile(dir, id), () => getCatalogNode(dir, id), nodes)
         const entry = [key, type]
-        let node = await getCatalogNode(dir, catalogRootId)
+        let node = await read(catalogRootId)
 
         while (node) {
             if (node.entries) {
@@ -690,7 +700,7 @@ export function createIndex({
                     ? node.entries[at]
                     : undefined
             }
-            node = await getCatalogNode(dir, node.indexes[chooseCatalogChild(node.indexes, entry)].id)
+            node = await read(node.indexes[chooseCatalogChild(node.indexes, entry)].id)
         }
     }
 
@@ -1004,6 +1014,30 @@ export function createIndex({
         }
     }
 
+    const locatePartition = async (database, array, key, value, objectId, nodes) => {
+        const type = typeOf(value)
+        if (!type) return undefined
+
+        const dir = address(database, array)
+        const indexedValue = normalizedValue(value, type)
+        const rootId = (await getCatalogEntry(dir, key, type, nodes))?.[2]
+        const read = id => readLookupNode(nodeFile(dir, id), () => getNode(dir, id), nodes)
+        let node = rootId ? await read(rootId) : undefined
+        if (!node) return undefined
+
+        const entry = [indexedValue, objectId]
+        while (node) {
+            if (node.entries) {
+                const at = findPosition(node.entries, entry, compareEntry)
+                if (at >= node.entries.length || compareEntry(node.entries[at], entry) !== 0)
+                    return undefined
+                return partitionPath(nodeFile(dir, node.id))
+            }
+            node = await read(node.indexes[chooseChild(node.indexes, entry)].id)
+        }
+        return undefined
+    }
+
     return {
         getMetadata,
 
@@ -1037,26 +1071,18 @@ export function createIndex({
 
         remove,
 
-        locatePartition: async (database, array, key, value, objectId) => {
-            const type = typeOf(value)
-            if (!type) return undefined
+        locatePartition,
 
-            const dir = address(database, array)
-            const indexedValue = normalizedValue(value, type)
-            let node = await root(dir, key, type)
-            if (!node) return undefined
-
-            const entry = [indexedValue, objectId]
-            while (node) {
-                if (node.entries) {
-                    const at = findPosition(node.entries, entry, compareEntry)
-                    if (at >= node.entries.length || compareEntry(node.entries[at], entry) !== 0)
-                        return undefined
-                    return partitionPath(nodeFile(dir, node.id))
-                }
-                node = await getNode(dir, node.indexes[chooseChild(node.indexes, entry)].id)
+        // Read-only lookup scope: catalog/node copies are shared only for this
+        // pass, never across a mutation or a subsequent call.
+        locatePartitions: async (database, array, entries, objectId) => {
+            const nodes = new Map()
+            const paths = new Set()
+            for (const [key, value] of entries) {
+                const path = await locatePartition(database, array, key, value, objectId, nodes)
+                if (path) paths.add(path)
             }
-            return undefined
+            return paths
         },
 
         scan,

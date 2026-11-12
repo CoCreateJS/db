@@ -396,3 +396,29 @@ The server no longer preloads all persisted JSON. Enabling `memoryCache` registe
 The Utils and DB operator matrices exercise every currently listed field/logical query operator and all thirteen update operators. Dotted array traversal matches actual leaves rather than exposing a synthetic array to `$size`/`$type`/`$all`. Update `$set` is forwarded intact; rename destinations resolve from the document root; `$each` initializes a missing array. Unsupported update operators and invalid increments fail rather than silently overwriting fields. DB validates global operator paths and `_id` destinations before passing a detached record copy to the utility. Regression cases inspect values, all affected business-field index entries, and persisted reopening with memory caching on and off. These tests do not establish multi-file transaction or crash-recovery safety.
 
 Array update syntax remains CoCreate-specific: standalone `$each`, insertion with `$splice` or ordinary bracket paths, replacement with `$set`, deletion aliases `$slice`/`$delete`/`$unset`, last-element `$pop`, first-element `$shift`, and deep-equality `$addToSet`/`$pull`. MongoDB-style modifier syntax and predicate-based `$pull` remain outside this contract.
+
+
+### Write performance and primary-owned CRUD reads — implemented
+
+The index layer reuses the detached value returned by `readMemoryJSON` rather than
+cloning it again when its optional index-only cache is disabled. With that cache
+enabled, the retained cache copy and returned caller copy remain independent.
+`Index.locatePartitions` uses per-pass read-only node/catalog snapshots and returns
+unique partition paths; it does not retain those snapshots across mutations.
+Object mutation holder discovery uses this lookup and is omitted when no document
+mutation publisher is configured. Distributed publishing still includes holders
+of unchanged fields and both old and new partitions.
+
+Normal worker CRUD reads and writes are forwarded to the primary. Worker requests
+are serialized there so a read following a completed write uses the primary's
+current catalog and document cache. This avoids relying on per-process cache
+invalidation; direct standalone writers and unrelated raw worker index/cache APIs
+are not made coherent by this routing change. The cost is one IPC round trip per
+worker CRUD read and possible queuing behind writes.
+
+The response boundary is unchanged: document and index writes finish before
+success. These optimizations do not defer indexes, batch away existing persistence
+boundaries, add fsync/WAL, or provide crash-atomic multi-file commits. Regression
+tests cover separate worker-process stale caches, fresh query results after an
+index-blocked update, split-catalog partition lookup, retained holders, and detached
+cache values.

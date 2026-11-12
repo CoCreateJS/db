@@ -233,10 +233,10 @@ export function initializeServerDB(server, {
     }
     const isWrite = request => ['create', 'update', 'delete'].includes(request?.method?.split('.')?.[1])
     db.send = request => {
-        if (!isWrite(request)) return sendLocal(request)
-        return server.isPrimary
-            ? serializeWrite(() => sendLocal(request))
-            : requestPrimary('db.send', { data: request })
+        // One primary owns the node's write queue and current cache. Worker
+        // CRUD reads use that same view rather than independent stale caches.
+        if (!server.isPrimary) return requestPrimary('db.send', { data: request })
+        return isWrite(request) ? serializeWrite(() => sendLocal(request)) : sendLocal(request)
     }
 
     server.DB = db
