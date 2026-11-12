@@ -1,5 +1,6 @@
 import { rm } from 'node:fs/promises'
 import { flattenIndexValues, readJSON, replaceJSON, uniqueIndexEntries, writeExclusiveJSON } from './storage.js'
+import { removeMemoryPath } from './memory.js'
 import { queryData } from '@cocreate/utils'
 
 export async function createRecord(index, database, array, file, record) {
@@ -19,7 +20,7 @@ export async function createRecord(index, database, array, file, record) {
     } catch (error) {
         for (const [key, value] of inserted.reverse())
             await index.remove(database, array, key, value, record._id).catch(() => {})
-        if (wroteRecord) await rm(file, { force: true }).catch(() => {})
+        if (wroteRecord) { removeMemoryPath(file); await rm(file, { force: true }).catch(() => {}) }
         throw error
     }
 }
@@ -65,6 +66,7 @@ export async function deleteRecord(index, database, array, file, record) {
                 removed.push([key, value])
         }
 
+        removeMemoryPath(file)
         await rm(file)
         return record
     } catch (error) {
@@ -81,7 +83,7 @@ export async function readRecordById(index, database, array, fileForId, id) {
 }
 
 export async function findRecordByName(index, database, array, fileForId, name) {
-    for await (const entry of index.scan(database, array, 'name', { type: 'string' })) {
+    for await (const entry of index.scan(database, array, 'name', { type: 'string', lower: name, upper: name })) {
         if (entry.value !== name) continue
         return readRecordById(index, database, array, fileForId, entry.objectId)
     }

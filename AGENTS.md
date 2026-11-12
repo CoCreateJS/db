@@ -28,15 +28,16 @@ Build a lightweight, JavaScript-native, storage-agnostic NoSQL document database
 | `value` | Value of an indexed key |
 | `index` | Sorted mapping or recursive index node |
 | `first`, `last` | Actual first/last ordered `(value, objectId)` boundaries |
-| `count` | Field-catalog root count tracks indexed entries; array metadata `count` tracks objects; database metadata `count` tracks arrays and `objectCount` tracks objects |
+| `length` | Available indexed entries or objects; `catalogLength` tracks key/type mappings; database metadata uses `arrayLength` and `objectLength` |
+| `count` | Matching query results, preserved in source response metadata |
 
 Do not rename the core API to `collection`, `field`, `column`, or `row`. External database adapters may translate those terms. Default enumeration uses the `_id` key, ordered by ObjectId; this is **not a guarantee of strict global insertion chronology** across distributed nodes.
 
 ## Architecture invariants (decided)
 
 1. **Logical root address:** `database + array + key`; e.g. `Index.get('production', 'users', 'age')`. Resolve logical database and array names through recursive name catalogs to stable IDs, then resolve the key root through the array field catalog. Do **not** expose internal IDs as the only public addressing mechanism.
-2. **Array field catalog:** a recursive ordered tree mapping `(key, type)` to index roots. `index.json` is its stable root and is measured against the same byte limit; overflow moves entries into 32-character hexadecimal child nodes and can add levels as needed.
-3. **Internal nodes:** independently addressable by unique, opaque IDs; parent references include child `id`, `first`, `last`, and `count`. Nodes can recursively reference nodes. No need to rename existing IDs during splits.
+2. **Array field catalog:** A recursive ordered tree mapping `(key, type)` to index roots. Each mapping stores `[key, type, rootId, { length, first, last }]`, refreshed on every branch mutation. Legacy three-item mappings and structural `count` fields remain readable; touched nodes use length names. `Index.getMetadata()` exposes these summaries without fetching value roots for upgraded entries. `index.json` is its stable root and is measured against the same byte limit; overflow moves entries into 32-character hexadecimal child nodes and can add levels as needed.
+3. **Internal nodes:** independently addressable by unique, opaque IDs; parent references include child `id`, `first`, `last`, and `length`. Nodes can recursively reference nodes. No need to rename existing IDs during splits.
 4. **Types and automatic indexes:** the current prototype stores finite `number`, `string`, `boolean`, and explicit `null` values in separate branches. Automatically maintain an independent index for each supported field path on object creation; do not create compound indexes for ordinary field queries. Nested object leaves use dot paths, and array scalar values use their field path. Missing and unsupported composite values require explicit semantics; don't silently discard them in production.
 5. **Ordering:** entries sorted by `(value, objectId)` so equal values are deterministic and duplicate values across objects are supported. `first`/`last` are complete entry boundaries, not alphabetical buckets or just first letters.
 6. **Local splits:** positional insert first; on exceeding serialized byte-size limit, split that **one** leaf or internal node approximately 50/50, preferably by byte weight. Preserve old node ID, create one sibling ID, update parent, recursively split parent if needed. Do not rebalance neighboring nodes or fetch unrelated descendants.
@@ -83,24 +84,25 @@ Store database and array names in catalogs. Use shared `ObjectId()` values (24-c
 ## Index node shape (illustrative, not frozen schema)
 
 ```js
-// Catalog root/leaf (count = objects, catalogCount = catalog mappings)
-{ id: 'root', kind: 'catalog', count: 1000000, catalogCount: 2,
-  entries: [['_id', 'string', 'id-root'], ['age', 'number', 'age-root']] }
+// Catalog root/leaf (length = objects, catalogLength = catalog mappings)
+{ id: 'root', kind: 'catalog', length: 1000000, catalogLength: 2,
+  entries: [['_id', 'string', 'id-root', { length: 1000000, first: {}, last: {} }],
+            ['age', 'number', 'age-root', { length: 1000000, first: {}, last: {} }]] }
 
 // Once this root exceeds maxBytes, its entries are split into 32-character hexadecimal files;
 // index.json stays the root and points to bounded child nodes.
-{ id: 'root', kind: 'catalog', count: 1000000, catalogCount: 2,
-  indexes: [{ id: 'uuid', count: 1, first: ['_id', 'string'], last: ['_id', 'string'] },
-            { id: 'uuid-2', count: 1, first: ['age', 'number'], last: ['age', 'number'] }] }
+{ id: 'root', kind: 'catalog', length: 1000000, catalogLength: 2,
+  indexes: [{ id: 'uuid', length: 1, first: ['_id', 'string'], last: ['_id', 'string'] },
+            { id: 'uuid-2', length: 1, first: ['age', 'number'], last: ['age', 'number'] }] }
 
 // Internal node
-{ id: 'node-id', count: 2500,
+{ id: 'node-id', length: 2500,
   first: { value: 18, objectId: '...' },
   last: { value: 35, objectId: '...' },
-  indexes: [{ id: 'child-id', count: 2500, first: {}, last: {} }] }
+  indexes: [{ id: 'child-id', length: 2500, first: {}, last: {} }] }
 
 // Leaf
-{ id: 'leaf-id', count: 2,
+{ id: 'leaf-id', length: 2,
   first: { value: 18, objectId: '001' },
   last: { value: 22, objectId: '002' },
   entries: [[18, '001'], [22, '002']] }
@@ -123,7 +125,7 @@ Never interpret `{ first: {}, last: {} }` as valid runtime boundaries; these pla
 - Ordered insert/search/scan (forward/reverse), deterministic equal-value tie-breaking, duplicate insertion idempotence.
 - Separate string, number, boolean, and null branches; numeric ordering; `_id` enumeration and automatic per-field object indexes.
 - Insert at beginning/middle/end; byte-limit overflow and recursive leaf/internal/root splits; preserve IDs and ordered child ranges.
-- `first`, `last`, `count` correctness at every level after insert/delete; empty-node pruning and root collapse.
+- `first`, `last`, `length` correctness at every level after insert/delete; empty-node pruning and root collapse.
 - Updates changing/removing/adding nested keys; no stale index entries.
 - On-demand node fetches, cache invalidation, bounded memory, restart from persisted files.
 - Missing/corrupt files, malformed paths, oversized single entries, failed writes, and interrupted multi-node updates.

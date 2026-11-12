@@ -1,5 +1,6 @@
 import { mkdir, rm } from 'node:fs/promises'
 import { ObjectId } from '@cocreate/utils'
+import { removeMemoryPath } from '../memory.js'
 import { ARRAY_CATALOG, arrayDirectory, arrayMetadataPath, auditMetadata, databaseMetadataPath, readJSON, removeDirectoryPreservingDistributed } from '../storage.js'
 import { createRecord, deleteRecord, findRecordByName, readRecords, updateRecord } from '../records.js'
 import { adjustDatabaseLengths, ensureDatabase } from '../database/index.js'
@@ -61,6 +62,7 @@ export async function ensureArray(root, index, database, name, config = {}, requ
         const persisted = await readJSON(arrayFile(root, database._id, id))
         if (persisted)
             await deleteRecord(index, database._id, ARRAY_CATALOG, arrayFile(root, database._id, id), persisted).catch(() => {})
+        removeMemoryPath(directory)
         await rm(directory, { recursive: true, force: true }).catch(() => {})
         throw error
     }
@@ -99,6 +101,7 @@ export async function materializeArray(root, index, database, source) {
         const persisted = await readJSON(file)
         if (persisted)
             await deleteRecord(index, database._id, ARRAY_CATALOG, file, persisted).catch(() => {})
+        removeMemoryPath(directory)
         await rm(directory, { recursive: true, force: true }).catch(() => {})
         throw error
     }

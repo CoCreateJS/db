@@ -2,6 +2,7 @@ import { link, mkdir, readFile, readdir, rename, rm, unlink, writeFile } from 'n
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { readMemoryJSON, writeMemoryJSON, removeMemoryPath } from './memory.js'
 
 const clone = value => structuredClone(value)
 export const DATABASE_CATALOG = '__catalog__'
@@ -61,12 +62,7 @@ export function objectPath(root, databaseId, arrayId, objectId) {
 }
 
 export async function readJSON(file) {
-    try {
-        return JSON.parse(await readFile(file, 'utf8'))
-    } catch (error) {
-        if (error.code === 'ENOENT') return undefined
-        throw error
-    }
+    return readMemoryJSON(file)
 }
 
 export function setPath(object, path, value) {
@@ -137,6 +133,7 @@ export async function writeExclusiveJSON(file, value) {
     try {
         await writeFile(temporary, JSON.stringify(value))
         await link(temporary, file)
+        writeMemoryJSON(file, value)
     } finally {
         await unlink(temporary).catch(error => {
             if (error.code !== 'ENOENT') throw error
@@ -152,6 +149,7 @@ export async function replaceJSON(file, value) {
     try {
         await writeFile(temporary, JSON.stringify(value))
         await rename(temporary, file)
+        writeMemoryJSON(file, value)
     } catch (error) {
         await unlink(temporary).catch(() => {})
         throw error
@@ -183,6 +181,7 @@ export async function removeDirectoryPreservingDistributed(root, directory) {
     }
 
     try {
+        removeMemoryPath(directory)
         await collect(directory)
         await rm(directory, { recursive: true, force: true })
 

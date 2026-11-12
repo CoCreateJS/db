@@ -13,6 +13,7 @@ import {
 import { hasQueryConditions, normalizeQuery, queryIndexCandidates } from '../query.js'
 import { applyReadFilter } from '../read.js'
 import { createRecord, deleteRecord, findRecordByName, readRecordById, readRecords, updateRecord } from '../records.js'
+import { preloadDirectory, memoryStats, removeMemoryPath } from '../memory.js'
 
 const clone = value => structuredClone(value)
 const isObjectId = value => typeof value === 'string' && /^[0-9a-f]{24}$/i.test(value)
@@ -85,10 +86,11 @@ function applyObjectUpdate(current, input, request) {
  * The configured directory contains database/array index files and object JSON files.
  */
 export function createDB({
-    directory = './storage', maxIndexBytes = 128 * 1024, cache = false,
+    directory = './storage', maxIndexBytes = 128 * 1024, cache = false, memoryCache = false,
     nodeId, distributedAdapter, peerReader, partitionAdapter, documentMutationAdapter
 } = {}) {
     const root = resolve(directory)
+    const ready = memoryCache ? preloadDirectory(root) : Promise.resolve({ files: 0 })
     const storageIndex = createIndex({
         directory: root,
         maxBytes: maxIndexBytes,
@@ -349,7 +351,10 @@ export function createDB({
         await replaceJSON(databaseMetadataPath(root, databaseId), database)
         await replaceJSON(arrayMetadataPath(root, databaseId, arrayId), array)
         const file = objectPath(root, databaseId, arrayId, object._id)
-        if (operation === 'remove') await rm(file, { force: true })
+        if (operation === 'remove') {
+            removeMemoryPath(file)
+            await rm(file, { force: true })
+        }
         else await replaceJSON(file, object)
 
         await markLocalAvailability({ databaseId }, 'add')
@@ -674,22 +679,25 @@ export function createDB({
         return deleted
     }
 
+    const readIndex = async (method, database, array, key = '_id') => {
+        const databaseRecord = await findRecordByName(
+            storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
+            id => databaseMetadataPath(root, id), database
+        )
+        const databaseId = databaseRecord?._id
+        if (!databaseId) return { database, array, key, indexes: {} }
+        const arrayRecord = await findRecordByName(
+            storageIndex, databaseId, ARRAY_CATALOG,
+            id => arrayMetadataPath(root, databaseId, id), array
+        )
+        const arrayId = arrayRecord?._id
+        if (!arrayId) return { database, array, key, indexes: {} }
+        return { ...(await storageIndex[method](databaseId, arrayId, key)), database, array }
+    }
+
     const index = {
-        get: async (database, array, key = '_id') => {
-            const databaseRecord = await findRecordByName(
-                storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
-                id => databaseMetadataPath(root, id), database
-            )
-            const databaseId = databaseRecord?._id
-            if (!databaseId) return { database, array, key, indexes: {} }
-            const arrayRecord = await findRecordByName(
-                storageIndex, databaseId, ARRAY_CATALOG,
-                id => arrayMetadataPath(root, databaseId, id), array
-            )
-            const arrayId = arrayRecord?._id
-            if (!arrayId) return { database, array, key, indexes: {} }
-            return { ...(await storageIndex.get(databaseId, arrayId, key)), database, array }
-        },
+        get: (database, array, key) => readIndex('get', database, array, key),
+        getMetadata: (database, array, key) => readIndex('getMetadata', database, array, key),
         set: async (database, array, key, value, objectId, request = {}) => {
             const databaseMetadata = await ensureDatabase(root, storageIndex, database, {}, request)
             const arrayMetadata = await ensureArray(root, storageIndex, databaseMetadata, array, {}, request)
@@ -774,7 +782,10 @@ export function createDB({
         readLocalEntity,
         applyReplicatedObjectMutation,
         clearDistributedCache: () => distributedIndex.clearCache(),
+        ready,
+        memoryStats: () => memoryStats(root),
         async send(request) {
+            await ready
             const response = { ...request }
 
             try {

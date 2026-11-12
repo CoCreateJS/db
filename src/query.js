@@ -48,6 +48,17 @@ const union = (left, right) => new Set([...left, ...right])
  * checked against hydrated records by queryData.
  */
 export async function queryIndexCandidates(index, database, array, query, { readObject } = {}) {
+    const metadata = new Map()
+    const getMetadata = key => {
+        if (!metadata.has(key)) metadata.set(key, (index.getMetadata ?? index.get).call(index, database, array, key))
+        return metadata.get(key)
+    }
+    const hasArrayAncestor = async key => {
+        const parts = key.replace(/\[(\d+)\]/g, '.$1').split('.')
+        for (let i = 1; i < parts.length; i++)
+            if ((await getMetadata(parts.slice(0, i).join('.'))).indexes.array) return true
+        return false
+    }
     let allIdsPromise
     const allIds = () => {
         if (!allIdsPromise) allIdsPromise = (async () => {
@@ -63,9 +74,16 @@ export async function queryIndexCandidates(index, database, array, query, { read
     const empty = exact => ({ ids: new Set(), exact })
 
     const scan = async (key, type, predicate, range) => {
-        const root = await index.get(database, array, key)
+        const root = await getMetadata(key)
         if (!Object.keys(root.indexes).length) return all(false)
         if (!root.indexes[type]) return empty(true)
+        const branch = root.indexes[type]
+        if (type !== 'array' && branch.first && branch.last && (
+            range?.lower !== undefined && (branch.last.value < range.lower ||
+                range.lowerOpen && branch.last.value === range.lower) ||
+            range?.upper !== undefined && (branch.first.value > range.upper ||
+                range.upperOpen && branch.first.value === range.upper)
+        )) return empty(true)
         const ids = new Set()
         for await (const entry of index.scan(database, array, key, { type, ...range }))
             if (predicate(entry.value)) ids.add(entry.objectId)
@@ -75,11 +93,11 @@ export async function queryIndexCandidates(index, database, array, query, { read
     const scanArrays = async (key, predicate = () => true, range) =>
         scan(key, 'array', predicate, range)
 
-    const equality = async (key, value) => {
+    const equality = async (key, value, condition = { $eq: value }) => {
         const type = typeOf(value)
         if (!type) return all(false)
         if (type === 'array')
-            return scanArrays(key, candidate => queryData({ value: candidate }, { value }))
+            return scanArrays(key, candidate => queryData({ value: candidate }, { value: condition }))
 
         const scalar = await scan(key, type, candidate => Object.is(candidate, value), { lower: value, upper: value })
         const arrays = await scanArrays(key, candidate => queryData({ value: candidate }, { value }))
@@ -90,7 +108,7 @@ export async function queryIndexCandidates(index, database, array, query, { read
     }
 
     const range = async (key, operator, value) => {
-        const root = await index.get(database, array, key)
+        const root = await getMetadata(key)
         const matches = new Set()
         const operators = {
             '$gt': (candidate, query) => candidate > query,
@@ -102,9 +120,16 @@ export async function queryIndexCandidates(index, database, array, query, { read
         // Values are intentionally compared with JavaScript's native operators.
         // Check every indexed type branch so coercive JS comparisons cannot be
         // lost by restricting the scan to the query value's own type branch.
-        for (const type of Object.keys(root.indexes || {}).filter(type => type !== 'array'))
-            for await (const entry of index.scan(database, array, key, { type }))
-                if (operators[operator](entry.value, value)) matches.add(entry.objectId)
+        for (const type of Object.keys(root.indexes || {}).filter(type => type !== 'array')) {
+            // Prune only same-type numeric/string branches. Other branches retain
+            // native JS coercion semantics and must be checked without bounds.
+            const bounded = ['number', 'string'].includes(type) && typeOf(value) === type
+            const bounds = !bounded ? {} : operator === '$gt' || operator === '$gte'
+                ? { lower: value, lowerOpen: operator === '$gt' }
+                : { upper: value, upperOpen: operator === '$lt' }
+            const result = await scan(key, type, candidate => operators[operator](candidate, value), bounds)
+            for (const objectId of result.ids) matches.add(objectId)
+        }
 
         const arrays = await scanArrays(key, candidate => queryData(
             { value: candidate },
@@ -126,116 +151,71 @@ export async function queryIndexCandidates(index, database, array, query, { read
         return result
     }
 
-    const hasBroadArrayPredicate = async expression => {
-        if (Array.isArray(expression)) {
-            for (const clause of expression)
-                if (await hasBroadArrayPredicate(clause)) return true
-            return false
-        }
-        if (!expression || typeof expression !== 'object') return false
-
+    // Length is a conservative work estimate, not a distinct-value statistic.
+    // Array predicates inspect terminal values; prefer bounded scalar lookups.
+    const estimate = async expression => {
+        if (Array.isArray(expression)) return Math.min(Infinity, ...await Promise.all(expression.map(estimate)))
+        if (!expression || typeof expression !== 'object') return Infinity
+        const costs = []
         for (const [key, condition] of Object.entries(expression)) {
-            if (['$and', '$or', '$nor'].includes(key)) {
-                if (await hasBroadArrayPredicate(condition)) return true
-                continue
+            if (key === '$and' && Array.isArray(condition)) costs.push(await estimate(condition))
+            else if (key === '$or' && Array.isArray(condition))
+                costs.push((await Promise.all(condition.map(estimate))).reduce((sum, cost) => sum + cost, 0))
+            else if (key.startsWith('$') || await hasArrayAncestor(key)) costs.push(Infinity)
+            else {
+                const root = await getMetadata(key)
+                const branches = Object.values(root.indexes)
+                if (!branches.length) { costs.push(Infinity); continue }
+                const operator = condition && typeof condition === 'object' && !Array.isArray(condition)
+                    ? condition : { $eq: condition }
+                if (Object.keys(operator).some(name => ['$ne', '$nin', '$not', '$exists'].includes(name))) {
+                    costs.push(Infinity)
+                    continue
+                }
+                const equalityValue = Object.hasOwn(operator, '$eq') ? operator.$eq : undefined
+                const type = typeOf(equalityValue)
+                const branch = root.indexes[type]
+                if (type && type !== 'array' && !root.indexes.array && branch?.first && branch?.last &&
+                    (equalityValue < branch.first.value || equalityValue > branch.last.value)) {
+                    costs.push(0)
+                    continue
+                }
+                // _id is unique in object arrays. Its equality bound needs at most one entry.
+                if (key === '_id' && typeof equalityValue === 'string' && !root.indexes.array) costs.push(1)
+                else costs.push(Object.entries(root.indexes).reduce((sum, [type, item]) =>
+                    sum + (item.length ?? Infinity) * (type === 'array' ? 4 : 1), 0))
             }
-            if (key.startsWith('$')) continue
-
-            const operators = condition && typeof condition === 'object' && !Array.isArray(condition)
-                ? Object.keys(condition).filter(operator => operator.startsWith('$'))
-                : []
-            if (!operators.length && condition && typeof condition === 'object' && !Array.isArray(condition)) {
-                for (const [child, value] of Object.entries(condition))
-                    if (await hasBroadArrayPredicate({ [`${key}.${child}`]: value })) return true
-                continue
-            }
-
-            // Full array-branch scans are costly: array values are stored as
-            // terminal values, so a scalar comparison must inspect each one.
-            // A selective sibling predicate can identify a much smaller set
-            // of documents to check directly instead.
-            const conditionType = typeOf(condition)
-            if (conditionType === 'array') continue
-            const root = await index.get(database, array, key)
-            if (root.indexes?.array?.count > 0) return true
         }
-        return false
+        return Math.min(Infinity, ...costs)
     }
 
     const compileAnd = async expressions => {
         if (!expressions.length) return all(true)
-
-        const indexed = await Promise.all(expressions.map(async expression => ({
-            expression,
-            broadArray: await hasBroadArrayPredicate(expression)
-        })))
-        const selective = indexed.filter(item => !item.broadArray)
-        const deferred = indexed.filter(item => item.broadArray)
-
-        if (!deferred.length) {
-            const results = []
-            for (const { expression } of selective) results.push(await compileRaw(expression))
-            return combineAnd(results)
-        }
-
-        const seed = selective.length
-            ? await combineAnd(await Promise.all(selective.map(({ expression }) => compileRaw(expression))))
-            : null
-
-        if (seed && seed.ids.size === 0) return seed
-
-        const arrayBranchCounts = []
-        for (const { expression } of deferred) {
-            const collect = async value => {
-                if (!value || typeof value !== 'object') return
-                if (Array.isArray(value)) {
-                    for (const child of value) await collect(child)
-                    return
-                }
-                for (const [key, condition] of Object.entries(value)) {
-                    if (key.startsWith('$')) {
-                        await collect(condition)
-                        continue
-                    }
-                    const operators = condition && typeof condition === 'object' && !Array.isArray(condition)
-                        ? Object.keys(condition).filter(operator => operator.startsWith('$'))
-                        : []
-                    if (!operators.length && condition && typeof condition === 'object' && !Array.isArray(condition)) {
-                        for (const [child, nested] of Object.entries(condition)) await collect({ [`${key}.${child}`]: nested })
-                    } else {
-                        const root = await index.get(database, array, key)
-                        if (root.indexes?.array?.count > 0) arrayBranchCounts.push(root.indexes.array.count)
-                    }
-                }
-            }
-            await collect(expression)
-        }
-
-        const smallCandidateSet = seed && readObject && seed.ids.size <= 256 &&
-            arrayBranchCounts.length &&
-            arrayBranchCounts.every(count => seed.ids.size * 4 < count)
-
-        if (smallCandidateSet) {
-            let ids = new Set(seed.ids)
-            for (const { expression } of deferred) {
-                for (const objectId of [...ids]) {
+        const planned = await Promise.all(expressions.map(async expression => ({ expression, cost: await estimate(expression) })))
+        planned.sort((left, right) => left.cost - right.cost)
+        let result
+        for (const { expression, cost } of planned) {
+            if (result && !result.ids.size) break
+            if (result && readObject && result.ids.size <= 256 && result.ids.size * 4 < cost) {
+                for (const objectId of result.ids) {
                     const object = await readObject(objectId)
-                    if (!object || !queryData(object, expression)) ids.delete(objectId)
+                    if (!object || !queryData(object, expression)) result.ids.delete(objectId)
                 }
-                if (!ids.size) break
+            } else {
+                const next = await compileRaw(expression)
+                result = result ? await combineAnd([result, next]) : next
             }
-            return { ids, exact: seed.exact }
         }
-
-        const results = seed ? [seed] : []
-        for (const { expression } of deferred) results.push(await compileRaw(expression))
-        return combineAnd(results)
+        return result
     }
 
     const compileField = async (key, condition) => {
+        // Dotted indexes cover object leaves but not members of terminal arrays.
+        // A present dotted index must not hide matching array-backed documents.
+        if (await hasArrayAncestor(key)) return all(false)
         if (condition === null || condition === undefined || ['string', 'number', 'boolean'].includes(typeof condition))
             return equality(key, condition)
-        if (Array.isArray(condition)) return equality(key, condition)
+        if (Array.isArray(condition)) return equality(key, condition, condition)
         if (!condition || typeof condition !== 'object') return all(false)
 
         const operators = Object.keys(condition).filter(operator => operator.startsWith('$'))
@@ -269,12 +249,16 @@ export async function queryIndexCandidates(index, database, array, query, { read
             } else if (operator === '$in' || operator === '$nin') {
                 const choices = Array.isArray(value) ? value : [value]
                 const matches = []
-                for (const choice of choices) matches.push(await equality(key, choice))
+                for (const choice of choices) {
+                    const type = typeOf(choice)
+                    matches.push(type === 'array' ? empty(true) : !type ? await all(false) :
+                        await scan(key, type, candidate => Object.is(candidate, choice), { lower: choice, upper: choice }))
+                }
                 let match = matches.reduce((result, next) => ({
                     ids: union(result.ids, next.ids),
                     exact: result.exact && next.exact
                 }), { ids: new Set(), exact: true })
-                const arrayMatch = await scanArrays(candidate => queryData(
+                const arrayMatch = await scanArrays(key, candidate => queryData(
                     { value: candidate },
                     { value: { $in: choices } }
                 ))
@@ -288,7 +272,7 @@ export async function queryIndexCandidates(index, database, array, query, { read
                         ? { ids: new Set([...await allIds()].filter(id => !match.ids.has(id))), exact: true }
                         : await all(false))
             } else if (operator === '$all' && Array.isArray(value)) {
-                results.push(await scanArrays(candidate => queryData(
+                results.push(await scanArrays(key, candidate => queryData(
                     { value: candidate },
                     { value: { $all: value } }
                 )))
@@ -309,28 +293,23 @@ export async function queryIndexCandidates(index, database, array, query, { read
                     expression.lastIndex = 0
                     return expression.test(candidate)
                 })
-                const arrays = await scanArrays(candidate => queryData(
+                const arrays = await scanArrays(key, candidate => queryData(
                     { value: candidate },
                     { value: { $regex: value, ...(condition.$options ? { $options: condition.$options } : {}) } }
                 ))
                 results.push({ ids: union(scalar.ids, arrays.ids), exact: scalar.exact && arrays.exact })
             } else if (operator === '$mod' && Array.isArray(value) && value.length === 2 && value[0] !== 0) {
                 const scalar = await scan(key, 'number', candidate => candidate % value[0] === value[1])
-                const arrays = await scanArrays(candidate => queryData(
+                const arrays = await scanArrays(key, candidate => queryData(
                     { value: candidate },
                     { value: { $mod: value } }
                 ))
                 results.push({ ids: union(scalar.ids, arrays.ids), exact: scalar.exact && arrays.exact })
             } else if (operator === '$type' && value === 'array') {
-                results.push(await scanArrays())
+                results.push(await scanArrays(key))
             } else if (operator === '$type' && ['string', 'number', 'boolean', 'null', 'bool', 'int', 'long', 'double', 'decimal'].includes(value)) {
                 const type = value === 'bool' ? 'boolean' : ['int', 'long', 'double', 'decimal'].includes(value) ? 'number' : value
-                const candidate = await scan(key, type, () => true)
-                const arrays = await scanArrays(candidateValue => queryData(
-                    { value: candidateValue },
-                    { value: { $type: value } }
-                ))
-                results.push({ ids: union(candidate.ids, arrays.ids), exact: false })
+                results.push(await scan(key, type, () => true))
             } else {
                 results.push(await all(false))
             }
@@ -340,18 +319,16 @@ export async function queryIndexCandidates(index, database, array, query, { read
 
     const compileRaw = async expression => {
         if (expression === undefined || expression === null) return all(true)
-        if (Array.isArray(expression)) {
-            const children = []
-            for (const child of expression) children.push(await compileRaw(child))
-            return combineAnd(children)
-        }
+        if (Array.isArray(expression)) return compileAnd(expression)
         if (typeof expression !== 'object') return empty(true)
+        const clauses = expandAnd(expression)
+        if (clauses.length > 1) return compileAnd(clauses)
 
         const children = []
         for (const [key, value] of Object.entries(expression)) {
             if (key === '$and') {
                 if (!Array.isArray(value)) return empty(true)
-                for (const clause of value) children.push(await compileRaw(clause))
+                children.push(await compileAnd(value))
             } else if (key === '$or') {
                 if (!Array.isArray(value)) return empty(true)
                 const branches = []

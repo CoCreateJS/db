@@ -26,6 +26,29 @@ const collect = async iterable => {
     return values
 }
 
+test('memoryCache preloads the database and keeps CRUD reads coherent with disk', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'cocreate-db-memory-'))
+    try {
+        const db = createDB({ directory, memoryCache: true })
+        await db.ready
+        assert.equal(db.memoryStats().files, 0)
+        await db.send({ method: 'object.create', database: 'memory', array: 'items', object: { name: 'first' } })
+        assert.ok(db.memoryStats().files > 0)
+        const initial = await db.send({ method: 'object.read', database: 'memory', array: 'items' })
+        const id = initial.object[0]._id
+        await db.send({ method: 'object.update', database: 'memory', array: 'items', object: { _id: id, name: 'updated' } })
+        assert.equal((await db.send({ method: 'object.read', database: 'memory', array: 'items' })).object[0].name, 'updated')
+        await db.send({ method: 'object.delete', database: 'memory', array: 'items', object: { _id: id } })
+        assert.equal((await db.send({ method: 'object.read', database: 'memory', array: 'items' })).object.length, 0)
+        const reopened = createDB({ directory, memoryCache: true })
+        await reopened.ready
+        assert.ok(reopened.memoryStats().files > 0)
+        assert.equal((await reopened.send({ method: 'object.read', database: 'memory', array: 'items' })).object.length, 0)
+    } finally {
+        await rm(directory, { recursive: true, force: true })
+    }
+})
+
 const resolveArrayDirectory = async (directory, database, array) => {
     const db = createDB({ directory })
     const databases = await db.send({ method: 'database.read' })
@@ -99,7 +122,7 @@ test('indexes object IDs and property values in deterministic order', async () =
             ]
         )
 
-        assert.equal((await index.get('test', 'users', 'age')).indexes.number.count, 3)
+        assert.equal((await index.get('test', 'users', 'age')).indexes.number.length, 3)
     })
 })
 
@@ -569,7 +592,7 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
         const root = JSON.parse(await readFile(join(indexDirectory, 'index.json'), 'utf8'))
         assert.ok(root.indexes, 'overflowed catalog root should point to child 32-character hexadecimal files')
         assert.equal(root.entries, undefined)
-        assert.equal(root.catalogCount, fields.length)
+        assert.equal(root.catalogLength, fields.length)
         assert.ok(Buffer.byteLength(JSON.stringify(root)) <= 512)
         const depth = async node => node.entries
             ? 1
@@ -580,7 +603,7 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
 
         for (let i = 0; i < fields.length; i++) {
             const found = await index.get('test', 'catalog', fields[i])
-            assert.equal(found.indexes.number.count, 1)
+            assert.equal(found.indexes.number.length, 1)
             assert.deepEqual(
                 await collect(index.scan('test', 'catalog', fields[i], { type: 'number' })),
                 [{ value: i, objectId: 'object-1' }]
@@ -595,7 +618,7 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
 
         const emptyRoot = JSON.parse(await readFile(join(indexDirectory, 'index.json'), 'utf8'))
         assert.deepEqual(emptyRoot.entries, [])
-        assert.equal(emptyRoot.catalogCount, 0)
+        assert.equal(emptyRoot.catalogLength, 0)
         assert.deepEqual((await readdir(indexDirectory)).sort(), ['index.json'])
     }, { maxBytes: 512 })
 })
@@ -629,7 +652,7 @@ test('migrates a legacy flat catalog when the next key root is written', async (
         const root = JSON.parse(await readFile(join(indexDirectory, 'index.json'), 'utf8'))
         assert.equal(root.keys, undefined)
         assert.ok(root.entries || root.indexes)
-        assert.equal(root.count, 1)
+        assert.equal(root.length, 1)
     })
 })
 
@@ -665,7 +688,7 @@ test('object.update changes indexed fields and unsets nested fields without chan
         assert.equal('nickname' in updated.object[0], false)
 
         const { root: catalog, keys } = await readCatalog(directory, 'test', 'users')
-        assert.equal(catalog.count, 2)
+        assert.equal(catalog.length, 2)
         assert.equal(keys.temporary, undefined)
         assert.equal(keys.nickname, undefined)
         assert.equal((await db.send({
@@ -810,9 +833,9 @@ test('query planning narrows candidates before checking a broad array membership
     const index = {
         get: async (_database, _array, key) => ({
             indexes: key === 'host'
-                ? { array: { count: 1000 } }
+                ? { array: { length: 1000 } }
                 : key === 'pathname'
-                    ? { string: { count: 1000 } }
+                    ? { string: { length: 1000 } }
                     : {}
         }),
         scan: async function* (_database, _array, key, { type } = {}) {
@@ -1216,7 +1239,7 @@ test('object.delete removes an object and prunes all empty indexes and catalog r
         await assert.rejects(readFile(join(arrayPath, 'objects', `${created.object[0]._id}.json`)), { code: 'ENOENT' })
 
         let { root: catalog, keys } = await readCatalog(directory, 'test', 'users')
-        assert.equal(catalog.count, 1)
+        assert.equal(catalog.length, 1)
         assert.ok(keys.unique.string)
         assert.deepEqual((await db.send({
             method: 'object.read', database: 'test', array: 'users', filter: { query: { name: 'Ada' } }
@@ -1228,7 +1251,7 @@ test('object.delete removes an object and prunes all empty indexes and catalog r
         assert.equal(deletedLast.success, true, deletedLast.error)
         assert.equal(deletedLast.object.length, 1)
         ;({ root: catalog, keys } = await readCatalog(directory, 'test', 'users'))
-        assert.equal(catalog.count, 0)
+        assert.equal(catalog.length, 0)
         assert.deepEqual(keys, {})
         assert.deepEqual((await readdir(join(arrayPath, 'index'))).sort(), ['index.json'])
         assert.deepEqual(await readdir(join(arrayPath, 'objects')), [])

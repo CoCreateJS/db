@@ -64,7 +64,7 @@ databases/
       <array-id>/
         array.json           # name and array-level configuration
         index/
-          index.json         # field/type catalog and object count
+          index.json         # field/type catalog and object length
           <opaque-id>.json
         objects/
           <object-id>.json
@@ -109,11 +109,11 @@ The catalog uses the same configured byte limit and recursive split strategy as 
 ### Node metadata
 
 - `id`: unique opaque node ID, stable through a local split.
-- `count`: number of indexed entries in the subtree (for a leaf, its entry count).
+- `length`: number of indexed entries in the subtree (for a leaf, its entry length).
 - `first`: first ordered entry boundary `{ value, objectId }`.
 - `last`: last ordered entry boundary `{ value, objectId }`.
 - `entries`: ordered leaf array of `[value, objectId]` tuples, **or**
-- `indexes`: ordered internal array of child references, each with `id`, `first`, `last`, `count`.
+- `indexes`: ordered internal array of child references, each with `id`, `first`, `last`, `length`.
 
 These fields let a parent choose a child without downloading its descendants, skip ranges, and propagate counts/boundaries after mutations. `first` and `last` are **actual values**, not first/last letters or fixed buckets. Equal values are ordered by `objectId` as a tie-breaker.
 
@@ -122,7 +122,7 @@ Example:
 ```json
 {
   "id": "node-42",
-  "count": 3,
+  "length": 3,
   "first": { "value": 18, "objectId": "001" },
   "last": { "value": 25, "objectId": "003" },
   "entries": [[18, "001"], [22, "002"], [25, "003"]]
@@ -134,11 +134,11 @@ An internal node uses `indexes` instead of `entries`:
 ```json
 {
   "id": "parent-1",
-  "count": 3,
+  "length": 3,
   "first": { "value": 18, "objectId": "001" },
   "last": { "value": 25, "objectId": "003" },
   "indexes": [
-    { "id": "node-42", "count": 3,
+    { "id": "node-42", "length": 3,
       "first": { "value": 18, "objectId": "001" },
       "last": { "value": 25, "objectId": "003" } }
   ]
@@ -154,13 +154,13 @@ Each field path has its own index; field names do not require custom or compound
 1. Resolve the array catalog and requested key's type root.
 2. Use sorted `(value, objectId)` comparisons and child `last` boundaries to descend only the relevant path.
 3. Insert into the leaf at its exact sorted position (binary search is appropriate).
-4. Update leaf `count`, `first`, `last` and propagate changed child references/metadata upward.
+4. Update leaf `length`, `first`, `last` and propagate changed child references/metadata upward.
 5. Check the **serialized byte size** of the modified node; if under limit, finish.
 6. If oversized, split that node locally and update its parent; recursively split an overflowing parent.
 
 ### Split rule
 
-**Insert first, then split the overflowing node approximately 50/50**, preferably by serialized byte weight (entry count is a reasonable first approximation). Keep the original node ID for the left portion, allocate a new ID for the right sibling, and insert the sibling reference in the parent in sorted order. Never require reading or redistributing neighboring siblings or descendants merely to split. An internal-node split moves child **references**, not child payloads. If the root splits, create a new parent root and update the key/type root mapping.
+**Insert first, then split the overflowing node approximately 50/50**, preferably by serialized byte weight (entry length is a reasonable first approximation). Keep the original node ID for the left portion, allocate a new ID for the right sibling, and insert the sibling reference in the parent in sorted order. Never require reading or redistributing neighboring siblings or descendants merely to split. An internal-node split moves child **references**, not child payloads. If the root splits, create a new parent root and update the key/type root mapping.
 
 ```text
 Before: Parent -> [A: 10..80] [C: 90..120]
@@ -173,7 +173,7 @@ The 50/50 approach was chosen over moving only one/two overflow entries because 
 ### Growth and cleanup
 
 - Nodes can split at any depth; a parent may recursively split, including the root.
-- Maintain correct `first`, `last`, `count` throughout affected ancestors.
+- Maintain correct `first`, `last`, `length` throughout affected ancestors.
 - Delete empty nodes and remove references; collapse redundant single-child roots where safe.
 - Do not require sibling redistribution or merging partially full nodes on each mutation. Optional background compaction may be added later.
 - Avoid endless splitting if a single entry exceeds the byte limit; define explicit overflow/size policy.
@@ -189,17 +189,17 @@ Planned query capabilities include:
 
 - Equality, inequality, range operators (`$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`), logical operators (`$and`, `$or`), projections, sort, limit, skip/pagination.
 - Forward/reverse traversal using the **same** ordered index; reverse traversal should not require a second reversed index.
-- Early termination after enough matching entries for a limit; child `count` may help skip ranges for pagination.
+- Early termination after enough matching entries for a limit; child `length` may help skip ranges for pagination.
 - Dot-notation keys (e.g. `profile.location.city`) indexed as paths.
 - Index-only answers for metadata operations when possible (e.g. key existence, candidate IDs, counts), with full-object hydration only when needed.
 
-A simple full-tree `scan()` is a **prototype** operation, not a substitute for efficient range pruning and cursor APIs. The current `object.read` prototype can intersect equality candidates from independent field indexes; range-aware planning and sort behavior are future work. Indexing every supported field increases storage/write amplification; this is an intentional initial tradeoff in exchange for broad query capability, to be measured.
+The current planner orders conjunctions using catalog lengths before scanning, stops on an empty candidate set, and can check expensive residual predicates against a small hydrated candidate set. Nested AND/OR clauses preserve their logical structure; negation only complements exact candidates. Same-type numeric and string ranges use bounded scans and binary seeking within leaves, including `_id` ranges. Cross-type branches preserve native JavaScript comparison behavior. Sort and pagination still operate on hydrated matches; index-backed sort and streaming pagination remain future work. Indexing every supported field increases storage/write amplification; this is an intentional initial tradeoff in exchange for broad query capability, to be measured.
 
 ### Object mutations
 
 The filesystem `send()` prototype supports create/read/update/delete for databases and arrays, plus object create/read/update/delete. Database and array names resolve through recursive name indexes to stable 24-character ObjectIds; internal index nodes use 32-character hexadecimal UUID-derived IDs. Rename updates a catalog entry and metadata while preserving the directory ID and descendant data. Database metadata uses `arrayLength` and `objectLength`; each array metadata record uses `length` for its total objects. Reads migrate legacy metadata fields (`count`, `arrayCount`, and `objectCount`) to these length fields through the indexed record update path. Query result `count` still describes matching records returned by the source. Deleting an array recursively removes its objects and indexes, and deleting a database recursively removes its arrays and data. Database and array update requests can merge a `config` object into metadata for future settings such as encryption policy; encryption itself is not implemented. Existing data in the previous `<database>/<array>` layout is not migrated automatically.
 
-Object create generates/validates an ObjectId, stores the JSON object under the database/array, indexes `_id` and supported scalar field values, and converts dotted keys to nested object paths. Reads use equality and supported range indexes to narrow candidate IDs, then call shared `queryData` and `searchData` from `@cocreate/utils` to evaluate candidates. Sorting, projection, and pagination follow the shared Filter shape. Per-source count and cursor position are returned in `filter.storages`; the client owns the aggregate `filter.index`. Updates use shared `createUpdate`, compare old/new indexed values, remove stale entries (including removed keys), insert replacements, and update tree metadata. Deletes remove each object's index entries and JSON file. Empty key/type trees are pruned from the catalog. The catalog root's `count` tracks stored objects through `_id` entries and `catalogCount` tracks catalog mappings; child references' counts describe catalog entries in their subtrees. Field-index node counts describe field entries in each node/subtree. CoCreateDB retains `$set` as a convenience; other update behavior comes from the shared utility.
+Object create generates/validates an ObjectId, stores the JSON object under the database/array, indexes `_id` and supported scalar field values, and converts dotted keys to nested object paths. Reads use equality and supported range indexes to narrow candidate IDs, then call shared `queryData` and `searchData` from `@cocreate/utils` to evaluate candidates. Sorting, projection, and pagination follow the shared Filter shape. Per-source count and cursor position are returned in `filter.storages`; the client owns the aggregate `filter.index`. Updates use shared `createUpdate`, compare old/new indexed values, remove stale entries (including removed keys), insert replacements, and update tree metadata. Deletes remove each object's index entries and JSON file. Empty key/type trees are pruned from the catalog. The catalog root's `length` tracks stored objects through `_id` entries and `catalogLength` tracks catalog mappings; child references' lengths describe catalog mappings in their subtrees. Field-index node lengths describe indexed entries in each node/subtree. CoCreateDB retains `$set` as a convenience; other update behavior comes from the shared utility.
 
 ## 7. Index access and filesystem reference adapter
 
@@ -245,7 +245,7 @@ Any future opt-in retention, continued subscription, or bulk warming policy belo
 
 ### Distributed index partitions — implemented prototype
 
-The Distributed Index now tracks **regular index files and their holders**. Its recursive tree is stored locally under `<root>/distributed/partitions/index/`; each entry maps a regular index partition path (including the database/array/index hierarchy) to one or more Cluster node IDs. It contains no document payload and is never persisted to external storage. Regular index partition JSON retains its normal boundary metadata (`first`, `last`, and `count`) and sorted entries.
+The Distributed Index now tracks **regular index files and their holders**. Its recursive tree is stored locally under `<root>/distributed/partitions/index/`; each entry maps a regular index partition path (including the database/array/index hierarchy) to one or more Cluster node IDs. It contains no document payload and is never persisted to external storage. Regular index partition JSON retains its normal boundary metadata (`first`, `last`, and `length`) and sorted entries.
 
 The filesystem `createIndex` writer reports index root/node writes and removals to `createDB`. A local write adds the current node as a holder. A peer acquisition writes the complete bounded partition locally and registers the acquiring node. A changed partition is sent to the nodes already holding it; availability changes are sent to the Cluster so each node can maintain the holder map. Duplicate adds/removes are idempotent. Partition requests are targeted, correlated, and time-bounded. Missing local roots/children can be fetched while normal index traversal proceeds; an advertised partition that no holder can return raises an error rather than appearing as an empty index. Worker operations and holder updates route through the primary.
 
@@ -311,9 +311,9 @@ A practical first milestone can deliberately be **single-process/single-writer**
 
 ## 11. Initial prototype status
 
-The repository contains a filesystem-backed ESM index plus a `createDB({ directory })` factory exposing `send()` for database, array, and object CRUD. Database/array name catalogs resolve to stable IDs; object payloads and field indexes live beneath those IDs. The recursive Distributed Index maps regular index partition paths to holder nodes. The Cluster adapter acquires missing partitions over targeted requests and sends changed partition contents to current holders; the older entity availability map remains for exact-ID metadata/document acquisition. Create indexes `_id` and supported field values independently; equality queries intersect candidates and range queries scan indexed type branches using shared JavaScript relational semantics. Indexes support number, string, boolean, null, and terminal array branches. Ordinary objects flatten to dot paths; full array values are stored in bounded chunk files so array positions and nested members do not create independent index entries. Array object counts are indexed in their parent database catalog and checked against `_id` roots; catalog `catalogCount` tracks mappings, and node counts track subtree entries. An in-memory Map cache is opt-in.
+The repository contains a filesystem-backed ESM index plus a `createDB({ directory })` factory exposing `send()` for database, array, and object CRUD. Database/array name catalogs resolve to stable IDs; object payloads and field indexes live beneath those IDs. The recursive Distributed Index maps regular index partition paths to holder nodes. The Cluster adapter acquires missing partitions over targeted requests and sends changed partition contents to current holders; the older entity availability map remains for exact-ID metadata/document acquisition. Create indexes `_id` and supported field values independently; equality queries intersect candidates and range queries scan indexed type branches using shared JavaScript relational semantics. Indexes support number, string, boolean, null, and terminal array branches. Ordinary objects flatten to dot paths; full array values are stored in bounded chunk files so array positions and nested members do not create independent index entries. Array object lengths are indexed in their parent database catalog and checked against `_id` roots; catalog `catalogLength` tracks mappings, and node lengths track subtree entries. An in-memory Map cache is opt-in.
 
-The Node tests cover independent index operations, database/array CRUD and stable catalog IDs, object create/read/update/delete, automatic field indexes, equality/range/logical queries, terminal array membership and element matching, bounded array value chunks, reopening persisted nodes, field-index splits/removal, catalog root splits and recursive growth, legacy catalog migration, shared query/update utility semantics, object counts, empty-root pruning, alphabet/case/type queries, validation, Distributed Index partition and holder operations, partition acquisition and targeted updates to existing holders, duplicate object IDs across scopes, preservation of peer references during deletion, cold catalog resolution, complete peer fetch and local materialization, request correlation/timeouts, document mutation propagation to partition holders, and the primary/worker event adapter. **These tests do not establish multi-file transaction safety, crash recovery, real multi-process durability, missed-event recovery, initial partition snapshot synchronization, external storage fallback, terminal-array chunk transfer, or user subscription lifecycle.**
+The Node tests cover independent index operations, database/array CRUD and stable catalog IDs, object create/read/update/delete, automatic field indexes, equality/range/logical queries, terminal array membership and element matching, bounded array value chunks, reopening persisted nodes, field-index splits/removal, catalog root splits and recursive growth, legacy catalog migration, shared query/update utility semantics, object lengths, empty-root pruning, alphabet/case/type queries, validation, Distributed Index partition and holder operations, partition acquisition and targeted updates to existing holders, duplicate object IDs across scopes, preservation of peer references during deletion, cold catalog resolution, complete peer fetch and local materialization, request correlation/timeouts, document mutation propagation to partition holders, and the primary/worker event adapter. **These tests do not establish multi-file transaction safety, crash recovery, real multi-process durability, missed-event recovery, initial partition snapshot synchronization, external storage fallback, terminal-array chunk transfer, or user subscription lifecycle.**
 
 ## 12. Implementation roadmap
 
@@ -348,7 +348,7 @@ The Node tests cover independent index operations, database/array CRUD and stabl
 | Vocabulary | **Decided** | `database`, `array`, `object`, `key`, `value`, `index` |
 | Persistence format | **Decided direction** | JSON data, not executable `.js` documents |
 | Index entry point | **Decided** | `database + array + key`, default `_id` |
-| Index topology | **Decided** | Recursive ordered nodes, opaque IDs, first/last/count |
+| Index topology | **Decided** | Recursive ordered nodes, opaque IDs, first/last/length |
 | Value branches | **Current prototype** | Separate finite `number`, `string`, `boolean`, and explicit `null`; missing/compound values remain unresolved |
 | Automatic indexes | **Decided direction** | Independently index every supported field path on create; no compound index creation required for field queries |
 | Split | **Decided** | Local ~50/50 after insertion; byte-based preferred |
@@ -359,7 +359,7 @@ The Node tests cover independent index operations, database/array CRUD and stabl
 | Dormant-copy freshness protocol | **Open** | If cleanup is delayed, define version/checkpoint validation or refresh-on-resubscribe |
 | Exact public `set` signature | **Open** | Entry mutation vs root/node persistence must be clarified |
 | Catalog scalability | **Prototype implemented** | Bounded recursive catalog tree rooted at `index.json`; same byte limit as field nodes |
-| Query planner | **Planned** | Range pruning, compound predicates, pagination |
+| Query planner | **Prototype implemented** | Catalog length planning, bounded numeric/string ranges, nested logical predicates; streaming pagination remains planned |
 | AST storage workflows | **Proposed** | Policy-level orchestration; avoid hot-path overhead |
 | Replication/consistency | **Proposed** | Define concurrency, versioning, atomic commits first |
 | CRDT/LWW | **Explored** | Not a fixed baseline requirement |
@@ -376,3 +376,11 @@ The Node tests cover independent index operations, database/array CRUD and stabl
 **Suggested opening prompt:**
 
 > We are continuing CoCreateDB development in `CoCreateJS/db`. Read `AGENTS.md` and `ARCHITECTURE.md`, inspect the existing code, identify gaps between the prototype and the decided index invariants, and propose the smallest test-driven next implementation step. Keep `database + array + key` as the logical entry point and preserve the independently accessible Index primitive.
+
+### Catalog branch summaries and query planning — implemented
+
+Each catalog leaf mapping is `[key, type, rootId, { length, first, last }]`. The summaries describe the value branch, while catalog node boundaries describe ordered `(key, type)` mappings. Every value insertion/removal refreshes the summary even when its root ID stays the same. `getMetadata(database, array, key)` returns branch references containing `id`, `length`, `first`, and `last`; it does not fetch upgraded value roots. The logical `db.index` facade exposes the same method.
+
+Legacy node/child-reference `count` and `catalogCount` fields normalize to `length` and `catalogLength` on access. Legacy mappings without summaries fetch their value root only when metadata is requested and are upgraded on branch mutation. This is lazy compatibility, not an eager rewrite of existing storage. Query-result `count` remains unchanged.
+
+Planning memoizes metadata within one query. Branch lengths are work estimates, not distinct-value statistics; terminal-array scans carry a fourfold heuristic penalty because they hydrate stored array values. Small candidates (at most 256, and less than one quarter of the estimated next scan cost) can be checked directly. A dotted index cannot be assumed complete when an ancestor has a terminal-array branch, so that predicate conservatively falls back to document verification. `_id` is automatically indexed as a string and supports bounded forward/reverse range scans.

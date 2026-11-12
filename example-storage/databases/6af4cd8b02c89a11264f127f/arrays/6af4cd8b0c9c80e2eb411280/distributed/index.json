@@ -1,1 +1,1 @@
-{"id":"root","kind":"catalog","count":2,"catalogCount":1,"entries":[["_id","string","597ab52a6d5e45728f16fb9171784a10"]],"first":["_id","string"],"last":["_id","string"]}
+{"id":"root","kind":"catalog","entries":[["_id","string","597ab52a6d5e45728f16fb9171784a10",{"length":2,"first":{"value":"6af4cd8b0613f38b5d9c1281","objectId":"example-node"},"last":{"value":"6af4cd8c0c95c50c35661282","objectId":"example-node"}}]],"first":["_id","string"],"last":["_id","string"],"length":2,"catalogLength":1}

@@ -74,7 +74,7 @@ Database, array, and object records use the same record contract: create writes 
 
 Object create accepts one object or an array. Read accepts an object with `_id`, an equality query such as `{ fieldA: 'a' }`, or no query to enumerate the array. Query matching uses `queryData` from `@cocreate/utils`, including its field operators (`$eq`, `$ne`, `$not`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$all`, `$elemMatch`, `$size`, `$exists`, `$regex`, `$type`, and `$mod`) and logical operators (`$and`, `$or`, and `$nor`). Equality conditions can use CoCreateDB indexes to find candidates; the shared utility then checks matches. Other query shapes currently scan candidate objects. Equality preserves value types, so number `9` and string `'9'` are distinct. Range operators use JavaScript's native relational operators without type normalization; for example, `'20' > 10` is true while `'20' > '3'` is false because string-to-string comparison is lexical. Updates use `createUpdate` from `@cocreate/utils`, including its field and array operators; CoCreateDB maintains indexes from the resulting object. `$set` remains supported as a CoCreateDB convenience. Updates can target an object by `_id` or `filter.query`; deletes accept an object with `_id` or a query filter. Responses include the affected `object` array.
 
-The array field-catalog root's `count` is the number of stored objects, maintained through the one-entry-per-object `_id` index. `catalogCount` counts catalog mappings. Each index node's `count` describes the entries in that node or subtree. Empty key/type roots are removed from the catalog after their final entry is deleted.
+The array field-catalog root's `length` is the number of stored objects, maintained through the one-entry-per-object `_id` index. `catalogLength` describes available key/type mappings. Each index node and child reference uses `length` for available subtree entries. Each catalog mapping stores `[key, type, rootId, { length, first, last }]`, refreshed on every branch mutation. Empty key/type roots are removed from the catalog after their final entry is deleted.
 
 ## Automatic indexes
 
@@ -88,7 +88,7 @@ Array membership, `$all`, `$elemMatch`, `$size`, and other supported shared quer
 
 When initialized by `@cocreate/cluster`, `server.DB` is registered with CoCreate CRUD as `cocreate-db`. Its filesystem root defaults to `./.cocreate/db` and can be changed with `COCREATE_DB_DIRECTORY`.
 
-Every regular index root or node written by CoCreateDB is recorded in the recursive Distributed Index as a partition path and the IDs of nodes holding it. The mapping is stored locally under `distributed/partitions/index/`; `distributed` data is never sent to external storage. When an index partition is first acquired, the new holder is added. When a regular index partition changes or is removed, the update is sent only to its recorded holders. Unchanged holder mappings do not generate availability updates. Index partition files retain their normal `first`, `last`, `count`, and entry metadata.
+Every regular index root or node written by CoCreateDB is recorded in the recursive Distributed Index as a partition path and the IDs of nodes holding it. The mapping is stored locally under `distributed/partitions/index/`; `distributed` data is never sent to external storage. When an index partition is first acquired, the new holder is added. When a regular index partition changes or is removed, the update is sent only to its recorded holders. Unchanged holder mappings do not generate availability updates. Index partition files retain their normal `first`, `last`, `length`, and entry metadata.
 
 If recursive traversal needs an index file that is missing locally, CoCreateDB checks the partition holder map and requests that exact file from a holder over the targeted Cluster mesh. The received file is validated, written locally, and the node is registered as another holder. An advertised partition that no holder can provide produces an error rather than an empty query result. A configured file-level storage fallback is not implemented yet.
 
@@ -150,3 +150,9 @@ npm install @cocreate/db
 ## License
 
 AGPL-3.0. See [LICENSE](LICENSE).
+
+## Query planning statistics
+
+`index.getMetadata(database, array, key)` (also exposed on `db.index`) reads the catalog's per-type `id`, `length`, `first`, and `last` summaries without opening the value roots for current entries. Old `count`/`catalogCount` nodes and three-item catalog mappings remain readable and are upgraded lazily when mutated; query result `count` is unchanged.
+
+AND clauses are ordered by estimated work before scanning. An empty candidate set stops subsequent scans; expensive residual predicates, including OR groups, can instead be checked against a small candidate set. Metadata is reused within the query. Length estimates are heuristic and do not measure distinct values. Scalar numeric/string ranges use index bounds where comparison semantics permit; other types retain native JavaScript comparisons. `_id` is automatically indexed, including its length and boundaries, and supports `$gt`, `$gte`, `$lt`, and `$lte` ObjectId-string ranges. Results still hydrate before sorting and pagination.

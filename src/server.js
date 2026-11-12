@@ -18,6 +18,7 @@ export function initializeServerDB(server, {
     directory = process.env.COCREATE_DB_DIRECTORY || './.cocreate/db',
     maxIndexBytes,
     cache = false,
+    memoryCache = true,
     peerTimeoutMs = 5000
 } = {}) {
     if (!server?.id || typeof server.send !== 'function')
@@ -213,12 +214,17 @@ export function initializeServerDB(server, {
         directory,
         maxIndexBytes,
         cache,
+        memoryCache,
         nodeId: server.id,
         distributedAdapter,
         peerReader: readFromPeer,
         partitionAdapter,
         documentMutationAdapter
     })
+    if (memoryCache)
+        db.ready.then(({ files }) => console.info(
+            `[CoCreateDB] Loaded ${files} JSON files (${db.memoryStats().serializedBytes.toLocaleString()} serialized bytes) into memory; RSS ${(process.memoryUsage().rss / 1024 / 1024).toFixed(1)} MiB`
+        )).catch(error => console.error('[CoCreateDB] Failed to preload database into memory:', error))
 
     const sendLocal = db.send.bind(db)
     let writeQueue = Promise.resolve()

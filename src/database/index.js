@@ -1,5 +1,6 @@
 import { mkdir, rm } from 'node:fs/promises'
 import { ObjectId } from '@cocreate/utils'
+import { removeMemoryPath } from '../memory.js'
 import {
     DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, ARRAY_CATALOG,
     arrayMetadataPath, auditMetadata, databaseDirectory, databaseMetadataPath, readJSON,
@@ -62,6 +63,7 @@ export async function ensureDatabase(root, index, name, config = {}, request = {
     try {
         return await createRecord(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, databaseFile(root, id), record)
     } catch (error) {
+        removeMemoryPath(databaseDirectory(root, id))
         await rm(databaseDirectory(root, id), { recursive: true, force: true }).catch(() => {})
         throw error
     }
@@ -90,6 +92,7 @@ export async function materializeDatabase(root, index, source) {
     try {
         return await createRecord(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, file, record)
     } catch (error) {
+        removeMemoryPath(databaseDirectory(root, record._id))
         await rm(databaseDirectory(root, record._id), { recursive: true, force: true }).catch(() => {})
         throw error
     }
