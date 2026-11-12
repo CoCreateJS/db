@@ -156,3 +156,19 @@ AGPL-3.0. See [LICENSE](LICENSE).
 `index.getMetadata(database, array, key)` (also exposed on `db.index`) reads the catalog's per-type `id`, `length`, `first`, and `last` summaries without opening the value roots for current entries. Old `count`/`catalogCount` nodes and three-item catalog mappings remain readable and are upgraded lazily when mutated; query result `count` is unchanged.
 
 AND clauses are ordered by estimated work before scanning. An empty candidate set stops subsequent scans; expensive residual predicates, including OR groups, can instead be checked against a small candidate set. Metadata is reused within the query. Length estimates are heuristic and do not measure distinct values. Scalar numeric/string ranges use index bounds where comparison semantics permit; other types retain native JavaScript comparisons. `_id` is automatically indexed, including its length and boundaries, and supports `$gt`, `$gte`, `$lt`, and `$lte` ObjectId-string ranges. Results still hydrate before sorting and pagination.
+
+## On-demand memory cache
+
+`createDB({ directory, memoryCache: true })` starts with an empty cache for a previously unopened directory. It does not enumerate or preload stored JSON files. Objects, catalogs, index nodes, and array chunks enter the cache as operations read or write them. Reads return independent copies, successful writes refresh cached values, and deletes invalidate them. Existing instances in the same process share cached files for the same directory. `memoryCache: false` leaves this shared cache disabled for a directory that has not already been enabled.
+
+The server integration enables this on-demand cache by default. `db.ready` remains available for compatibility and reports zero files preloaded. `db.memoryStats()` reports retained files and their serialized JSON size, not actual heap usage. The separate index-only `cache` option remains opt-in.
+
+There is currently no automatic memory budget, eviction, or idle timeout. A proposed next step is a process-wide byte budget with least-recently-used eviction across all cached data types. An optional idle timeout can release inactive items sooner; it is not a substitute for a budget. Cache eviction must only drop memory copies, preserve persisted data, and continue to honor mutation/replication invalidation. Subscription-driven cleanup remains a separate, unfinished part of the distributed lifecycle.
+
+## Operator regression coverage
+
+`test/operators.test.js` checks the supported Utils query operators through DB CRUD with memory caching disabled and enabled, including recursive index splits, mixed value types, nested array paths, logical conditions, and ObjectId ranges. Query results are compared with shared `queryData` evaluation. Update cases assert independent expected records, the resulting index entries (including stale-entry removal), persisted reads after clearing memory/reopening, and rejection of invalid or immutable-ID mutations.
+
+DB forwards `$set` intact to Utils so literal operator strings and array-position replacement keep their intended meaning. Top-level/global update operators receive the same path and `_id` validation as operators inside `object`. Invalid record updates are evaluated on a detached copy and are not persisted.
+
+Native JavaScript comparisons can make ordinary objects participate in string/object range predicates, although ordinary objects have no terminal value-index branch. Those predicates conservatively verify documents rather than treating scalar branches as complete. `_id` bounds and scalar numeric bounds retain index pruning. Strict type-only comparisons or a versioned presence/type index could improve this case later; this pass preserves query semantics.

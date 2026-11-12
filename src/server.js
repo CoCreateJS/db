@@ -222,9 +222,7 @@ export function initializeServerDB(server, {
         documentMutationAdapter
     })
     if (memoryCache)
-        db.ready.then(({ files }) => console.info(
-            `[CoCreateDB] Loaded ${files} JSON files (${db.memoryStats().serializedBytes.toLocaleString()} serialized bytes) into memory; RSS ${(process.memoryUsage().rss / 1024 / 1024).toFixed(1)} MiB`
-        )).catch(error => console.error('[CoCreateDB] Failed to preload database into memory:', error))
+        console.info('[CoCreateDB] On-demand memory cache enabled; no startup preloading')
 
     const sendLocal = db.send.bind(db)
     let writeQueue = Promise.resolve()

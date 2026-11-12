@@ -26,7 +26,7 @@ const collect = async iterable => {
     return values
 }
 
-test('memoryCache preloads the database and keeps CRUD reads coherent with disk', async () => {
+test('memoryCache keeps demand-cached CRUD reads coherent with disk', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'cocreate-db-memory-'))
     try {
         const db = createDB({ directory, memoryCache: true })

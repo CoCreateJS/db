@@ -108,6 +108,11 @@ export async function queryIndexCandidates(index, database, array, query, { read
     }
 
     const range = async (key, operator, value) => {
+        // Plain objects are not terminal value-index entries, but native JS
+        // comparisons can coerce them to strings. Do not exclude those records
+        // by treating the scalar branches as a complete candidate set.
+        if (key !== '_id' && (typeof value === 'string' || value && typeof value === 'object'))
+            return all(false)
         const root = await getMetadata(key)
         const matches = new Set()
         const operators = {

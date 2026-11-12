@@ -13,7 +13,7 @@ import {
 import { hasQueryConditions, normalizeQuery, queryIndexCandidates } from '../query.js'
 import { applyReadFilter } from '../read.js'
 import { createRecord, deleteRecord, findRecordByName, readRecordById, readRecords, updateRecord } from '../records.js'
-import { preloadDirectory, memoryStats, removeMemoryPath } from '../memory.js'
+import { enableMemoryCache, memoryStats, removeMemoryPath } from '../memory.js'
 
 const clone = value => structuredClone(value)
 const isObjectId = value => typeof value === 'string' && /^[0-9a-f]{24}$/i.test(value)
@@ -61,16 +61,17 @@ function applyObjectUpdate(current, input, request) {
     const updateData = {}
     for (const [key, value] of Object.entries(input)) {
         if (key === 'filter' || ['$storage', '$database', '$array'].includes(key)) continue
-        if (key === '$set') Object.assign(updateData, value || {})
-        else if (key.startsWith('$set.')) updateData[key.slice(5)] = value
-        else updateData[key] = value
+        updateData[key] = value
     }
 
     const globalOperators = {}
     for (const [operator, values] of Object.entries(request)) {
         if (!operator.startsWith('$') || !values || typeof values !== 'object') continue
-        for (const [path, value] of Object.entries(values))
+        for (const [path, value] of Object.entries(values)) {
+            assertSafeUpdatePath(path)
+            if (operator === '$rename') assertSafeUpdatePath(value)
             globalOperators[`${operator}.${path}`] = value
+        }
     }
 
     if (createUpdate(updated, updateData, globalOperators) === false)
@@ -90,7 +91,8 @@ export function createDB({
     nodeId, distributedAdapter, peerReader, partitionAdapter, documentMutationAdapter
 } = {}) {
     const root = resolve(directory)
-    const ready = memoryCache ? preloadDirectory(root) : Promise.resolve({ files: 0 })
+    if (memoryCache) enableMemoryCache(root)
+    const ready = Promise.resolve({ files: 0 })
     const storageIndex = createIndex({
         directory: root,
         maxBytes: maxIndexBytes,
