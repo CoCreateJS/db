@@ -13,9 +13,11 @@
 // For details, visit <https://CoCreateJS.com/licenses/> or contact us at sales@CoCreateJS.com.
 
 import createIndex from './index/index.js'
-import { createDistributedIndex } from './distributed.js'
-import { createDB } from './object/index.js'
-import { DB_PROVIDER, initializeServerDB } from './server.js'
+export { resolveDirectory } from './directory.js'
+import { createDistributionIndex } from './distribution.js'
+import { createDB } from './scoped.js'
+import { CoCreateDB, DB_PROVIDER, init, initLocal, initializeServerDB } from './server.js'
+export { getPersistence, sendPersistence, getPersistenceDriver, registerPersistenceDriver, persistenceDrivers } from './persistence/index.js'
 
-export { createIndex, createDistributedIndex, createDB, initializeServerDB, DB_PROVIDER }
+export { createIndex, createDistributionIndex, createDB, CoCreateDB, init, initLocal, initializeServerDB, DB_PROVIDER }
 export default createIndex

@@ -6,7 +6,8 @@ const db = createDB({ directory, nodeId: 'example-node' })
 
 const created = await db.send({
     method: 'object.create',
-    organization_id: 'example-org',
+    organization_id: '000000000000000000000001',
+    storage: 'production',
     database: 'example',
     array: 'users',
     object: [
@@ -32,6 +33,8 @@ if (!created.success)
 
 const result = await db.send({
     method: 'object.read',
+    organization_id: '000000000000000000000001',
+    storage: 'production',
     database: 'example',
     array: 'users',
     filter: { query: { active: true, 'profile.city': 'Lima' } }
@@ -42,3 +45,5 @@ if (!result.success)
 
 console.log(`Wrote ${created.object.length} objects under ${directory}`)
 console.log(JSON.stringify(result.object, null, 2))
+
+await db.close()

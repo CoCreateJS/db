@@ -13,7 +13,8 @@ const db = createDB({ directory: './example-storage' })
 
 const created = await db.send({
     method: 'object.create',
-    organization_id: 'example-org',
+    organization_id: '000000000000000000000001',
+    storage: 'production',
     database: 'example-db',
     array: 'users',
     object: {
@@ -26,6 +27,8 @@ const created = await db.send({
 
 const result = await db.send({
     method: 'object.read',
+    organization_id: '000000000000000000000001',
+    storage: 'production',
     database: 'example-db',
     array: 'users',
     filter: { query: { 'profile.city': 'Lima' } }
@@ -45,26 +48,29 @@ The local layout is created on demand:
 
 ```text
 example-storage/
-  databases/
-    index/
-      index.json
-      <catalog-node-id>.json
-    <database-id>/
-      database.json
-      arrays/
-        index/
-          index.json
-          <catalog-node-id>.json
-        <array-id>/
-          array.json
-          index/
-            index.json
-            <field-index-node-id>.json
-          objects/
-            <object-id>.json
+  <organization_id>/
+    storages/
+      index/                   # storage name -> stable storage ID
+      <storage_id>/
+        storage.json
+        databases/
+          index/               # database name -> stable database ID
+          <database_id>/
+            database.json
+            arrays/
+              index/           # array name -> stable array ID
+              <array_id>/
+                array.json
+                index/
+                  index.json
+                  <field-index-node-id>.json
+                objects/
+                  <object-id>.json
+                deleted/
+                  <object-id>.json
 ```
 
-Logical database and array names map to stable 24-character ObjectIds through recursive name indexes; the shared `ObjectId()` utility generates these IDs, while `uuid()` generates 32-character hexadecimal internal index-node IDs. Data directories use those IDs, so renaming a database or array updates its catalog and metadata without moving objects. Database and array metadata JSON can hold configuration such as future encryption settings.
+Logical storage, database, and array names map to stable 24-character ObjectIds through recursive name indexes; the shared `ObjectId()` utility generates these IDs, while `uuid()` generates 32-character hexadecimal internal index-node IDs. Data directories use those IDs, so renaming a database or array updates its catalog and metadata without moving objects. Database and array metadata JSON can hold configuration such as future encryption settings.
 
 `send()` supports create/read/update/delete for databases and arrays, and object CRUD. Database and array create/delete requests accept one name or a list of names. Update renames one target with `database` or `array` set to the current name and `name` (or `newName`) set to the new name; an optional `config` object is merged into its metadata. Database reads return metadata records in `response.database`; each database includes its `arrayLength`, `objectLength`, and arrays. Array reads return records in `response.array`, with each record carrying its `name`, stable `_id`, total object `length`, and `$database` reference. Array operations require one database name. Object writes can create missing database and array catalog entries implicitly. Deleting an array removes its objects and indexes; deleting a database removes all of its arrays and data.
 
@@ -84,17 +90,53 @@ The current ordered index supports finite numbers, strings, booleans, explicit `
 
 Array membership, `$all`, `$elemMatch`, `$size`, and other supported shared query operators inspect the complete terminal array values, then the normal query utility verifies matching documents. Queries into properties of objects inside arrays (for example, `projects.name`) remain supported by the query utility but currently scan the candidate documents because those nested paths are intentionally not indexed. Bracket paths such as `projects[0].name` use the shared notation/query behavior and do not create positional index branches. Large array values are stored in bounded JSON chunks so index nodes stay within `maxIndexBytes`; array edits replace one terminal value entry rather than maintaining an index for each position.
 
-## Distributed index partitions
+## Worker and socket distribution
 
-When initialized by `@cocreate/cluster`, `server.DB` is registered with CoCreate CRUD as `cocreate-db`. Its filesystem root defaults to `./.cocreate/db` and can be changed with `COCREATE_DB_DIRECTORY`.
+Successful CRUD use produces server-generated `distribution` references from the
+same stable organization/storage/database/array/object identities used by entity
+availability. Individual documents have references ending in
+`objects/<objectId>.json`. List reads also retain an array reference, so an empty
+or filtered list can receive later creates. Matching currently uses array scope
+for lists; it does not evaluate each client's query before sending a change.
 
-Every regular index root or node written by CoCreateDB is recorded in the recursive Distributed Index as a partition path and the IDs of nodes holding it. The mapping is stored locally under `distributed/partitions/index/`; `distributed` data is never sent to external storage. When an index partition is first acquired, the new holder is added. When a regular index partition changes or is removed, the update is sent only to its recorded holders. Unchanged holder mappings do not generate availability updates. Index partition files retain their normal `first`, `last`, `length`, and entry metadata.
+DB records the originating logical worker ID in `Workers.distribution`, a
+`Map<reference, Set<workerId>>`. DB then sends the internal `db.distribution.set`
+control to that worker, carrying organization identity, client ID, and references
+inside `data`. The worker records the client in `Socket.distribution`, a
+`Map<reference, Set<clientId>>`, before the CRUD response returns. Repeated reads
+reuse the references and deduplicate recipients. The co-located primary/worker
+uses the same control event locally. A distribution reference is routing metadata,
+not permission; socket authorization still applies.
+
+CRUD responses carry `distributionKeys` for delivery matching. Reads return to
+the requester. Mutations return to the requester and registered recipients; the
+payload remains the normal CRUD value/patch. Peer document mutations use the same
+local worker/client delivery path after DB applies them. Node replication remains
+on DB's holder-targeted Mesh path instead of a second broad CRUD broadcast.
+Clients send ordinary CRUD requests and receive no distribution control events.
+Elements sends ordinary CRUD without subscription keys, and Socket routes CRUD
+using DB-owned distribution. The legacy subscription handler and Socket
+subscription APIs have been removed. Distribution removal, disconnected-client cleanup,
+and worker/restart reconstruction are deferred; the new maps are process-local.
+
+## Distribution index partitions
+
+`distribution` names the metadata used for data placement and synchronization.
+The public factory is `createDistributionIndex`; DB methods are
+`updateDistribution`, `getDistribution`, `listDistribution`, and
+`clearDistributionCache`. Adapters use `distributionAdapter`, and availability
+events use `db.distribution` (including `.local`, `.update`, `.get`, and `.list`).
+This naming change does not automatically migrate existing metadata directories.
+
+`CoCreateDB.init(server)` initializes the server-owned database, prompts for `db.directory` when it is not configured, and attaches the instance as `server.db`. Leaving the prompt blank uses the process working directory. `COCREATE_DB_DIRECTORY` remains an environment override. Optional `db.persistence` configuration supplies persistence options; `db.persistence.workflow` can require external persistence acknowledgment. Without it, CoCreateDB persists locally in the configured directory.
+
+Every regular index root or node written by CoCreateDB is recorded in the recursive Distribution Index as a partition path and the IDs of nodes holding it. The mapping is stored locally under `distribution/partitions/index/`; `distribution` data is never sent to external storage. When an index partition is first acquired, the new holder is added. When a regular index partition changes or is removed, the update is sent only to its recorded holders. Unchanged holder mappings do not generate availability updates. Index partition files retain their normal `first`, `last`, `length`, and entry metadata.
 
 If recursive traversal needs an index file that is missing locally, CoCreateDB checks the partition holder map and requests that exact file from a holder over the targeted Cluster mesh. The received file is validated, written locally, and the node is registered as another holder. An advertised partition that no holder can provide produces an error rather than an empty query result. A configured file-level storage fallback is not implemented yet.
 
 The existing database/array/object availability map remains in place for the current exact-ID metadata and document acquisition path. It is transitional: the agreed direction is to use the regular index trail and index-partition locations to resolve data, rather than make a separate object-location map the query architecture. Acquired documents are still materialized through CRUD/indexing before response projection. Initial partition-map snapshot transfer to a clean node, external storage fallback, and chunked terminal-array value transfer remain open implementation work.
 
-CoCreateDB does not currently upload filesystem files to external storage. No shared file-level adapter contract exists in the current CoCreate CRUD provider drivers. If one is introduced, the proposed minimum is individual-file `read`, `write`, and `delete` operations addressed by validated database/array/entity IDs and a logical file kind; CoCreateDB must never pass a `distributed/` path to that adapter. Distributed Index files remain local Cluster metadata.
+CoCreateDB does not currently upload filesystem files to external storage. No shared file-level adapter contract exists in the current CoCreate CRUD provider drivers. If one is introduced, the proposed minimum is individual-file `read`, `write`, and `delete` operations addressed by validated database/array/entity IDs and a logical file kind; CoCreateDB must never pass a `distribution/` path to that adapter. Distribution Index files remain local Cluster metadata.
 
 ## Index API
 
@@ -122,7 +164,7 @@ The logical index address is `database + array + key`. In `createDB`, logical na
 - The new ID-addressed layout does not automatically migrate data written under the previous `<database>/<array>` directory layout.
 - Filesystem storage is a local prototype. Object payloads and indexes share the configured root; there is no cloud/storage-provider fetch path yet.
 - Query matching and updates share `@cocreate/utils`; utility semantics and limitations are inherited. Equality and range queries can use field indexes, while other query conditions may scan candidate objects. Mixed-type range planning scans each indexed type branch to preserve native JavaScript comparison behavior. Index updates are maintained after shared update operators run, but multi-object updates are not transactional.
-- Index-holder nodes receive full object create/update/delete mutations and the current database/array metadata after the corresponding index partition updates. This is event-driven replication for known holders; user subscription lifecycle and inactive-node pruning are still future steps.
+- Index-holder nodes receive full creates, changed-field update patches, and object deletions and the current database/array metadata after the corresponding index partition updates. This is event-driven replication for known holders; user subscription lifecycle and inactive-node pruning are still future steps.
 - Object requests target one database and one array; array operations target one database. Multi-target object fan-out is not implemented.
 - Index partition acquisition is targeted by the local partition-holder map. A clean-node holder-map snapshot, restart reconstruction, external storage fallback, and chunked terminal-array value acquisition are not implemented yet.
 - The legacy peer data path still targets exact `_id` reads using entity availability references. It is transitional; replacing it with complete index-trail resolution for documents and storage remains future work. Document mutation delivery has no durable acknowledgement/retry or reconnect recovery, and concurrent cross-node writes have no version conflict handling.
@@ -157,7 +199,18 @@ AGPL-3.0. See [LICENSE](LICENSE).
 
 AND clauses are ordered by estimated work before scanning. An empty candidate set stops subsequent scans; expensive residual predicates, including OR groups, can instead be checked against a small candidate set. Metadata is reused within the query. Length estimates are heuristic and do not measure distinct values. Scalar numeric/string ranges use index bounds where comparison semantics permit; other types retain native JavaScript comparisons. `_id` is automatically indexed, including its length and boundaries, and supports `$gt`, `$gte`, `$lt`, and `$lte` ObjectId-string ranges. Results still hydrate before sorting and pagination.
 
-## On-demand memory cache
+## Primary-owned runtime and on-demand memory cache
+
+Server workers register a lightweight driver with only `send()`. Every database,
+array, and object CRUD request uses the existing awaitable `db.send` IPC envelope
+to reach the primary. Only the primary creates the engine and on-demand cache.
+Memory transactions and index reconciliation use the primary queue. Object writes
+respond after applying their memory revision; pending documents supplement index
+candidates so queries remain correct before indexing completes. After successful
+indexing, completed changes are dispatched to holders through Mesh and local
+workers through `db.indexed`, before sequential disk persistence. The worker CRUD
+layer uses the existing response flow; the internal execution request is not a
+broadcast mutation.
 
 `createDB({ directory, memoryCache: true })` starts with an empty cache for a previously unopened directory. It does not enumerate or preload stored JSON files. Objects, catalogs, index nodes, and array chunks enter the cache as operations read or write them. Reads return independent copies, successful writes refresh cached values, and deletes invalidate them. Existing instances in the same process share cached files for the same directory. `memoryCache: false` leaves this shared cache disabled for a directory that has not already been enabled.
 
@@ -172,3 +225,120 @@ There is currently no automatic memory budget, eviction, or idle timeout. A prop
 DB forwards `$set` intact to Utils so literal operator strings and array-position replacement keep their intended meaning. Top-level/global update operators receive the same path and `_id` validation as operators inside `object`. Invalid record updates are evaluated on a detached copy and are not persisted.
 
 Native JavaScript comparisons can make ordinary objects participate in string/object range predicates, although ordinary objects have no terminal value-index branch. Those predicates conservatively verify documents rather than treating scalar branches as complete. `_id` bounds and scalar numeric bounds retain index pruning. Strict type-only comparisons or a versioned presence/type index could improve this case later; this pass preserves query semantics.
+
+## Write-behind persistence
+
+Server integration defaults to `writeBehind: true`; pass `writeBehind: false` to
+`initializeServerDB` for the previous write-through response boundary. Standalone
+`createDB()` remains write-through by default.
+
+Documents are acknowledged in memory before indexing and disk/storage completion.
+An address/revision queue coalesces repeated writes and persists paths sequentially,
+without retaining serialized transaction payloads. Indexing must succeed and its
+change messages must be dispatched before persistence starts. An update arriving
+during a write remains pending after the older acknowledgment. Dirty paths stay
+pinned through cooldown and required acknowledgments; persisted values remain
+cached without automatic eviction. `persistenceOptions.debounceMs` defaults to
+25 ms per path, reset by each write. `maxWaitMs` defaults to 1000 ms to bound
+continuous resets once indexing is ready. Index reconciliation and propagation
+are not debounced. Explicit `flush()` bypasses the persistence cooldown.
+
+`db.persistenceStats()` exposes pending persistence paths, pending index entries,
+and the latest errors. `await db.flush()` drains indexing and eligible writes;
+`await db.close()` drains and unregisters the adapter. Close the DB before removing
+its directory. The primary registers a graceful shutdown handler. Drain while
+quiescent for a complete shutdown boundary.
+
+Configure `db.persistence` to customize write-behind persistence after local
+indexing. Without this configuration, CoCreateDB writes to the local directory.
+Set `db.persistence.workflow` (or `COCREATE_DB_PERSISTENCE_WORKFLOW`) to require
+external persistence acknowledgment after each local disk operation. The older
+`storageWorkflow` option and `COCREATE_DB_STORAGE_WORKFLOW` variable remain aliases.
+The workflow calls
+`server.workflow.run({ method: 'workflow.<name>', organization_id, host,
+storage: [{ path, operation, revision, options, value }] }, { internal: true })`.
+Paths are relative to the DB root; `value` is the snapshot for that flushed
+revision, including document/index/chunk JSON. `operation` is `set` or `remove`.
+The workflow must return `success: true` without errors. Missing/unavailable
+configured storage retains pending work for retry; no configured workflow means
+disk acknowledgment is sufficient. Workflow implementation is intentionally
+left to the separately configured workflow process.
+
+Retries are process-local and not a durable journal. Success now acknowledges
+volatile memory, not crash-safe persistence; Mesh send is not durable replication.
+A failed index revision conservatively gates the root's persistence because
+catalogs and nodes are shared. Multi-file crash recovery and cross-server conflict
+resolution remain outside this prototype.
+
+### Deleted object lifetimes
+
+Deletion retains a small `deleted/<objectId>.json` marker alongside `objects/`,
+recording the deleted object's `created.on`. Ordinary ID-based updates fail while
+the marker exists; stale peer materialization and replicated copies cannot
+resurrect that lifetime. An explicit create or missing-object `upsert: true`
+starts a new `created.on`, clears the marker, and preserves the reused ID.
+Late deletes/replicated writes from older lifetimes cannot overwrite the new one.
+`created.on` is immutable on ordinary updates. Requests that carry the old creation
+date fail after recreation; an ID-only update cannot express which lifetime its
+caller intended. Creation dates are not a general cross-server revision clock.
+Markers follow the same persistence acknowledgments and have no automatic purge.
+
+## Changed-field update results
+
+`object.update` responses and subscribed-node/worker update messages contain `_id`
+plus resolved `$set` / `$unset` changes, rather than the complete document:
+
+```js
+{ _id: '...', $set: { 'profile.city': 'Paris' }, $unset: { oldName: true } }
+```
+
+Unchanged values are omitted, including unchanged nested siblings. Values are the
+final results, so `$inc`/array operations are not replayed by receivers. An empty
+`$set` represents a no-op acknowledgment. Original top-level request operators do
+not remain on a successful update response. Routing references remain metadata.
+
+The full merged document remains in primary memory for queries, indexing, and
+sequential disk/storage persistence. Reads and creates (including an upsert that
+creates a new object) still return complete records. Receiving nodes merge update
+patches into their local document; a node without that base acquires a complete
+snapshot from the publisher. Initial snapshots remain distinct from update patches.
+Deferred indexing coalesces changed paths, retaining a change even when it reverts
+before propagation. Unset uses its existing removal semantics. Changed arrays are
+sent as whole-field replacements; per-element concurrent merging is not added.
+
+Shared Utils `createUpdate` retains its full-document mutation/return contract for
+storage callers. `createUpdateChanges` extracts a JSON-safe final-value patch and
+`mergeUpdateChanges` composes pending patches. Client handlers merge changes and
+leave untouched form fields alone. This avoids unrelated-field overwrites in
+responses/propagation; it does not infer intent from a stale full-document request
+or add distributed ordering/transaction guarantees.
+
+## Organization and logical storage scope
+
+Public `createDB().send()` requires `organization_id`, `storage`, and `database`.
+It does not choose defaults or providers. Organization IDs are 24-character
+hexadecimal IDs and form the first directory beneath the DB root. Storage names
+resolve through the organization's recursive storage catalog to stable IDs;
+renaming storage updates its name reference and metadata without moving data.
+`storage.create/read/update/delete` operate on this logical namespace. Existing
+storage IDs are preserved across replicas. Each request addresses one namespace.
+
+CRUD imports the DB service directly. It supplies absent storage/database values
+from a matching hostname, then defaults them to `production` / `app`. Explicit
+request values take precedence. CRUD never defaults or rewrites `array`; DB
+validates it for object CRUD. Namespace `storage` is unrelated to providers.
+`GetDriver` remains available as legacy tooling but is not used in CRUD dispatch.
+
+`db.forScope({ organization_id, storage })` exposes a namespace's independent
+engine for index inspection. The public index facade also accepts scope first:
+`db.index.get(scope, database, array, key)` and `db.index.scan(scope, ...)`.
+Distribution entity tuples include organization/storage IDs; regular partition
+paths include the entire namespace prefix. Internal Mesh messages carry that
+identity inside `scope`, preserving control-event rather than client routing.
+Storage metadata changes propagate separately from object mutations.
+
+One root persistence queue and memory cache serve all namespaces. The existing
+memory acknowledgment, changed-field propagation, cooldown, retry, and sequential
+persistence behavior remains. Persistence providers/endpoints are not redesigned.
+The former root-level `databases/` layout is not read or migrated by the new API.
+Existing workspace data is left untouched for the user to reset/rebuild.

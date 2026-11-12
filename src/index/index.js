@@ -29,10 +29,10 @@
  * locking, crash recovery, snapshots, or cross-process cache invalidation.
  * Index values: finite numbers, strings, booleans, explicit nulls, and terminal arrays.
  */
-import { link, mkdir, readFile, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, unlink } from '../io.js'
+import { replaceJSON } from '../storage.js'
 import { createHash } from 'node:crypto'
 import { isAbsolute, join, relative, resolve } from 'node:path'
-import { randomUUID } from 'node:crypto'
 import { uuid } from '@cocreate/utils'
 import { readMemoryJSON, writeMemoryJSON, removeMemoryPath } from '../memory.js'
 
@@ -128,13 +128,10 @@ export function createIndex({
         try {
             for (let index = 0; index < chunks.length; index++) {
                 const file = join(directory, `${String(index).padStart(8, '0')}.json`)
-                const temp = `${file}.${randomUUID()}.tmp`
                 const envelope = JSON.stringify({ index, total: chunks.length, chunk: chunks[index] })
                 if (Buffer.byteLength(envelope) > maxBytes)
                     throw new Error('Cannot fit array value chunk under maximum index size')
-                await writeFile(temp, envelope)
-                await rename(temp, file)
-                writeMemoryJSON(file, JSON.parse(envelope))
+                await replaceJSON(file, JSON.parse(envelope))
             }
             const existing = new Set(chunks.map((_, index) => `${String(index).padStart(8, '0')}.json`))
             for (const file of await readdir(directory))
@@ -214,14 +211,7 @@ export function createIndex({
     }
 
     const writeJSON = async (file, value, { acquired = false, notify = true } = {}) => {
-        await mkdir(join(file, '..'), { recursive: true })
-
-        const temp = `${file}.${randomUUID()}.tmp`
-
-        await writeFile(temp, JSON.stringify(value))
-        await rename(temp, file)
-
-        writeMemoryJSON(file, value)
+        await replaceJSON(file, value)
         cache?.set(file, clone(value))
         if (notify && onPartitionChange) {
             await onPartitionChange({
@@ -286,7 +276,7 @@ export function createIndex({
         const parts = path.split('/')
         if (parts.some(part => !part || part === '.' || part === '..')) return false
         const indexAt = parts.lastIndexOf('index')
-        if (indexAt < 0 || indexAt === parts.length - 1 || parts.includes('values') || parts.includes('distributed')) return false
+        if (indexAt < 0 || indexAt === parts.length - 1 || parts.includes('values') || parts.includes('distribution')) return false
         const file = parts.at(-1)
         return file === 'index.json' || /^[a-f0-9]{32}\.json$/i.test(file)
     }

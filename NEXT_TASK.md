@@ -7,8 +7,8 @@
 ## Current state
 
 - Filesystem-backed database, array, and object CRUD use the recursive index engine.
-- CoCreate Cluster registers `server.DB` through the existing CoCreate CRUD provider driver registry as `cocreate-db`.
-- The recursive Distributed Index tracks regular index partition paths and their holder node IDs; partition files can be acquired from peers during traversal and mutations are targeted to current holders.
+- CoCreateDB initializes on the Cluster server instance as `server.db`; CRUD uses that instance after organization and host routing.
+- The recursive Distribution Index tracks regular index partition paths and their holder node IDs; partition files can be acquired from peers during traversal and mutations are targeted to current holders.
 - Object create/update/delete sends complete unprojected documents and current database/array metadata to the union of nodes holding the object's old/new index partitions. Receivers apply partition and document events in order.
 - A legacy database/array/object availability map still supports exact `_id` metadata/document acquisition during the transition to index-trail data resolution.
 - Arrays are terminal index values stored in bounded chunks. Ordinary object paths remain recursively indexed; arrays do not create positional or nested-member index paths.
@@ -23,7 +23,7 @@
 
 2. **External file storage fallback**
    - Define and implement individual index/document file reads and writes for configured storage adapters.
-   - Resolve locally first, then from a peer holder, then from external storage; never persist `distributed/` metadata.
+   - Resolve locally first, then from a peer holder, then from external storage; never persist `distribution/` metadata.
    - Make configured storage the durable source of truth: complete its write before reporting a mutation committed or propagating the change to peers.
    - Define missing/corrupt file behavior, acknowledgements, retry/replay, and last-write-wins conflict metadata.
 

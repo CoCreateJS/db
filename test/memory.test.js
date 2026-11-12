@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { createDB } from '../src/index.js'
+import { createDB } from '../src/object/index.js'
 import { memoryStats, readMemoryJSON, removeMemoryPath, writeMemoryJSON } from '../src/memory.js'
 import { replaceJSON } from '../src/storage.js'
 

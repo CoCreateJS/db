@@ -3,7 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { createIndex, createDB } from '../src/index.js';
+import { createIndex } from '../src/index.js'
+import { createDB } from '../src/object/index.js';
 import { enableMemoryCache, removeMemoryPath } from '../src/memory.js';
 
 const fixture = async run => {
@@ -58,7 +59,9 @@ test('document propagation retains holders from unchanged fields and old partiti
     const updated = await db.send({ ...scope, method: 'object.update', object: { _id: created.object[0]._id, left: 3 } });
     assert.equal(updated.success, true, updated.error);
     for (const holder of original) assert.ok(published[1].targets.includes(holder));
-    assert.equal(published[1].object.right, 2);
+    assert.equal(published[1].operation, 'update');
+    assert.equal(published[1].object.$set.left, 3);
+    assert.equal('right' in published[1].object.$set, false);
 }));
 
 test('a successful update response waits for pending index work and exposes the new query value', async () => fixture(async directory => {

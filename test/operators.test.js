@@ -3,8 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { queryData } from '@cocreate/utils'
-import { createDB } from '../src/index.js'
+import { createUpdate, queryData } from '@cocreate/utils'
+import { createDB } from '../src/object/index.js'
 import { flattenIndexValues } from '../src/storage.js'
 import { removeMemoryPath } from '../src/memory.js'
 
@@ -59,21 +59,23 @@ const queryCases = [
     ['id range', { _id: { $gt: id(3), $lte: id(8) } }]
 ]
 
-for (const memoryCache of [false, true]) {
-    test(`DB query operator parity with memoryCache=${memoryCache}`, async t => {
+for (const { memoryCache, writeBehind = false } of [{ memoryCache: false }, { memoryCache: true }, { memoryCache: true, writeBehind: true }]) {
+    test(`DB query operator parity with memoryCache=${memoryCache}, writeBehind=${writeBehind}`, async t => {
         await fixture(async directory => {
-            const db = createDB({ directory, memoryCache, maxIndexBytes: 1024 })
-            const created = await db.send({ method: 'object.create', database: 'selectors', array: 'queries', object: documents })
-            assert.equal(created.success, true, created.error)
-            for (const [name, query] of queryCases) {
-                await t.test(name, async () => {
-                    const expected = documents.filter(document => queryData(document, query)).map(document => document._id).sort()
-                    const result = await db.send({ method: 'object.read', database: 'selectors', array: 'queries', filter: { query } })
-                    assert.equal(result.success, true, result.error)
-                    assert.deepEqual(result.object.map(document => document._id).sort(), expected)
-                    assert.equal(result.filter.storages[0].count, expected.length)
-                })
-            }
+            const db = createDB({ directory, memoryCache, writeBehind, scheduleIndexing: () => {}, maxIndexBytes: 1024 })
+            try {
+                const created = await db.send({ method: 'object.create', database: 'selectors', array: 'queries', object: documents })
+                assert.equal(created.success, true, created.error)
+                for (const [name, query] of queryCases) {
+                    await t.test(name, async () => {
+                        const expected = documents.filter(document => queryData(document, query)).map(document => document._id).sort()
+                        const result = await db.send({ method: 'object.read', database: 'selectors', array: 'queries', filter: { query } })
+                        assert.equal(result.success, true, result.error)
+                        assert.deepEqual(result.object.map(document => document._id).sort(), expected)
+                        assert.equal(result.filter.storages[0].count, expected.length)
+                    })
+                }
+            } finally { await db.close() }
         })
     })
 }
@@ -99,51 +101,55 @@ const updateCases = [
     ['global increment', {}, { score: 3, tags: [1, 2], old: 'before' }, { $inc: { score: 2 } }]
 ]
 
-for (const memoryCache of [false, true]) {
-    test(`DB update values, indexes, and persistence with memoryCache=${memoryCache}`, async t => {
+for (const { memoryCache, writeBehind = false } of [{ memoryCache: false }, { memoryCache: true }, { memoryCache: true, writeBehind: true }]) {
+    test(`DB update values, indexes, and persistence with memoryCache=${memoryCache}, writeBehind=${writeBehind}`, async t => {
         await fixture(async directory => {
-            let db = createDB({ directory, memoryCache })
-            const initial = { score: 1, tags: [1, 2], old: 'before' }
-            for (const [name, mutation, expected, globals = {}] of updateCases) {
-                await t.test(name, async () => {
-                    const created = await db.send({ method: 'object.create', database: 'selectors', array: 'updates', object: initial })
-                    assert.equal(created.success, true, created.error)
-                    const objectId = created.object[0]._id
-                    const updated = await db.send({ method: 'object.update', database: 'selectors', array: 'updates', object: { _id: objectId, ...mutation }, ...globals })
-                    assert.equal(updated.success, true, updated.error)
-                    assert.deepEqual(body(updated.object[0]), expected)
-                    const before = flattenIndexValues(initial)
-                    const after = flattenIndexValues(expected)
-                    const keys = new Set([...before, ...after].map(([key]) => key))
-                    for (const key of keys) {
-                        const actual = []
-                        for await (const entry of db.index.scan('selectors', 'updates', key)) actual.push([entry.value, entry.objectId])
-                        assert.deepEqual(actual, after.filter(([path]) => path === key).map(([, value]) => [value, objectId]), key)
-                    }
-                    removeMemoryPath(directory)
-                    db = createDB({ directory, memoryCache })
+            let db = createDB({ directory, memoryCache, writeBehind, scheduleIndexing: () => {} })
+            try {
+                const initial = { score: 1, tags: [1, 2], old: 'before' }
+                for (const [name, mutation, expected, globals = {}] of updateCases) {
+                    await t.test(name, async () => {
+                        const created = await db.send({ method: 'object.create', database: 'selectors', array: 'updates', object: initial })
+                        assert.equal(created.success, true, created.error)
+                        const objectId = created.object[0]._id
+                        const updated = await db.send({ method: 'object.update', database: 'selectors', array: 'updates', object: { _id: objectId, ...mutation }, ...globals })
+                        assert.equal(updated.success, true, updated.error)
+                        assert.deepEqual(body(createUpdate(structuredClone(initial), { _id: updated.object[0]._id, $set: updated.object[0].$set, $unset: updated.object[0].$unset ?? {} })), expected)
+                        await db.flush()
+                        const before = flattenIndexValues(initial)
+                        const after = flattenIndexValues(expected)
+                        const keys = new Set([...before, ...after].map(([key]) => key))
+                        for (const key of keys) {
+                            const actual = []
+                            for await (const entry of db.index.scan('selectors', 'updates', key)) actual.push([entry.value, entry.objectId])
+                            assert.deepEqual(actual, after.filter(([path]) => path === key).map(([, value]) => [value, objectId]), key)
+                        }
+                        await db.close()
+                        removeMemoryPath(directory)
+                        db = createDB({ directory, memoryCache, writeBehind, scheduleIndexing: () => {} })
+                        const read = await db.send({ method: 'object.read', database: 'selectors', array: 'updates', object: { _id: objectId } })
+                        assert.equal(read.success, true, read.error)
+                        assert.deepEqual(body(read.object[0]), expected)
+                        const deleted = await db.send({ method: 'object.delete', database: 'selectors', array: 'updates', object: { _id: objectId } })
+                        assert.equal(deleted.success, true, deleted.error)
+                    })
+                }
+                const made = await db.send({ method: 'object.create', database: 'selectors', array: 'updates', object: initial })
+                const objectId = made.object[0]._id
+                for (const request of [
+                    { object: { _id: objectId, $inc: { score: 'bad' } } },
+                    { object: { _id: objectId, $unknown: { score: 2 } } },
+                    { object: { _id: objectId }, $set: { _id: id(200) } },
+                    { object: { _id: objectId }, $set: { '__proto__.polluted': true } },
+                    { object: { _id: objectId }, $rename: { old: '_id' } }
+                ]) {
+                    const result = await db.send({ method: 'object.update', database: 'selectors', array: 'updates', ...request })
+                    assert.equal(result.success, false)
                     const read = await db.send({ method: 'object.read', database: 'selectors', array: 'updates', object: { _id: objectId } })
-                    assert.equal(read.success, true, read.error)
-                    assert.deepEqual(body(read.object[0]), expected)
-                    const deleted = await db.send({ method: 'object.delete', database: 'selectors', array: 'updates', object: { _id: objectId } })
-                    assert.equal(deleted.success, true, deleted.error)
-                })
-            }
-            const made = await db.send({ method: 'object.create', database: 'selectors', array: 'updates', object: initial })
-            const objectId = made.object[0]._id
-            for (const request of [
-                { object: { _id: objectId, $inc: { score: 'bad' } } },
-                { object: { _id: objectId, $unknown: { score: 2 } } },
-                { object: { _id: objectId }, $set: { _id: id(200) } },
-                { object: { _id: objectId }, $set: { '__proto__.polluted': true } },
-                { object: { _id: objectId }, $rename: { old: '_id' } }
-            ]) {
-                const result = await db.send({ method: 'object.update', database: 'selectors', array: 'updates', ...request })
-                assert.equal(result.success, false)
-                const read = await db.send({ method: 'object.read', database: 'selectors', array: 'updates', object: { _id: objectId } })
-                assert.deepEqual(body(read.object[0]), initial)
-                assert.equal({}.polluted, undefined)
-            }
+                    assert.deepEqual(body(read.object[0]), initial)
+                    assert.equal({}.polluted, undefined)
+                }
+            } finally { await db.close() }
         })
     })
 }

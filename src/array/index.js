@@ -1,7 +1,7 @@
-import { mkdir, rm } from 'node:fs/promises'
+import { mkdir, rm } from '../io.js'
 import { ObjectId } from '@cocreate/utils'
 import { removeMemoryPath } from '../memory.js'
-import { ARRAY_CATALOG, arrayDirectory, arrayMetadataPath, auditMetadata, databaseMetadataPath, readJSON, removeDirectoryPreservingDistributed } from '../storage.js'
+import { ARRAY_CATALOG, arrayDirectory, arrayMetadataPath, auditMetadata, databaseMetadataPath, readJSON, removeDirectoryPreservingDistribution } from '../storage.js'
 import { createRecord, deleteRecord, findRecordByName, readRecords, updateRecord } from '../records.js'
 import { adjustDatabaseLengths, ensureDatabase } from '../database/index.js'
 import { applyReadFilter } from '../read.js'
@@ -258,7 +258,7 @@ export async function sendArray(root, index, method, request) {
             }, request)
             try {
                 await deleteRecord(index, database._id, ARRAY_CATALOG, arrayFile(root, database._id, current._id), current)
-                await removeDirectoryPreservingDistributed(root, arrayDirectory(root, database._id, current._id))
+                await removeDirectoryPreservingDistribution(root, arrayDirectory(root, database._id, current._id))
             } catch (error) {
                 await mkdir(arrayDirectory(root, database._id, current._id), { recursive: true }).catch(() => {})
                 await createRecord(index, database._id, ARRAY_CATALOG, arrayFile(root, database._id, current._id), current).catch(() => {})

@@ -1,10 +1,10 @@
-import { mkdir, rm } from 'node:fs/promises'
+import { mkdir, rm } from '../io.js'
 import { ObjectId } from '@cocreate/utils'
 import { removeMemoryPath } from '../memory.js'
 import {
     DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, ARRAY_CATALOG,
     arrayMetadataPath, auditMetadata, databaseDirectory, databaseMetadataPath, readJSON,
-    removeDirectoryPreservingDistributed
+    removeDirectoryPreservingDistribution
 } from '../storage.js'
 import { createRecord, deleteRecord, findRecordByName, readRecords, updateRecord } from '../records.js'
 import { applyReadFilter } from '../read.js'
@@ -246,7 +246,7 @@ export async function sendDatabase(root, index, method, request) {
             const result = await databaseRecord(root, index, current)
             await deleteRecord(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, databaseFile(root, current._id), current)
             try {
-                await removeDirectoryPreservingDistributed(root, databaseDirectory(root, current._id))
+                await removeDirectoryPreservingDistribution(root, databaseDirectory(root, current._id))
             } catch (error) {
                 await createRecord(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, databaseFile(root, current._id), current).catch(() => {})
                 throw error

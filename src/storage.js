@@ -1,4 +1,6 @@
-import { link, mkdir, readFile, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises'
+import { link, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, unlink } from './io.js'
+import { persistenceFor } from './persistence.js'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -40,6 +42,9 @@ export function databaseMetadataPath(root, databaseId) {
 
 export function arrayMetadataPath(root, databaseId, arrayId) {
     return join(arrayDirectory(root, databaseId, arrayId), 'array.json')
+}
+export function objectDeletionPath(root, databaseId, arrayId, objectId) {
+    return join(arrayDirectory(root, databaseId, arrayId), 'deleted', `${objectId}.json`)
 }
 export const typeOf = value => value === null ? 'null' :
     typeof value === 'boolean' ? 'boolean' :
@@ -126,6 +131,16 @@ export function uniqueIndexEntries(object) {
 }
 
 export async function writeExclusiveJSON(file, value) {
+    const store = persistenceFor(file)
+    if (store) {
+        if (await readMemoryJSON(file) !== undefined) {
+            const error = new Error(`Object already exists: ${file}`)
+            error.code = 'EEXIST'
+            throw error
+        }
+        store.stageJSON(file, value)
+        return
+    }
     await mkdir(join(file, '..'), { recursive: true })
 
     const temporary = `${file}.${randomUUID()}.tmp`
@@ -142,6 +157,8 @@ export async function writeExclusiveJSON(file, value) {
 }
 
 export async function replaceJSON(file, value) {
+    const store = persistenceFor(file)
+    if (store) { store.stageJSON(file, value); return }
     await mkdir(join(file, '..'), { recursive: true })
 
     const temporary = `${file}.${randomUUID()}.tmp`
@@ -156,8 +173,17 @@ export async function replaceJSON(file, value) {
     }
 }
 
-/** Remove local data while retaining every nested Distributed Index directory. */
-export async function removeDirectoryPreservingDistributed(root, directory) {
+/** Remove local data while retaining every nested Distribution Index directory. */
+export async function removeDirectoryPreservingDistribution(root, directory) {
+    if (persistenceFor(directory)) {
+        for (const entry of await readdir(directory, { withFileTypes: true })) {
+            if (entry.name === 'distribution' && entry.isDirectory()) continue
+            const path = join(directory, entry.name)
+            if (entry.isDirectory()) await removeDirectoryPreservingDistribution(root, path)
+            else await rm(path, { force: true })
+        }
+        return
+    }
     const preserved = []
 
     const collect = async current => {
@@ -172,8 +198,8 @@ export async function removeDirectoryPreservingDistributed(root, directory) {
         for (const entry of entries) {
             if (!entry.isDirectory()) continue
             const path = join(current, entry.name)
-            if (entry.name === 'distributed') {
-                const temporary = join(root, `.distributed-preserve-${randomUUID()}`)
+            if (entry.name === 'distribution') {
+                const temporary = join(root, `.distribution-preserve-${randomUUID()}`)
                 await rename(path, temporary)
                 preserved.push({ path, temporary })
             } else await collect(path)

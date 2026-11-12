@@ -133,7 +133,7 @@ Never interpret `{ first: {}, last: {} }` as valid runtime boundaries; these pla
 
 ## Implementation status and priorities
 
-**Current implementation:** the repository has a filesystem-backed index and `createDB({ directory })` with recursive database/array name catalogs, stable IDs, and database/array/object CRUD. A recursive Distributed Index maps regular index partition paths to holder node IDs. Partition files are acquired on demand over targeted Cluster requests; updated index-node JSON is sent only to current holders, while holder changes are propagated through Cluster. `@cocreate/cluster` registers `server.DB` through CoCreate CRUD's provider registry (`cocreate-db`) and routes worker CRUD reads and writes through the primary. A legacy database/array/object availability index remains for exact-ID metadata/document acquisition. Arrays are terminal index values stored as bounded chunks; object properties still use dot-notation paths. **Do not mistake this for production-ready replication:** initial partition-map snapshot/bootstrap, local holder reconstruction, chunked array-value transfer, external file storage fallback, document synchronization, multi-file transactions, cross-server write coordination, and crash recovery remain unimplemented. Partition event retry/replay follows the Cluster delivery contract.
+**Current implementation:** the repository has a filesystem-backed index and `createDB({ directory })` with recursive database/array name catalogs, stable IDs, and database/array/object CRUD. A recursive Distribution Index maps regular index partition paths to holder node IDs. Partition files are acquired on demand over targeted Cluster requests; updated index-node JSON is sent only to current holders, while holder changes are propagated through Cluster. CoCreateDB initializes from the Cluster server object as `server.db`, owns directory configuration, and routes worker CRUD reads and writes through the primary. CRUD uses the DB service after organization/host routing. A legacy database/array/object availability index remains for exact-ID metadata/document acquisition. Arrays are terminal index values stored as bounded chunks; object properties still use dot-notation paths. **Do not mistake this for production-ready replication:** initial partition-map snapshot/bootstrap, local holder reconstruction, chunked array-value transfer, external persistence fallback, document synchronization, multi-file transactions, cross-server write coordination, and crash recovery remain unimplemented. Partition event retry/replay follows the Cluster delivery contract.
 
 **Next priorities:** (1) bootstrap a clean node's partition map from the first initialized Mesh node and rebuild local holders after restart; (2) add external storage fallback for regular index/document files; (3) transfer bounded terminal-array value chunks; (4) replace legacy entity-location lookup with index-trail resolution; (5) decide whether optional message signing adds useful defense in depth; (6) harden partial-failure behavior and benchmark memory, I/O, and write amplification.
 
@@ -153,7 +153,7 @@ Never interpret `{ first: {}, last: {} }` as valid runtime boundaries; these pla
 5. Make incremental changes with executable tests; report what was tested and what remains unsupported.
 
 
-### Write-path tuning and worker read consistency
+### Write-path tuning and primary-only engine
 
 Index reads retain one detached caller copy; the optional index cache holds its
 own copy. Bulk partition lookup shares read-only catalog/node snapshots within a
@@ -161,9 +161,74 @@ single pass and starts fresh after mutations. Standalone operations with no
 mutation publisher skip holder discovery; distributed operations retain all old
 and new holders, including subscribers to unchanged fields.
 
-Worker CRUD reads use the same primary-owned database/cache as worker writes and
+Workers instantiate only an IPC `send()` driver, without an engine/cache or peer
+listeners. Worker CRUD reads use the same primary-owned database/cache as writes and
 wait behind the primary request queue. This prevents independently cached worker
 catalogs/documents from hiding completed primary writes. It adds one IPC request
 for a worker CRUD read; cross-server replication remains a separate contract.
-Success still waits for the document and index update cycle. No background
-indexing acknowledgment mode or multi-file crash-atomic transaction was added.
+Server-integrated object CRUD acknowledges the applied memory revision before
+background indexing and persistence. Queries supplement index candidates with
+pending documents and verify their current values. Index reconciliation, holder
+propagation, and sequential write-behind persistence have separate progress.
+Standalone `createDB()` retains write-through behavior unless `writeBehind` is
+explicitly enabled. No multi-file crash-atomic transaction was added.
+
+### Staged primary writes — implemented
+
+The primary defaults to `writeBehind: true`. Object create/update/delete publishes
+the document state to memory, then schedules index reconciliation by stable
+object path. Queue entries coalesce revisions; the previously indexed record is
+retained for removing old entries. Pending documents supplement every object
+query, including filtered updates and deletes. An in-memory index checkpoint
+restores partial node changes if reconciliation fails; retries retain the pending
+document. Catalog metadata stays immediately indexed in memory.
+
+After successful indexing, holder-targeted index/document Mesh messages and a
+`db.indexed` IPC notification to workers are dispatched before disk persistence.
+Disk writes/removals share one sequential address/revision queue, resolving the
+latest immutable memory value at flush time. New updates during I/O remain dirty.
+Dirty paths are pinned against cache clearing. Retain clean payloads as cache;
+there is no automatic LRU limit yet. Optional required storage acknowledgment is
+configured by `storageWorkflow` / `COCREATE_DB_STORAGE_WORKFLOW`, invoked through
+`server.workflow.run(..., { internal: true })`. No workflow is seeded here.
+
+`db.flush()` drains indexing and currently eligible persistence; `db.close()` also
+unregisters the write-behind adapter. Primary shutdown registers a close handler.
+Automatic indexing/persistence retries are in memory, not a durable journal.
+An acknowledged memory write can be lost on a crash before persistence; Mesh
+send does not establish durable replica acknowledgment. A failed index revision
+conservatively gates persistence for the root because catalogs/nodes are shared.
+
+Persistence cooldown defaults to 25 ms per path, bounded by a 1000 ms maximum wait
+once indexing is eligible; configure both through `persistenceOptions`. Flush and
+shutdown drain bypass cooldown. Do not debounce index processing or propagation.
+Deletion lifetime markers persist under `deleted/<objectId>.json`. Keep them until
+an explicit recreation/upsert establishes a fresh creation date; ordinary updates
+cannot change `created.on`. ID-only updates cannot identify an old lifetime after
+intentional ID reuse; timestamps do not replace distributed version coordination.
+
+Object update replies and propagation use `_id` plus final-value `$set`/`$unset`
+patches. Keep the full document internally for queries/indexing/persistence.
+Use shared `createUpdateChanges` / `mergeUpdateChanges`; do not replay original
+increment/array operators in resolved notifications. Coalescing must preserve a
+field that changes and reverts. Create/read and new-lifetime upserts remain full
+snapshots. Update receivers merge; missing-base nodes use existing peer fetch.
+Keep existing Utils `createUpdate` storage contracts and unset semantics intact.
+
+### Required public namespace hierarchy
+
+The public createDB service requires explicit organization_id (24 hex), storage,
+and database. Defaults belong only to CRUD: hostname defaults fill missing values,
+then production/app. Array is forwarded untouched. CRUD uses `server.db` after
+organization/host routing; do not resolve the persistence directory or construct
+a DB in CRUD, and do not call GetDriver for this dispatch.
+
+Store data under <root>/<organization_id>/storages/<stable-storage-id>/databases/...
+with a recursive storage-name catalog at <organization_id>/storages/index.
+Storage rename changes references/metadata, never descendant directories. Keep
+provider selection and persistence endpoint design separate for a later task.
+The relative object/index engine is internal and remains independently testable.
+Distribution tuples require organization/storage IDs and partition paths require
+the full prefix. Put organization identity inside scope on DB Mesh control events.
+Use a shared root persistence queue across namespaces. Existing datasets are left
+for the user's reset and bootstrap; do not infer or perform a legacy migration.

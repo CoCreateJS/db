@@ -1,4 +1,4 @@
-import { rm } from 'node:fs/promises'
+import { rm } from './io.js'
 import { flattenIndexValues, readJSON, replaceJSON, uniqueIndexEntries, writeExclusiveJSON } from './storage.js'
 import { removeMemoryPath } from './memory.js'
 import { queryData } from '@cocreate/utils'
@@ -26,8 +26,18 @@ export async function createRecord(index, database, array, file, record) {
 }
 
 export async function updateRecord(index, database, array, file, current, updated) {
-    const before = uniqueIndexEntries(current)
-    const after = uniqueIndexEntries(updated)
+    await reconcileRecordIndexes(index, database, array, current, updated)
+    try { await replaceJSON(file, updated); return updated }
+    catch (error) {
+        await reconcileRecordIndexes(index, database, array, updated, current).catch(() => {})
+        throw error
+    }
+}
+
+export async function reconcileRecordIndexes(index, database, array, current, updated) {
+    const objectId = updated?._id ?? current?._id
+    const before = uniqueIndexEntries(current ?? {})
+    const after = uniqueIndexEntries(updated ?? {})
     const afterKeys = new Set(after.map(entry => JSON.stringify(entry)))
     const beforeKeys = new Set(before.map(entry => JSON.stringify(entry)))
     const removed = before.filter(entry => !afterKeys.has(JSON.stringify(entry)))
@@ -37,22 +47,20 @@ export async function updateRecord(index, database, array, file, current, update
 
     try {
         for (const [key, value] of removed) {
-            if (await index.remove(database, array, key, value, current._id))
+            if (await index.remove(database, array, key, value, objectId))
                 completedRemovals.push([key, value])
         }
 
         for (const [key, value] of added) {
-            await index.set(database, array, key, value, current._id)
+            await index.set(database, array, key, value, objectId)
             completedAdditions.push([key, value])
         }
 
-        await replaceJSON(file, updated)
-        return updated
     } catch (error) {
         for (const [key, value] of completedAdditions.reverse())
-            await index.remove(database, array, key, value, current._id).catch(() => {})
+            await index.remove(database, array, key, value, objectId).catch(() => {})
         for (const [key, value] of completedRemovals)
-            await index.set(database, array, key, value, current._id).catch(() => {})
+            await index.set(database, array, key, value, objectId).catch(() => {})
         throw error
     }
 }

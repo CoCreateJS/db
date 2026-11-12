@@ -243,13 +243,13 @@ When the last local subscriber leaves, remove its local object and index copies.
 
 Any future opt-in retention, continued subscription, or bulk warming policy belongs in configurable object/array metadata and should be considered only after the core index and storage behavior is stable. Bulk transfer details (including packaging a whole array) are also future adapter behavior, not a reason to distinguish object types in the core cache policy. Updates should reach interested nodes after the authoritative write succeeds; delivery guarantees and recovery from missed events remain part of the later consistency design.
 
-### Distributed index partitions — implemented prototype
+### Distribution index partitions — implemented prototype
 
-The Distributed Index now tracks **regular index files and their holders**. Its recursive tree is stored locally under `<root>/distributed/partitions/index/`; each entry maps a regular index partition path (including the database/array/index hierarchy) to one or more Cluster node IDs. It contains no document payload and is never persisted to external storage. Regular index partition JSON retains its normal boundary metadata (`first`, `last`, and `length`) and sorted entries.
+The Distribution Index now tracks **regular index files and their holders**. Its recursive tree is stored locally under `<root>/distribution/partitions/index/`; each entry maps a regular index partition path (including the database/array/index hierarchy) to one or more Cluster node IDs. It contains no document payload and is never persisted to external storage. Regular index partition JSON retains its normal boundary metadata (`first`, `last`, and `length`) and sorted entries.
 
 The filesystem `createIndex` writer reports index root/node writes and removals to `createDB`. A local write adds the current node as a holder. A peer acquisition writes the complete bounded partition locally and registers the acquiring node. A changed partition is sent to the nodes already holding it; availability changes are sent to the Cluster so each node can maintain the holder map. Duplicate adds/removes are idempotent. Partition requests are targeted, correlated, and time-bounded. Missing local roots/children can be fetched while normal index traversal proceeds; an advertised partition that no holder can return raises an error rather than appearing as an empty index. Worker operations and holder updates route through the primary.
 
-The older database/array/object entity-availability map remains for compatibility with exact-ID metadata/document acquisition. It is not the intended query-location model; the agreed direction is to traverse the regular index and its partition-holder references, then resolve the resulting data locally or through configured storage. `server.DB` remains registered through the existing CoCreate CRUD provider as `cocreate-db`.
+The older database/array/object entity-availability map remains for compatibility with exact-ID metadata/document acquisition. It is not the intended query-location model; the agreed direction is to traverse the regular index and its partition-holder references, then resolve the resulting data locally or through configured persistence. CoCreateDB initializes on the Cluster server instance as `server.db`; CRUD consumes that instance for routed requests.
 
 Current limits: a clean node does not yet request and import a full initial partition-holder snapshot; no file-level external storage adapter is wired for index fallback or durable writes; and chunked terminal-array value files are not yet acquired as index partitions. Regular object create/update/delete now sends the full unprojected document and current database/array metadata to the union of nodes holding its old or new index partitions. Receivers serialize partition and document events so the index updates are applied before the document mutation. This is best-effort Cluster propagation: there is no durable outbox, acknowledgement/retry protocol, transaction across files, or version conflict resolution yet. When an external storage adapter is added, durable storage writes must become the persistence boundary before a mutation is considered committed; cluster propagation will remain separate from the source-of-truth write. The Cluster whitelist/connection path remains the trust boundary; optional message signing remains only a defense-in-depth TODO.
 
@@ -311,9 +311,9 @@ A practical first milestone can deliberately be **single-process/single-writer**
 
 ## 11. Initial prototype status
 
-The repository contains a filesystem-backed ESM index plus a `createDB({ directory })` factory exposing `send()` for database, array, and object CRUD. Database/array name catalogs resolve to stable IDs; object payloads and field indexes live beneath those IDs. The recursive Distributed Index maps regular index partition paths to holder nodes. The Cluster adapter acquires missing partitions over targeted requests and sends changed partition contents to current holders; the older entity availability map remains for exact-ID metadata/document acquisition. Create indexes `_id` and supported field values independently; equality queries intersect candidates and range queries scan indexed type branches using shared JavaScript relational semantics. Indexes support number, string, boolean, null, and terminal array branches. Ordinary objects flatten to dot paths; full array values are stored in bounded chunk files so array positions and nested members do not create independent index entries. Array object lengths are indexed in their parent database catalog and checked against `_id` roots; catalog `catalogLength` tracks mappings, and node lengths track subtree entries. An in-memory Map cache is opt-in.
+The repository contains a filesystem-backed ESM index plus a `createDB({ directory })` factory exposing `send()` for database, array, and object CRUD. Database/array name catalogs resolve to stable IDs; object payloads and field indexes live beneath those IDs. The recursive Distribution Index maps regular index partition paths to holder nodes. The Cluster adapter acquires missing partitions over targeted requests and sends changed partition contents to current holders; the older entity availability map remains for exact-ID metadata/document acquisition. Create indexes `_id` and supported field values independently; equality queries intersect candidates and range queries scan indexed type branches using shared JavaScript relational semantics. Indexes support number, string, boolean, null, and terminal array branches. Ordinary objects flatten to dot paths; full array values are stored in bounded chunk files so array positions and nested members do not create independent index entries. Array object lengths are indexed in their parent database catalog and checked against `_id` roots; catalog `catalogLength` tracks mappings, and node lengths track subtree entries. An in-memory Map cache is opt-in.
 
-The Node tests cover independent index operations, database/array CRUD and stable catalog IDs, object create/read/update/delete, automatic field indexes, equality/range/logical queries, terminal array membership and element matching, bounded array value chunks, reopening persisted nodes, field-index splits/removal, catalog root splits and recursive growth, legacy catalog migration, shared query/update utility semantics, object lengths, empty-root pruning, alphabet/case/type queries, validation, Distributed Index partition and holder operations, partition acquisition and targeted updates to existing holders, duplicate object IDs across scopes, preservation of peer references during deletion, cold catalog resolution, complete peer fetch and local materialization, request correlation/timeouts, document mutation propagation to partition holders, and the primary/worker event adapter. **These tests do not establish multi-file transaction safety, crash recovery, real multi-process durability, missed-event recovery, initial partition snapshot synchronization, external storage fallback, terminal-array chunk transfer, or user subscription lifecycle.**
+The Node tests cover independent index operations, database/array CRUD and stable catalog IDs, object create/read/update/delete, automatic field indexes, equality/range/logical queries, terminal array membership and element matching, bounded array value chunks, reopening persisted nodes, field-index splits/removal, catalog root splits and recursive growth, legacy catalog migration, shared query/update utility semantics, object lengths, empty-root pruning, alphabet/case/type queries, validation, Distribution Index partition and holder operations, partition acquisition and targeted updates to existing holders, duplicate object IDs across scopes, preservation of peer references during deletion, cold catalog resolution, complete peer fetch and local materialization, request correlation/timeouts, document mutation propagation to partition holders, and the primary/worker event adapter. **These tests do not establish multi-file transaction safety, crash recovery, real multi-process durability, missed-event recovery, initial partition snapshot synchronization, external storage fallback, terminal-array chunk transfer, or user subscription lifecycle.**
 
 ## 12. Implementation roadmap
 
@@ -387,7 +387,7 @@ Planning memoizes metadata within one query. Branch lengths are work estimates, 
 
 ### On-demand process memory cache — implemented
 
-The server no longer preloads all persisted JSON. Enabling `memoryCache` registers the storage root without filesystem I/O. `readMemoryJSON()` parses a missing entry on demand and retains it; both the initial caller and subsequent callers receive independent copies. Successful object/index/chunk writes update the shared memory value, and deletions remove matching cached paths. `db.ready` resolves without loading files. Cache contents are shared by directory across instances within one process, while primary and worker processes each have their own memory.
+The server no longer preloads all persisted JSON. Enabling `memoryCache` registers the storage root without filesystem I/O. `readMemoryJSON()` parses a missing entry on demand and retains it; both the initial caller and subsequent callers receive independent copies. Successful object/index/chunk writes update the shared memory value, and deletions remove matching cached paths. `db.ready` resolves without loading files. Cache contents are shared by directory across instances within one process, and the server-integrated engine and cache exist only in the primary process.
 
 `memoryStats().serializedBytes` is a serialized-size estimate, not a heap measurement. There is no automatic eviction or hard limit yet. A process-wide estimated-byte budget with LRU eviction is proposed; an optional idle timeout can supplement it. Eviction must not delete persisted files. This process-local read-through cache does not implement subscription tracking, dormant-copy refresh, snapshot isolation, or independent multi-process writer coherence. The decided demand/subscription lifecycle above remains the longer-term design.
 
@@ -406,19 +406,161 @@ enabled, the retained cache copy and returned caller copy remain independent.
 `Index.locatePartitions` uses per-pass read-only node/catalog snapshots and returns
 unique partition paths; it does not retain those snapshots across mutations.
 Object mutation holder discovery uses this lookup and is omitted when no document
-mutation publisher is configured. Distributed publishing still includes holders
+mutation publisher is configured. Distribution publishing still includes holders
 of unchanged fields and both old and new partitions.
 
 Normal worker CRUD reads and writes are forwarded to the primary. Worker requests
 are serialized there so a read following a completed write uses the primary's
 current catalog and document cache. This avoids relying on per-process cache
-invalidation; direct standalone writers and unrelated raw worker index/cache APIs
-are not made coherent by this routing change. The cost is one IPC round trip per
-worker CRUD read and possible queuing behind writes.
+invalidation; direct standalone writers remain outside this coordination contract.
+Workers expose only the IPC driver and instantiate no engine or payload cache.
+Reads, writes, and incoming document/index/availability changes share one queue.
+The cost is one IPC round trip per worker CRUD and possible queuing behind writes.
 
-The response boundary is unchanged: document and index writes finish before
-success. These optimizations do not defer indexes, batch away existing persistence
-boundaries, add fsync/WAL, or provide crash-atomic multi-file commits. Regression
-tests cover separate worker-process stale caches, fresh query results after an
-index-blocked update, split-catalog partition lookup, retained holders, and detached
+The standalone write-through response boundary still waits for document and index
+writes. The server now defaults to the staged primary write-behind model below;
+its acknowledgment means that the document revision is applied in memory.
+Neither mode adds fsync/WAL or crash-atomic multi-file commits. Regression
+tests cover worker processes without local engines, concurrent queued updates,
+fresh query results after an index-blocked update, split-catalog partition lookup, retained holders, and detached
 cache values.
+
+### Staged primary acknowledgments — implemented
+
+The primary applies document create/update/delete in memory and responds through
+existing CRUD/IPC. Shared Utils `createUpdate` remains the update engine. Catalog
+metadata is immediately indexed in memory. Payload indexing runs afterward on
+the same primary operation queue. While payload indexes lag, queries union their
+index candidates with pending object IDs, load the current memory record, omit
+pending deletions, and verify the complete query before filtering/pagination.
+Thus filtered reads, updates, and deletes do not depend on stale indexes alone.
+
+A pending index entry identifies database/array/object, retains the previously
+indexed record, and tracks a monotonically increasing per-process document
+revision. Repeated updates coalesce to the latest memory value. Reconciliation
+uses a memory checkpoint for changed document/index/holder files; a failure
+restores partial index changes and retains the pending document for retry. Only
+changed paths are journaled temporarily, not the whole cache. This checkpoint is
+not a durable journal. Completed holder-targeted index/document changes dispatch
+through Mesh, and `db.indexed` goes through existing IPC to local workers. Local
+workers retain no independent DB engine. Disk writes do not gate these messages.
+
+All JSON writes, chunk writes, and removals use a root-scoped write-behind adapter.
+Its sequential queue stores addresses, operations, and revisions, resolving the
+current cached JSON only when flushing. An immutable revision snapshot feeds
+local serialization and the optional external storage hook. New revisions arriving
+during I/O stay dirty; pending paths cannot be evicted. Cached persisted values
+remain available until explicit clearing; LRU/byte limits are not implemented.
+Persistence has a configurable per-path trailing cooldown (25 ms by default),
+with a maximum wait of 1000 ms once indexing is ready. Repeated changes reset the
+cooldown within that bound. Indexing/propagation remain immediate, and explicit
+flush bypasses cooldown. Dirty entries remain pinned through all required acks.
+
+A configured storage workflow is required acknowledgment, not optional fallback
+when temporarily offline. Without a configured workflow, disk completion is
+sufficient. The configurable workflow hook has no seeded implementation here.
+`flush` drains indexing then persistence; `close` drains and unregisters the
+adapter, and the server registers it for graceful shutdown. Draining requires
+quiescence to establish a final boundary. Automatic retries remain process-local.
+A failed index entry conservatively gates persistence across its root because
+catalog/index files are shared. A process crash can lose acknowledged revisions;
+Mesh dispatch alone does not establish durable replica storage or multi-node
+commit. Crash recovery, durable retry journals, and cross-server conflicts remain
+open. Standalone DB callers retain write-through behavior by default.
+
+Deletion records a `deleted/<objectId>.json` lifetime marker containing the old
+`created.on`; it is retained and persisted independently of the removed payload.
+The marker rejects normal updates to missing/deleted IDs and stale peer copies.
+Explicit recreation/upsert creates a new, locally monotonic creation timestamp,
+clears the marker, and indexes the new lifetime. Replicated stale sets/deletes
+are checked against the marker/current lifetime before application. Ordinary
+updates cannot alter `created.on`. ID-only requests cannot distinguish old and
+new lifetimes after intentional ID reuse; callers must include the creation date
+for that check. Creation timestamps are not a complete distributed version clock.
+Marker retention/purge and cross-server causal ordering remain open policies.
+
+### Changed-field responses and propagation — implemented
+
+Object updates still apply shared `createUpdate` to a detached full document.
+After audit metadata is applied, shared `createUpdateChanges` compares before/after
+values, recursively emits changed object paths through `$set`, and emits removals
+through `$unset`. Arrays are atomic values for this patch format. Unchanged keys
+are omitted. Replies retain `_id` and routing references, but original request
+operators are removed from the response envelope. A no-op reply carries empty
+`$set`; it schedules no document/index persistence.
+
+The full merged record remains authoritative in memory and persistence. Deferred
+index entries compose outgoing changes with `mergeUpdateChanges`, preserving
+changed-and-reverted fields rather than recomputing only a net index diff. Create
+and recreated-lifetime snapshots still publish `set`; existing-lifetime patches
+publish `update`, carrying the creation date as separate incarnation metadata.
+The `db.indexed` worker notification likewise uses the patch for updates.
+
+Subscribed nodes apply patches to their current local record and retain unrelated
+fields. When missing a base, they request the full record from the publishing
+node through existing peer acquisition, avoiding replay of an older patch over a
+newer acquired snapshot. Document storage and optional provider workflows continue
+to receive full records. Client cache sync isolates its local snapshots from the
+shared socket payload and avoids creating incomplete cache records from patches.
+Elements update only touched inputs and merge rendered records before filtering.
+
+The Utils default `createUpdate` contract remains unchanged. Field deletion keeps
+existing `$unset` semantics. Patch merging does not add causal clocks, solve
+concurrent edits within one array, or infer changed fields from a stale request's
+unknown baseline. Independent cross-server index partition conflicts remain outside
+this change.
+
+### Organization-owned logical storage hierarchy — implemented
+
+The public DB service now requires `organization_id`, logical `storage`, and
+`database` in every request. CRUD imports DB directly (using the server's primary
+engine/worker proxy when provided), resolves hostname defaults, then fills absent
+storage/database as `production` / `app`. CRUD leaves array unchanged, including
+absence, and performs no provider selection. Its organization registry queries
+use explicit production/app scope and `host: null` to prevent host-default
+recursion without array-specific routing. The configured organization can
+bootstrap via local CRUD before any organization/key records exist.
+
+The root path is `<root>/<organization_id>/storages/<storage_id>/databases/...`.
+`storages/index` is a recursive name catalog. Storage records and their automatic
+name/ID indexes use the existing record/index primitives. Database and array name
+catalogs retain their previous relative layout inside the storage ID directory.
+Storage rename changes the reference and metadata, preserving all descendants.
+Storage metadata and deletion markers propagate through DB control events.
+
+The scoped service lazily creates one independent engine per resolved namespace,
+sharing the root JSON cache and a single write-behind persistence queue. The
+existing object engine remains an internal independently testable primitive;
+its relative database/array layout is unchanged. Root sends serialize namespace
+creation to avoid duplicate IDs from simultaneous first writes on one node.
+Global cross-server creation/name conflicts still need distributed coordination;
+conflicting stable IDs fail instead of silently aliasing separate namespaces.
+
+Entity references and peer fetches carry organization/storage IDs. Index partition
+addresses include the full prefix. Mesh carries tenant identity in a nested scope
+because a top-level organization_id selects client-message routing. The existing
+IPC wrapper likewise continues to carry CRUD requests inside data. Root index
+helpers require explicit scope; regular lower-level indexes remain independent.
+
+Old root-level datasets are not implicitly assigned to an organization or moved.
+The user will delete/rebuild them and seed bootstrap data through `coc crud`.
+No storage-provider migration or endpoint redesign is part of this pass.
+
+### DB-owned recipient distribution — implemented propagation
+
+DB derives recipient references from stable entity addresses, registers originating
+worker IDs in `Workers.distribution`, and emits `db.distribution.set` to register
+client IDs in `Socket.distribution`. Controls carry tenant identity inside `data`
+and never go to socket clients. Registration completes before replying to CRUD.
+Both maps use `Map<reference, Set<recipientId>>`; normal CRUD use adds recipients,
+including use of an existing distribution. Exact document identity is preserved;
+list reads also register array scope to include future documents. List delivery
+is conservative rather than a server-side per-query membership service.
+
+The existing primary IPC router uses these references to select workers, and
+Socket uses them to select clients while retaining authorization and requester
+replies. Applied peer document changes are delivered through the same references.
+No browser registration is required. Elements' subscription handler and Socket's
+legacy subscription APIs have been removed; CRUD uses DB-owned distribution.
+This phase implements propagation only: new-map removal, stale recipient cleanup,
+and reconstruction after restart remain undecided and unimplemented.

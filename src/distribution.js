@@ -1,20 +1,20 @@
 import { join } from 'node:path'
 import createIndex from './index/index.js'
 
-const DATABASES = '__distributed_databases__'
-const ARRAYS = '__distributed_arrays__'
+const DATABASES = '__distribution_databases__'
+const ARRAYS = '__distribution_arrays__'
 const KEY = '_id'
 
 /**
  * Create local Cluster availability indexes for entities and regular index partitions.
  * Each mapping stores the available entity or partition path and its holder node ID.
  */
-export function createDistributedIndex({ directory, maxBytes, cache = false } = {}) {
+export function createDistributionIndex({ directory, maxBytes, cache = false } = {}) {
     const index = createIndex({
         directory,
         maxBytes,
         cache,
-        indexDirectoryName: 'distributed',
+        indexDirectoryName: 'distribution',
         resolveArrayDirectory: ({ directory, database, array }) => {
             if (database === DATABASES && array === DATABASES)
                 return join(directory, 'databases')
@@ -28,7 +28,7 @@ export function createDistributedIndex({ directory, maxBytes, cache = false } = 
         directory,
         maxBytes,
         cache,
-        resolveArrayDirectory: ({ directory }) => join(directory, 'distributed', 'partitions')
+        resolveArrayDirectory: ({ directory }) => join(directory, 'distribution', 'partitions')
     })
 
     let queue = Promise.resolve()
@@ -167,4 +167,21 @@ export function createDistributedIndex({ directory, maxBytes, cache = false } = 
     }
 }
 
-export default createDistributedIndex
+export default createDistributionIndex
+
+/** References use the same stable entity addresses as DB's node distribution. */
+export function distributionReferences({ organization_id, storageId, databaseId, arrayId, objectIds = [], type = 'object' }, includeArray = false) {
+    const valid = value => typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value)
+    if (!valid(organization_id) || !valid(storageId)) return []
+    const storage = `${organization_id}/storages/${storageId}`
+    if (type === 'storage') return [`${storage}/storage.json`]
+    if (!valid(databaseId)) return []
+    const database = `${storage}/databases/${databaseId}`
+    if (type === 'database') return [`${database}/database.json`]
+    if (!valid(arrayId)) return [`${database}/arrays/index/index.json`]
+    const array = `${database}/arrays/${arrayId}`
+    if (type === 'array') return [`${array}/array.json`, `${database}/arrays/index/index.json`]
+    const references = objectIds.filter(valid).map(id => `${array}/objects/${id}.json`)
+    if (includeArray || !objectIds.length) references.push(`${array}/array.json`)
+    return [...new Set(references)]
+}

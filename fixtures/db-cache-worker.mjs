@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { createDB, initializeServerDB } from '../src/index.js';
+import { initializeServerDB } from '../src/index.js';
 
 const directory = process.env.COCREATE_TEST_DB_DIRECTORY;
 const pending = new Map();
@@ -11,7 +11,6 @@ server.send = payload => new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject });
     process.send({ type: 'request-primary', id, payload });
 });
-const local = createDB({ directory, memoryCache: true });
 const db = initializeServerDB(server, { directory, memoryCache: true });
 process.on('message', async message => {
     if (message.type === 'primary-response') {
@@ -23,10 +22,10 @@ process.on('message', async message => {
     }
     if (message.type !== 'command') return;
     try {
-        const result = await (message.local ? local : db).send(message.payload);
+        const result = await db.send(message.payload);
         process.send({ type: 'command-response', id: message.id, result });
     } catch (error) {
         process.send({ type: 'command-response', id: message.id, error: error.message });
     }
 });
-process.send({ type: 'ready' });
+process.send({ type: 'ready', driverKeys: Object.keys(db), listeners: server.eventNames(), meshListeners: server.cluster.eventNames() });

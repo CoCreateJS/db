@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { createUpdate, queryData } from '@cocreate/utils'
-import { createDB, createDistributedIndex, createIndex } from '../src/index.js'
+import { createDistributionIndex, createIndex } from '../src/index.js'
+import { createDB } from '../src/object/index.js'
 import { queryIndexCandidates } from '../src/query.js'
 
 const withIndex = async (run, options = {}) => {
@@ -474,15 +475,15 @@ test('object.update applies shared update operators and keeps all affected index
             object: { _id: current._id, ...update }
         })
         assert.equal(result.success, true, result.error)
-        assert.equal(result.object[0].score, expected.score)
-        assert.equal(result.object[0].label, expected.label)
-        assert.deepEqual(result.object[0].tags, expected.tags)
-        assert.deepEqual(result.object[0].items, expected.items)
-        assert.deepEqual(result.object[0].profile, expected.profile)
+        assert.equal(result.object[0].$set.score, expected.score)
+        assert.equal(result.object[0].$set.label, expected.label)
+        assert.deepEqual(result.object[0].$set.tags, expected.tags)
+        assert.deepEqual(result.object[0].$set.items, expected.items)
+        assert.equal(result.object[0].$set['profile.name'], expected.profile.name)
         assert.equal(result.object[0].name, undefined)
         assert.equal(result.object[0].removeMe, undefined)
         assert.equal(result.object[0].removeArray, undefined)
-        assert.equal(result.object[0].category, expected.category)
+        assert.equal(result.object[0].$set.category, expected.category)
 
         assert.deepEqual((await db.send({
             method: 'object.read', database: 'shared-utils', array: 'items',
@@ -503,7 +504,7 @@ test('object.update applies shared update operators and keeps all affected index
             $inc: { score: 1 }
         })
         assert.equal(globalUpdate.success, true, globalUpdate.error)
-        assert.equal(globalUpdate.object[0].score, 4)
+        assert.equal(globalUpdate.object[0].$set.score, 4)
         assert.deepEqual((await db.send({
             method: 'object.read', database: 'shared-utils', array: 'items',
             filter: { query: { score: 4 } }
@@ -683,8 +684,8 @@ test('object.update changes indexed fields and unsets nested fields without chan
             object: { _id: ada._id, age: 32, 'profile.city': 'Cusco', $unset: { nickname: 1, temporary: 1 } }
         })
         assert.equal(updated.success, true, updated.error)
-        assert.equal(updated.object[0].age, 32)
-        assert.deepEqual(updated.object[0].profile, { city: 'Cusco' })
+        assert.equal(updated.object[0].$set.age, 32)
+        assert.equal(updated.object[0].$set['profile.city'], 'Cusco')
         assert.equal('nickname' in updated.object[0], false)
 
         const { root: catalog, keys } = await readCatalog(directory, 'test', 'users')
@@ -728,7 +729,7 @@ test('object.update upserts a filtered record and creates its database and array
         assert.equal(second.success, true, second.error)
         assert.equal(second.object.length, 1)
         assert.equal(second.object[0]._id, first.object[0]._id)
-        assert.equal(second.object[0].src, 'updated version')
+        assert.equal(second.object[0].$set.src, 'updated version')
 
         const read = await db.send({
             method: 'object.read', database: 'dev', array: 'files',
@@ -984,28 +985,28 @@ test('maintains database, array, and document availability on local CRUD transit
         db = createDB({
             directory,
             nodeId: 'server-local',
-            distributedAdapter: {
+            distributionAdapter: {
                 onLocalChange: async event => {
                     events.push(event)
-                    return db.updateDistributed(event)
+                    return db.updateDistribution(event)
                 }
             }
         })
 
         const database = await db.send({ method: 'database.create', database: 'availability' })
         assert.equal(database.success, true, database.error)
-        assert.deepEqual(await db.getDistributed({ database: 'availability' }), ['server-local'])
+        assert.deepEqual(await db.getDistribution({ database: 'availability' }), ['server-local'])
 
         const array = await db.send({ method: 'array.create', database: 'availability', array: 'items' })
         assert.equal(array.success, true, array.error)
-        assert.deepEqual(await db.getDistributed({ database: 'availability', array: 'items' }), ['server-local'])
+        assert.deepEqual(await db.getDistribution({ database: 'availability', array: 'items' }), ['server-local'])
 
         const created = await db.send({
             method: 'object.create', database: 'availability', array: 'items',
             object: { name: 'Ada' }
         })
         assert.equal(created.success, true, created.error)
-        assert.deepEqual(await db.getDistributed({
+        assert.deepEqual(await db.getDistribution({
             database: 'availability', array: 'items', objectId: created.object[0]._id
         }), ['server-local'])
 
@@ -1022,14 +1023,14 @@ test('maintains database, array, and document availability on local CRUD transit
             object: { _id: created.object[0]._id }
         })
         assert.equal(deleted.success, true, deleted.error)
-        assert.deepEqual(await db.getDistributed({
+        assert.deepEqual(await db.getDistribution({
             database: 'availability', array: 'items', objectId: created.object[0]._id
         }), [])
         assert.equal(events.at(-1).operation, 'remove')
     })
 })
 
-test('Distributed Index scopes duplicate object IDs and deduplicates node references', async () => {
+test('Distribution Index scopes duplicate object IDs and deduplicates node references', async () => {
     await withIndex(async (_index, directory) => {
         const db = createDB({ directory })
         const database = await db.send({ method: 'database.create', database: 'scope-a' })
@@ -1045,40 +1046,45 @@ test('Distributed Index scopes duplicate object IDs and deduplicates node refere
         }
         const second = { ...first, arrayId: secondArray.array[0]._id, nodeId: 'node-b' }
 
-        assert.equal((await db.updateDistributed(first)).changed, true)
-        assert.equal((await db.updateDistributed(first)).changed, false)
-        assert.equal((await db.updateDistributed({ ...first, nodeId: 'node-c' })).changed, true)
-        assert.equal((await db.updateDistributed(second)).changed, true)
-        assert.deepEqual(await db.getDistributed(first), ['node-a', 'node-c'])
-        assert.deepEqual(await db.getDistributed(second), ['node-b'])
-        assert.deepEqual(await db.updateDistributed({ ...first, operation: 'remove', nodeId: 'node-a' }), {
+        assert.equal((await db.updateDistribution(first)).changed, true)
+        assert.equal((await db.updateDistribution(first)).changed, false)
+        assert.equal((await db.updateDistribution({ ...first, nodeId: 'node-c' })).changed, true)
+        assert.equal((await db.updateDistribution(second)).changed, true)
+        assert.deepEqual(await db.getDistribution(first), ['node-a', 'node-c'])
+        assert.deepEqual(await db.getDistribution(second), ['node-b'])
+        assert.deepEqual(await db.updateDistribution({ ...first, operation: 'remove', nodeId: 'node-a' }), {
             changed: true,
             nodeIds: ['node-c']
         })
     })
 })
 
-test('Distributed Index tracks holders of individual bounded index partitions', async () => {
+test('Distribution Index tracks holders of individual bounded index partitions', async () => {
     await withIndex(async (_, directory) => {
-        const distributed = createDistributedIndex({ directory, maxBytes: 1024 })
+        const distribution = createDistributionIndex({ directory, maxBytes: 1024 })
         const partitionId = 'databases/db-id/arrays/array-id/index/age-root.json'
 
-        assert.deepEqual(await distributed.getPartition(partitionId), [])
-        assert.deepEqual(await distributed.updatePartition({
+        assert.deepEqual(await distribution.getPartition(partitionId), [])
+        assert.deepEqual(await distribution.updatePartition({
             partitionId, nodeId: 'node-a', operation: 'add'
         }), { changed: true, nodeIds: ['node-a'] })
-        assert.deepEqual(await distributed.updatePartition({
+        assert.deepEqual(await distribution.updatePartition({
             partitionId, nodeId: 'node-b', operation: 'add'
         }), { changed: true, nodeIds: ['node-a', 'node-b'] })
-        assert.deepEqual(await distributed.updatePartition({
+        assert.deepEqual(await distribution.updatePartition({
             partitionId, nodeId: 'node-a', operation: 'add'
         }), { changed: false, nodeIds: ['node-a', 'node-b'] })
-        assert.deepEqual(await distributed.listPartitions(), [
+        assert.deepEqual(await distribution.listPartitions(), [
             { partitionId, nodeIds: ['node-a', 'node-b'] }
         ])
-        assert.deepEqual(await distributed.updatePartition({
+        assert.deepEqual(await distribution.updatePartition({
             partitionId, nodeId: 'node-a', operation: 'remove'
         }), { changed: true, nodeIds: ['node-b'] })
+
+        const catalog = JSON.parse(await readFile(join(directory, 'distribution', 'partitions', 'index', 'index.json'), 'utf8'))
+        assert.ok(catalog.entries.length > 0)
+        const reopened = createDistributionIndex({ directory, maxBytes: 1024 })
+        assert.deepEqual(await reopened.getPartition(partitionId), ['node-b'])
     })
 })
 
@@ -1125,7 +1131,7 @@ test('object.read resolves cold database and array names, fetches full documents
                 { databaseId: database._id, arrayId: array._id },
                 { databaseId: database._id, arrayId: array._id, objectId: object._id }
             ]) {
-                await local.updateDistributed({ ...entity, nodeId: 'node-a', operation: 'add' })
+                await local.updateDistribution({ ...entity, nodeId: 'node-a', operation: 'add' })
             }
 
             const result = await local.send({
@@ -1142,7 +1148,7 @@ test('object.read resolves cold database and array names, fetches full documents
                 type: 'object', databaseId: database._id, arrayId: array._id, objectId: object._id
             })
             assert.deepEqual(cached.private, { token: 'full-value' })
-            assert.deepEqual(await local.getDistributed({
+            assert.deepEqual(await local.getDistribution({
                 databaseId: database._id, arrayId: array._id, objectId: object._id
             }), ['node-a', 'node-b'])
         })
@@ -1165,12 +1171,12 @@ test('array and database deletion preserve peer availability references', async 
             { databaseId },
             { databaseId, arrayId },
             { databaseId, arrayId, objectId }
-        ]) await db.updateDistributed({ ...entity, nodeId: 'peer-node', operation: 'add' })
+        ]) await db.updateDistribution({ ...entity, nodeId: 'peer-node', operation: 'add' })
 
         const deletedArray = await db.send({ method: 'array.delete', database: 'retained', array: 'first' })
         assert.equal(deletedArray.success, true, deletedArray.error)
-        assert.deepEqual(await db.getDistributed({ databaseId, arrayId }), ['peer-node'])
-        assert.deepEqual(await db.getDistributed({ databaseId, arrayId, objectId }), ['peer-node'])
+        assert.deepEqual(await db.getDistribution({ databaseId, arrayId }), ['peer-node'])
+        assert.deepEqual(await db.getDistribution({ databaseId, arrayId, objectId }), ['peer-node'])
 
         const createdSecondArray = await db.send({ method: 'array.create', database: 'retained', array: 'second' })
         const secondArrayId = createdSecondArray.array[0]._id
@@ -1178,33 +1184,33 @@ test('array and database deletion preserve peer availability references', async 
             method: 'object.create', database: 'retained', array: 'second', object: { value: 2 }
         })
         const secondObjectId = secondObject.object[0]._id
-        await db.updateDistributed({ databaseId, arrayId: secondArrayId, nodeId: 'peer-node', operation: 'add' })
-        await db.updateDistributed({ databaseId, arrayId: secondArrayId, objectId: secondObjectId, nodeId: 'peer-node', operation: 'add' })
+        await db.updateDistribution({ databaseId, arrayId: secondArrayId, nodeId: 'peer-node', operation: 'add' })
+        await db.updateDistribution({ databaseId, arrayId: secondArrayId, objectId: secondObjectId, nodeId: 'peer-node', operation: 'add' })
 
         const deletedDatabase = await db.send({ method: 'database.delete', database: 'retained' })
         assert.equal(deletedDatabase.success, true, deletedDatabase.error)
-        assert.deepEqual(await db.getDistributed({ databaseId }), ['peer-node'])
-        assert.deepEqual(await db.getDistributed({ databaseId, arrayId: secondArrayId }), ['peer-node'])
-        assert.deepEqual(await db.getDistributed({ databaseId, arrayId: secondArrayId, objectId: secondObjectId }), ['peer-node'])
-        assert.deepEqual(JSON.parse(await readFile(join(directory, 'databases', databaseId, 'arrays', 'distributed', 'index.json'), 'utf8')).entries.length > 0, true)
+        assert.deepEqual(await db.getDistribution({ databaseId }), ['peer-node'])
+        assert.deepEqual(await db.getDistribution({ databaseId, arrayId: secondArrayId }), ['peer-node'])
+        assert.deepEqual(await db.getDistribution({ databaseId, arrayId: secondArrayId, objectId: secondObjectId }), ['peer-node'])
+        assert.deepEqual(JSON.parse(await readFile(join(directory, 'databases', databaseId, 'arrays', 'distribution', 'index.json'), 'utf8')).entries.length > 0, true)
     })
 })
 
-test('Distributed Index reuses recursive partitions and serializes concurrent updates', async () => {
+test('Distribution Index reuses recursive partitions and serializes concurrent updates', async () => {
     await withIndex(async (_index, directory) => {
-        const distributed = createDistributedIndex({ directory, maxBytes: 1024 })
+        const distribution = createDistributionIndex({ directory, maxBytes: 1024 })
         const databaseIds = Array.from({ length: 80 }, (_, index) => String(index + 1).padStart(24, '0'))
 
-        await Promise.all(databaseIds.map(databaseId => distributed.update({
+        await Promise.all(databaseIds.map(databaseId => distribution.update({
             databaseId,
             nodeId: 'server-local',
             operation: 'add'
         })))
 
-        const references = await distributed.get({ databaseId: databaseIds[40] })
+        const references = await distribution.get({ databaseId: databaseIds[40] })
         assert.deepEqual(references, ['server-local'])
 
-        const directoryPath = join(directory, 'databases', 'distributed')
+        const directoryPath = join(directory, 'databases', 'distribution')
         const files = await readdir(directoryPath)
         const nodes = []
         for (const file of files) {

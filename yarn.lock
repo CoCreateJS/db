@@ -2,22 +2,21 @@
 # yarn lockfile v1
 
 
-"@cocreate/config@^1.19.0":
-  version "1.21.0"
-  resolved "https://registry.yarnpkg.com/@cocreate/config/-/config-1.21.0.tgz#74d71d6d2e131b20408d47f1af71968ef6c9d7bc"
-  integrity sha512-viNNe9gM8teGt9Ce22ntmSSiO8dOxYaVuPZPCN7Kn+eMcFGZ1AFCsX+P8K4s2IQVVabq1ybLV09YYyR7LqkCIQ==
+"@cocreate/config@^2.0.2":
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/@cocreate/config/-/config-2.0.2.tgz#e23a040d074a15fae8f4d979d0e4de25035a66f4"
+  integrity sha512-1umB39zuPXmP3EG35VVfy4weK2x0xZonpmEPLFQg8eGtr3GF7T9JDNiKUQqp7606zEBYQ8PhRPHLN3lvfWK2rg==
   dependencies:
-    "@cocreate/utils" "^1.52.0"
+    "@cocreate/utils" "^2.0.2"
 
-"@cocreate/crud-server@^1.42.0":
-  version "1.42.0"
-  resolved "https://registry.yarnpkg.com/@cocreate/crud-server/-/crud-server-1.42.0.tgz#72fe5e69d8c7c441d0ee99fc6a84471ff590be6b"
-  integrity sha512-sze4MxlZpe6gI2x1fwKqVeR769awisZou9+FsVkEC7VeTGNqomzZ5WUCPrfWzBVTNJp3AXwiADq2VsXSUBaQBA==
+"@cocreate/utils@^2.0.2":
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/@cocreate/utils/-/utils-2.0.3.tgz#7085a777586bef9587776a6188f3b082b3a4f66a"
+  integrity sha512-OoReHWG9AUiFf9iBBdCIFJ//AS0SPSbjFlsPyrdQ4cxYYPV1Eem58j+Rmxt0ZVRs6IuKWqvPxplu4Df5oDzH6A==
   dependencies:
-    "@cocreate/config" "^1.19.0"
-    "@cocreate/utils" "^1.52.0"
+    entities "^6.0.1"
 
-"@cocreate/utils@^1.52.0", "@cocreate/utils@^1.54.0":
-  version "1.54.0"
-  resolved "https://registry.yarnpkg.com/@cocreate/utils/-/utils-1.54.0.tgz#583c5eff005760ae5083565bac12c5ed58288327"
-  integrity sha512-57NYOf2ze/vnIGRUjd0cR39m4JOwd8AoX+Mx45V2dUFYV21wbCxb3z96i1cM31fvEG+mk98XiUXFK17arhhceg==
+entities@^6.0.1:
+  version "6.0.1"
+  resolved "https://registry.yarnpkg.com/entities/-/entities-6.0.1.tgz#c28c34a43379ca7f61d074130b2f5f7020a30694"
+  integrity sha512-aN97NXWF6AWBTahfVOIrB/NShkzi5H7F9r1s9mD3cDj4Ko5f2qhhVoYMibXF7GlLveb/D2ioWay8lxI97Ven3g==
