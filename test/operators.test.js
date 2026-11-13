@@ -109,12 +109,12 @@ for (const { memoryCache, writeBehind = false } of [{ memoryCache: false }, { me
                 const initial = { score: 1, tags: [1, 2], old: 'before' }
                 for (const [name, mutation, expected, globals = {}] of updateCases) {
                     await t.test(name, async () => {
-                        const created = await db.send({ method: 'object.create', database: 'selectors', array: 'updates', object: initial })
+                        const created = await db.send({ method: 'object.create', database: 'selectors', array: 'updates', object: structuredClone(initial) })
                         assert.equal(created.success, true, created.error)
                         const objectId = created.object[0]._id
-                        const updated = await db.send({ method: 'object.update', database: 'selectors', array: 'updates', object: { _id: objectId, ...mutation }, ...globals })
+                        const updated = await db.send({ method: 'object.update', database: 'selectors', array: 'updates', object: { _id: objectId, ...structuredClone(mutation) }, ...globals })
                         assert.equal(updated.success, true, updated.error)
-                        assert.deepEqual(body(createUpdate(structuredClone(initial), { _id: updated.object[0]._id, $set: updated.object[0].$set, $unset: updated.object[0].$unset ?? {} })), expected)
+                        assert.deepEqual(body(updated.object[0]), expected)
                         await db.flush()
                         const before = flattenIndexValues(initial)
                         const after = flattenIndexValues(expected)
@@ -134,7 +134,7 @@ for (const { memoryCache, writeBehind = false } of [{ memoryCache: false }, { me
                         assert.equal(deleted.success, true, deleted.error)
                     })
                 }
-                const made = await db.send({ method: 'object.create', database: 'selectors', array: 'updates', object: initial })
+                const made = await db.send({ method: 'object.create', database: 'selectors', array: 'updates', object: structuredClone(initial) })
                 const objectId = made.object[0]._id
                 for (const request of [
                     { object: { _id: objectId, $inc: { score: 'bad' } } },

@@ -86,9 +86,9 @@ The array field-catalog root's `length` is the number of stored objects, maintai
 
 On create, CoCreateDB creates an independent index for `_id` and each supported field path. Nested object leaves use dot notation, so `profile.city` is indexed as its own key. Array elements are indexed under their field path. No compound indexes are created automatically; a query combining fields can use the independent indexes. Custom indexes for other purposes can be considered later.
 
-The current ordered index supports finite numbers, strings, booleans, explicit `null`, and arrays in separate type branches. Ordinary objects are recursively indexed by full dot-notation leaf paths. Arrays are terminal values: their complete contents are stored as chunked JSON under the field index's `values/` directory, and one digest entry points to each array value. Array contents do not create positional or nested field index paths. The object document remains the source used to return query results.
+The current ordered index supports finite numbers, strings, booleans, explicit `null`, and arrays in separate type branches. Ordinary objects are recursively indexed by full dot-notation leaf paths. Arrays are terminal values: their complete contents are stored whole under the field index's `values/` directory, and one digest entry points to each array value. Array contents do not create positional or nested field index paths. The object document remains the source used to return query results.
 
-Array membership, `$all`, `$elemMatch`, `$size`, and other supported shared query operators inspect the complete terminal array values, then the normal query utility verifies matching documents. Queries into properties of objects inside arrays (for example, `projects.name`) remain supported by the query utility but currently scan the candidate documents because those nested paths are intentionally not indexed. Bracket paths such as `projects[0].name` use the shared notation/query behavior and do not create positional index branches. Large array values are stored in bounded JSON chunks so index nodes stay within `maxIndexBytes`; array edits replace one terminal value entry rather than maintaining an index for each position.
+Array membership, `$all`, `$elemMatch`, `$size`, and other supported shared query operators inspect the complete terminal array values, then the normal query utility verifies matching documents. Queries into properties of objects inside arrays (for example, `projects.name`) remain supported by the query utility but currently scan the candidate documents because those nested paths are intentionally not indexed. Bracket paths such as `projects[0].name` use the shared notation/query behavior and do not create positional index branches. Large array values are stored whole outside index nodes; legacy numbered chunks remain readable; array edits replace one terminal value entry rather than maintaining an index for each position.
 
 ## Worker and socket distribution
 
@@ -110,7 +110,7 @@ not permission; socket authorization still applies.
 
 CRUD responses carry `distributionKeys` for delivery matching. Reads return to
 the requester. Mutations return to the requester and registered recipients; the
-payload remains the normal CRUD value/patch. Peer document mutations use the same
+payload remains the normal resolved CRUD value. Peer document mutations use the same
 local worker/client delivery path after DB applies them. Node replication remains
 on DB's holder-targeted Mesh path instead of a second broad CRUD broadcast.
 Clients send ordinary CRUD requests and receive no distribution control events.
@@ -157,14 +157,14 @@ for await (const entry of index.scan('example-db', 'users', 'age', {
 
 The logical index address is `database + array + key`. In `createDB`, logical names resolve to stable database and array IDs before object/index access; the returned `db.index` facade continues to accept logical names. Each array ID directory contains an `index/` directory. `index.json` is the catalog tree's stable root. It stores entries while they fit; when it exceeds the configured byte limit, the entries move into 32-character hexadecimal child nodes and the root points to them. Those catalog nodes can split recursively like field-index nodes. Indexes use filesystem persistence by default without an in-memory node cache; opt into a Map cache with `createIndex({ cache: true })` or `createDB({ cache: true })`.
 
-`createIndex({ maxBytes })` and `createDB({ maxIndexBytes })` set the serialized byte limit for both catalog and field-index nodes. The default is 128 KiB; this is a tunable starting point, not a benchmark-derived optimum.
+`createIndex({ maxBytes })` and `createDB({ maxIndexBytes })` set the preferred serialized byte target for catalog and field-index nodes. The default is 128 KiB; this is a tunable starting point, not a benchmark-derived optimum.
 
 ## Current limits
 
 - The new ID-addressed layout does not automatically migrate data written under the previous `<database>/<array>` directory layout.
 - Filesystem storage is a local prototype. Object payloads and indexes share the configured root; there is no cloud/storage-provider fetch path yet.
 - Query matching and updates share `@cocreate/utils`; utility semantics and limitations are inherited. Equality and range queries can use field indexes, while other query conditions may scan candidate objects. Mixed-type range planning scans each indexed type branch to preserve native JavaScript comparison behavior. Index updates are maintained after shared update operators run, but multi-object updates are not transactional.
-- Index-holder nodes receive full creates, changed-field update patches, and object deletions and the current database/array metadata after the corresponding index partition updates. This is event-driven replication for known holders; user subscription lifecycle and inactive-node pruning are still future steps.
+- Index-holder nodes receive full creates, complete updated documents, and object deletions and the current database/array metadata after the corresponding index partition updates. This is event-driven replication for known holders; user subscription lifecycle and inactive-node pruning are still future steps.
 - Object requests target one database and one array; array operations target one database. Multi-target object fan-out is not implemented.
 - Index partition acquisition is targeted by the local partition-holder map. A clean-node holder-map snapshot, restart reconstruction, external storage fallback, and chunked terminal-array value acquisition are not implemented yet.
 - The legacy peer data path still targets exact `_id` reads using entity availability references. It is transitional; replacing it with complete index-trail resolution for documents and storage remains future work. Document mutation delivery has no durable acknowledgement/retry or reconnect recovery, and concurrent cross-node writes have no version conflict handling.
@@ -212,7 +212,7 @@ workers through `db.indexed`, before sequential disk persistence. The worker CRU
 layer uses the existing response flow; the internal execution request is not a
 broadcast mutation.
 
-`createDB({ directory, memoryCache: true })` starts with an empty cache for a previously unopened directory. It does not enumerate or preload stored JSON files. Objects, catalogs, index nodes, and array chunks enter the cache as operations read or write them. Reads return independent copies, successful writes refresh cached values, and deletes invalidate them. Existing instances in the same process share cached files for the same directory. `memoryCache: false` leaves this shared cache disabled for a directory that has not already been enabled.
+`createDB({ directory, memoryCache: true })` starts with an empty cache for a previously unopened directory. It does not enumerate or preload stored JSON files. Objects, catalogs, index nodes, and array chunks enter the cache as operations read or write them. Reads return the owned live objects; successful writes mutate the cached objects in place, and deletes invalidate their paths. Existing instances in the same process share cached files for the same directory. `memoryCache: false` leaves this shared cache disabled for a directory that has not already been enabled.
 
 The server integration enables this on-demand cache by default. `db.ready` remains available for compatibility and reports zero files preloaded. `db.memoryStats()` reports retained files and their serialized JSON size, not actual heap usage. The separate index-only `cache` option remains opt-in.
 
@@ -222,7 +222,7 @@ There is currently no automatic memory budget, eviction, or idle timeout. A prop
 
 `test/operators.test.js` checks the supported Utils query operators through DB CRUD with memory caching disabled and enabled, including recursive index splits, mixed value types, nested array paths, logical conditions, and ObjectId ranges. Query results are compared with shared `queryData` evaluation. Update cases assert independent expected records, the resulting index entries (including stale-entry removal), persisted reads after clearing memory/reopening, and rejection of invalid or immutable-ID mutations.
 
-DB forwards `$set` intact to Utils so literal operator strings and array-position replacement keep their intended meaning. Top-level/global update operators receive the same path and `_id` validation as operators inside `object`. Invalid record updates are evaluated on a detached copy and are not persisted.
+DB forwards `$set` intact to Utils so literal operator strings and array-position replacement keep their intended meaning. Top-level/global update operators receive the same path and `_id` validation as operators inside `object`. Invalid record updates are rejected before the prepared property-slot changes are attached.
 
 Native JavaScript comparisons can make ordinary objects participate in string/object range predicates, although ordinary objects have no terminal value-index branch. Those predicates conservatively verify documents rather than treating scalar branches as complete. `_id` bounds and scalar numeric bounds retain index pruning. Strict type-only comparisons or a versioned presence/type index could improve this case later; this pass preserves query semantics.
 
@@ -283,35 +283,30 @@ date fail after recreation; an ID-only update cannot express which lifetime its
 caller intended. Creation dates are not a general cross-server revision clock.
 Markers follow the same persistence acknowledgments and have no automatic purge.
 
-## Changed-field update results
+## Resolved-document update results
 
-`object.update` responses and subscribed-node/worker update messages contain `_id`
-plus resolved `$set` / `$unset` changes, rather than the complete document:
+`object.update` responses and subscribed-node/worker messages contain the complete
+updated document, including unchanged fields. MongoDB-style operators are inputs
+to local CRUD processing only. They are removed from successful response envelopes
+and are never generated as outgoing `$set`/`$unset` document patches.
 
 ```js
-{ _id: '...', $set: { 'profile.city': 'Paris' }, $unset: { oldName: true } }
+{ _id: '...', name: 'Ana', profile: { city: 'Paris' }, created: { on: '...' }, updated: { on: '...' } }
 ```
 
-Unchanged values are omitted, including unchanged nested siblings. Values are the
-final results, so `$inc`/array operations are not replayed by receivers. An empty
-`$set` represents a no-op acknowledgment. Original top-level request operators do
-not remain on a successful update response. Routing references remain metadata.
+Replies, index notifications, and queued document propagation retain the owned
+live record. Local persistence stores that full record. A no-op update returns
+the full record without scheduling document/index persistence. Deferred indexing
+coalesces work by object address and publishes the latest complete state.
 
-The full merged document remains in primary memory for queries, indexing, and
-sequential disk/storage persistence. Reads and creates (including an upsert that
-creates a new object) still return complete records. Receiving nodes merge update
-patches into their local document; a node without that base acquires a complete
-snapshot from the publisher. Initial snapshots remain distinct from update patches.
-Deferred indexing coalesces changed paths, retaining a change even when it reverts
-before propagation. Unset uses its existing removal semantics. Changed arrays are
-sent as whole-field replacements; per-element concurrent merging is not added.
+Receiving nodes install the delivered document without replaying update operators
+or fetching a base document. Replacement removes fields absent from the received
+state while retaining an existing cached record's identity. Deletion markers and
+creation-lifetime checks still reject stale lifetimes. This does not add causal
+ordering or resolve concurrent writes from independent servers.
 
-Shared Utils `createUpdate` retains its full-document mutation/return contract for
-storage callers. `createUpdateChanges` extracts a JSON-safe final-value patch and
-`mergeUpdateChanges` composes pending patches. Client handlers merge changes and
-leave untouched form fields alone. This avoids unrelated-field overwrites in
-responses/propagation; it does not infer intent from a stale full-document request
-or add distributed ordering/transaction guarantees.
+Shared Utils `createUpdate` remains the local request-processing utility. Its
+operator semantics and the external persistence hooks are unchanged.
 
 ## Organization and logical storage scope
 
@@ -342,3 +337,64 @@ memory acknowledgment, changed-field propagation, cooldown, retry, and sequentia
 persistence behavior remains. Persistence providers/endpoints are not redesigned.
 The former root-level `databases/` layout is not read or migrated by the new API.
 Existing workspace data is left untouched for the user to reset/rebuild.
+
+## Live-reference memory-only mode
+
+```js
+const db = createDB({ directory: '/logical/node-root', memoryOnly: true })
+```
+
+This mode operates on cache, indexes, and distribution without loading or writing
+DB files or invoking persistence providers. Creates adopt their input object;
+unprojected reads reuse that object, and updates mutate it in place after operand
+validation. Treat returned values as DB-owned live references. Use DB update APIs
+for indexed changes. No automatic eviction or isolated read snapshots are added.
+`flush()` completes deferred index work in this mode.
+
+Traversal and propagation retain references instead of cloning nodes/documents.
+Queued propagation retains the complete live record until serialization. Node size is a split target; a large indivisible entry is allowed.
+Persistence adapter redesign is deferred; this phase's no-clone guarantees and
+benchmarks apply to the memory-only core. See ARCHITECTURE.md for the current
+contract and the distinction from earlier detached-copy/rollback descriptions.
+
+### Replication size checks and local file sizes
+
+Index mutations do not serialize nodes to measure them. When replication encodes
+an index node, its bytes are compared with the preferred `maxIndexBytes` target
+(default 128 KiB). Oversized nodes split locally at the positional midpoint when
+possible; parent/catalog references are updated before the replacement frames are
+sent. Single entries and minimum-fanout nodes may exceed the target without an
+error. Whole documents are not split. Without replication, indexes can remain
+above target. Mesh reuses an unchanged node's prepared encoding.
+
+Local disk writes also capture complete-file UTF-8 bytes from the existing
+encoding. Each directory's private `.bytes` sidecar maps JSON filenames to their
+last-persisted lengths. Sidecars are never replicated or used to trigger splits.
+Write-behind updates are batched per persistence pass; deletion removes entries.
+Memory-only mode writes no sidecars. Existing files are not automatically scanned,
+and custom persistence writers are responsible for their own accounting. These
+measurements describe persisted file contents, excluding accounting overhead;
+they are not heap measurements or a deduplicated global database total. Telemetry
+reporting is deferred.
+
+### Legacy provider recovery is not tree persistence
+
+`db.externalPersistence: true` opts into legacy **object reads only** for recovery.
+It defaults off; `db.persistence: false` or `memoryOnly: true` also disables it.
+External create/update/delete and external workflow writes remain disabled. MongoDB
+is a temporary source of legacy records, not a persistence adapter for the tree.
+
+On a local/peer read miss, the provider receives an unprojected query without
+source-document metadata or update operators. Complete returned records
+are installed through the local object/index pipeline, then the original read is
+served locally with its projection/paging. Existing live records and deletion
+markers win over provider responses. Index reconciliation completes before the
+normal local disk queue becomes eligible; `db.flush()`/graceful close drains it.
+Memory acknowledgment is not a crash-durability guarantee before that queue drains.
+
+Local documents, namespace catalogs, indexes and their private byte sidecars
+survive restart through local filesystem persistence. Future bucket persistence
+must store that file/tree representation too; this recovery bridge does not add
+MongoDB-specific tree encoding or redefine persistence as object forwarding.
+Disable `db.externalPersistence` and restart after the required records have been
+recovered. Existing local DB directories are not moved or silently migrated.

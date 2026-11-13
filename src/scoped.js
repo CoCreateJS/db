@@ -8,6 +8,7 @@ import { memoryStats, enableMemoryCache } from './memory.js'
 import { auditMetadata, readJSON, replaceJSON, removeDirectoryPreservingDistribution } from './storage.js'
 import { createRecord, updateRecord, deleteRecord } from './records.js'
 import { applyReadFilter } from './read.js'
+import { live } from './mutation.js'
 
 const id = (value, label) => {
     if (typeof value !== 'string' || !/^[0-9a-f]{24}$/.test(value)) throw new TypeError(`${label} must be a 24-character hexadecimal ObjectId`)
@@ -31,8 +32,8 @@ export function createDB(options = {}) {
     }
     const organizations = new Map()
     const namespaces = new Map()
-    if (options.memoryCache) enableMemoryCache(root)
-    const persistence = options.writeBehind ? createPersistence({ ...options.persistenceOptions, directory: root,
+    if (options.memoryCache || options.memoryOnly) enableMemoryCache(root, { memoryOnly: options.memoryOnly })
+    const persistence = !options.memoryOnly && options.writeBehind ? createPersistence({ ...options.persistenceOptions, directory: root,
         canFlush: () => [...namespaces.values()].every(state => !state.engine.persistenceStats().pendingIndexes) }) : undefined
     const storageFile = (organization, storageId) => join(root, organization, 'storages', storageId, 'storage.json')
     const context = (organization, record) => ({ organization_id: organization, storageId: record._id, storage: record.name })
@@ -59,7 +60,7 @@ export function createDB(options = {}) {
         name(storage, 'storage')
         const { index } = organizationState(organization)
         for await (const entry of index.scan(CATALOG, STORAGES, 'name', { type: 'string', lower: storage, upper: storage })) {
-            if (entry.value === storage) return { ...await readJSON(storageFile(organization, entry.objectId)), _id: entry.objectId, name: storage }
+            if (entry.value === storage) return live(await readJSON(storageFile(organization, entry.objectId)))
         }
     }
     const createStorage = async (organization, storage, request = {}, storageId, notify = true) => {
@@ -151,6 +152,10 @@ export function createDB(options = {}) {
     const api = {
         ready: Promise.resolve({ files: 0 }),
         async forScope(scope) { return (await forScope(scope))?.engine },
+        hydrateObjects: (request, records) => serialize(async () => {
+            const state = await forScope(request, records.length > 0)
+            if (state) await state.engine.hydrateObjects(request, records)
+        }),
         memoryStats: () => memoryStats(root),
         clearDistributionCache() {
             for (const state of organizations.values()) state.holders.clearCache()
@@ -164,6 +169,8 @@ export function createDB(options = {}) {
         async close() { await api.flush(); for (const state of namespaces.values()) await state.engine.close(); await persistence?.close() },
         async send(request) {
             const response = { ...request }
+            if (request.method === 'object.update')
+                for (const key of Object.keys(response)) if (key.startsWith('$')) delete response[key]
             const release = persistence?.hold()
             try {
                 const organization = id(request.organization_id, 'organization_id')

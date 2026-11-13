@@ -155,12 +155,12 @@ Each field path has its own index; field names do not require custom or compound
 2. Use sorted `(value, objectId)` comparisons and child `last` boundaries to descend only the relevant path.
 3. Insert into the leaf at its exact sorted position (binary search is appropriate).
 4. Update leaf `length`, `first`, `last` and propagate changed child references/metadata upward.
-5. Check the **serialized byte size** of the modified node; if under limit, finish.
-6. If oversized, split that node locally and update its parent; recursively split an overflowing parent.
+5. Finish the local mutation without a byte measurement or structural split.
+6. At replication serialization, measure the already encoded node. Reuse that encoding if within target. If oversized and usefully splittable, split locally, update ancestor/catalog references, then encode and send replacement nodes. Ancestors are checked when their own replication encodings are prepared.
 
 ### Split rule
 
-**Insert first, then split the overflowing node approximately 50/50**, preferably by serialized byte weight (entry length is a reasonable first approximation). Keep the original node ID for the left portion, allocate a new ID for the right sibling, and insert the sibling reference in the parent in sorted order. Never require reading or redistributing neighboring siblings or descendants merely to split. An internal-node split moves child **references**, not child payloads. If the root splits, create a new parent root and update the key/type root mapping.
+**Split only at replication serialization**, approximately 50/50 by position. Do not measure individual entry byte weights or use entry count as the split trigger. Keep the original node ID for the left portion, allocate a new ID for the right sibling, and insert the sibling reference in the parent in sorted order. Never require reading or redistributing neighboring siblings or descendants merely to split. An internal-node split moves child **references**, not child payloads. If the root splits, create a new parent root and update the key/type root mapping.
 
 ```text
 Before: Parent -> [A: 10..80] [C: 90..120]
@@ -387,22 +387,21 @@ Planning memoizes metadata within one query. Branch lengths are work estimates, 
 
 ### On-demand process memory cache — implemented
 
-The server no longer preloads all persisted JSON. Enabling `memoryCache` registers the storage root without filesystem I/O. `readMemoryJSON()` parses a missing entry on demand and retains it; both the initial caller and subsequent callers receive independent copies. Successful object/index/chunk writes update the shared memory value, and deletions remove matching cached paths. `db.ready` resolves without loading files. Cache contents are shared by directory across instances within one process, and the server-integrated engine and cache exist only in the primary process.
+The server no longer preloads all persisted JSON. Enabling `memoryCache` registers the storage root without filesystem I/O. `readMemoryJSON()` parses a missing entry on demand and retains it; the initial caller and subsequent callers receive the same live reference. Successful object/index/chunk writes update the shared memory value, and deletions remove matching cached paths. `db.ready` resolves without loading files. Cache contents are shared by directory across instances within one process, and the server-integrated engine and cache exist only in the primary process.
 
 `memoryStats().serializedBytes` is a serialized-size estimate, not a heap measurement. There is no automatic eviction or hard limit yet. A process-wide estimated-byte budget with LRU eviction is proposed; an optional idle timeout can supplement it. Eviction must not delete persisted files. This process-local read-through cache does not implement subscription tracking, dormant-copy refresh, snapshot isolation, or independent multi-process writer coherence. The decided demand/subscription lifecycle above remains the longer-term design.
 
 ### Query and update operator validation — implemented
 
-The Utils and DB operator matrices exercise every currently listed field/logical query operator and all thirteen update operators. Dotted array traversal matches actual leaves rather than exposing a synthetic array to `$size`/`$type`/`$all`. Update `$set` is forwarded intact; rename destinations resolve from the document root; `$each` initializes a missing array. Unsupported update operators and invalid increments fail rather than silently overwriting fields. DB validates global operator paths and `_id` destinations before passing a detached record copy to the utility. Regression cases inspect values, all affected business-field index entries, and persisted reopening with memory caching on and off. These tests do not establish multi-file transaction or crash-recovery safety.
+The Utils and DB operator matrices exercise every currently listed field/logical query operator and all thirteen update operators. Dotted array traversal matches actual leaves rather than exposing a synthetic array to `$size`/`$type`/`$all`. Update `$set` is forwarded intact; rename destinations resolve from the document root; `$each` initializes a missing array. Unsupported update operators and invalid increments fail rather than silently overwriting fields. DB validates global operator paths and `_id` destinations before applying a prepared property-slot plan to the live record. Regression cases inspect values, all affected business-field index entries, and persisted reopening with memory caching on and off. These tests do not establish multi-file transaction or crash-recovery safety.
 
 Array update syntax remains CoCreate-specific: standalone `$each`, insertion with `$splice` or ordinary bracket paths, replacement with `$set`, deletion aliases `$slice`/`$delete`/`$unset`, last-element `$pop`, first-element `$shift`, and deep-equality `$addToSet`/`$pull`. MongoDB-style modifier syntax and predicate-based `$pull` remain outside this contract.
 
 
 ### Write performance and primary-owned CRUD reads — implemented
 
-The index layer reuses the detached value returned by `readMemoryJSON` rather than
-cloning it again when its optional index-only cache is disabled. With that cache
-enabled, the retained cache copy and returned caller copy remain independent.
+The index layer and both cache layers share the same node references returned by
+`readMemoryJSON`. Traversal does not clone nodes.
 `Index.locatePartitions` uses per-pass read-only node/catalog snapshots and returns
 unique partition paths; it does not retain those snapshots across mutations.
 Object mutation holder discovery uses this lookup and is omitted when no document
@@ -479,36 +478,27 @@ new lifetimes after intentional ID reuse; callers must include the creation date
 for that check. Creation timestamps are not a complete distributed version clock.
 Marker retention/purge and cross-server causal ordering remain open policies.
 
-### Changed-field responses and propagation — implemented
+### Resolved-document responses and propagation — implemented
 
-Object updates still apply shared `createUpdate` to a detached full document.
-After audit metadata is applied, shared `createUpdateChanges` compares before/after
-values, recursively emits changed object paths through `$set`, and emits removals
-through `$unset`. Arrays are atomic values for this patch format. Unchanged keys
-are omitted. Replies retain `_id` and routing references, but original request
-operators are removed from the response envelope. A no-op reply carries empty
-`$set`; it schedules no document/index persistence.
+Object updates validate shared `createUpdate` against a view of proposed property
+slots, then commit those slots to the owned live document. Replies, holder-targeted
+Mesh mutations, and `db.indexed` worker notifications carry the complete resolved
+record. Original request operators are removed from successful response envelopes;
+no outgoing `$set`/`$unset` document patch is generated. Unchanged fields remain in
+the delivered record. No-op replies return the full record without scheduling
+additional document/index persistence.
 
-The full merged record remains authoritative in memory and persistence. Deferred
-index entries compose outgoing changes with `mergeUpdateChanges`, preserving
-changed-and-reverted fields rather than recomputing only a net index diff. Create
-and recreated-lifetime snapshots still publish `set`; existing-lifetime patches
-publish `update`, carrying the creation date as separate incarnation metadata.
-The `db.indexed` worker notification likewise uses the patch for updates.
+Deferred index work coalesces by object address and publishes the latest complete
+live state. Create and recreated-lifetime records publish `set`; existing-lifetime
+records publish `update` with creation-lifetime metadata. Replicas install that
+complete state without evaluating update operators or fetching a missing base.
+Replacement removes absent fields while preserving an existing cached record's
+identity. Deletion markers and creation-lifetime checks remain enforced.
 
-Subscribed nodes apply patches to their current local record and retain unrelated
-fields. When missing a base, they request the full record from the publishing
-node through existing peer acquisition, avoiding replay of an older patch over a
-newer acquired snapshot. Document storage and optional provider workflows continue
-to receive full records. Client cache sync isolates its local snapshots from the
-shared socket payload and avoids creating incomplete cache records from patches.
-Elements update only touched inputs and merge rendered records before filtering.
-
-The Utils default `createUpdate` contract remains unchanged. Field deletion keeps
-existing `$unset` semantics. Patch merging does not add causal clocks, solve
-concurrent edits within one array, or infer changed fields from a stale request's
-unknown baseline. Independent cross-server index partition conflicts remain outside
-this change.
+The full record remains authoritative for queries, index reconciliation, and local
+persistence. Shared Utils update semantics and external persistence hooks are
+unchanged. This contract adds no cross-server causal ordering, conflict resolution,
+or multi-file transaction guarantees.
 
 ### Organization-owned logical storage hierarchy — implemented
 
@@ -564,3 +554,98 @@ No browser registration is required. Elements' subscription handler and Socket's
 legacy subscription APIs have been removed; CRUD uses DB-owned distribution.
 This phase implements propagation only: new-map removal, stale recipient cleanup,
 and reconstruction after restart remain undecided and unimplemented.
+
+### Live-reference core — current contract (supersedes detached-copy/rollback descriptions above)
+
+Checkpoint `3244ff0` preserves the implementation before this refactor. Cache,
+index traversal, CRUD values, and outgoing distribution payloads now retain live
+references. The optional index cache holds the same node as the shared cache.
+Splits splice entries into a new sibling while preserving the original node;
+catalog root promotion/collapse retains the stable root object. Indexed terminal
+arrays retain their owned values instead of decoding their chunks on every scan.
+
+Update validation runs the shared update utility against a view containing only
+proposed property slots. Existing objects/arrays are not copied or modified by
+that validation. If valid, the prepared assignments/deletions apply to the live
+record. There is no general tree rollback journal. This is validation-before-
+attachment, not a multi-file transaction. Unexpected structural/transport failures
+after application do not imply that the already-applied memory state was undone.
+
+Before-state for index maintenance consists of field names, scalar values, and
+terminal-array digests, not a previous document snapshot. Removing an obsolete
+array index uses its stored digest even when its live array has since changed.
+Update replies and queued propagation retain the full live document. Serialization
+observes its current values, including changes that reverted before dispatch.
+Payload data is not cloned for Mesh; JSON serialization
+is the process/transport boundary. Routing envelopes, projections, result lists,
+and new split siblings are new containers, not copies of database-owned datasets.
+Projection leaves retain value references and do not remove fields from the source.
+
+`memoryOnly: true` enables shared memory and disables file reads/writes, the
+write-behind persistence adapter, and server provider fallback/saves. It is the
+validation mode for this phase. No existing persistent dataset is loaded in that
+mode. Cache/index/distribution work can be flushed with `flushIndexes()`/`flush()`.
+Externally supplied objects become DB-owned live values: do not reuse a create
+input as an immutable template or mutate it outside DB APIs if index maintenance
+is required. A live reference is not an isolated historical snapshot.
+
+The default 128 KiB node size is a preferred split target. Large indivisible
+entries/boundaries and minimum-fanout nodes can exceed it. They are valid nodes;
+remote partition acceptance uses the same policy. A failed background index job
+remains pending with `indexError` and is not retried indefinitely by a timer;
+explicit flush or new work can attempt it again. No progress/retry console logging.
+
+Persistence redesign and provider snapshot semantics are out of scope for this
+phase. `src/persistence.js` is unchanged from the checkpoint; its existing external
+storage snapshot hook is not part of the no-clone, memory-only validation. Existing
+persistent-mode examples must not be taken as proof of durability/rollback under
+this new live-reference contract. IPC and real-network serialization inherently
+construct data in another process; this contract removes DB-side defensive copies.
+
+## Replication serialization and private file-byte sidecars — implemented
+
+Index node encoding is the sole structural split trigger. The 128 KiB preferred
+target applies to the encoded node, not its routing envelope. Mutations maintain
+live entries, lengths and boundaries without size calculations. Splits move
+references at the positional midpoint and update ancestors and field catalogs.
+Queued updates for the same holder/path are coalesced within propagation. New
+siblings and changed ancestors are delivered to the original holder; other holders
+receive their normal updates. Mesh accepts the prepared frame to avoid a second
+serialization. Oversized single entries and minimum-fanout internal nodes remain
+valid. Unreplicated standalone indexes can grow above the preferred target.
+
+Terminal arrays are retained whole in memory and written as `values/.../value.json`;
+legacy numbered array chunks remain readable. They are data, not index partitions.
+No byte-bound fragmentation happens during array mutations.
+
+Successful local disk writes capture bytes from their existing complete-file
+encoding. A private `.bytes` JSON sidecar per directory maps filenames to their
+last-persisted UTF-8 lengths. Write-behind persistence batches these updates per
+pass; deletion removes the corresponding filename. The sidecars are not indexed,
+replicated, included in data payloads, or consulted by splitting. They exclude
+sidecar overhead and do not account for pending memory changes, allocated blocks,
+compression, or global replica deduplication. No existing files are backfilled;
+custom disk writers own this measurement. No automatic aggregate or telemetry job
+is added. Sidecars are observational metadata, not a durable transaction journal.
+
+### Legacy provider recovery is not tree persistence
+
+`db.externalPersistence: true` opts into legacy **object reads only** for recovery.
+It defaults off; `db.persistence: false` or `memoryOnly: true` also disables it.
+External create/update/delete and external workflow writes remain disabled. MongoDB
+is a temporary source of legacy records, not a persistence adapter for the tree.
+
+On a local/peer read miss, the provider receives an unprojected query without
+source-document metadata or update operators. Complete returned records
+are installed through the local object/index pipeline, then the original read is
+served locally with its projection/paging. Existing live records and deletion
+markers win over provider responses. Index reconciliation completes before the
+normal local disk queue becomes eligible; `db.flush()`/graceful close drains it.
+Memory acknowledgment is not a crash-durability guarantee before that queue drains.
+
+Local documents, namespace catalogs, indexes and their private byte sidecars
+survive restart through local filesystem persistence. Future bucket persistence
+must store that file/tree representation too; this recovery bridge does not add
+MongoDB-specific tree encoding or redefine persistence as object forwarding.
+Disable `db.externalPersistence` and restart after the required records have been
+recovered. Existing local DB directories are not moved or silently migrated.

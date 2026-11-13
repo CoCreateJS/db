@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto'
 import { dirname, resolve, sep, relative } from 'node:path'
 import { enableMemoryCache, peekMemoryJSON, writeMemoryJSON, markMemoryRemoval, pinMemoryPath, unpinMemoryPath, memoryEntries, memoryState, restoreMemoryState } from './memory.js'
 
+import { recordFileBytes, removeFileBytes, flushFileBytes } from './bytes.js'
+
 const stores = new Map()
 const inside = (root, path) => path === root || path.startsWith(root + sep)
 export function persistenceFor(path) {
@@ -51,12 +53,18 @@ export function createPersistence({ directory, canFlush = () => true, storage, w
         schedule()
     }
     const writeDisk = write ?? (async ({ path, operation, value, options }) => {
-        if (operation === 'remove') return fs.rm(path, { ...options, force: true })
+        if (operation === 'remove') {
+            await fs.rm(path, { ...options, force: true })
+            removeFileBytes(path, options)
+            return
+        }
         await fs.mkdir(dirname(path), { recursive: true })
         const temp = `${path}.${randomUUID()}.tmp`
         try {
-            await fs.writeFile(temp, JSON.stringify(value))
+            const encoded = JSON.stringify(value)
+            await fs.writeFile(temp, encoded)
             await fs.rename(temp, path)
+            recordFileBytes(path, Buffer.byteLength(encoded))
         } finally { await fs.rm(temp, { force: true }) }
     })
     async function flush(force = true) {
@@ -94,6 +102,7 @@ export function createPersistence({ directory, canFlush = () => true, storage, w
                 if (dirty.get(path) === entry) { dirty.delete(path); unpinMemoryPath(path) }
                 lastError = undefined
             }
+            await flushFileBytes(root)
         })()
         try { await running }
         catch (error) { lastError = error; throw error }

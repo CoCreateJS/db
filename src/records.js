@@ -1,87 +1,45 @@
 import { rm } from './io.js'
-import { flattenIndexValues, readJSON, replaceJSON, uniqueIndexEntries, writeExclusiveJSON } from './storage.js'
+import { flattenIndexValues, readJSON, replaceJSON, writeExclusiveJSON } from './storage.js'
 import { removeMemoryPath } from './memory.js'
 import { queryData } from '@cocreate/utils'
+import { indexEntries, entryKey } from './entries.js'
+import { replaceLive, live } from './mutation.js'
 
 export async function createRecord(index, database, array, file, record) {
-    const inserted = []
-    let wroteRecord = false
-
-    try {
-        await writeExclusiveJSON(file, record)
-        wroteRecord = true
-
-        for (const [key, value] of flattenIndexValues(record)) {
-            await index.set(database, array, key, value, record._id)
-            inserted.push([key, value])
-        }
-
-        return record
-    } catch (error) {
-        for (const [key, value] of inserted.reverse())
-            await index.remove(database, array, key, value, record._id).catch(() => {})
-        if (wroteRecord) { removeMemoryPath(file); await rm(file, { force: true }).catch(() => {}) }
-        throw error
-    }
+    await writeExclusiveJSON(file, record)
+    for (const [key, value] of flattenIndexValues(record))
+        await index.set(database, array, key, value, record._id)
+    return record
 }
 
 export async function updateRecord(index, database, array, file, current, updated) {
-    await reconcileRecordIndexes(index, database, array, current, updated)
-    try { await replaceJSON(file, updated); return updated }
-    catch (error) {
-        await reconcileRecordIndexes(index, database, array, updated, current).catch(() => {})
-        throw error
-    }
+    const before = indexEntries(current)
+    replaceLive(current, updated)
+    await reconcileEntrySets(index, database, array, current._id, before, indexEntries(current))
+    await replaceJSON(file, current)
+    return live(current)
 }
 
 export async function reconcileRecordIndexes(index, database, array, current, updated) {
-    const objectId = updated?._id ?? current?._id
-    const before = uniqueIndexEntries(current ?? {})
-    const after = uniqueIndexEntries(updated ?? {})
-    const afterKeys = new Set(after.map(entry => JSON.stringify(entry)))
-    const beforeKeys = new Set(before.map(entry => JSON.stringify(entry)))
-    const removed = before.filter(entry => !afterKeys.has(JSON.stringify(entry)))
-    const added = after.filter(entry => !beforeKeys.has(JSON.stringify(entry)))
-    const completedRemovals = []
-    const completedAdditions = []
+    return reconcileEntrySets(index, database, array, updated?._id ?? current?._id,
+        indexEntries(current), indexEntries(updated))
+}
 
-    try {
-        for (const [key, value] of removed) {
-            if (await index.remove(database, array, key, value, objectId))
-                completedRemovals.push([key, value])
-        }
-
-        for (const [key, value] of added) {
-            await index.set(database, array, key, value, objectId)
-            completedAdditions.push([key, value])
-        }
-
-    } catch (error) {
-        for (const [key, value] of completedAdditions.reverse())
-            await index.remove(database, array, key, value, objectId).catch(() => {})
-        for (const [key, value] of completedRemovals)
-            await index.set(database, array, key, value, objectId).catch(() => {})
-        throw error
-    }
+export async function reconcileEntrySets(index, database, array, objectId, before, after) {
+    const afterKeys = new Set(after.map(entryKey))
+    const beforeKeys = new Set(before.map(entryKey))
+    for (const entry of before) if (!afterKeys.has(entryKey(entry)))
+        await index.removeIndexed(database, array, entry, objectId)
+    for (const entry of after) if (!beforeKeys.has(entryKey(entry)))
+        await index.set(database, array, entry.key, entry.value, objectId)
 }
 
 export async function deleteRecord(index, database, array, file, record) {
-    const removed = []
-
-    try {
-        for (const [key, value] of uniqueIndexEntries(record)) {
-            if (await index.remove(database, array, key, value, record._id))
-                removed.push([key, value])
-        }
-
-        removeMemoryPath(file)
-        await rm(file)
-        return record
-    } catch (error) {
-        for (const [key, value] of removed)
-            await index.set(database, array, key, value, record._id).catch(() => {})
-        throw error
-    }
+    for (const entry of indexEntries(record))
+        await index.removeIndexed(database, array, entry, record._id)
+    removeMemoryPath(file)
+    await rm(file)
+    return record
 }
 
 export async function readRecordById(index, database, array, fileForId, id) {

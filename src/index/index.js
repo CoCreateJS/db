@@ -34,9 +34,11 @@ import { replaceJSON } from '../storage.js'
 import { createHash } from 'node:crypto'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { uuid } from '@cocreate/utils'
-import { readMemoryJSON, writeMemoryJSON, removeMemoryPath } from '../memory.js'
+import { arrayDigest } from '../entries.js'
+import { live } from '../mutation.js'
+import { registerPartition } from '../partition.js'
+import { readMemoryJSON, removeMemoryPath, memoryEnabled, memoryOnly } from '../memory.js'
 
-const clone = value => structuredClone(value)
 const newId = () => uuid().replaceAll('-', '')
 const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0
 const compareEntry = (a, b) => compare(a[0], b[0]) || compare(a[1], b[1])
@@ -47,15 +49,6 @@ const typeOf = value => value === null ? 'null' :
     typeof value === 'boolean' ? 'boolean' :
         typeof value === 'string' ? 'string' :
             typeof value === 'number' && Number.isFinite(value) ? 'number' : null
-
-const canonicalValue = value => Array.isArray(value)
-    ? value.map(canonicalValue)
-    : value && typeof value === 'object'
-        ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalValue(value[key])]))
-        : value
-const arrayDigest = value => createHash('sha256')
-    .update(JSON.stringify(canonicalValue(value)))
-    .digest('hex')
 
 export function createIndex({
     directory = './indexes',
@@ -71,7 +64,21 @@ export function createIndex({
         throw new TypeError('indexDirectoryName must be a safe directory name')
     const base = resolve(directory)
     const cache = cacheEnabled ? new Map() : null
+    const arrayValues = new Map()
     const reportedPartitions = new Set()
+    const parents = new Map()
+    let remembered = new WeakSet()
+    let changedPartitions
+    const remember = (file, node, changed = false) => {
+        if (!node || (!changed && remembered.has(node))) return node
+        remembered.add(node)
+        const dir = join(file, '..', '..')
+        for (const child of node.indexes ?? []) parents.set(nodeFile(dir, child.id), file)
+        if (node.kind === 'catalog')
+            for (const entry of node.entries ?? []) parents.set(nodeFile(dir, entry[2]), file)
+        registerPartition(node, bytes => bytes > maxBytes ? splitForSend(file, node) : undefined)
+        return node
+    }
 
     const address = (database, array) => {
         for (const part of [database, array]) {
@@ -107,48 +114,26 @@ export function createIndex({
 
     const writeArrayValue = async (dir, key, value, objectId, digest) => {
         const directory = arrayValueDirectory(dir, key, objectId, digest)
-        const serialized = JSON.stringify(value)
-        const chunks = []
-        let offset = 0
-        while (offset < serialized.length) {
-            let length = Math.min(serialized.length - offset, maxBytes - 180)
-            let chunk
-            while (length > 0) {
-                chunk = serialized.slice(offset, offset + length)
-                const envelope = JSON.stringify({ index: Number.MAX_SAFE_INTEGER, total: Number.MAX_SAFE_INTEGER, chunk })
-                if (Buffer.byteLength(envelope) <= maxBytes) break
-                length = Math.floor(length * 0.75)
-            }
-            if (!length) throw new Error('Cannot fit array value chunk under maximum index size')
-            chunks.push(chunk)
-            offset += length
-        }
-
+        if (cacheEnabled || memoryEnabled(directory)) arrayValues.set(directory, live(value))
+        if (memoryOnly(directory)) return
         await mkdir(directory, { recursive: true })
-        try {
-            for (let index = 0; index < chunks.length; index++) {
-                const file = join(directory, `${String(index).padStart(8, '0')}.json`)
-                const envelope = JSON.stringify({ index, total: chunks.length, chunk: chunks[index] })
-                if (Buffer.byteLength(envelope) > maxBytes)
-                    throw new Error('Cannot fit array value chunk under maximum index size')
-                await replaceJSON(file, JSON.parse(envelope))
-            }
-            const existing = new Set(chunks.map((_, index) => `${String(index).padStart(8, '0')}.json`))
-            for (const file of await readdir(directory))
-                if (!existing.has(file)) {
-                    removeMemoryPath(join(directory, file))
-                    await unlink(join(directory, file))
-                }
-        } catch (error) {
-            await rm(directory, { recursive: true, force: true }).catch(() => {})
-            removeMemoryPath(directory)
-            throw error
-        }
+        // A terminal value is whole data, not a structurally split index node.
+        await replaceJSON(join(directory, 'value.json'), value)
+        for (const file of await readdir(directory))
+            if (/^\d+\.json$/.test(file)) await unlink(join(directory, file))
     }
 
     const readArrayValue = async (dir, key, objectId, digest) => {
         const directory = arrayValueDirectory(dir, key, objectId, digest)
+        if (arrayValues.has(directory)) return arrayValues.get(directory)
         try {
+            const whole = await readMemoryJSON(join(directory, 'value.json'))
+            if (whole !== undefined) {
+                if (!Array.isArray(whole)) throw new Error(`Invalid indexed array value for ${key}/${objectId}`)
+                if (cacheEnabled || memoryEnabled(directory)) arrayValues.set(directory, live(whole))
+                return live(whole)
+            }
+            // Legacy bounded array encodings remain readable.
             const files = (await readdir(directory)).filter(file => file.endsWith('.json')).sort()
             const chunks = []
             let total
@@ -163,7 +148,9 @@ export function createIndex({
             }
             if (!total || chunks.length !== total)
                 throw new Error(`Incomplete indexed array value for ${key}/${objectId}`)
-            return JSON.parse(chunks.join(''))
+            const value = JSON.parse(chunks.join(''))
+            if (cacheEnabled || memoryEnabled(directory)) arrayValues.set(directory, value)
+            return value
         } catch (error) {
             if (error.code === 'ENOENT')
                 throw new Error(`Missing indexed array value for ${key}/${objectId}`)
@@ -179,7 +166,7 @@ export function createIndex({
         await onPartitionChange({
             path: partitionPath(file),
             operation: 'set',
-            value: clone(value),
+            value: live(value),
             acquired: true
         })
         reportedPartitions.add(file)
@@ -187,9 +174,9 @@ export function createIndex({
 
     const readJSON = async file => {
         if (cache?.has(file)) {
-            const value = cache.get(file)
+            const value = live(cache.get(file))
             await reportLocalPartition(file, value)
-            return clone(value)
+            return remember(file, live(value))
         }
 
         let value
@@ -200,28 +187,30 @@ export function createIndex({
             value = await readPartition(partitionPath(file))
             if (value === undefined) return undefined
             await writeJSON(file, value, { acquired: true })
-            return clone(value)
+            return live(value)
         }
 
-        // readMemoryJSON already returns a detached value. Only the optional
-        // index cache needs another copy to retain its own immutable snapshot.
-        cache?.set(file, clone(value))
+        // Both cache layers retain the same live node.
+        cache?.set(file, live(value))
         await reportLocalPartition(file, value)
-        return value
+        return remember(file, value)
     }
 
     const writeJSON = async (file, value, { acquired = false, notify = true } = {}) => {
-        await replaceJSON(file, value)
-        cache?.set(file, clone(value))
+        value = await replaceJSON(file, value)
+        cache?.set(file, live(value))
+        remember(file, value, true)
+        changedPartitions?.set(partitionPath(file), value)
         if (notify && onPartitionChange) {
             await onPartitionChange({
                 path: partitionPath(file),
                 operation: 'set',
-                value: clone(value),
+                value: live(value),
                 acquired
             })
             reportedPartitions.add(file)
         }
+        return value
     }
 
     const normalizeLengths = node => {
@@ -266,6 +255,7 @@ export function createIndex({
         cache?.delete(file)
         removeMemoryPath(file)
         reportedPartitions.delete(file)
+        parents.delete(file)
         await rm(file, { force: true })
         if (onPartitionChange)
             await onPartitionChange({ path: partitionPath(file), operation: 'remove' })
@@ -290,13 +280,12 @@ export function createIndex({
         return file
     }
 
-    const size = node => Buffer.byteLength(JSON.stringify(node))
 
     const ref = node => ({
         id: node.id,
         length: node.length,
-        first: node.first,
-        last: node.last
+        first: live(node.first),
+        last: live(node.last)
     })
 
     const update = node => {
@@ -326,8 +315,8 @@ export function createIndex({
     const catalogRef = node => ({
         id: node.id,
         length: node.catalogLength,
-        first: node.first,
-        last: node.last
+        first: live(node.first),
+        last: live(node.last)
     })
     const updateCatalogNode = node => {
         const items = node.entries ?? node.indexes
@@ -346,18 +335,11 @@ export function createIndex({
     const splitCatalogNode = node => {
         const property = node.entries ? 'entries' : 'indexes'
         const items = node[property]
-        const weights = items.map(item => Buffer.byteLength(JSON.stringify(item)) + 1)
-        const half = weights.reduce((a, b) => a + b, 0) / 2
-        let total = 0
-        let at = 1
+        const at = Math.ceil(items.length / 2);
 
-        for (let i = 0; i < items.length - 1; i++) {
-            total += weights[i]
-            at = i + 1
-            if (total >= half) break
-        }
-
-        const sibling = { id: newId(), kind: 'catalog', [property]: items.splice(at) }
+        const moved = items.splice(at)
+        for (let i = 0; i < moved.length; i++) moved[i] = live(moved[i])
+        const sibling = { id: newId(), kind: 'catalog', [property]: moved }
         updateCatalogNode(node)
         updateCatalogNode(sibling)
         return sibling
@@ -402,28 +384,13 @@ export function createIndex({
         const property = node.entries ? 'entries' : 'indexes'
         const items = node[property]
 
-        // Prefer a near-even byte split;
-        // estimate each entry's serialized weight.
+        const at = Math.ceil(items.length / 2);
 
-        const weights = items.map(
-            item => Buffer.byteLength(JSON.stringify(item)) + 1
-        )
-
-        const half = weights.reduce((a, b) => a + b, 0) / 2
-
-        let total = 0
-        let at = 1
-
-        for (let i = 0; i < items.length - 1; i++) {
-            total += weights[i]
-            at = i + 1
-
-            if (total >= half) break
-        }
-
+        const moved = items.splice(at)
+        for (let i = 0; i < moved.length; i++) moved[i] = live(moved[i])
         const sibling = {
             id: newId(),
-            [property]: items.splice(at)
+            [property]: moved
         }
 
         update(node)
@@ -465,27 +432,8 @@ export function createIndex({
 
         update(node)
 
-        if (size(node) <= maxBytes) {
-            await setNode(dir, node)
-            return [node]
-        }
-
-        if ((node.entries ?? node.indexes).length < 2)
-            throw new Error('Single index entry exceeds maximum index size')
-
-        const sibling = split(node)
-
-        if (
-            size(node) > maxBytes ||
-            size(sibling) > maxBytes
-        ) {
-            throw new Error('Cannot fit index node under maximum size')
-        }
-
         await setNode(dir, node)
-        await setNode(dir, sibling)
-
-        return [node, sibling]
+        return [node]
     }
 
     const removeNode = async (dir, id, entry) => {
@@ -576,38 +524,8 @@ export function createIndex({
 
         updateCatalogNode(node)
 
-        if (size(node) <= maxBytes) {
-            await setCatalogNode(dir, node)
-            return [node]
-        }
-
-        if ((node.entries ?? node.indexes).length < 2)
-            throw new Error('Single catalog entry exceeds maximum index size')
-
-        const sibling = splitCatalogNode(node)
-
-        if (size(node) > maxBytes || size(sibling) > maxBytes)
-            throw new Error('Cannot fit catalog node under maximum index size')
-
-        if (id === catalogRootId) {
-            const left = { ...node, id: newId() }
-            await setCatalogNode(dir, left)
-            await setCatalogNode(dir, sibling)
-            const root = updateCatalogNode({
-                id: catalogRootId,
-                kind: 'catalog',
-                length: node.length ?? 0,
-                indexes: [catalogRef(left), catalogRef(sibling)]
-            })
-            if (size(root) > maxBytes)
-                throw new Error('Catalog root references exceed maximum index size')
-            await setCatalogNode(dir, root)
-            return [root]
-        }
-
         await setCatalogNode(dir, node)
-        await setCatalogNode(dir, sibling)
-        return [node, sibling]
+        return [node]
     }
 
     const removeCatalogNode = async (dir, id, key) => {
@@ -644,7 +562,7 @@ export function createIndex({
         if (rootId) {
             const node = rootNode ?? await getNode(dir, rootId)
             await insertCatalogNode(dir, catalogRootId, [key, type, rootId, {
-                length: node.length, first: node.first, last: node.last
+                length: node.length, first: live(node.first), last: live(node.last)
             }])
             return
         }
@@ -657,7 +575,13 @@ export function createIndex({
             const child = await getCatalogNode(dir, current.indexes[0].id)
             const objectLength = current.length ?? 0
             await deleteCatalogNode(dir, child.id)
-            current = { ...child, id: catalogRootId, kind: 'catalog', length: objectLength }
+            const property = child.entries ? 'entries' : 'indexes'
+            delete current.entries
+            delete current.indexes
+            current[property] = live(child[property])
+            current.kind = 'catalog'
+            current.length = objectLength
+            updateCatalogNode(current)
             await setCatalogNode(dir, current)
         }
 
@@ -721,27 +645,16 @@ export function createIndex({
         return { database, array, key, indexes }
     }
 
-    const splitCatalogRoot = async (dir, root) => {
-        if ((root.entries ?? root.indexes).length < 2)
-            throw new Error('Catalog root metadata exceeds maximum index size')
-
-        const sibling = splitCatalogNode(root)
-        const left = { ...root, id: newId() }
+    const liftCatalogRoot = async (dir, root, sibling) => {
+        const property = root.entries ? 'entries' : 'indexes'
+        const left = updateCatalogNode({ id: newId(), kind: 'catalog', [property]: live(root[property]) })
         await setCatalogNode(dir, left)
         await setCatalogNode(dir, sibling)
-
-        const nextRoot = updateCatalogNode({
-            id: catalogRootId,
-            kind: 'catalog',
-            length: root.length ?? 0,
-            indexes: [catalogRef(left), catalogRef(sibling)]
-        })
-
-        if (size(nextRoot) > maxBytes)
-            throw new Error('Catalog root references exceed maximum index size')
-
-        await setCatalogNode(dir, nextRoot)
-        return nextRoot
+        delete root.entries
+        root.indexes = [catalogRef(left), catalogRef(sibling)]
+        updateCatalogNode(root)
+        await setCatalogNode(dir, root)
+        return root
     }
 
     const adjustLength = async (dir, delta) => {
@@ -751,12 +664,82 @@ export function createIndex({
             : 0
         root.length = Math.max(0, currentLength + delta)
 
-        if (size(root) > maxBytes) {
-            await splitCatalogRoot(dir, root)
-            return
-        }
-
         await setCatalogNode(dir, root)
+    }
+
+    // Register ancestry after a cold direct partition read. Catalogs identify
+    // field roots; only a candidate root's ordered path is followed below it.
+    const findParent = async (dir, target) => {
+        const targetFile = nodeFile(dir, target.id)
+        const visitCatalog = async node => {
+            if (node.indexes) {
+                for (const child of node.indexes) {
+                    const found = await visitCatalog(await getCatalogNode(dir, child.id))
+                    if (found) return true
+                }
+            } else if (target.kind !== 'catalog') {
+                for (const entry of node.entries) {
+                    let current = await getNode(dir, entry[2])
+                    while (current) {
+                        if (current.id === target.id) return true
+                        if (!current.indexes || !target.first) break
+                        if (typeof current.first?.value !== typeof target.first.value) break
+                        current = await getNode(dir, current.indexes[chooseChild(current.indexes, tuple(target.first))].id)
+                    }
+                }
+            }
+            return parents.has(targetFile)
+        }
+        await visitCatalog(await getCatalogNode(dir, catalogRootId))
+    }
+
+    const splitForSend = async (file, node) => {
+        // Oversized indivisible values and minimum-fanout nodes are valid.
+        if (node.entries ? node.entries.length < 2 : !node.indexes || node.indexes.length < 4) return
+        const dir = join(file, '..', '..')
+        if (node.id !== catalogRootId && !parents.has(file)) await findParent(dir, node)
+        if (node.id !== catalogRootId && !parents.has(file)) return
+        const changes = new Map()
+        changedPartitions = changes
+        try {
+            if (node.kind === 'catalog' && node.id === catalogRootId) {
+                await liftCatalogRoot(dir, node, splitCatalogNode(node))
+            } else {
+                const sibling = node.kind === 'catalog' ? splitCatalogNode(node) : split(node)
+                await writeJSON(file, node)
+                await writeJSON(nodeFile(dir, sibling.id), sibling)
+                let children = [node, sibling], childFile = file
+                const ancestors = new Set()
+                while (parents.has(childFile)) {
+                    if (ancestors.has(childFile)) throw new Error(`Cyclic index parent reference: ${childFile}`)
+                    ancestors.add(childFile)
+                    const parentFile = parents.get(childFile)
+                    const parent = await readJSON(parentFile)
+                    if (!parent) throw new Error('Missing parent of index partition')
+                    if (parent.entries && parent.kind === 'catalog') {
+                        const entry = parent.entries.find(entry => nodeFile(dir, entry[2]) === childFile)
+                        if (!entry) throw new Error('Missing field root in index catalog')
+                        let root = children[0]
+                        if (children.length > 1) {
+                            root = update({ id: newId(), indexes: children.map(ref) })
+                            await setNode(dir, root)
+                        }
+                        entry[2] = root.id
+                        entry[3] = { length: root.length, first: live(root.first), last: live(root.last) }
+                    } else {
+                        const at = parent.indexes.findIndex(child => nodeFile(dir, child.id) === childFile)
+                        if (at < 0) throw new Error('Missing child in index parent')
+                        parent.indexes.splice(at, 1, ...children.map(parent.kind === 'catalog' ? catalogRef : ref))
+                    }
+                    if (parent.kind === 'catalog') updateCatalogNode(parent)
+                    else update(parent)
+                    await writeJSON(parentFile, parent)
+                    children = [parent]
+                    childFile = parentFile
+                }
+            }
+        } finally { changedPartitions = undefined }
+        return { path: partitionPath(file), partitions: [...changes].map(([path, value]) => ({ path, value })) }
     }
 
     const containsNode = async (dir, id, entry) => {
@@ -849,14 +832,15 @@ export function createIndex({
         array,
         key,
         value,
-        objectId
+        objectId,
+        stored
     ) => {
-        const type = typeOf(value)
+        const type = stored?.type ?? typeOf(value)
 
         if (!type) return false
 
         const dir = address(database, array)
-        const indexedValue = normalizedValue(value, type)
+        const indexedValue = stored?.indexed ?? normalizedValue(value, type)
         const existing = await root(dir, key, type)
 
         if (!existing) return false
@@ -884,8 +868,10 @@ export function createIndex({
 
         await setRoot(dir, key, type, node?.id, node)
 
-        if (type === 'array')
+        if (type === 'array') {
+            arrayValues.delete(arrayValueDirectory(dir, key, objectId, indexedValue))
             await rm(arrayValueDirectory(dir, key, objectId, indexedValue), { recursive: true, force: true }).catch(() => {})
+        }
 
         if (key === '_id') await adjustLength(dir, -1)
 
@@ -929,11 +915,9 @@ export function createIndex({
                 yield entry
             }
         } else {
-            const children = reverse
-                ? [...node.indexes].reverse()
-                : node.indexes
-
-            for (const child of children) {
+            const children = node.indexes
+            for (let i = reverse ? children.length - 1 : 0; reverse ? i >= 0 : i < children.length; i += reverse ? -1 : 1) {
+                const child = children[i]
                 if (range.lower !== undefined && (
                     child.last.value < range.lower || (range.lowerOpen && child.last.value === range.lower)
                 )) continue
@@ -1004,12 +988,12 @@ export function createIndex({
         }
     }
 
-    const locatePartition = async (database, array, key, value, objectId, nodes) => {
-        const type = typeOf(value)
+    const locatePartition = async (database, array, key, value, objectId, nodes, stored) => {
+        const type = stored?.type ?? typeOf(value)
         if (!type) return undefined
 
         const dir = address(database, array)
-        const indexedValue = normalizedValue(value, type)
+        const indexedValue = stored?.indexed ?? normalizedValue(value, type)
         const rootId = (await getCatalogEntry(dir, key, type, nodes))?.[2]
         const read = id => readLookupNode(nodeFile(dir, id), () => getNode(dir, id), nodes)
         let node = rootId ? await read(rootId) : undefined
@@ -1060,11 +1044,20 @@ export function createIndex({
         set: insert,
 
         remove,
+        removeIndexed: (database, array, entry, objectId) => remove(database, array, entry.key, entry.value, objectId, entry),
 
         locatePartition,
+        locateIndexedPartitions: async (database, array, entries, objectId) => {
+            const nodes = new Map(), paths = new Set()
+            for (const entry of entries) {
+                if (entry.key === '_id') continue
+                const path = await locatePartition(database, array, entry.key, entry.value, objectId, nodes, entry)
+                if (path) paths.add(path)
+            }
+            return paths
+        },
 
-        // Read-only lookup scope: catalog/node copies are shared only for this
-        // pass, never across a mutation or a subsequent call.
+        // Memoize addresses during a lookup; values remain live cached nodes.
         locatePartitions: async (database, array, entries, objectId) => {
             const nodes = new Map()
             const paths = new Set()
@@ -1080,7 +1073,7 @@ export function createIndex({
         readPartition: async path => {
             const file = resolvePartitionFile(path)
             try {
-                return await readMemoryJSON(file)
+                return remember(file, await readMemoryJSON(file))
             } catch (error) {
                 if (error.code === 'ENOENT') return undefined
                 throw error
@@ -1091,15 +1084,12 @@ export function createIndex({
             const file = resolvePartitionFile(path)
             if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.id !== 'string')
                 throw new TypeError('Index partition must be a JSON index node')
-            if (Buffer.byteLength(JSON.stringify(value)) > maxBytes)
-                throw new Error('Index partition exceeds the configured maximum size')
             const expectedId = path.split('/').at(-1) === 'index.json'
                 ? 'root'
                 : path.split('/').at(-1).slice(0, -5)
             if (value.id !== expectedId)
                 throw new Error('Index partition ID does not match its path')
-            await writeJSON(file, value, { notify: false })
-            return value
+            return writeJSON(file, value, { notify: false })
         },
 
         removePartition: async path => {
@@ -1112,7 +1102,7 @@ export function createIndex({
         // Lower-level node access stays internal
         // to the implementation.
 
-        clearCache: () => cache?.clear()
+        clearCache: () => { cache?.clear(); arrayValues.clear(); parents.clear(); remembered = new WeakSet() }
     }
 }
 

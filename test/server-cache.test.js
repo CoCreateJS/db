@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { EventEmitter, once } from 'node:events';
 import { fork } from 'node:child_process';
-import { access, mkdtemp, rm } from 'node:fs/promises';
+import { access, mkdtemp, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
@@ -15,7 +15,7 @@ test('worker CRUD uses only the primary engine and cache through awaited IPC', {
         const replies = await Promise.all(primary.rawListeners(payload.method).map(listener => listener(payload)));
         return replies[0] ?? payload;
     };
-    const db = initializeServerDB(primary, { directory, memoryCache: true });
+    const db = initializeServerDB(primary, { directory, memoryCache: true, memoryOnly: true });
     const scope = { organization_id: '000000000000000000000001', storage: 'production', database: 'cache-test', array: 'items' };
     const created = await db.send({ ...scope, method: 'object.create', object: { value: 1 } });
     assert.equal(created.success, true, created.error);
@@ -49,7 +49,7 @@ test('worker CRUD uses only the primary engine and cache through awaited IPC', {
         }
     });
     const ready = await new Promise(resolve => worker.on('message', message => { if (message.type === 'ready') resolve(message); }));
-    assert.deepEqual(ready.driverKeys, ['send']);
+    assert.deepEqual(ready.driverKeys, ['send', 'persistence']);
     assert.deepEqual(ready.listeners, []);
     assert.deepEqual(ready.meshListeners, []);
     const command = payload => new Promise((resolve, reject) => {
@@ -86,4 +86,5 @@ test('worker CRUD uses only the primary engine and cache through awaited IPC', {
     assert.ok(requests >= 15, 'Reads and writes both crossed IPC');
     assert.ok(db.memoryStats().files > 0, 'Only the primary retains payloads');
     await assert.rejects(access(join(directory, 'must-not-exist')), { code: 'ENOENT' });
+    assert.deepEqual(await readdir(directory), [], 'The primary core test also performs no persistence');
 });

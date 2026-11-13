@@ -5,16 +5,32 @@ import { createDB } from './scoped.js'
 import { resolveDirectory } from './directory.js'
 import { randomUUID } from 'node:crypto'
 import { getPersistence, getPersistenceDriver, sendPersistence } from './persistence/index.js'
+import { splitSerializedPartition, encodePartitionEnvelope } from './partition.js'
+import { localReadRequest, persistenceReadRequest } from './persistence/envelopes.js'
 
 export const DB_PROVIDER = 'cocreate-db'
 
+// External reads are an opt-in legacy recovery bridge, not tree persistence.
+// External writes stay disabled; authoritative indexes/files live in CoCreateDB.
+const EXTERNAL_PERSISTENCE_ENABLED = false
+const EXTERNAL_PERSISTENCE_WRITES_ENABLED = false
 
-function attachPersistenceAPI(db, bootstrapPersistence) {
+const externalPersistence = (operation, enabled) => (...args) => {
+    if (!enabled)
+        throw new Error('External persistence is temporarily disabled.')
+    return operation(...args)
+}
+
+function attachPersistenceAPI(db, bootstrapPersistence, enabled) {
     db.persistence = {
         bootstrap: bootstrapPersistence,
-        get: getPersistence,
-        getDriver: getPersistenceDriver,
-        send: (request, context = {}) => sendPersistence(request, { ...context, bootstrapPersistence })
+        enabled,
+        get: externalPersistence(getPersistence, enabled),
+        getDriver: externalPersistence(getPersistenceDriver, enabled),
+        send: externalPersistence((request, context = {}) => {
+            if (request.method !== 'object.read') throw new Error('External recovery supports object.read only; provider writes are disabled.')
+            return sendPersistence(persistenceReadRequest(request), { ...context, bootstrapPersistence })
+        }, enabled)
     }
     return db
 }
@@ -41,7 +57,7 @@ async function resolveDBOptions(options = {}) {
     })
     const persistence = options.persistence ?? suppliedDBConfig.persistence ?? dbConfig.persistence
     const bootstrapPersistence = options.bootstrapPersistence ?? Config.get('persistence')
-    if (persistence !== undefined && (!persistence || typeof persistence !== 'object' || Array.isArray(persistence)))
+    if (persistence !== undefined && persistence !== false && (!persistence || typeof persistence !== 'object' || Array.isArray(persistence)))
         throw new TypeError('CoCreateDB persistence configuration must be an object.')
     const { prompt, ...runtimeOptions } = options
     return { ...dbConfig, ...suppliedDBConfig, ...runtimeOptions, directory, persistence, bootstrapPersistence }
@@ -50,7 +66,10 @@ async function resolveDBOptions(options = {}) {
 /** Initialize CoCreateDB as a Cluster-owned server module. */
 export async function init(server, options = {}) {
     if (!server?.isPrimary)
-        return initializeServerDB(server, { ...options, bootstrapPersistence: options.bootstrapPersistence ?? Config.get('persistence') })
+        return initializeServerDB(server, { ...options,
+            externalPersistence: options.externalPersistence ?? Config.get('db')?.externalPersistence,
+            persistence: options.persistence ?? Config.get('db')?.persistence,
+            bootstrapPersistence: options.bootstrapPersistence ?? Config.get('persistence') })
     return initializeServerDB(server, await resolveDBOptions(options))
 }
 
@@ -91,6 +110,8 @@ export function initializeServerDB(server, {
     maxIndexBytes,
     cache = false,
     memoryCache = true,
+    memoryOnly = false,
+    externalPersistence: externalPersistenceEnabled = EXTERNAL_PERSISTENCE_ENABLED,
     writeBehind = true,
     persistence,
     bootstrapPersistence,
@@ -109,37 +130,66 @@ export function initializeServerDB(server, {
         return response?.result
     }
 
+    const providerEnabled = externalPersistenceEnabled && persistence !== false && !memoryOnly
     // Workers own only this driver: no engine, filesystem access, or payload cache.
     if (!server.isPrimary) {
-        server.db = attachPersistenceAPI({ send: (request, context = {}) => requestPrimary('db.send', { data: request, organization: context.organization }) }, bootstrapPersistence)
+        server.db = attachPersistenceAPI({ send: (request, context = {}) => requestPrimary('db.send', { data: request, organization: context.organization }) }, bootstrapPersistence, providerEnabled)
         return server.db
     }
 
     // DB replication uses the existing control transport. Tenant identity belongs
     // inside its scope, rather than the client-notification organization field.
-    const meshSend = payload => {
+    const meshSend = async payload => {
         const { organization_id, storageId, storage, ...message } = payload
-        return server.cluster.send(organization_id ? { ...message, scope: { organization_id, storageId, storage } } : payload)
+        const envelope = organization_id ? { ...message, scope: { organization_id, storageId, storage } } : payload
+        // Preserve the encoding through Mesh so ordinary partitions encode once.
+        // Whole documents do not use this split path.
+        if (envelope.value && ['db.partition.update', 'db.partition.response'].includes(envelope.method)) {
+            envelope.uuid ??= randomUUID()
+            const { encoded, bytes } = encodePartitionEnvelope(envelope)
+            const changes = await splitSerializedPartition(envelope.value, bytes)
+            if (changes) {
+                const prefix = envelope.path.slice(0, -changes.path.length)
+                for (const change of changes.partitions) publish({
+                    method: 'db.partition.update', server: envelope.server,
+                    serverId: server.id, operation: 'set', ...change, path: prefix + change.path
+                })
+                if (envelope.method === 'db.partition.update') return
+                // The requested address remains valid after its local split.
+                await dispatchChanges()
+                return meshSend(envelope)
+            }
+            return server.cluster.send(envelope, encoded)
+        }
+        return server.cluster.send(envelope)
     }
     let db
     const peerRequests = new Map()
     const partitionRequests = new Map()
     let transactionQueue = Promise.resolve()
     let outgoing
-    const publish = payload => outgoing ? outgoing.push(payload) : meshSend(payload)
-    const dispatchChanges = () => {
-        while (outgoing?.length) {
-            meshSend(outgoing[0])
-            outgoing.shift()
+    let messageId = 0
+    const publish = payload => {
+        if (!outgoing) return meshSend(payload)
+        const key = payload.method === 'db.partition.update'
+            ? JSON.stringify([payload.server, payload.path, payload.organization_id, payload.storageId])
+            : ++messageId
+        outgoing.set(key, payload)
+    }
+    const dispatchChanges = async () => {
+        while (outgoing?.size) {
+            const [key, payload] = outgoing.entries().next().value
+            outgoing.delete(key)
+            await meshSend(payload)
         }
     }
     const withPropagation = async operation => {
         const release = db?.holdPersistence?.()
-        const messages = []
+        const messages = new Map()
         outgoing = messages
         try {
             const result = await operation()
-            dispatchChanges()
+            await dispatchChanges()
             return result
         } finally { outgoing = undefined; release?.() }
     }
@@ -300,6 +350,7 @@ export function initializeServerDB(server, {
         maxIndexBytes,
         cache,
         memoryCache,
+        memoryOnly,
         nodeId: server.id,
         distributionAdapter,
         peerReader: readFromPeer,
@@ -310,14 +361,14 @@ export function initializeServerDB(server, {
         scheduleIndexing: serializeTransaction,
         onIndexed: async data => {
             // Dispatch holder updates before allowing this revision to persist.
-            dispatchChanges()
+            await dispatchChanges()
             const keys = distributionReferences({ ...data, objectIds: [data.objectId] }, true)
             Promise.resolve(server.send({ method: 'db.indexed', data, master: false, broadcast: false, worker: [...getDistribution(server.workers.distribution, keys)] }))
                 .catch(error => console.error('[CoCreateDB] Index notification failed:', error.message))
         },
         persistenceOptions: {
             ...(persistence ?? persistenceOptions),
-            ...((persistence?.workflow ?? persistenceWorkflow ?? storageWorkflow) ? { storage: async item => {
+            ...((EXTERNAL_PERSISTENCE_WRITES_ENABLED && providerEnabled && (persistence?.workflow ?? persistenceWorkflow ?? storageWorkflow)) ? { storage: async item => {
                 const workflow = persistence?.workflow ?? persistenceWorkflow ?? storageWorkflow
                 if (!server.workflow?.run) throw new Error('Storage workflow service is unavailable')
                 const result = await server.workflow.run({
@@ -328,7 +379,8 @@ export function initializeServerDB(server, {
                 }, { internal: true })
                 if (result?.success !== true || (Array.isArray(result.error) ? result.error.length : result.error))
                     throw new Error('Storage workflow did not acknowledge persistence')
-            } } : {})
+            } } : {}),
+            ...(!EXTERNAL_PERSISTENCE_WRITES_ENABLED || !providerEnabled ? { storage: undefined } : {})
         }
     })
 
@@ -339,23 +391,26 @@ export function initializeServerDB(server, {
         if (closing && ['create', 'update', 'delete'].includes(request?.method?.split('.')?.[1]))
             return Promise.resolve({ ...request, success: false, error: 'Database is closing' })
         return serializeTransaction(async () => {
-            const result = await sendLocal(request)
             const [type, method] = String(request?.method || '').split('.')
+            let result = await sendLocal(method === 'read' ? localReadRequest(request) : request)
             const organizationConfig = organization || request?.organization
-            const hasProvider = request?.persistence || organizationConfig?.bootstrapPersistence ||
+            const hasProvider = providerEnabled && (request?.persistence || organizationConfig?.bootstrapPersistence ||
                 organizationConfig?.persistence || organizationConfig?.bootstrapStorage ||
-                bootstrapPersistence || Config.get('persistence')
+                bootstrapPersistence || Config.get('persistence'))
             const hasLocalErrors = Array.isArray(result?.error) ? result.error.length > 0 : Boolean(result?.error)
-            if (hasProvider && method === 'read' && result?.success !== false && !hasLocalErrors &&
+            if (hasProvider && type === 'object' && method === 'read' && result?.success !== false && !hasLocalErrors &&
                 !(Array.isArray(result?.[type]) && result[type].length)) {
-                const persisted = await sendPersistence(request, {
+                const persisted = await sendPersistence(persistenceReadRequest(request), {
                     organization: organizationConfig,
                     organizationId: request.organization_id,
                     bootstrapPersistence
                 })
-                return persisted
+                const errors = Array.isArray(persisted?.error) ? persisted.error : persisted?.error ? [persisted.error] : []
+                if (persisted?.success === false || errors.length) return { ...result, success: false, error: errors.length ? errors : ['Persistence read failed.'] }
+                await db.hydrateObjects(request, persisted?.object ?? [])
+                result = await sendLocal(localReadRequest(request))
             }
-            if (hasProvider && type === 'object' && ['create', 'update', 'delete'].includes(method) && result?.success !== false &&
+            if (EXTERNAL_PERSISTENCE_WRITES_ENABLED && hasProvider && type === 'object' && ['create', 'update', 'delete'].includes(method) && result?.success !== false &&
                 !(Array.isArray(result?.error) ? result.error.length : result?.error)) {
                 const persisted = await sendPersistence(result, {
                     organization: organizationConfig,
@@ -407,7 +462,7 @@ export function initializeServerDB(server, {
 
     server.workers ||= new Map()
     server.workers.distribution ||= new Map()
-    attachPersistenceAPI(db, bootstrapPersistence)
+    attachPersistenceAPI(db, bootstrapPersistence, providerEnabled)
     server.db = db
 
     if (server.isPrimary) {
@@ -514,13 +569,15 @@ export function initializeServerDB(server, {
         })
         server.cluster.on('db.partition.request', payload => {
             if (payload.targetId !== server.id || !payload.requesterId || !payload.requestId) return
-            Promise.resolve(db.readIndexPartition(payload.path)).then(value => {
-                meshSend({
+            serializeTransaction(async () => {
+                const value = await db.readIndexPartition(payload.path)
+                await meshSend({
                     method: 'db.partition.response',
                     server: payload.requesterId,
                     requesterId: payload.requesterId,
                     responderId: server.id,
                     requestId: payload.requestId,
+                    path: payload.path,
                     value
                 })
             }).catch(error => {
@@ -559,9 +616,15 @@ export function initializeServerDB(server, {
             return serializeReplication(async () => {
                 const applied = await db.applyReplicatedObjectMutation(payload)
                 if (!applied) return
+                let object = payload.object
+                if (payload.operation !== 'remove') {
+                    const current = await db.readLocalEntity({ ...payload, type: 'object', databaseId: payload.database._id,
+                        arrayId: payload.array._id, objectId: payload.object._id })
+                    object = current
+                }
                 const data = { method: 'object.' + (payload.operation === 'remove' ? 'delete' : payload.operation === 'update' ? 'update' : 'create'),
                     organization_id: payload.organization_id, storage: payload.storage, database: payload.database.name, array: payload.array.name,
-                    object: [payload.object], success: true, master: false, broadcast: false, server: server.id }
+                    object: [object], success: true, master: false, broadcast: false, server: server.id }
                 data.distributionKeys = distributionReferences({ ...payload, databaseId: payload.database._id, arrayId: payload.array._id, objectIds: [payload.object._id] }, true)
                 data.worker = [...getDistribution(server.workers.distribution, data.distributionKeys)]
                 return data

@@ -7,6 +7,7 @@ import { createUpdate, queryData } from '@cocreate/utils'
 import { createDistributionIndex, createIndex } from '../src/index.js'
 import { createDB } from '../src/object/index.js'
 import { queryIndexCandidates } from '../src/query.js'
+import { splitSerializedPartition } from '../src/partition.js'
 
 const withIndex = async (run, options = {}) => {
     const directory = await mkdtemp(join(tmpdir(), 'cocreate-db-test-'))
@@ -147,9 +148,9 @@ test('object.create writes documents and indexes under a configured filesystem r
         assert.deepEqual(created.object[0].profile, { city: 'Lima' })
 
         const arrayDirectory = await resolveArrayDirectory(directory, 'test-database', 'users')
-        const objectFiles = await readdir(join(arrayDirectory, 'objects'))
+        const objectFiles = (await readdir(join(arrayDirectory, 'objects'))).filter(file => file.endsWith('.json'))
         const indexDirectory = join(arrayDirectory, 'index')
-        const nodeFiles = new Set((await readdir(indexDirectory)).filter(file => file !== 'index.json'))
+        const nodeFiles = new Set((await readdir(indexDirectory)).filter(file => file.endsWith('.json') && file !== 'index.json'))
         const { root: catalog, keys } = await readCatalog(directory, 'test-database', 'users')
 
         assert.equal(objectFiles.length, 2)
@@ -475,15 +476,15 @@ test('object.update applies shared update operators and keeps all affected index
             object: { _id: current._id, ...update }
         })
         assert.equal(result.success, true, result.error)
-        assert.equal(result.object[0].$set.score, expected.score)
-        assert.equal(result.object[0].$set.label, expected.label)
-        assert.deepEqual(result.object[0].$set.tags, expected.tags)
-        assert.deepEqual(result.object[0].$set.items, expected.items)
-        assert.equal(result.object[0].$set['profile.name'], expected.profile.name)
+        assert.equal(result.object[0].score, expected.score)
+        assert.equal(result.object[0].label, expected.label)
+        assert.deepEqual(result.object[0].tags, expected.tags)
+        assert.deepEqual(result.object[0].items, expected.items)
+        assert.equal(result.object[0].profile.name, expected.profile.name)
         assert.equal(result.object[0].name, undefined)
         assert.equal(result.object[0].removeMe, undefined)
         assert.equal(result.object[0].removeArray, undefined)
-        assert.equal(result.object[0].$set.category, expected.category)
+        assert.equal(result.object[0].category, expected.category)
 
         assert.deepEqual((await db.send({
             method: 'object.read', database: 'shared-utils', array: 'items',
@@ -504,7 +505,7 @@ test('object.update applies shared update operators and keeps all affected index
             $inc: { score: 1 }
         })
         assert.equal(globalUpdate.success, true, globalUpdate.error)
-        assert.equal(globalUpdate.object[0].$set.score, 4)
+        assert.equal(globalUpdate.object[0].score, 4)
         assert.deepEqual((await db.send({
             method: 'object.read', database: 'shared-utils', array: 'items',
             filter: { query: { score: 4 } }
@@ -590,6 +591,13 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
             await index.set('test', 'catalog', fields[i], i, 'object-1')
 
         const indexDirectory = join(directory, 'test', 'catalog', 'index')
+        const pending = ['test/catalog/index/index.json']
+        while (pending.length) {
+            const path = pending.pop()
+            const value = await index.readPartition(path)
+            const changes = await splitSerializedPartition(value, Buffer.byteLength(JSON.stringify(value)))
+            if (changes) pending.push(...changes.partitions.map(change => change.path))
+        }
         const root = JSON.parse(await readFile(join(indexDirectory, 'index.json'), 'utf8'))
         assert.ok(root.indexes, 'overflowed catalog root should point to child 32-character hexadecimal files')
         assert.equal(root.entries, undefined)
@@ -611,7 +619,7 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
             )
         }
 
-        const catalogFiles = (await readdir(indexDirectory)).filter(file => file !== 'index.json')
+        const catalogFiles = (await readdir(indexDirectory)).filter(file => file.endsWith('.json') && file !== 'index.json')
         assert.ok(catalogFiles.length > fields.length, 'catalog splits should add 32-character hexadecimal files alongside field nodes')
 
         for (let i = 0; i < fields.length; i++)
@@ -620,7 +628,7 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
         const emptyRoot = JSON.parse(await readFile(join(indexDirectory, 'index.json'), 'utf8'))
         assert.deepEqual(emptyRoot.entries, [])
         assert.equal(emptyRoot.catalogLength, 0)
-        assert.deepEqual((await readdir(indexDirectory)).sort(), ['index.json'])
+        assert.deepEqual((await readdir(indexDirectory)).filter(file => file.endsWith('.json')).sort(), ['index.json'])
     }, { maxBytes: 512 })
 })
 
@@ -684,8 +692,8 @@ test('object.update changes indexed fields and unsets nested fields without chan
             object: { _id: ada._id, age: 32, 'profile.city': 'Cusco', $unset: { nickname: 1, temporary: 1 } }
         })
         assert.equal(updated.success, true, updated.error)
-        assert.equal(updated.object[0].$set.age, 32)
-        assert.equal(updated.object[0].$set['profile.city'], 'Cusco')
+        assert.equal(updated.object[0].age, 32)
+        assert.equal(updated.object[0].profile.city, 'Cusco')
         assert.equal('nickname' in updated.object[0], false)
 
         const { root: catalog, keys } = await readCatalog(directory, 'test', 'users')
@@ -729,7 +737,7 @@ test('object.update upserts a filtered record and creates its database and array
         assert.equal(second.success, true, second.error)
         assert.equal(second.object.length, 1)
         assert.equal(second.object[0]._id, first.object[0]._id)
-        assert.equal(second.object[0].$set.src, 'updated version')
+        assert.equal(second.object[0].src, 'updated version')
 
         const read = await db.send({
             method: 'object.read', database: 'dev', array: 'files',
@@ -948,7 +956,7 @@ test('arrays are indexed as complete terminal values and query semantics remain 
     })
 })
 
-test('large terminal array values stay outside bounded index nodes and survive scans', async () => {
+test('large terminal arrays remain whole outside index nodes and survive scans', async () => {
     await withIndex(async (_index, directory) => {
         const index = createIndex({ directory, maxBytes: 512 })
         const array = Array.from({ length: 2000 }, (_, position) => `value-${position}-${'x'.repeat(32)}`)
@@ -973,8 +981,9 @@ test('large terminal array values stay outside bounded index nodes and survive s
         const storedValues = nodeSizes.filter(file => file.path.includes(`${join('values', '')}`))
         assert.ok(indexNodes.length > 0)
         assert.ok(indexNodes.every(file => file.size <= 512))
-        assert.ok(storedValues.length > 1)
-        assert.ok(storedValues.every(file => file.size <= 512))
+        assert.equal(storedValues.length, 1)
+        assert.ok(storedValues[0].path.endsWith('value.json'))
+        assert.ok(storedValues[0].size > 512)
     })
 })
 
@@ -1196,7 +1205,7 @@ test('array and database deletion preserve peer availability references', async 
     })
 })
 
-test('Distribution Index reuses recursive partitions and serializes concurrent updates', async () => {
+test('Distribution Index serializes concurrent updates without mutation-time byte splitting', async () => {
     await withIndex(async (_index, directory) => {
         const distribution = createDistributionIndex({ directory, maxBytes: 1024 })
         const databaseIds = Array.from({ length: 80 }, (_, index) => String(index + 1).padStart(24, '0'))
@@ -1216,10 +1225,9 @@ test('Distribution Index reuses recursive partitions and serializes concurrent u
         for (const file of files) {
             if (!file.endsWith('.json')) continue
             const node = JSON.parse(await readFile(join(directoryPath, file), 'utf8'))
-            assert.ok(Buffer.byteLength(JSON.stringify(node)) <= 1024)
             nodes.push(node)
         }
-        assert.ok(nodes.some(node => Array.isArray(node.indexes)))
+        assert.ok(nodes.every(node => Array.isArray(node.entries)))
         assert.ok(files.includes('index.json'))
     })
 })
@@ -1259,7 +1267,7 @@ test('object.delete removes an object and prunes all empty indexes and catalog r
         ;({ root: catalog, keys } = await readCatalog(directory, 'test', 'users'))
         assert.equal(catalog.length, 0)
         assert.deepEqual(keys, {})
-        assert.deepEqual((await readdir(join(arrayPath, 'index'))).sort(), ['index.json'])
-        assert.deepEqual(await readdir(join(arrayPath, 'objects')), [])
+        assert.deepEqual((await readdir(join(arrayPath, 'index'))).filter(file => file.endsWith('.json')).sort(), ['index.json'])
+        assert.deepEqual((await readdir(join(arrayPath, 'objects'))).filter(file => file.endsWith('.json')), [])
     })
 })

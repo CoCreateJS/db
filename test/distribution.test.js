@@ -88,10 +88,13 @@ test('applied peer changes deliver CRUD through the same references outside the 
         serverId: 'source', targets: ['target'], operation: 'update',
         scope: { organization_id: scope.organization_id, storageId, storage: scope.storage },
         database, array, createdOn: record.created.on,
-        object: { _id: record._id, $set: { value: 7 } }
+        object: { ...record, value: 7 }
     })
     assert.equal(delivered.length, 1)
     assert.deepEqual(delivered[0].worker, [3])
     assert.ok(intersects(registered.result.distribution, delivered[0].distributionKeys))
-    assert.deepEqual(delivered[0].object, [{ _id: record._id, $set: { value: 7 } }])
+    assert.equal(delivered[0].object[0].value, 7)
+    assert.equal(delivered[0].object[0]._id, record._id)
+    assert.equal('$set' in delivered[0].object[0], false)
+    assert.equal('$unset' in delivered[0].object[0], false)
 })

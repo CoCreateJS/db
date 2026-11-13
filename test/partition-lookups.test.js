@@ -14,13 +14,12 @@ const fixture = async run => {
 };
 
 for (const cache of [false, true]) {
-    test(`index reads remain isolated with memory caching and index cache ${cache}`, async () => fixture(async directory => {
+    test(`index reads reuse live nodes with memory caching and index cache ${cache}`, async () => fixture(async directory => {
         enableMemoryCache(directory);
         const index = createIndex({ directory, cache });
         await index.set('db', 'items', 'value', 'original', 'one');
         const first = await index.get('db', 'items', 'value');
-        first.indexes.string.entries.length = 0;
-        assert.deepEqual((await index.get('db', 'items', 'value')).indexes.string.entries, [['original', 'one']]);
+        assert.strictEqual((await index.get('db', 'items', 'value')).indexes.string, first.indexes.string);
         await index.set('db', 'items', 'value', 'second', 'two');
         assert.equal((await index.get('db', 'items', 'value')).indexes.string.length, 2);
     }));
@@ -60,8 +59,8 @@ test('document propagation retains holders from unchanged fields and old partiti
     assert.equal(updated.success, true, updated.error);
     for (const holder of original) assert.ok(published[1].targets.includes(holder));
     assert.equal(published[1].operation, 'update');
-    assert.equal(published[1].object.$set.left, 3);
-    assert.equal('right' in published[1].object.$set, false);
+    assert.equal(published[1].object.left, 3);
+    assert.equal(published[1].object.right, 2);
 }));
 
 test('a successful update response waits for pending index work and exposes the new query value', async () => fixture(async directory => {

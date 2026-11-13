@@ -4,9 +4,10 @@ import { persistenceFor } from './persistence.js'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { readMemoryJSON, writeMemoryJSON, removeMemoryPath } from './memory.js'
+import { readMemoryJSON, writeMemoryJSON, removeMemoryPath, memoryOnly, peekMemoryJSON } from './memory.js'
 
-const clone = value => structuredClone(value)
+import { live } from './mutation.js'
+import { recordFileBytes, flushFileBytes } from './bytes.js'
 export const DATABASE_CATALOG = '__catalog__'
 export const DATABASE_CATALOG_ARRAY = 'databases'
 export const ARRAY_CATALOG = '__arrays__'
@@ -84,25 +85,26 @@ export function setPath(object, path, value) {
         target = target[key]
     }
 
-    target[keys.at(-1)] = clone(value)
+    target[keys.at(-1)] = live(value)
 }
 
 export function normalizeObject(input) {
-    const output = {}
-
-    for (const [key, value] of Object.entries(input)) {
-        if (key.startsWith('$')) continue
+    for (const key of Object.keys(input)) {
+        if (key.startsWith('$')) { delete input[key]; continue }
         if (key.split('.').some(part => ['__proto__', 'prototype', 'constructor'].includes(part)))
             throw new TypeError(`Invalid object key path: ${key}`)
-        if (key.includes('.')) setPath(output, key, value)
-        else output[key] = clone(value)
     }
-
-    return output
+    for (const key of Object.keys(input)) if (key.includes('.')) {
+        const value = input[key]
+        delete input[key]
+        setPath(input, key, value)
+    }
+    return input
 }
 
 export function flattenIndexValues(object, prefix = '', entries = []) {
     for (const [key, value] of Object.entries(object)) {
+        if (key.startsWith('$')) continue
         const path = prefix ? `${prefix}.${key}` : key
         if (value === undefined) continue
         entries.push([`${EXISTS_INDEX_PREFIX}${path}`, true])
@@ -132,13 +134,14 @@ export function uniqueIndexEntries(object) {
 
 export async function writeExclusiveJSON(file, value) {
     const store = persistenceFor(file)
-    if (store) {
+    if (store || memoryOnly(file)) {
         if (await readMemoryJSON(file) !== undefined) {
             const error = new Error(`Object already exists: ${file}`)
             error.code = 'EEXIST'
             throw error
         }
-        store.stageJSON(file, value)
+        if (store) store.stageJSON(file, value)
+        else writeMemoryJSON(file, value)
         return
     }
     await mkdir(join(file, '..'), { recursive: true })
@@ -146,8 +149,11 @@ export async function writeExclusiveJSON(file, value) {
     const temporary = `${file}.${randomUUID()}.tmp`
 
     try {
-        await writeFile(temporary, JSON.stringify(value))
+        const encoded = JSON.stringify(value)
+        await writeFile(temporary, encoded)
         await link(temporary, file)
+        recordFileBytes(file, Buffer.byteLength(encoded))
+        await flushFileBytes(join(file, '..'))
         writeMemoryJSON(file, value)
     } finally {
         await unlink(temporary).catch(error => {
@@ -157,16 +163,20 @@ export async function writeExclusiveJSON(file, value) {
 }
 
 export async function replaceJSON(file, value) {
+    if (memoryOnly(file)) return writeMemoryJSON(file, value)
     const store = persistenceFor(file)
-    if (store) { store.stageJSON(file, value); return }
+    if (store) { store.stageJSON(file, value); return peekMemoryJSON(file) }
     await mkdir(join(file, '..'), { recursive: true })
 
     const temporary = `${file}.${randomUUID()}.tmp`
 
     try {
-        await writeFile(temporary, JSON.stringify(value))
+        const encoded = JSON.stringify(value)
+        await writeFile(temporary, encoded)
         await rename(temporary, file)
-        writeMemoryJSON(file, value)
+        recordFileBytes(file, Buffer.byteLength(encoded))
+        await flushFileBytes(join(file, '..'))
+        return writeMemoryJSON(file, value)
     } catch (error) {
         await unlink(temporary).catch(() => {})
         throw error
@@ -175,7 +185,7 @@ export async function replaceJSON(file, value) {
 
 /** Remove local data while retaining every nested Distribution Index directory. */
 export async function removeDirectoryPreservingDistribution(root, directory) {
-    if (persistenceFor(directory)) {
+    if (memoryOnly(directory) || persistenceFor(directory)) {
         for (const entry of await readdir(directory, { withFileTypes: true })) {
             if (entry.name === 'distribution' && entry.isDirectory()) continue
             const path = join(directory, entry.name)

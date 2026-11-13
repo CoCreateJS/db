@@ -33,16 +33,17 @@ test('memory cache startup reads no files and loads only requested JSON', async 
     })
 })
 
-test('cold and warm cache reads return independent objects and reuse the stored value', async () => {
+test('cold and warm cache reads reuse the same live object', async () => {
     await fixture(async directory => {
         const file = join(directory, 'item.json')
         await writeFile(file, JSON.stringify({ nested: { value: 1 } }))
         createDB({ directory, memoryCache: true })
         const first = await readMemoryJSON(file)
         first.nested.value = 2
-        assert.deepEqual(await readMemoryJSON(file), { nested: { value: 1 } })
+        assert.strictEqual(await readMemoryJSON(file), first)
+        assert.deepEqual(await readMemoryJSON(file), { nested: { value: 2 } })
         await rm(file)
-        assert.deepEqual(await readMemoryJSON(file), { nested: { value: 1 } }, 'a warm read uses memory')
+        assert.strictEqual(await readMemoryJSON(file), first, 'a warm read uses memory')
         removeMemoryPath(file)
         assert.equal(await readMemoryJSON(file), undefined)
         assert.equal(memoryStats(directory).files, 0)

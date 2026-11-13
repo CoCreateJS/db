@@ -99,10 +99,10 @@ test('replicated storage metadata preserves the same ID and propagates renames w
     const target = await fixture(t)
     await send(source.db, 'storage.create')
     const record = (await send(source.db, 'storage.read')).storage[0]
-    await target.db.applyStorageMutation({ organization_id: org, storageId: record._id, operation: 'set', record })
+    await target.db.applyStorageMutation({ organization_id: org, storageId: record._id, operation: 'set', record: JSON.parse(JSON.stringify(record)) })
     const created = await send(target.db, 'object.create', { object: { value: 9 } })
     const renamed = (await send(source.db, 'storage.update', { name: 'development' })).storage[0]
-    await target.db.applyStorageMutation({ organization_id: org, storageId: record._id, operation: 'set', record: renamed })
+    await target.db.applyStorageMutation({ organization_id: org, storageId: record._id, operation: 'set', record: JSON.parse(JSON.stringify(renamed)) })
     const read = await send(target.db, 'object.read', { storage: 'development' })
     assert.equal(read.object[0]._id, created.object[0]._id)
     assert.equal(read.storageId, record._id)
