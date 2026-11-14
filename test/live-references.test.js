@@ -128,7 +128,7 @@ test('partition delivery updates the cached node in place with either index-cach
         await db.flush()
         const database = (await db.send({ ...base, method: 'database.read' })).database[0]
         const array = (await db.send({ ...base, method: 'array.read' })).array[0]
-        const node = (await db.index.get('app', 'files', 'value')).indexes.number
+        const node = (await db.index.read('app', 'files', 'value')).indexes.number
         const path = `databases/${database._id}/arrays/${array._id}/index/${node.id}.json`
         // Deserialization is the transport boundary; receiving does not clone it again.
         const incoming = JSON.parse(JSON.stringify(node))
@@ -136,7 +136,7 @@ test('partition delivery updates the cached node in place with either index-cach
         incoming.first.value = incoming.last.value = 2
         const result = await db.applyIndexPartition(path, incoming)
         assert.strictEqual(result, node)
-        assert.strictEqual((await db.index.get('app', 'files', 'value')).indexes.number, node)
+        assert.strictEqual((await db.index.read('app', 'files', 'value')).indexes.number, node)
         assert.equal(node.entries[0][0], 2)
     }
 })
@@ -149,7 +149,7 @@ test('index nodes split in place, retain identity, and accept indivisible large 
     const first = { rank: 0, src: 'a'.repeat(50000) }
     await send(db, 'create', first)
     await db.flush()
-    const valueRoot = (await db.index.get('app', 'files', 'rank')).indexes.number
+    const valueRoot = (await db.index.read('app', 'files', 'rank')).indexes.number
     for (let i = 1; i < 35; i++) await send(db, 'create', { rank: i, src: `${i}-` + 'b'.repeat(50000) })
     await db.flush()
     const databaseRead = await db.send({ ...base, method: 'database.read' })
@@ -165,7 +165,7 @@ test('index nodes split in place, retain identity, and accept indivisible large 
     await assert.rejects(access(root), { code: 'ENOENT' })
 })
 
-test('scoped primary propagation shares live payloads and queued documents retain their latest values', async t => {
+test('scoped primary propagation retains patch references without replacing their operation operands', async t => {
     const root = directory(), published = []
     const server = Object.assign(new EventEmitter(), { id: 'local', isPrimary: true,
         workers: Object.assign(new Map(), { distribution: new Map() }), send: async value => value,
@@ -184,14 +184,17 @@ test('scoped primary propagation shares live payloads and queued documents retai
     await ns.updateDistribution({ databaseId: database._id, arrayId: array._id, objectId: input._id, nodeId: 'peer', operation: 'add' })
     for (const { partitionId } of await ns.listPartitions())
         await ns.updatePartition({ partitionId, nodeId: 'peer', operation: 'add' })
-    await send(db, 'update', { _id: input._id, value: 2, $push: { tags: 2 } })
+    const patch = { value: 2, $push: { tags: 2 } }
+    const response = await send(db, 'update', { _id: input._id, $update: patch })
     await db.flush()
     const mutation = published.find(value => value.method === 'db.object.mutation' && value.operation === 'update')
     assert.ok(mutation)
-    assert.strictEqual(mutation.object.tags, input.tags)
+    assert.strictEqual(mutation.object.$update, patch)
+    assert.strictEqual(response.object[0].tags, input.tags)
     await send(db, 'update', { _id: input._id, value: 3, $push: { tags: 3 } })
-    assert.equal(mutation.object.value, 3)
-    assert.deepEqual(mutation.object.tags, [1, 2, 3])
-    assert.equal(JSON.parse(JSON.stringify(mutation)).object.value, 3)
+    assert.equal(mutation.object.$update.value, 2)
+    assert.equal(mutation.object.$update.$push.tags, 2)
+    assert.deepEqual(input.tags, [1, 2, 3])
+    assert.equal(JSON.parse(JSON.stringify(mutation)).object.$update.value, 2)
     await assert.rejects(access(root), { code: 'ENOENT' })
 })

@@ -1017,7 +1017,7 @@ export function createIndex({
 
         // Logical access: database + array + key.
 
-        get: async (
+        read: async (
             database,
             array,
             key = '_id'
@@ -1038,12 +1038,13 @@ export function createIndex({
             }
         },
 
-        // Set one key/value/objectId index entry.
-        // Use remove() for an old value first.
+        // Insert one key/value/objectId index entry. Update currently uses the
+        // same insertion behavior; remove an old value with delete() first.
 
-        set: insert,
+        create: insert,
+        update: insert,
 
-        remove,
+        delete: remove,
         removeIndexed: (database, array, entry, objectId) => remove(database, array, entry.key, entry.value, objectId, entry),
 
         locatePartition,

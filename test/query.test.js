@@ -18,23 +18,23 @@ const fixture = async run => {
 const seed = async (index, documents) => {
     for (const document of documents)
         for (const [key, value] of flattenIndexValues(document))
-            await index.set('dev', 'items', key, value, document._id)
+            await index.create('dev', 'items', key, value, document._id)
 }
 
 test('catalog statistics stay current through splits, duplicate insertion, deletion, and reopen', async () => {
     await fixture(async directory => {
         let index = createIndex({ directory, maxBytes: 512 })
         for (let value = 0; value < 40; value++) {
-            await index.set('dev', 'items', 'rank', value, String(value))
+            await index.create('dev', 'items', 'rank', value, String(value))
             const { indexes } = await index.getMetadata('dev', 'items', 'rank')
             assert.equal(indexes.number.length, value + 1)
             assert.deepEqual(indexes.number.first, { value: 0, objectId: '0' })
             assert.deepEqual(indexes.number.last, { value, objectId: String(value) })
         }
-        await index.set('dev', 'items', 'rank', 39, '39')
+        await index.create('dev', 'items', 'rank', 39, '39')
         assert.equal((await index.getMetadata('dev', 'items', 'rank')).indexes.number.length, 40)
         for (let value = 0; value < 40; value++) {
-            await index.remove('dev', 'items', 'rank', value, String(value))
+            await index.delete('dev', 'items', 'rank', value, String(value))
             const { indexes } = await index.getMetadata('dev', 'items', 'rank')
             if (value === 39) assert.deepEqual(indexes, {})
             else {
@@ -43,7 +43,7 @@ test('catalog statistics stay current through splits, duplicate insertion, delet
                 assert.equal(indexes.number.last.value, 39)
             }
         }
-        await index.set('dev', 'items', 'rank', 7, '7')
+        await index.create('dev', 'items', 'rank', 7, '7')
         index = createIndex({ directory, maxBytes: 512 })
         const metadata = await index.getMetadata('dev', 'items', 'rank')
         assert.equal(metadata.indexes.number.length, 1)
@@ -71,7 +71,7 @@ test('catalog statistics stay current through splits, duplicate insertion, delet
 test('legacy recursive lengths and mappings remain readable and are upgraded on mutation', async () => {
     await fixture(async directory => {
         const index = createIndex({ directory, maxBytes: 512 })
-        for (let value = 0; value < 30; value++) await index.set('dev', 'items', 'rank', value, String(value))
+        for (let value = 0; value < 30; value++) await index.create('dev', 'items', 'rank', value, String(value))
         const path = join(directory, 'dev/items/index')
         for (const file of await readdir(path)) {
             const node = JSON.parse(await readFile(join(path, file)))
@@ -83,7 +83,7 @@ test('legacy recursive lengths and mappings remain readable and are upgraded on 
         }
         const reopened = createIndex({ directory, maxBytes: 512 })
         assert.equal((await reopened.getMetadata('dev', 'items', 'rank')).indexes.number.length, 30)
-        await reopened.set('dev', 'items', 'rank', 30, '30')
+        await reopened.create('dev', 'items', 'rank', 30, '30')
         assert.equal((await reopened.getMetadata('dev', 'items', 'rank')).indexes.number.length, 31)
         const root = JSON.parse(await readFile(join(path, 'index.json')))
         assert.equal(root.entries[0][3].length, 31)
@@ -131,7 +131,7 @@ test('planner uses catalog lengths before scanning and checks expensive OR predi
         getMetadata: async (_database, _array, key) => ({ indexes: {
             string: { length: key === 'small' ? 2 : 1000 }
         } }),
-        get: () => { throw new Error('planner must use catalog metadata') },
+        read: () => { throw new Error('planner must use catalog metadata') },
         scan: async function* (_database, _array, key) {
             calls.push(key)
             if (key === 'small') yield { value: 'yes', objectId: '1' }
@@ -183,7 +183,7 @@ test('bounded leaf seeking preserves duplicate ties, open boundaries, reverse or
     await fixture(async directory => {
         const index = createIndex({ directory, maxBytes: 512 })
         for (let i = 0; i < 50; i++)
-            await index.set('dev', 'items', 'rank', Math.floor(i / 10), String(i).padStart(2, '0'))
+            await index.create('dev', 'items', 'rank', Math.floor(i / 10), String(i).padStart(2, '0'))
         const collect = async options => {
             const entries = []
             for await (const entry of index.scan('dev', 'items', 'rank', { type: 'number', ...options })) entries.push(entry)

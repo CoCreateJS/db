@@ -35,14 +35,20 @@ Do not rename the core API to `collection`, `field`, `column`, or `row`. Externa
 
 ## Architecture invariants (decided)
 
-1. **Logical root address:** `database + array + key`; e.g. `Index.get('production', 'users', 'age')`. Resolve logical database and array names through recursive name catalogs to stable IDs, then resolve the key root through the array field catalog. Do **not** expose internal IDs as the only public addressing mechanism.
+- Distribution has two lifecycles: `distribution.local` belongs to this node and
+  follows `db.disk` (default true); `distribution.peers` excludes this node and is
+  memory only. Never send received peer inventories through filesystem indexes
+  or persistence. Control connections exchange local snapshots once in each
+  direction, then incremental changes. Disconnect removes that peer's contribution.
+
+1. **Logical root address:** `database + array + key`; e.g. `Index.read('production', 'users', 'age')`. Resolve logical database and array names through recursive name catalogs to stable IDs, then resolve the key root through the array field catalog. Do **not** expose internal IDs as the only public addressing mechanism.
 2. **Array field catalog:** A recursive ordered tree mapping `(key, type)` to index roots. Each mapping stores `[key, type, rootId, { length, first, last }]`, refreshed on every branch mutation. Legacy three-item mappings and structural `count` fields remain readable; touched nodes use length names. `Index.getMetadata()` exposes these summaries without fetching value roots for upgraded entries. `index.json` is its stable root; replication serialization measures the node against the preferred byte target. Overflow moves entries into 32-character hexadecimal child nodes and can add levels as needed.
 3. **Internal nodes:** independently addressable by unique, opaque IDs; parent references include child `id`, `first`, `last`, and `length`. Nodes can recursively reference nodes. No need to rename existing IDs during splits.
 4. **Types and automatic indexes:** the current prototype stores finite `number`, `string`, `boolean`, and explicit `null` values in separate branches. Automatically maintain an independent index for each supported field path on object creation; do not create compound indexes for ordinary field queries. Nested object leaves use dot paths, and array scalar values use their field path. Missing and unsupported composite values require explicit semantics; don't silently discard them in production.
 5. **Ordering:** entries sorted by `(value, objectId)` so equal values are deterministic and duplicate values across objects are supported. `first`/`last` are complete entry boundaries, not alphabetical buckets or just first letters.
 6. **Local splits:** mutations insert/update live nodes without measuring bytes or splitting. Only replication serialization can trigger a split: encode a node once; if it exceeds the preferred size, split that **one** node approximately 50/50 by position when useful, update ancestors, then encode/send the changed nodes. Keep indivisible entries and minimum two-child internal nodes valid above the target. Preserve old node ID, create one sibling ID, update parent, recursively split parent if needed. Do not rebalance neighboring nodes or fetch unrelated descendants.
 7. **Cleanup:** delete empty nodes, propagate metadata upward, collapse redundant roots where safe. Merging partially occupied siblings is optional future maintenance, not required in the write path.
-8. **Storage isolation:** logical `Index.get()`/`Index.set()` entry points hide retrieval/persistence. Once a root is resolved, traversal can fetch child nodes directly by ID via internal node I/O, without repeatedly resolving the logical key. Filesystem-backed implementation is the initial reference; memory Map is an optional cache, **not** the sole persistence design.
+8. **Storage isolation:** logical `Index.read()`/`Index.create()` entry points hide retrieval/persistence. Once a root is resolved, traversal can fetch child nodes directly by ID via internal node I/O, without repeatedly resolving the logical key. Filesystem-backed implementation is the initial reference; memory Map is an optional cache, **not** the sole persistence design.
 9. **On-demand:** never load a whole array or whole index tree merely to process a query. Fetch only required catalog, key roots, child nodes, and matched objects. Stream/cursor where appropriate. Memory usage is a primary optimization constraint.
 10. **Index every key:** on object creation/update, extract dot-notation keys and maintain indexes for all indexed values; on update, remove old `(value, objectId)` entries and add new; on deletion, remove entries. The `_id` enumeration index must be maintained even with no user query keys.
 11. **Entity catalogs:** recursively index logical database names and per-database array names to stable 24-character ObjectIds from `@cocreate/utils`. Keep metadata/configuration in JSON under those IDs; rename changes catalog entries and metadata without moving descendants. Database, array, and object records share the same create/read/update/delete processor, which indexes metadata fields as well as payload fields. Array and database counters are ordinary metadata values maintained through that contract.
@@ -50,13 +56,13 @@ Do not rename the core API to `collection`, `field`, `column`, or `row`. Externa
 
 ## API direction
 
-The **logical API** is `Index.get(database, array, key = '_id')` and `Index.set(database, array, key, ...)`. **The exact `set` payload/signature is not finalized**: the prototype treats `set` as entry insertion, while discussion also uses it for persisting a root. Do not assume those meanings are interchangeable. Propose and document a clear distinction between logical entry mutations, root/catalog updates, and internal node writes before stabilizing the public API. `Index.get()` should return a predictable, validated shape; missing data and storage failures must be distinguishable.
+The **logical API** uses `Index.create`, `Index.read`, `Index.update`, and `Index.delete`. Reads take `(database, array, key = '_id')`; entry mutations take `(database, array, key, value, objectId)`. Create and update currently both perform the previous entry insertion operation. Delete removes a matching entry. Replacing a value still requires deleting the old entry first; further index semantics are deferred. CRUD envelopes use one handler with the same method names and `index: [{ key, value, objectId }]`. Do not confuse entry mutations with whole-partition replacement. `Index.read()` should return a predictable shape; missing data and storage failures must be distinguishable.
 
 Recommended separation (names provisional):
 
 ```js
 // Public logical entry point
-await Index.get(database, array, key)
+await Index.read(database, array, key)
 
 // Internals, not necessarily public
 await getCatalog(database, array)
@@ -113,6 +119,7 @@ Never interpret `{ first: {}, last: {} }` as valid runtime boundaries; these pla
 ## Engineering style
 
 - ESM, plain JavaScript; prefer small composable functions, minimal dependencies, and clear interfaces.
+- DB runtime errors accumulate in `data.error` arrays through local error handlers; preserve earlier entries. Do not console-log DB API failures. Delivery failures after acknowledgment remain visible in `persistenceStats().backgroundError`.
 - Favor native JS concepts and concise loops (`for` loops are preferred where practical). Avoid unnecessary variables/abstraction and heavyweight frameworks.
 - Preserve CoCreate's existing `array`/`object`/`key`/`index` conventions and dot-notation behavior. Do not invent incompatible CRUD syntax.
 - Treat numeric/string comparisons, duplicate values, deleted keys, and root transitions as correctness-critical.
@@ -149,7 +156,7 @@ Never interpret `{ first: {}, last: {} }` as valid runtime boundaries; these pla
 1. Read this file and ARCHITECTURE.md before implementing.
 2. Identify which behavior is **decided**, **prototype**, or **proposed**.
 3. Keep existing public naming, index invariants, and lightweight design unless explicitly asked to change them.
-4. For ambiguities (notably `Index.set`, type semantics, and commit protocol), surface the tradeoff and propose the smallest consistent solution rather than silently deciding. Catalog scaling currently uses a bounded recursive tree rooted at `index.json`.
+4. For ambiguities (notably `Index.create`, type semantics, and commit protocol), surface the tradeoff and propose the smallest consistent solution rather than silently deciding. Catalog scaling currently uses a bounded recursive tree rooted at `index.json`.
 5. Make incremental changes with executable tests; report what was tested and what remains unsupported.
 
 
@@ -190,7 +197,7 @@ latest immutable memory value at flush time. New updates during I/O remain dirty
 Dirty paths are pinned against cache clearing. Retain clean payloads as cache;
 there is no automatic LRU limit yet. Optional required storage acknowledgment is
 configured by `storageWorkflow` / `COCREATE_DB_STORAGE_WORKFLOW`, invoked through
-`server.workflow.run(..., { internal: true })`. No workflow is seeded here.
+`server.workflow.run(...)`. No workflow is seeded here.
 
 `db.flush()` drains indexing and currently eligible persistence; `db.close()` also
 unregisters the write-behind adapter. Primary shutdown registers a close handler.
@@ -207,13 +214,18 @@ an explicit recreation/upsert establishes a fresh creation date; ordinary update
 cannot change `created.on`. ID-only updates cannot identify an old lifetime after
 intentional ID reuse; timestamps do not replace distributed version coordination.
 
-Object update replies and propagation carry the complete resolved live document,
-including unchanged fields. Update operators are evaluated only by the node
-processing the original CRUD request; never emit `$set`/`$unset` patches to users
-or replicas. Replicas install the delivered state, removing fields absent from the
-new record, and persist locally. Existing-lifetime updates retain their creation
-date; deletion markers and lifetime checks remain enforced. Keep existing Utils
-`createUpdate` request-processing contracts and unset semantics intact.
+Object updates use `$update` as the mutation patch. Reuse a supplied per-object
+or envelope patch as-is; otherwise generate it from the request fields/operators.
+Do not add a patch-schema validation/correction layer. Execute through existing
+Utils `createUpdate` with the existing document identity/lifetime invariants.
+Client responses include the resulting record plus `$update`; peers receive
+`_id`, `$update` and audit metadata. The patch stays in delivery, never on the
+owned/persisted record. Peer application merges into its local document without
+originating the operation again. Missing-base acquisition fetches a current full
+snapshot and does not replay an already-included increment over it. Keep each
+pending patch when coalescing index work so increments/appends are not lost.
+Client adapters, operation ordering, deduplication/recovery and field-conflict
+policies are separate work; no new guarantees in those areas are implied.
 
 ### Required public namespace hierarchy
 
@@ -252,8 +264,8 @@ after application do not imply that the already-applied memory state was undone.
 Before-state for index maintenance consists of field names, scalar values, and
 terminal-array digests, not a previous document snapshot. Removing an obsolete
 array index uses its stored digest even when its live array has since changed.
-Update replies and queued propagation retain the full live document. Serialization
-observes its current values, including changes that reverted before dispatch.
+Update replies expose a result view plus the original patch. Queued propagation
+retains each patch and its operation operands rather than diffing final state.
 Payload data is not cloned for Mesh; JSON serialization
 is the process/transport boundary. Routing envelopes, projections, result lists,
 and new split siblings are new containers, not copies of database-owned datasets.

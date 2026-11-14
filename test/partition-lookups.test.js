@@ -17,24 +17,24 @@ for (const cache of [false, true]) {
     test(`index reads reuse live nodes with memory caching and index cache ${cache}`, async () => fixture(async directory => {
         enableMemoryCache(directory);
         const index = createIndex({ directory, cache });
-        await index.set('db', 'items', 'value', 'original', 'one');
-        const first = await index.get('db', 'items', 'value');
-        assert.strictEqual((await index.get('db', 'items', 'value')).indexes.string, first.indexes.string);
-        await index.set('db', 'items', 'value', 'second', 'two');
-        assert.equal((await index.get('db', 'items', 'value')).indexes.string.length, 2);
+        await index.create('db', 'items', 'value', 'original', 'one');
+        const first = await index.read('db', 'items', 'value');
+        assert.strictEqual((await index.read('db', 'items', 'value')).indexes.string, first.indexes.string);
+        await index.create('db', 'items', 'value', 'second', 'two');
+        assert.equal((await index.read('db', 'items', 'value')).indexes.string.length, 2);
     }));
 }
 
 test('bulk partition lookup follows split catalogs and refreshes after mutations', async () => fixture(async directory => {
     const index = createIndex({ directory, maxBytes: 1024 });
     const entries = Array.from({ length: 24 }, (_, i) => [`field${i}`, i]);
-    for (const [key, value] of entries) await index.set('db', 'items', key, value, 'object');
+    for (const [key, value] of entries) await index.create('db', 'items', key, value, 'object');
     const expected = new Set();
     for (const [key, value] of entries) expected.add(await index.locatePartition('db', 'items', key, value, 'object'));
     assert.deepEqual(await index.locatePartitions('db', 'items', [...entries, entries[0]], 'object'), expected);
-    await index.remove('db', 'items', entries[0][0], entries[0][1], 'object');
+    await index.delete('db', 'items', entries[0][0], entries[0][1], 'object');
     assert.equal((await index.locatePartitions('db', 'items', [entries[0]], 'object')).size, 0);
-    await index.set('db', 'items', entries[0][0], 100, 'object');
+    await index.create('db', 'items', entries[0][0], 100, 'object');
     const paths = await index.locatePartitions('db', 'items', [[entries[0][0], 100]], 'object');
     assert.equal(paths.size, 1);
     const leaf = await index.readPartition([...paths][0]);
@@ -59,8 +59,9 @@ test('document propagation retains holders from unchanged fields and old partiti
     assert.equal(updated.success, true, updated.error);
     for (const holder of original) assert.ok(published[1].targets.includes(holder));
     assert.equal(published[1].operation, 'update');
-    assert.equal(published[1].object.left, 3);
-    assert.equal(published[1].object.right, 2);
+    assert.equal(published[1].object.$update.left, 3);
+    assert.equal('right' in published[1].object, false);
+    assert.strictEqual(published[1].object.$update, updated.object[0].$update);
 }));
 
 test('a successful update response waits for pending index work and exposes the new query value', async () => fixture(async directory => {

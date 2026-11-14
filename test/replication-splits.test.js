@@ -38,12 +38,12 @@ test('mutations do not measure or split; replication encoding splits live nodes 
     const originalStringify = JSON.stringify
     JSON.stringify = () => { throw Error('Unexpected serialization in scalar index mutations') }
     try {
-        for (let i = 0; i < 120; i++) await index.set('db', 'items', 'rank', i, `object-${i}`)
+        for (let i = 0; i < 120; i++) await index.create('db', 'items', 'rank', i, `object-${i}`)
     } finally { JSON.stringify = originalStringify }
-    const original = (await index.get('db', 'items', 'rank')).indexes.number
+    const original = (await index.read('db', 'items', 'rank')).indexes.number
     assert.equal(original.entries.length, 120)
     await drain()
-    const root = (await index.get('db', 'items', 'rank')).indexes.number
+    const root = (await index.read('db', 'items', 'rank')).indexes.number
     assert.ok(root.indexes)
     assert.ok(original.entries.length < 120)
     const rows = await collect(index.scan('db', 'items', 'rank', { type: 'number' }))
@@ -53,14 +53,14 @@ test('mutations do not measure or split; replication encoding splits live nodes 
         const node = JSON.parse(encoded).value
         if (node) { assert.equal('bytes' in node, false); assert.equal('size' in node, false) }
     }
-    for (let i = 0; i < 120; i++) await index.remove('db', 'items', 'rank', i, `object-${i}`)
+    for (let i = 0; i < 120; i++) await index.delete('db', 'items', 'rank', i, `object-${i}`)
     await drain()
-    assert.deepEqual((await index.get('db', 'items', 'rank')).indexes, {})
+    assert.deepEqual((await index.read('db', 'items', 'rank')).indexes, {})
 })
 
 test('catalog splitting happens only on serialization and keeps metadata and ordered lookups correct', async t => {
     const { index, drain, directory } = fixture(t, 1024)
-    for (let i = 0; i < 80; i++) await index.set('db', 'items', `key-${String(i).padStart(3, '0')}`, i, 'one')
+    for (let i = 0; i < 80; i++) await index.create('db', 'items', `key-${String(i).padStart(3, '0')}`, i, 'one')
     const catalog = memoryEntries(directory).find(([path]) => path.endsWith('/index/index.json'))[1]
     assert.equal(catalog.entries.length, 80)
     await drain()
@@ -76,27 +76,27 @@ test('catalog splitting happens only on serialization and keeps metadata and ord
 
 test('a 300 KiB indivisible entry is sent without an error or endless splitting', async t => {
     const { index, drain, sent } = fixture(t, 128 * 1024)
-    await index.set('db', 'files', 'source', 'x'.repeat(300 * 1024), 'large')
-    await index.set('db', 'files', 'source', 'small', 'small')
+    await index.create('db', 'files', 'source', 'x'.repeat(300 * 1024), 'large')
+    await index.create('db', 'files', 'source', 'small', 'small')
     await drain()
     assert.ok(sent.some(encoded => Buffer.byteLength(encoded) > 128 * 1024))
     const rows = await collect(index.scan('db', 'files', 'source', { type: 'string' }))
     assert.equal(rows.length, 2)
     assert.equal(rows.find(row => row.objectId === 'large').value.length, 300 * 1024)
-    assert.equal((await index.get('db', 'files', 'source')).indexes.string.indexes.length, 2)
+    assert.equal((await index.read('db', 'files', 'source')).indexes.string.indexes.length, 2)
 })
 
 test('a cold direct partition send reconstructs its ancestry before splitting', async t => {
     const directory = await mkdtemp(join(tmpdir(), 'coc-cold-send-'))
     t.after(async () => { await rm(directory, { recursive: true, force: true }) })
     const original = createIndex({ directory, maxBytes: 1024 })
-    for (let i = 0; i < 80; i++) await original.set('db', 'items', 'rank', i, `object-${i}`)
+    for (let i = 0; i < 80; i++) await original.create('db', 'items', 'rank', i, `object-${i}`)
     const path = await original.locatePartition('db', 'items', 'rank', 20, 'object-20')
     const reopened = createIndex({ directory, maxBytes: 1024 })
     const node = await reopened.readPartition(path)
     const changed = await splitSerializedPartition(node, Buffer.byteLength(JSON.stringify(node)))
     assert.ok(changed.partitions.length >= 3)
-    assert.ok((await reopened.get('db', 'items', 'rank')).indexes.number.indexes)
+    assert.ok((await reopened.read('db', 'items', 'rank')).indexes.number.indexes)
     assert.equal((await collect(reopened.scan('db', 'items', 'rank', { type: 'number' }))).length, 80)
 })
 

@@ -84,11 +84,12 @@ test('applied peer changes deliver CRUD through the same references outside the 
     const storageId = registered.result.storageId
     const database = (await db.send({ ...scope, method: 'database.read' })).database[0]
     const array = (await db.send({ ...scope, method: 'array.read' })).array[0]
+    const patch = { $inc: { value: 6 } }
     await server.cluster.listeners('db.object.mutation')[0]({
         serverId: 'source', targets: ['target'], operation: 'update',
         scope: { organization_id: scope.organization_id, storageId, storage: scope.storage },
         database, array, createdOn: record.created.on,
-        object: { ...record, value: 7 }
+        object: { _id: record._id, $update: patch }
     })
     assert.equal(delivered.length, 1)
     assert.deepEqual(delivered[0].worker, [3])
@@ -97,4 +98,5 @@ test('applied peer changes deliver CRUD through the same references outside the 
     assert.equal(delivered[0].object[0]._id, record._id)
     assert.equal('$set' in delivered[0].object[0], false)
     assert.equal('$unset' in delivered[0].object[0], false)
+    assert.strictEqual(delivered[0].object[0].$update, patch)
 })

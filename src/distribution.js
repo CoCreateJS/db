@@ -9,7 +9,7 @@ const KEY = '_id'
  * Create local Cluster availability indexes for entities and regular index partitions.
  * Each mapping stores the available entity or partition path and its holder node ID.
  */
-export function createDistributionIndex({ directory, maxBytes, cache = false } = {}) {
+export function createDistributionIndex({ directory, maxBytes, cache = false, nodeId: owner } = {}) {
     const index = createIndex({
         directory,
         maxBytes,
@@ -30,6 +30,26 @@ export function createDistributionIndex({ directory, maxBytes, cache = false } =
         cache,
         resolveArrayDirectory: ({ directory }) => join(directory, 'distribution', 'partitions')
     })
+
+    const localized = new Map()
+    const localize = (target, database, array, key) => {
+        if (!owner) return
+        const address = JSON.stringify([database, array, key])
+        if (!localized.has(address)) {
+            const pending = (async () => {
+                const legacy = []
+                for await (const entry of target.scan(database, array, key, { type: 'string' }))
+                    if (entry.objectId !== 'local') legacy.push(entry)
+                for (const entry of legacy) {
+                    if (entry.objectId === owner) await target.create(database, array, key, entry.value, 'local')
+                    await target.delete(database, array, key, entry.value, entry.objectId)
+                }
+            })()
+            localized.set(address, pending)
+            pending.catch(() => localized.delete(address))
+        }
+        return localized.get(address)
+    }
 
     let queue = Promise.resolve()
     const serialize = operation => {
@@ -60,6 +80,7 @@ export function createDistributionIndex({ directory, maxBytes, cache = false } =
 
     const get = async ({ databaseId, arrayId, objectId }) => {
         const target = address({ databaseId, arrayId, objectId })
+        await localize(index, target.database, target.array, KEY)
         const nodeIds = []
 
         for await (const entry of index.scan(target.database, target.array, KEY, {
@@ -67,10 +88,10 @@ export function createDistributionIndex({ directory, maxBytes, cache = false } =
             lower: target.entityId,
             upper: target.entityId
         })) {
-            if (entry.value === target.entityId) nodeIds.push(entry.objectId)
+            if (entry.value === target.entityId && (!owner || entry.objectId === 'local' || entry.objectId === owner)) nodeIds.push(owner ?? entry.objectId)
         }
 
-        return nodeIds
+        return [...new Set(nodeIds)]
     }
 
     const list = async ({ databaseId, arrayId } = {}) => {
@@ -83,10 +104,12 @@ export function createDistributionIndex({ directory, maxBytes, cache = false } =
             target = { database: databaseId, array: arrayId }
         }
 
+        await localize(index, target.database, target.array, KEY)
         const entities = new Map()
         for await (const entry of index.scan(target.database, target.array, KEY, { type: 'string' })) {
+            if (owner && entry.objectId !== 'local' && entry.objectId !== owner) continue
             if (!entities.has(entry.value)) entities.set(entry.value, new Set())
-            entities.get(entry.value).add(entry.objectId)
+            entities.get(entry.value).add(owner ?? entry.objectId)
         }
         return [...entities].map(([id, nodeIds]) => ({ id, nodeIds: [...nodeIds] }))
     }
@@ -94,20 +117,23 @@ export function createDistributionIndex({ directory, maxBytes, cache = false } =
     const getPartition = async partitionId => {
         if (typeof partitionId !== 'string' || !partitionId)
             throw new TypeError('partitionId must be a non-empty string')
+        await localize(partitionIndex, '__partitions__', 'index-files', 'partition')
         const nodeIds = []
         for await (const entry of partitionIndex.scan('__partitions__', 'index-files', 'partition', {
             type: 'string', lower: partitionId, upper: partitionId
         })) {
-            if (entry.value === partitionId) nodeIds.push(entry.objectId)
+            if (entry.value === partitionId && (!owner || entry.objectId === 'local' || entry.objectId === owner)) nodeIds.push(owner ?? entry.objectId)
         }
-        return nodeIds
+        return [...new Set(nodeIds)]
     }
 
     const listPartitions = async () => {
+        await localize(partitionIndex, '__partitions__', 'index-files', 'partition')
         const partitions = new Map()
         for await (const entry of partitionIndex.scan('__partitions__', 'index-files', 'partition', { type: 'string' })) {
+            if (owner && entry.objectId !== 'local' && entry.objectId !== owner) continue
             if (!partitions.has(entry.value)) partitions.set(entry.value, new Set())
-            partitions.get(entry.value).add(entry.objectId)
+            partitions.get(entry.value).add(owner ?? entry.objectId)
         }
         return [...partitions].map(([partitionId, nodeIds]) => ({ partitionId, nodeIds: [...nodeIds] }))
     }
@@ -115,6 +141,7 @@ export function createDistributionIndex({ directory, maxBytes, cache = false } =
     const updatePartition = ({ partitionId, nodeId, operation }) => serialize(async () => {
         if (typeof partitionId !== 'string' || !partitionId)
             throw new TypeError('partitionId must be a non-empty string')
+        if (owner && nodeId !== owner) throw new Error('Local distribution can only describe this node')
         if (typeof nodeId !== 'string' || !nodeId)
             throw new TypeError('nodeId must be a non-empty string')
         if (operation !== 'add' && operation !== 'remove')
@@ -123,17 +150,19 @@ export function createDistributionIndex({ directory, maxBytes, cache = false } =
         const existing = await getPartition(partitionId)
         const hasNode = existing.includes(nodeId)
         let changed = false
-        if (operation === 'add' && !hasNode) {
-            await partitionIndex.set('__partitions__', 'index-files', 'partition', partitionId, nodeId)
-            changed = true
+        if (operation === 'add' && (!hasNode || owner)) {
+            await partitionIndex.create('__partitions__', 'index-files', 'partition', partitionId, owner ? 'local' : nodeId)
+            changed = !hasNode
         } else if (operation === 'remove' && hasNode) {
-            changed = await partitionIndex.remove('__partitions__', 'index-files', 'partition', partitionId, nodeId)
+            changed = await partitionIndex.delete('__partitions__', 'index-files', 'partition', partitionId, owner ? 'local' : nodeId)
+            if (owner) changed = await partitionIndex.delete('__partitions__', 'index-files', 'partition', partitionId, owner) || changed
         }
         return { changed, nodeIds: await getPartition(partitionId) }
     })
 
     const update = ({ databaseId, arrayId, objectId, nodeId, operation }) => serialize(async () => {
         const target = address({ databaseId, arrayId, objectId })
+        if (owner && nodeId !== owner) throw new Error('Local distribution can only describe this node')
         if (typeof nodeId !== 'string' || !nodeId)
             throw new TypeError('nodeId must be a non-empty string')
         if (operation !== 'add' && operation !== 'remove')
@@ -143,11 +172,12 @@ export function createDistributionIndex({ directory, maxBytes, cache = false } =
         const hasNode = existing.includes(nodeId)
         let changed = false
 
-        if (operation === 'add' && !hasNode) {
-            await index.set(target.database, target.array, KEY, target.entityId, nodeId)
-            changed = true
+        if (operation === 'add' && (!hasNode || owner)) {
+            await index.create(target.database, target.array, KEY, target.entityId, owner ? 'local' : nodeId)
+            changed = !hasNode
         } else if (operation === 'remove' && hasNode) {
-            changed = await index.remove(target.database, target.array, KEY, target.entityId, nodeId)
+            changed = await index.delete(target.database, target.array, KEY, target.entityId, owner ? 'local' : nodeId)
+            if (owner) changed = await index.delete(target.database, target.array, KEY, target.entityId, owner) || changed
         }
 
         return { changed, nodeIds: await get({ databaseId, arrayId, objectId }) }

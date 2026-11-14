@@ -1,12 +1,21 @@
 import { addDistribution, getDistribution } from '@cocreate/utils/distribution'
 import Config from '@cocreate/config'
 import { distributionReferences } from './distribution.js'
+import { createPeerDistribution, mergeDistributionLists } from './peers.js'
 import { createDB } from './scoped.js'
 import { resolveDirectory } from './directory.js'
 import { randomUUID } from 'node:crypto'
 import { getPersistence, getPersistenceDriver, sendPersistence } from './persistence/index.js'
 import { splitSerializedPartition, encodePartitionEnvelope } from './partition.js'
 import { localReadRequest, persistenceReadRequest } from './persistence/envelopes.js'
+
+function errorHandler(data, error) {
+    if (!Array.isArray(data.error)) data.error = data.error === undefined ? [] : [data.error]
+    const errors = error?.errors ?? error?.message ?? error
+    data.error.push(...(Array.isArray(errors) ? errors : [errors]))
+    data.success = false
+    return data
+}
 
 export const DB_PROVIDER = 'cocreate-db'
 
@@ -111,6 +120,7 @@ export function initializeServerDB(server, {
     cache = false,
     memoryCache = true,
     memoryOnly = false,
+    disk = true,
     externalPersistence: externalPersistenceEnabled = EXTERNAL_PERSISTENCE_ENABLED,
     writeBehind = true,
     persistence,
@@ -124,10 +134,12 @@ export function initializeServerDB(server, {
         throw new TypeError('A initialized CoCreate server with an id and send() is required')
 
     const requestPrimary = async (method, payload = {}) => {
-        const response = await server.send({ method, ...payload, master: true, broadcast: false })
-        if (response?.success === false && !response.result)
-            throw new Error(response.error || `${method} failed`)
-        return response?.result
+        try {
+            const response = await server.send({ method, ...payload, master: true, broadcast: false })
+            if (response?.success === false && !response.result)
+                return errorHandler(response, response.error === undefined ? `${method} failed` : [])
+            return response?.result
+        } catch (error) { return errorHandler({ ...payload.data }, error) }
     }
 
     const providerEnabled = externalPersistenceEnabled && persistence !== false && !memoryOnly
@@ -163,7 +175,24 @@ export function initializeServerDB(server, {
         }
         return server.cluster.send(envelope)
     }
-    let db
+    const peers = createPeerDistribution(server.id)
+    const session = randomUUID()
+    let revision = 0
+    let db, backgroundError
+    const errorResponse = (data, error) => {
+        const response = errorHandler({ ...data }, error)
+        backgroundError = { method: data.method, error: response.error }
+        return response
+    }
+    const deliver = (data, operation) => {
+        try {
+            return Promise.resolve(operation()).then(response => {
+                if (response?.error?.length) backgroundError = { method: data.method, error: response.error }
+                return response
+            }).catch(error => errorResponse(data, error))
+        }
+        catch (error) { return Promise.resolve(errorResponse(data, error)) }
+    }
     const peerRequests = new Map()
     const partitionRequests = new Map()
     let transactionQueue = Promise.resolve()
@@ -198,9 +227,8 @@ export function initializeServerDB(server, {
         transactionQueue = result.catch(() => {})
         return result
     }
-    const serializeReplication = operation => serializeTransaction(operation).catch(error => {
-        console.error('[CoCreateDB] Failed to apply a replication event:', error)
-    })
+    const serializeReplication = (data, operation) => serializeTransaction(operation)
+        .catch(error => errorResponse(data, error))
 
     const readFromPeer = ({ nodeId, ...entity }) => {
         if (nodeId === server.id) return db.readLocalEntity(entity)
@@ -284,6 +312,7 @@ export function initializeServerDB(server, {
         if (result.changed) {
             publish({
                 method: 'db.partition.availability',
+                session, revision: ++revision,
                 broadcast: true,
                 workers: false,
                 serverId: payload.nodeId ?? server.id,
@@ -309,9 +338,9 @@ export function initializeServerDB(server, {
     }
 
     const partitionAdapter = {
-        update: (payload, apply) => apply(payload),
-        get: (path, read) => read(path),
-        list: read => read(),
+        update: (payload, apply) => payload.nodeId === server.id ? apply(payload) : peers.updatePartition(payload),
+        get: async (path, read) => [...new Set([...await read(path), ...peers.getPartition(path)])],
+        list: async read => mergeDistributionLists(await read(), peers.listPartitions(), 'partitionId'),
         onLocalChange: localPartitionChange,
         read: readPartitionFromPeers
     }
@@ -330,14 +359,14 @@ export function initializeServerDB(server, {
     }
 
     const distributionAdapter = {
-        update: (payload, apply) => apply(payload),
-        get: (payload, read) => read(payload),
-        list: (payload, read) => read(payload),
+        update: (payload, apply) => payload.nodeId === server.id ? apply(payload) : peers.update(payload),
+        get: async (payload, read) => [...new Set([...await read(payload), ...peers.get(payload)])],
+        list: async (payload, read) => mergeDistributionLists(await read(payload), peers.list(payload), 'id'),
         onLocalChange: async (payload, apply) => {
             const result = await apply(payload)
             if (result.changed) {
                 publish({
-                    method: 'db.distribution', broadcast: true, workers: false,
+                    method: 'db.distribution', session, revision: ++revision, broadcast: true, workers: false,
                     serverId: server.id, ...idsFrom(payload)
                 })
             }
@@ -351,6 +380,8 @@ export function initializeServerDB(server, {
         cache,
         memoryCache,
         memoryOnly,
+        disk,
+        peerDistribution: peers,
         nodeId: server.id,
         distributionAdapter,
         peerReader: readFromPeer,
@@ -363,8 +394,9 @@ export function initializeServerDB(server, {
             // Dispatch holder updates before allowing this revision to persist.
             await dispatchChanges()
             const keys = distributionReferences({ ...data, objectIds: [data.objectId] }, true)
-            Promise.resolve(server.send({ method: 'db.indexed', data, master: false, broadcast: false, worker: [...getDistribution(server.workers.distribution, keys)] }))
-                .catch(error => console.error('[CoCreateDB] Index notification failed:', error.message))
+            const notification = { method: 'db.indexed', data, master: false, broadcast: false,
+                worker: [...getDistribution(server.workers.distribution, keys)] }
+            deliver(notification, () => server.send(notification))
         },
         persistenceOptions: {
             ...(persistence ?? persistenceOptions),
@@ -376,7 +408,7 @@ export function initializeServerDB(server, {
                     organization_id: server.organization_id,
                     host: server.host,
                     storage: [item]
-                }, { internal: true })
+                })
                 if (result?.success !== true || (Array.isArray(result.error) ? result.error.length : result.error))
                     throw new Error('Storage workflow did not acknowledge persistence')
             } } : {}),
@@ -385,11 +417,13 @@ export function initializeServerDB(server, {
     })
 
     const sendLocal = db.send.bind(db)
+    const persistenceStats = db.persistenceStats.bind(db)
+    db.persistenceStats = () => ({ ...persistenceStats(), backgroundError })
     let closing = false
     // Reads also queue so they cannot observe a partially updated index.
     db.send = (request, { workerId = server.workerId, organization } = {}) => {
         if (closing && ['create', 'update', 'delete'].includes(request?.method?.split('.')?.[1]))
-            return Promise.resolve({ ...request, success: false, error: 'Database is closing' })
+            return Promise.resolve(errorHandler({ ...request }, 'Database is closing'))
         return serializeTransaction(async () => {
             const [type, method] = String(request?.method || '').split('.')
             let result = await sendLocal(method === 'read' ? localReadRequest(request) : request)
@@ -406,7 +440,7 @@ export function initializeServerDB(server, {
                     bootstrapPersistence
                 })
                 const errors = Array.isArray(persisted?.error) ? persisted.error : persisted?.error ? [persisted.error] : []
-                if (persisted?.success === false || errors.length) return { ...result, success: false, error: errors.length ? errors : ['Persistence read failed.'] }
+                if (persisted?.success === false || errors.length) return errorHandler(result, errors.length ? errors : ['Persistence read failed.'])
                 await db.hydrateObjects(request, persisted?.object ?? [])
                 result = await sendLocal(localReadRequest(request))
             }
@@ -435,12 +469,15 @@ export function initializeServerDB(server, {
                     if (workerId === server.workerId) server.emit('db.distribution.set', message)
                     else {
                         const registered = await server.send(message)
-                        if (registered?.success === false) throw new Error(registered.error || 'Distribution registration failed')
+                        if (registered?.success === false)
+                            throw Object.assign(new Error('Distribution registration failed'), {
+                                errors: registered.error?.length ? registered.error : ['Distribution registration failed']
+                            })
                     }
                 }
             }
             return result
-        })
+        }).catch(error => errorHandler({ ...request }, error))
     }
     const flushIndexesLocal = db.flushIndexes.bind(db)
     const closeLocal = db.close.bind(db)
@@ -475,6 +512,7 @@ export function initializeServerDB(server, {
             if (result.changed) {
                 publish({
                     method: 'db.distribution',
+                    session, revision: ++revision,
                     broadcast: true,
                     workers: false,
                     serverId: server.id,
@@ -550,8 +588,8 @@ export function initializeServerDB(server, {
                     requesterId: payload.requesterId,
                     responderId: server.id,
                     requestId: payload.requestId,
-                    error: error.message
                 }
+                errorHandler(response, error)
                 meshSend({
                     method: 'db.document.response',
                     server: payload.requesterId,
@@ -564,7 +602,7 @@ export function initializeServerDB(server, {
             if (!pending || pending.nodeId !== payload.responderId || payload.requesterId !== server.id) return
             peerRequests.delete(payload.requestId)
             clearTimeout(pending.timer)
-            if (payload.error) pending.reject(new Error(payload.error))
+            if (payload.error?.length) pending.reject(Object.assign(new Error('Peer request failed'), { errors: payload.error }))
             else pending.resolve(payload.record)
         })
         server.cluster.on('db.partition.request', payload => {
@@ -581,14 +619,13 @@ export function initializeServerDB(server, {
                     value
                 })
             }).catch(error => {
-                meshSend({
+                meshSend(errorHandler({
                     method: 'db.partition.response',
                     server: payload.requesterId,
                     requesterId: payload.requesterId,
                     responderId: server.id,
-                    requestId: payload.requestId,
-                    error: error.message
-                })
+                    requestId: payload.requestId
+                }, error))
             })
         })
         server.cluster.on('db.partition.response', payload => {
@@ -596,31 +633,31 @@ export function initializeServerDB(server, {
             if (!pending || pending.nodeId !== payload.responderId || payload.requesterId !== server.id) return
             partitionRequests.delete(payload.requestId)
             clearTimeout(pending.timer)
-            if (payload.error) pending.reject(new Error(payload.error))
+            if (payload.error?.length) pending.reject(Object.assign(new Error('Peer request failed'), { errors: payload.error }))
             else pending.resolve(payload.value)
         })
         server.cluster.on('db.partition.update', payload => {
             if (payload.serverId === server.id) return
-            return serializeReplication(() => payload.operation === 'remove'
+            return serializeReplication(payload, () => payload.operation === 'remove'
                 ? db.removeIndexPartition(payload.path, { replicated: true })
                 : db.applyIndexPartition(payload.path, payload.value, { replicated: true }))
         })
         server.cluster.on('db.storage.mutation', payload => {
             payload = { ...payload, ...payload.scope }
             if (payload.serverId === server.id) return
-            return serializeReplication(() => db.applyStorageMutation(payload))
+            return serializeReplication(payload, () => db.applyStorageMutation(payload))
         })
         server.cluster.on('db.object.mutation', payload => {
             payload = { ...payload, ...payload.scope }
             if (payload.serverId === server.id || !Array.isArray(payload.targets) || !payload.targets.includes(server.id)) return
-            return serializeReplication(async () => {
+            return serializeTransaction(async () => {
                 const applied = await db.applyReplicatedObjectMutation(payload)
                 if (!applied) return
                 let object = payload.object
                 if (payload.operation !== 'remove') {
                     const current = await db.readLocalEntity({ ...payload, type: 'object', databaseId: payload.database._id,
                         arrayId: payload.array._id, objectId: payload.object._id })
-                    object = current
+                    object = payload.operation === 'update' ? { ...current, $update: payload.object.$update } : current
                 }
                 const data = { method: 'object.' + (payload.operation === 'remove' ? 'delete' : payload.operation === 'update' ? 'update' : 'create'),
                     organization_id: payload.organization_id, storage: payload.storage, database: payload.database.name, array: payload.array.name,
@@ -629,32 +666,44 @@ export function initializeServerDB(server, {
                 data.worker = [...getDistribution(server.workers.distribution, data.distributionKeys)]
                 return data
             }).then(data => data && server.send(data))
-                .catch(error => console.error('[CoCreateDB] Peer CRUD delivery failed:', error.message))
+                .catch(error => errorResponse(payload, error))
         })
         server.cluster.on('db.partition.availability', payload => {
             if (payload.serverId === server.id) return
-            const operation = server.send({
-                method: 'db.partition.update',
-                data: {
-                    partitionId: payload.partitionId,
-                    nodeId: payload.serverId,
-                    operation: payload.operation
-                },
-                master: true,
-                broadcast: false
-            })
-            return Promise.resolve(operation).catch(error => console.error('[CoCreateDB] Failed to apply a partition availability event:', error))
+            return serializeReplication(payload, () => peers.change({
+                partitionId: payload.partitionId, nodeId: payload.serverId, operation: payload.operation
+            }, payload.session, payload.revision))
         })
         server.cluster.on('db.distribution', payload => {
-            payload = { ...payload, ...payload.scope }
-            return Promise.resolve(server.send({
-                data: idsFrom(payload),
-                method: 'db.distribution',
-                serverId: payload.serverId,
-                master: true,
-                broadcast: false
-            })).catch(error => console.error('[CoCreateDB] Failed to apply a remote availability event:', error))
+            if (payload.serverId === server.id) return
+            return serializeReplication(payload, () => peers.change({
+                ...payload, ...payload.scope, nodeId: payload.nodeId ?? payload.serverId
+            }, payload.session, payload.revision))
         })
+        const sendInventory = (nodeId, reply = false) => serializeTransaction(async () => {
+            const inventory = await db.distribution.local.snapshot()
+            // Snapshot reads can discover local partitions and queue announcements.
+            await dispatchChanges()
+            return meshSend({ method: 'db.distribution.sync', server: nodeId, serverId: server.id,
+                session, revision, reply, inventory })
+        })
+        server.cluster.on('db.distribution.sync', payload => {
+            if (payload.serverId === server.id) return
+            return serializeReplication(payload, () => peers.replace(payload.serverId, payload.inventory, payload.session, payload.revision))
+                .then(() => !payload.reply && sendInventory(payload.serverId, true))
+                .catch(error => errorResponse(payload, error))
+        })
+        server.cluster.on('peerConnected', ({ nodeId }) => {
+            peers.connect(nodeId)
+            deliver({ method: 'db.distribution.sync', nodeId }, () => sendInventory(nodeId))
+        })
+        server.cluster.on('peerDisconnected', ({ nodeId }) => {
+            return serializeReplication({ method: 'db.distribution.disconnect', nodeId }, () => peers.remove(nodeId))
+        })
+        // DB may be attached after control connections have already opened.
+        for (const socket of server.cluster.controlSockets ?? []) {
+            if (socket.serverId) deliver({ method: 'db.distribution.sync' }, () => sendInventory(socket.serverId))
+        }
     }
 
     return db

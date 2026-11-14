@@ -121,6 +121,30 @@ and worker/restart reconstruction are deferred; the new maps are process-local.
 
 ## Distribution index partitions
 
+`db.distribution.local` is this node's inventory. Its `snapshot()` method reads
+namespace catalogs and saved holder indexes without scanning document files.
+`db.distribution.peers` contains only other nodes' inventories and lives entirely
+in memory. Existing holder lookup methods combine these views; peer inventories
+are never written through the local index or persistence queue.
+
+`db.disk` defaults to `true`. With `disk: false`, data and local distribution stay
+in memory and all local disk reads/writes are disabled. This setting does not
+itself disable configured external persistence; the existing external-persistence
+feature gates remain unchanged. `memoryOnly` remains the stricter testing mode.
+
+On a control-peer connection, DB sends its complete local inventory using
+`db.distribution.sync`. The recipient replaces that sender's previous inventory
+and replies once with its own local inventory. Session IDs and revisions reject
+older snapshots/changes. Add/remove announcements continue incrementally.
+Disconnecting a peer removes its contribution; reconnection exchanges inventories
+again. These exchanges are full inventory messages, not document snapshots.
+
+Local entries use a stable local marker on disk, translated to the current server
+ID when read. New inventories therefore survive server-ID changes. Legacy entries
+matching the current server ID are supported and upgraded as they are used;
+older combined mappings cannot safely be attributed to a different server ID and
+are excluded rather than advertised as local holdings.
+
 `distribution` names the metadata used for data placement and synchronization.
 The public factory is `createDistributionIndex`; DB methods are
 `updateDistribution`, `getDistribution`, `listDistribution`, and
@@ -130,7 +154,7 @@ This naming change does not automatically migrate existing metadata directories.
 
 `CoCreateDB.init(server)` initializes the server-owned database, prompts for `db.directory` when it is not configured, and attaches the instance as `server.db`. Leaving the prompt blank uses the process working directory. `COCREATE_DB_DIRECTORY` remains an environment override. Optional `db.persistence` configuration supplies persistence options; `db.persistence.workflow` can require external persistence acknowledgment. Without it, CoCreateDB persists locally in the configured directory.
 
-Every regular index root or node written by CoCreateDB is recorded in the recursive Distribution Index as a partition path and the IDs of nodes holding it. The mapping is stored locally under `distribution/partitions/index/`; `distribution` data is never sent to external storage. When an index partition is first acquired, the new holder is added. When a regular index partition changes or is removed, the update is sent only to its recorded holders. Unchanged holder mappings do not generate availability updates. Index partition files retain their normal `first`, `last`, `length`, and entry metadata.
+Every regular index root or node written by CoCreateDB is recorded in local distribution. Local partition inventory is stored under `distribution/partitions/index/` when disk is enabled; peer holdings are kept separately in memory. When an index partition is first acquired, the node adds itself locally and announces its availability. When a regular index partition changes or is removed, the update is sent only to its recorded holders. Unchanged holder mappings do not generate incremental announcements, but connection snapshots still advertise them. Index partition files retain their normal `first`, `last`, `length`, and entry metadata.
 
 If recursive traversal needs an index file that is missing locally, CoCreateDB checks the partition holder map and requests that exact file from a holder over the targeted Cluster mesh. The received file is validated, written locally, and the node is registered as another holder. An advertised partition that no holder can provide produces an error rather than an empty query result. A configured file-level storage fallback is not implemented yet.
 
@@ -140,13 +164,19 @@ CoCreateDB does not currently upload filesystem files to external storage. No sh
 
 ## Index API
 
+CRUD envelopes (`index.create`, `index.read`, `index.update`, `index.delete`) route
+to one index handler. Each `index` entry contains `{ key, value, objectId }`;
+reads need only `key` (default `_id`). The corresponding direct methods use the
+same names. Create and update currently both insert an entry; replacing a value
+still requires deleting its old entry first. No new index behavior is introduced.
+
 The index primitive remains separately usable:
 
 ```js
 import { createIndex } from '@cocreate/db'
 
 const index = createIndex({ directory: './example-storage' })
-await index.set('example-db', 'users', 'age', 31, '0123456789abcdef01234567')
+await index.create('example-db', 'users', 'age', 31, '0123456789abcdef01234567')
 
 for await (const entry of index.scan('example-db', 'users', 'age', {
     type: 'number'
@@ -164,7 +194,7 @@ The logical index address is `database + array + key`. In `createDB`, logical na
 - The new ID-addressed layout does not automatically migrate data written under the previous `<database>/<array>` directory layout.
 - Filesystem storage is a local prototype. Object payloads and indexes share the configured root; there is no cloud/storage-provider fetch path yet.
 - Query matching and updates share `@cocreate/utils`; utility semantics and limitations are inherited. Equality and range queries can use field indexes, while other query conditions may scan candidate objects. Mixed-type range planning scans each indexed type branch to preserve native JavaScript comparison behavior. Index updates are maintained after shared update operators run, but multi-object updates are not transactional.
-- Index-holder nodes receive full creates, complete updated documents, and object deletions and the current database/array metadata after the corresponding index partition updates. This is event-driven replication for known holders; user subscription lifecycle and inactive-node pruning are still future steps.
+- Index-holder nodes receive full creates, update patches, and object deletions and the current database/array metadata after the corresponding index partition updates. This is event-driven replication for known holders; user subscription lifecycle and inactive-node pruning are still future steps.
 - Object requests target one database and one array; array operations target one database. Multi-target object fan-out is not implemented.
 - Index partition acquisition is targeted by the local partition-holder map. A clean-node holder-map snapshot, restart reconstruction, external storage fallback, and chunked terminal-array value acquisition are not implemented yet.
 - The legacy peer data path still targets exact `_id` reads using entity availability references. It is transitional; replacing it with complete index-trail resolution for documents and storage remains future work. Document mutation delivery has no durable acknowledgement/retry or reconnect recovery, and concurrent cross-node writes have no version conflict handling.
@@ -244,7 +274,11 @@ continuous resets once indexing is ready. Index reconciliation and propagation
 are not debounced. Explicit `flush()` bypasses the persistence cooldown.
 
 `db.persistenceStats()` exposes pending persistence paths, pending index entries,
-and the latest errors. `await db.flush()` drains indexing and eligible writes;
+and the latest errors. Server-integrated delivery/replication failures also remain
+available as `persistenceStats().backgroundError`, containing the method and its
+accumulated error array. Runtime DB failures are not written to the console.
+Request failures append to `data.error` (an array), preserving earlier errors.
+`await db.flush()` drains indexing and eligible writes;
 `await db.close()` drains and unregisters the adapter. Close the DB before removing
 its directory. The primary registers a graceful shutdown handler. Drain while
 quiescent for a complete shutdown boundary.
@@ -256,7 +290,7 @@ external persistence acknowledgment after each local disk operation. The older
 `storageWorkflow` option and `COCREATE_DB_STORAGE_WORKFLOW` variable remain aliases.
 The workflow calls
 `server.workflow.run({ method: 'workflow.<name>', organization_id, host,
-storage: [{ path, operation, revision, options, value }] }, { internal: true })`.
+storage: [{ path, operation, revision, options, value }] })`.
 Paths are relative to the DB root; `value` is the snapshot for that flushed
 revision, including document/index/chunk JSON. `operation` is `set` or `remove`.
 The workflow must return `success: true` without errors. Missing/unavailable
@@ -283,30 +317,50 @@ date fail after recreation; an ID-only update cannot express which lifetime its
 caller intended. Creation dates are not a general cross-server revision clock.
 Markers follow the same persistence acknowledgments and have no automatic purge.
 
-## Resolved-document update results
+## Update patches and resolved results
 
-`object.update` responses and subscribed-node/worker messages contain the complete
-updated document, including unchanged fields. MongoDB-style operators are inputs
-to local CRUD processing only. They are removed from successful response envelopes
-and are never generated as outgoing `$set`/`$unset` document patches.
+An `object.update` can supply `$update` on each object or on the request envelope.
+DB uses a supplied patch as-is, including its original operands. When absent,
+`createUpdatePatch` collects the request's fields and operators into a patch using
+the existing shared update syntax. It preserves increments, array operations,
+literal `$set` values and explicit removals. Undefined assignments in generated
+patches become `$unset` entries so JSON transport preserves their meaning.
+Per-object patches take precedence over an envelope patch. A supplied patch is
+the mutation input; accompanying snapshot fields and global operators are not
+applied a second time. There is no additional patch-schema validation pass;
+unsupported operations report the ordinary shared update utility error.
+
+Client replies and worker/index notifications include the complete resulting
+record with `$update` alongside it. Peer updates contain only `_id`, `$update`,
+and audit metadata; creates and new-lifetime upserts still deliver full records.
+For example, the client receives:
 
 ```js
-{ _id: '...', name: 'Ana', profile: { city: 'Paris' }, created: { on: '...' }, updated: { on: '...' } }
+{ _id: '...', score: 12, name: 'Ana', $update: { $inc: { score: 2 } } }
 ```
 
-Replies, index notifications, and queued document propagation retain the owned
-live record. Local persistence stores that full record. A no-op update returns
-the full record without scheduling document/index persistence. Deferred indexing
-coalesces work by object address and publishes the latest complete state.
+The peer receives the same patch without the full document:
 
-Receiving nodes install the delivered document without replaying update operators
-or fetching a base document. Replacement removes fields absent from the received
-state while retaining an existing cached record's identity. Deletion markers and
-creation-lifetime checks still reject stale lifetimes. This does not add causal
-ordering or resolve concurrent writes from independent servers.
+```js
+{ _id: '...', $update: { $inc: { score: 2 } }, updated: { on: '...' } }
+```
 
-Shared Utils `createUpdate` remains the local request-processing utility. Its
-operator semantics and the external persistence hooks are unchanged.
+Delivery containers share nested values and the supplied patch by reference.
+`$update` is never attached to the DB-owned document or persisted JSON. Local
+persistence retains the complete resulting record. No-op replies keep the patch
+without scheduling additional document/index persistence. Deferred indexing can
+coalesce by object address, but retains every update patch for propagation.
+
+A peer applies `$update` to its existing document using the shared update utility,
+preserving unrelated local fields. It does not originate the operation again.
+A peer missing the base fetches a current full record from the publisher; that
+snapshot already includes the patch, so it is not replayed over that snapshot.
+Index partitions continue through the existing holder-targeted partition path.
+
+This server stage leaves IndexedDB, browser optimistic acknowledgments, client
+rendering, operation ordering, duplicate recovery and field-conflict policies for
+separate work. Existing document lifetime/deletion checks and persistence hooks
+are retained. Full-record snapshots remain the acquisition/recovery mechanism.
 
 ## Organization and logical storage scope
 
@@ -326,7 +380,7 @@ validates it for object CRUD. Namespace `storage` is unrelated to providers.
 
 `db.forScope({ organization_id, storage })` exposes a namespace's independent
 engine for index inspection. The public index facade also accepts scope first:
-`db.index.get(scope, database, array, key)` and `db.index.scan(scope, ...)`.
+`db.index.read(scope, database, array, key)` and `db.index.scan(scope, ...)`.
 Distribution entity tuples include organization/storage IDs; regular partition
 paths include the entire namespace prefix. Internal Mesh messages carry that
 identity inside `scope`, preserving control-event rather than client routing.
@@ -352,7 +406,7 @@ for indexed changes. No automatic eviction or isolated read snapshots are added.
 `flush()` completes deferred index work in this mode.
 
 Traversal and propagation retain references instead of cloning nodes/documents.
-Queued propagation retains the complete live record until serialization. Node size is a split target; a large indivisible entry is allowed.
+Queued update propagation retains the original patches and their operands. Node size is a split target; a large indivisible entry is allowed.
 Persistence adapter redesign is deferred; this phase's no-clone guarantees and
 benchmarks apply to the memory-only core. See ARCHITECTURE.md for the current
 contract and the distinction from earlier detached-copy/rollback descriptions.

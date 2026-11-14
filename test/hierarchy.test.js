@@ -22,7 +22,7 @@ test('requires resolved organization/storage/database and never invents namespac
     for (const key of ['organization_id', 'storage', 'database']) {
         const response = await send(db, 'object.read', { [key]: undefined })
         assert.equal(response.success, false)
-        assert.match(response.error, new RegExp(key))
+        assert.match(response.error.join('; '), new RegExp(key))
     }
     assert.equal((await send(db, 'object.read', { storage: ['production', 'test'] })).success, false)
     assert.equal((await send(db, 'object.read', { organization_id: '../escape' })).success, false)

@@ -92,9 +92,9 @@ test('indexes object IDs and property values in deterministic order', async () =
         const objectsById = new Map(objects.map(object => [object._id, object]))
 
         for (const object of objects) {
-            await index.set('test', 'users', '_id', object._id, object._id)
-            await index.set('test', 'users', 'age', object.age, object._id)
-            await index.set('test', 'users', 'name', object.name, object._id)
+            await index.create('test', 'users', '_id', object._id, object._id)
+            await index.create('test', 'users', 'age', object.age, object._id)
+            await index.create('test', 'users', 'name', object.name, object._id)
         }
 
         const ageEntries = await collect(index.scan('test', 'users', 'age', { type: 'number' }))
@@ -124,7 +124,7 @@ test('indexes object IDs and property values in deterministic order', async () =
             ]
         )
 
-        assert.equal((await index.get('test', 'users', 'age')).indexes.number.length, 3)
+        assert.equal((await index.read('test', 'users', 'age')).indexes.number.length, 3)
     })
 })
 
@@ -515,12 +515,12 @@ test('object.update applies shared update operators and keeps all affected index
 
 test('indexes booleans and null in separate type branches', async () => {
     await withIndex(async index => {
-        await index.set('test', 'users', 'active', true, 'obj-1')
-        await index.set('test', 'users', 'active', false, 'obj-2')
-        await index.set('test', 'users', 'nickname', null, 'obj-1')
-        await index.set('test', 'users', 'score', 10, 'obj-1')
-        await index.set('test', 'users', 'score', 10, 'obj-1')
-        await index.set('test', 'users', 'score', 10, 'obj-2')
+        await index.create('test', 'users', 'active', true, 'obj-1')
+        await index.create('test', 'users', 'active', false, 'obj-2')
+        await index.create('test', 'users', 'nickname', null, 'obj-1')
+        await index.create('test', 'users', 'score', 10, 'obj-1')
+        await index.create('test', 'users', 'score', 10, 'obj-1')
+        await index.create('test', 'users', 'score', 10, 'obj-2')
 
         assert.deepEqual(
             await collect(index.scan('test', 'users', 'score', { type: 'number' })),
@@ -546,7 +546,7 @@ test('indexes booleans and null in separate type branches', async () => {
 
 test('index entries survive cache clearing and reopening the filesystem index', async () => {
     await withIndex(async (index, directory) => {
-        await index.set('test', 'users', 'age', 30, 'obj-1')
+        await index.create('test', 'users', 'age', 30, 'obj-1')
         index.clearCache()
 
         const reopened = createIndex({ directory })
@@ -566,7 +566,7 @@ test('splits a growing index, scans it in both directions, and prunes it after d
         }))
 
         for (const entry of entries)
-            await index.set('test', 'items', 'rank', entry.value, entry.objectId)
+            await index.create('test', 'items', 'rank', entry.value, entry.objectId)
 
         const forward = await collect(index.scan('test', 'items', 'rank', { type: 'number' }))
         const reverse = await collect(index.scan('test', 'items', 'rank', { type: 'number', reverse: true }))
@@ -576,10 +576,10 @@ test('splits a growing index, scans it in both directions, and prunes it after d
         assert.deepEqual(reverse, [...forward].reverse())
 
         for (const entry of entries)
-            assert.equal(await index.remove('test', 'items', 'rank', entry.value, entry.objectId), true)
+            assert.equal(await index.delete('test', 'items', 'rank', entry.value, entry.objectId), true)
 
         assert.deepEqual(await collect(index.scan('test', 'items', 'rank')), [])
-        assert.deepEqual((await index.get('test', 'items', 'rank')).indexes, {})
+        assert.deepEqual((await index.read('test', 'items', 'rank')).indexes, {})
     }, { maxBytes: 512 })
 })
 
@@ -588,7 +588,7 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
         const fields = Array.from({ length: 160 }, (_, i) => `field-${String(i).padStart(3, '0')}`)
 
         for (let i = 0; i < fields.length; i++)
-            await index.set('test', 'catalog', fields[i], i, 'object-1')
+            await index.create('test', 'catalog', fields[i], i, 'object-1')
 
         const indexDirectory = join(directory, 'test', 'catalog', 'index')
         const pending = ['test/catalog/index/index.json']
@@ -611,7 +611,7 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
         assert.ok(await depth(root) >= 3, 'catalog root should grow another level when its references overflow')
 
         for (let i = 0; i < fields.length; i++) {
-            const found = await index.get('test', 'catalog', fields[i])
+            const found = await index.read('test', 'catalog', fields[i])
             assert.equal(found.indexes.number.length, 1)
             assert.deepEqual(
                 await collect(index.scan('test', 'catalog', fields[i], { type: 'number' })),
@@ -623,7 +623,7 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
         assert.ok(catalogFiles.length > fields.length, 'catalog splits should add 32-character hexadecimal files alongside field nodes')
 
         for (let i = 0; i < fields.length; i++)
-            await index.remove('test', 'catalog', fields[i], i, 'object-1')
+            await index.delete('test', 'catalog', fields[i], i, 'object-1')
 
         const emptyRoot = JSON.parse(await readFile(join(indexDirectory, 'index.json'), 'utf8'))
         assert.deepEqual(emptyRoot.entries, [])
@@ -648,7 +648,7 @@ test('migrates a legacy flat catalog when the next key root is written', async (
             last: { value: 31, objectId: 'object-1' }
         }))
 
-        await index.set('test', 'users', 'name', 'Ada', 'object-1')
+        await index.create('test', 'users', 'name', 'Ada', 'object-1')
 
         assert.deepEqual(
             await collect(index.scan('test', 'users', 'age', { type: 'number' })),
@@ -667,9 +667,9 @@ test('migrates a legacy flat catalog when the next key root is written', async (
 
 test('rejects invalid logical path components and unsupported indexed values', async () => {
     await withIndex(async index => {
-        await assert.rejects(index.set('../escape', 'users', 'age', 20, 'obj-1'), /Invalid database or array name/)
-        await assert.rejects(index.set('test', 'users', 'age', Infinity, 'obj-1'), /Only finite numbers/)
-        await assert.rejects(index.set('test', 'users', 'age', 20, 1), /objectId must be a string/)
+        await assert.rejects(index.create('../escape', 'users', 'age', 20, 'obj-1'), /Invalid database or array name/)
+        await assert.rejects(index.create('test', 'users', 'age', Infinity, 'obj-1'), /Only finite numbers/)
+        await assert.rejects(index.create('test', 'users', 'age', 20, 1), /objectId must be a string/)
     })
 })
 
@@ -840,7 +840,7 @@ test('object.read plans AND/OR queries, sorts multiple keys, projects fields, an
 test('query planning narrows candidates before checking a broad array membership predicate', async () => {
     let hostArrayScans = 0
     const index = {
-        get: async (_database, _array, key) => ({
+        read: async (_database, _array, key) => ({
             indexes: key === 'host'
                 ? { array: { length: 1000 } }
                 : key === 'pathname'
@@ -889,8 +889,8 @@ test('arrays are indexed as complete terminal values and query semantics remain 
             }
         })
         const objectId = created.object[0]._id
-        const keys = await db.index.get('array-values', 'items', 'tags')
-        const nestedArrayKeys = await db.index.get('array-values', 'items', 'projects.name')
+        const keys = await db.index.read('array-values', 'items', 'tags')
+        const nestedArrayKeys = await db.index.read('array-values', 'items', 'projects.name')
         assert.ok(keys.indexes.array)
         assert.deepEqual(nestedArrayKeys.indexes, {})
 
@@ -952,7 +952,7 @@ test('arrays are indexed as complete terminal values and query semantics remain 
             filter: { query: { tags: 'javascript' }, key: { 'user.profile.country': 1 } }
         })
         assert.deepEqual(updatedArray.object[0].user, { profile: { country: 'Panama' } })
-        assert.equal((await db.index.get('array-values', 'items', 'tags[0]')).indexes.string, undefined)
+        assert.equal((await db.index.read('array-values', 'items', 'tags[0]')).indexes.string, undefined)
     })
 })
 
@@ -960,7 +960,7 @@ test('large terminal arrays remain whole outside index nodes and survive scans',
     await withIndex(async (_index, directory) => {
         const index = createIndex({ directory, maxBytes: 512 })
         const array = Array.from({ length: 2000 }, (_, position) => `value-${position}-${'x'.repeat(32)}`)
-        await index.set('large-arrays', 'items', 'values', array, 'document-1')
+        await index.create('large-arrays', 'items', 'values', array, 'document-1')
 
         const [entry] = await collect(index.scan('large-arrays', 'items', 'values', { type: 'array' }))
         assert.deepEqual(entry.value, array)
@@ -1201,7 +1201,7 @@ test('array and database deletion preserve peer availability references', async 
         assert.deepEqual(await db.getDistribution({ databaseId }), ['peer-node'])
         assert.deepEqual(await db.getDistribution({ databaseId, arrayId: secondArrayId }), ['peer-node'])
         assert.deepEqual(await db.getDistribution({ databaseId, arrayId: secondArrayId, objectId: secondObjectId }), ['peer-node'])
-        assert.deepEqual(JSON.parse(await readFile(join(directory, 'databases', databaseId, 'arrays', 'distribution', 'index.json'), 'utf8')).entries.length > 0, true)
+        assert.equal(JSON.parse(await readFile(join(directory, 'databases', databaseId, 'arrays', 'distribution', 'index.json'), 'utf8')).entries.length, 0)
     })
 })
 

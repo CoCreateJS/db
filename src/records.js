@@ -8,7 +8,7 @@ import { replaceLive, live } from './mutation.js'
 export async function createRecord(index, database, array, file, record) {
     await writeExclusiveJSON(file, record)
     for (const [key, value] of flattenIndexValues(record))
-        await index.set(database, array, key, value, record._id)
+        await index.create(database, array, key, value, record._id)
     return record
 }
 
@@ -31,7 +31,7 @@ export async function reconcileEntrySets(index, database, array, objectId, befor
     for (const entry of before) if (!afterKeys.has(entryKey(entry)))
         await index.removeIndexed(database, array, entry, objectId)
     for (const entry of after) if (!beforeKeys.has(entryKey(entry)))
-        await index.set(database, array, entry.key, entry.value, objectId)
+        await index.create(database, array, entry.key, entry.value, objectId)
 }
 
 export async function deleteRecord(index, database, array, file, record) {

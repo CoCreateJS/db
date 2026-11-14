@@ -4,6 +4,8 @@ import { createUpdate, ObjectId, queryData } from '@cocreate/utils'
 import { adjustArrayLength, ensureArray, materializeArray, sendArray } from '../array/index.js'
 import { adjustDatabaseLengths, ensureDatabase, materializeDatabase, sendDatabase } from '../database/index.js'
 import createIndex from '../index/index.js'
+import { createPeerDistribution, mergeDistributionLists } from '../peers.js'
+import indexCRUD from '../index/crud.js'
 import { createDistributionIndex } from '../distribution.js'
 import {
     ARRAY_CATALOG, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
@@ -18,6 +20,14 @@ import { prepareMutation, live } from '../mutation.js'
 import { createPersistence } from '../persistence.js'
 import { enableMemoryCache, memoryStats, removeMemoryPath } from '../memory.js'
 
+function errorHandler(data, error) {
+    if (!Array.isArray(data.error)) data.error = data.error === undefined ? [] : [data.error]
+    const errors = error?.errors ?? error?.message ?? error
+    data.error.push(...(Array.isArray(errors) ? errors : [errors]))
+    data.success = false
+    return data
+}
+
 const isObjectId = value => typeof value === 'string' && /^[0-9a-f]{24}$/i.test(value)
 
 function tagRecord(record, request) {
@@ -28,74 +38,41 @@ function tagRecord(record, request) {
     return record
 }
 
-function assertSafeUpdatePath(path) {
-    const keys = String(path).replace(/\[(\d+)\]/g, '.$1').split('.')
-    if (keys.some(key => !key || ['__proto__', 'prototype', 'constructor'].includes(key)))
-        throw new TypeError(`Invalid object key path: ${path}`)
-    if (keys[0] === '_id')
-        throw new Error('object._id cannot be changed')
-}
-
-function validateUpdatePaths(input) {
-    for (const [key, value] of Object.entries(input)) {
-        if (key === '_id' || key === 'filter' || ['$storage', '$database', '$array'].includes(key))
-            continue
-
-        if (!key.startsWith('$')) {
-            assertSafeUpdatePath(key)
-            continue
-        }
-
-        if (key.includes('.')) {
-            const [operator, ...path] = key.split('.')
-            assertSafeUpdatePath(path.join('.'))
-            if (operator === '$rename') assertSafeUpdatePath(value)
-            continue
-        }
-
-        for (const path of Object.keys(value || {})) {
-            assertSafeUpdatePath(path)
-            if (key === '$rename') assertSafeUpdatePath(value[path])
-        }
-    }
-}
-
-function applyObjectUpdate(current, input, request) {
-    const plan = prepareMutation(current)
-    const updated = plan.value
-    const createdOn = current.created?.on
-
-    if (input._id && input._id !== current._id)
-        throw new Error('object._id cannot be changed')
-
-    validateUpdatePaths(input)
-
-    const updateData = {}
-    for (const [key, value] of Object.entries(input)) {
-        if (key === 'filter' || ['$storage', '$database', '$array'].includes(key)) continue
-        updateData[key] = value
-    }
-
-    const globalOperators = {}
+// Preserve the request's update syntax and operands; do not diff the final record.
+function createUpdatePatch(input, request) {
+    if (Object.hasOwn(input, '$update')) return input.$update
+    if (Object.hasOwn(request, '$update')) return request.$update
+    const patch = {}, removed = {}
     for (const [operator, values] of Object.entries(request)) {
         if (!operator.startsWith('$') || !values || typeof values !== 'object') continue
-        for (const [path, value] of Object.entries(values)) {
-            assertSafeUpdatePath(path)
-            if (operator === '$rename') assertSafeUpdatePath(value)
-            globalOperators[`${operator}.${path}`] = value
-        }
+        for (const [path, value] of Object.entries(values)) patch[`${operator}.${path}`] = value
     }
+    for (const [key, value] of Object.entries(input)) {
+        if (['_id', 'filter', '$storage', '$database', '$array'].includes(key)) continue
+        if (value === undefined && !key.startsWith('$')) removed[key] = true
+        else patch[key] = value
+    }
+    if (Object.keys(removed).length) patch.$unset = { ...removed, ...patch.$unset }
+    return patch
+}
 
-    if (createUpdate(updated, updateData, globalOperators) === false)
+function applyObjectUpdate(current, patch, audit) {
+    const plan = prepareMutation(current)
+    const updated = plan.value
+    if (createUpdate(updated, patch) === false)
         throw new Error('Shared update utility could not apply the requested update')
-
-    if (updated.created?.on !== createdOn)
+    if (updated._id !== current._id) throw new Error('object._id cannot be changed')
+    if (updated.created?.on !== current.created?.on)
         throw new Error('object.created.on cannot be changed')
-
-    setPath(updated, 'updated', auditMetadata(request))
-
+    if (audit) setPath(updated, 'updated', audit)
     return plan
 }
+
+// Delivery views do not attach transport metadata to the persisted document.
+function updateReply(record, patch) {
+    return { ...record, $update: patch }
+}
+const peerUpdate = (record, patch) => ({ _id: record._id, $update: patch, updated: record.updated })
 
 /**
  * Create a filesystem-backed CoCreateDB instance.
@@ -104,11 +81,22 @@ function applyObjectUpdate(current, input, request) {
 export function createDB({
     directory = './storage', maxIndexBytes = 128 * 1024, cache = false, memoryCache = false,
     nodeId, distributionAdapter, peerReader, partitionAdapter, documentMutationAdapter,
-    writeBehind = false, memoryOnly = false, sharedPersistence, scheduleIndexing = operation => operation(), onIndexed, persistenceOptions = {}
+    writeBehind = false, memoryOnly = false, disk = true, sharedPersistence, scheduleIndexing = operation => operation(), onIndexed, persistenceOptions = {}
 } = {}) {
     const root = resolve(directory)
-    if (memoryCache || memoryOnly) enableMemoryCache(root, { memoryOnly })
-    const deferred = writeBehind || memoryOnly
+    const peers = createPeerDistribution(nodeId)
+    distributionAdapter ??= {
+        update: (payload, apply) => !nodeId || payload.nodeId === nodeId ? apply(payload) : peers.update(payload),
+        get: async (payload, read) => [...new Set([...await read(payload), ...peers.get(payload)])].sort(),
+        list: async (payload, read) => mergeDistributionLists(await read(payload), peers.list(payload))
+    }
+    partitionAdapter ??= {
+        update: (payload, apply) => !nodeId || payload.nodeId === nodeId ? apply(payload) : peers.updatePartition(payload),
+        get: async (path, read) => [...new Set([...await read(path), ...peers.getPartition(path)])].sort(),
+        list: async read => mergeDistributionLists(await read(), peers.listPartitions(), 'partitionId')
+    }
+    if (memoryCache || memoryOnly || disk === false) enableMemoryCache(root, { memoryOnly: memoryOnly || disk === false })
+    const deferred = writeBehind || memoryOnly || disk === false
     const deletedObjects = new Map()
     const getDeletion = async (database, array, id) => {
         const path = objectDeletionPath(root, database, array, id)
@@ -131,7 +119,7 @@ export function createDB({
     const pendingIndexes = new Map()
     const documentRevisions = new Map()
     let indexTimer, indexScheduled = false, indexError, closing = false
-    const persistence = memoryOnly ? undefined : sharedPersistence ?? (writeBehind ? createPersistence({
+    const persistence = memoryOnly || disk === false ? undefined : sharedPersistence ?? (writeBehind ? createPersistence({
         ...persistenceOptions, directory: root, canFlush: () => pendingIndexes.size === 0
     }) : undefined)
     const requestIndexing = (delay = 0) => {
@@ -149,16 +137,17 @@ export function createDB({
         }, delay)
         indexTimer.unref?.()
     }
-    const queueIndex = (database, array, before, objectId, publish = true, createdOn) => {
+    const queueIndex = (database, array, before, objectId, publish = true, createdOn, update) => {
         const path = objectPath(root, database, array, objectId)
         let entry = pendingIndexes.get(path)
         if (!entry) {
-            entry = { database, array, objectId, indexed: before ?? [], createdOn, revision: 0, publish, holders: new Set() }
+            entry = { database, array, objectId, indexed: before ?? [], createdOn, revision: 0, publish, holders: new Set(), updates: [] }
             pendingIndexes.set(path, entry)
         }
         entry.revision = (documentRevisions.get(path) ?? 0) + 1
         documentRevisions.set(path, entry.revision)
         entry.publish ||= publish
+        if (update) entry.updates.push(update)
         requestIndexing()
     }
     const processPendingIndexes = async () => {
@@ -176,10 +165,21 @@ export function createDB({
                     if (latest)
                         for (const holder of await captureObjectHolders(entry.database, entry.array, latest)) entry.holders.add(holder)
                     const operation = !latest ? 'remove' : entry.createdOn && entry.createdOn === latest.created?.on ? 'update' : 'set'
-                    const object = latest ?? entry.removed
-                    if (entry.publish && object)
-                        await publishObjectMutation(operation, entry.database, entry.array, object, entry.holders, latest?.created?.on)
-                    await onIndexed?.({ databaseId: entry.database, arrayId: entry.array, objectId: entry.objectId, revision, operation, object: live(object) })
+                    const updates = entry.updates.slice()
+                    if (operation === 'update') {
+                        // Index reconciliation can coalesce; incremental operations cannot.
+                        for (const update of updates) {
+                            if (entry.publish) await publishObjectMutation(operation, entry.database, entry.array, update, entry.holders, latest.created?.on)
+                            await onIndexed?.({ databaseId: entry.database, arrayId: entry.array, objectId: entry.objectId,
+                                revision, operation, object: updateReply(latest, update.$update) })
+                        }
+                    } else {
+                        const object = latest ?? entry.removed
+                        if (entry.publish && object)
+                            await publishObjectMutation(operation, entry.database, entry.array, object, entry.holders, latest?.created?.on)
+                        await onIndexed?.({ databaseId: entry.database, arrayId: entry.array, objectId: entry.objectId, revision, operation, object: live(object) })
+                    }
+                    entry.updates.splice(0, updates.length)
                     if (entry.revision === revision) pendingIndexes.delete(path)
                 } catch (error) {
                     indexError = error
@@ -224,6 +224,7 @@ export function createDB({
     })
     const distributionIndex = createDistributionIndex({
         directory: root,
+        nodeId,
         maxBytes: maxIndexBytes,
         cache
     })
@@ -490,7 +491,7 @@ export function createDB({
         return record?._id === id ? record : undefined
     }
 
-    const applyReplicatedObjectMutation = async ({ operation, database, array, object, createdOn, upsert = false }) => {
+    const applyReplicatedObjectMutation = async ({ operation, database, array, object, createdOn, serverId, upsert = false }) => {
         if (!['set', 'update', 'remove'].includes(operation) || !object || !isObjectId(object._id))
             throw new TypeError('Invalid replicated object mutation')
         const databaseId = database?._id
@@ -502,12 +503,15 @@ export function createDB({
         const deletion = await getDeletion(databaseId, arrayId, object._id)
         if (operation === 'update') {
             if (deletion || (createdOn && current?.created?.on && createdOn !== current.created.on)) return false
-            // Replicas install the complete resolved record; operators run only
-            // at the node processing the original CRUD request.
-            if (!object.created?.on || Object.keys(object).some(key => key.startsWith('$') && !['$storage', '$database', '$array'].includes(key)))
-                throw new TypeError('Replicated updates require a complete document without update operators')
-            if (createdOn && object.created.on !== createdOn) return false
-            if (current?.created?.on && object.created.on !== current.created.on) return false
+            if (current) {
+                const plan = applyObjectUpdate(current, object.$update, object.updated)
+                plan.commit()
+            } else {
+                if (!peerReader || !serverId) throw new Error(`Cannot apply an update without the base object: ${object._id}`)
+                // The publishing node's snapshot already includes this operation.
+                current = await peerReader({ nodeId: serverId, type: 'object', databaseId, arrayId, objectId: object._id })
+                if (!current || current._id !== object._id || (createdOn && current.created?.on !== createdOn)) return false
+            }
         }
         if (operation === 'set' && !upsert && (staleGeneration(object, deletion) ||
             (current?.created?.on && object.created?.on && object.created.on < current.created.on))) return false
@@ -522,7 +526,7 @@ export function createDB({
             await rm(file, { force: true })
         }
         else {
-            await replaceJSON(file, object)
+            await replaceJSON(file, operation === 'update' ? current : object)
             await clearDeletion(databaseId, arrayId, object._id)
         }
 
@@ -722,12 +726,20 @@ export function createDB({
 
     const updateObjects = async (request, database, array) => {
         const inputs = request.object === undefined
-            ? []
+            ? Object.hasOwn(request, '$update') ? [{}] : []
             : Array.isArray(request.object) ? request.object : [request.object]
 
         if (!inputs.length)
             throw new Error('object.update requires object data')
 
+        const createFromUpdate = async input => {
+            const patch = createUpdatePatch(input, request)
+            const record = input._id === undefined ? {} : { _id: input._id }
+            if (createUpdate(record, patch) === false)
+                throw new Error('Shared update utility could not apply the requested update')
+            const records = await createObjects({ ...request, method: 'object.create', object: record }, database, array)
+            return records.map(record => updateReply(record, patch))
+        }
         const identified = inputs.filter(input => input && typeof input === 'object' && input._id)
         const targets = []
 
@@ -743,11 +755,7 @@ export function createDB({
 
                 if (!current) {
                     if (request.upsert && inputs.length === 1)
-                        return createObjects({
-                            ...request,
-                            method: 'object.create',
-                            object: input
-                        }, database, array)
+                        return createFromUpdate(input)
 
                     throw new Error(`Object file not found: ${objectId}`)
                 }
@@ -769,11 +777,7 @@ export function createDB({
         if (!targets.length && request.upsert) {
             if (inputs.length !== 1)
                 throw new Error('An upsert accepts one object')
-            return createObjects({
-                ...request,
-                method: 'object.create',
-                object: inputs[0]
-            }, database, array)
+            return createFromUpdate(inputs[0])
         }
 
         const updatedObjects = []
@@ -781,7 +785,8 @@ export function createDB({
         for (const { current, input } of targets) {
             const before = indexEntries(current)
             const createdOn = current.created?.on
-            const mutation = applyObjectUpdate(current, input, request)
+            const patch = createUpdatePatch(input, request)
+            const mutation = applyObjectUpdate(current, patch, auditMetadata(request))
             mutation.commit()
             const updated = live(current)
             const after = indexEntries(updated)
@@ -792,16 +797,16 @@ export function createDB({
             if (changedKeys.size) {
                 if (deferred) {
                     await replaceJSON(objectPath(root, database, array, current._id), updated)
-                    queueIndex(database, array, before, current._id, true, createdOn)
+                    queueIndex(database, array, before, current._id, true, createdOn, peerUpdate(updated, patch))
                 } else {
                     const holders = await captureEntryHolders(database, array, before, current._id)
                     await reconcileEntrySets(storageIndex, database, array, current._id, before, after)
                     await replaceJSON(objectPath(root, database, array, current._id), updated)
                     for (const holder of await captureObjectHolders(database, array, updated)) holders.add(holder)
-                    await publishObjectMutation('update', database, array, updated, holders, updated.created?.on)
+                    await publishObjectMutation('update', database, array, peerUpdate(updated, patch), holders, updated.created?.on)
                 }
             }
-            updatedObjects.push(tagRecord(updated, request))
+            updatedObjects.push(updateReply(tagRecord(updated, request), patch))
         }
 
         return updatedObjects
@@ -881,9 +886,9 @@ export function createDB({
     }
 
     const index = {
-        get: (database, array, key) => readIndex('get', database, array, key),
+        read: (database, array, key) => readIndex('read', database, array, key),
         getMetadata: (database, array, key) => readIndex('getMetadata', database, array, key),
-        set: async (database, array, key, value, objectId, request = {}) => {
+        create: async (database, array, key, value, objectId, request = {}) => {
             const databaseMetadata = await ensureDatabase(root, storageIndex, database, {}, request)
             const arrayMetadata = await ensureArray(root, storageIndex, databaseMetadata, array, {}, request)
             let existing = false
@@ -891,7 +896,7 @@ export function createDB({
                 for await (const entry of storageIndex.scan(databaseMetadata._id, arrayMetadata._id, key))
                     if (entry.value === value && entry.objectId === objectId) existing = true
             }
-            await storageIndex.set(databaseMetadata._id, arrayMetadata._id, key, value, objectId)
+            await storageIndex.create(databaseMetadata._id, arrayMetadata._id, key, value, objectId)
             if (key === '_id' && !existing) {
                 let arrayLengthUpdated = false
                 try {
@@ -901,12 +906,12 @@ export function createDB({
                 } catch (error) {
                     if (arrayLengthUpdated)
                         await adjustArrayLength(root, storageIndex, databaseMetadata._id, arrayMetadata._id, -1, request).catch(() => {})
-                    await storageIndex.remove(databaseMetadata._id, arrayMetadata._id, key, value, objectId).catch(() => {})
+                    await storageIndex.delete(databaseMetadata._id, arrayMetadata._id, key, value, objectId).catch(() => {})
                     throw error
                 }
             }
         },
-        remove: async (database, array, key, value, objectId, request = {}) => {
+        delete: async (database, array, key, value, objectId, request = {}) => {
             const databaseRecord = await findRecordByName(
                 storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
                 id => databaseMetadataPath(root, id), database
@@ -919,7 +924,7 @@ export function createDB({
             )
             const arrayId = arrayRecord?._id
             if (!arrayId) return false
-            const removed = await storageIndex.remove(databaseId, arrayId, key, value, objectId)
+            const removed = await storageIndex.delete(databaseId, arrayId, key, value, objectId)
             if (removed && key === '_id') {
                 let arrayLengthUpdated = false
                 try {
@@ -929,7 +934,7 @@ export function createDB({
                 } catch (error) {
                     if (arrayLengthUpdated)
                         await adjustArrayLength(root, storageIndex, databaseId, arrayId, 1, request).catch(() => {})
-                    await storageIndex.set(databaseId, arrayId, key, value, objectId).catch(() => {})
+                    await storageIndex.create(databaseId, arrayId, key, value, objectId).catch(() => {})
                     throw error
                 }
             }
@@ -953,12 +958,15 @@ export function createDB({
         clearCache: () => storageIndex.clearCache()
     }
 
+    index.update = index.create
+
     return {
         index,
         resolveDistributionIds,
         updateDistribution,
         getDistribution,
         listDistribution,
+        distribution: { local: distributionIndex, peers },
         updatePartition,
         getPartitionHolders,
         listPartitions,
@@ -987,7 +995,7 @@ export function createDB({
             const response = { ...request }
             // Operators belong to request processing, including when no record matches.
             if (request?.method === 'object.update')
-                for (const key of Object.keys(response)) if (key.startsWith('$')) delete response[key]
+                for (const key of Object.keys(response)) if (key.startsWith('$') && key !== '$update') delete response[key]
 
             try {
                 if (!request || typeof request.method !== 'string')
@@ -997,6 +1005,12 @@ export function createDB({
 
                 if (!['create', 'read', 'update', 'delete'].includes(method))
                     throw new Error(`Unsupported CRUD method: ${request.method}`)
+
+                if (type === 'index') {
+                    await indexCRUD(method, response, index)
+                    response.success = true
+                    return response
+                }
 
                 if (deferred && method === 'delete' && ['database', 'array'].includes(type)) await flushIndexes()
 
@@ -1165,9 +1179,7 @@ export function createDB({
                 response.success = true
                 return response
             } catch (error) {
-                response.success = false
-                response.error = error.message
-                return response
+                return errorHandler(response, error)
             } finally { release?.() }
         }
     }

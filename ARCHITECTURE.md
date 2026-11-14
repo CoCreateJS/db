@@ -1,5 +1,29 @@
 # CoCreateDB — Architecture & Design Decisions
 
+### Local and peer distribution — implemented
+
+`distribution.local` is the authoritative local holder inventory; existing
+distribution directories store only locally authored entries, using a stable
+local marker rather than the process's current server ID. `distribution.peers`
+merges per-peer contributions in memory and excludes this node. Incoming peer
+snapshots and changes never enter the file/index writer. Public holder lookups
+combine both views for existing consumers.
+
+Control connection establishment exchanges complete local inventories using
+`db.distribution.sync`, with one reply. A complete snapshot replaces only its
+sender's contribution. Session/revision metadata prevents older snapshots from
+undoing newer changes. Disconnect forgets peer holdings; reconnect rebuilds them.
+Snapshots enumerate namespace catalogs and holder indexes, not document contents.
+The current exchange sends one full inventory envelope; batching large inventories
+is not implemented. Existing legacy ownership under a different server ID cannot
+be inferred safely and is not silently adopted.
+
+`db.disk` defaults true. False uses the same memory-backed file representation
+for data and local distribution without filesystem reads/writes. It is independent
+of the external persistence feature gates. Explicit `memoryOnly` still disables
+external persistence too. Disk writes retain the existing write-behind durability
+boundary; pending changes are not crash-durable until flushed.
+
 **Repository:** `CoCreateJS/db`
 **npm:** `@cocreate/db`
 **Product and README title:** **CoCreateDB**
@@ -87,8 +111,8 @@ ObjectIds are the preferred identity and default enumeration key. Timestamp-bear
 **Entry point:** `database + array + key`. For example:
 
 ```js
-await Index.get('production', 'users', 'age')
-await Index.get('production', 'users', '_id')
+await Index.read('production', 'users', 'age')
+await Index.read('production', 'users', '_id')
 ```
 
 When a query has no filter/sort key, use the `_id` index to enumerate objects. A field catalog for each `database + array` maps `(key, type)` pairs to index roots. The field catalog is itself a recursive ordered tree. `index.json` remains its stable root; when its serialized size exceeds `maxBytes`, its entries move into 32-character hexadecimal UUID-derived child files and the root points to those children. Further splits can add levels. Each type branch is also a recursive ordered tree of individually persisted nodes. Node IDs are internal traversal references, not the public logical address.
@@ -206,11 +230,19 @@ Object create generates/validates an ObjectId, stores the JSON object under the 
 The public root is addressed **logically**, not solely by internal ID:
 
 ```js
-Index.get(database, array, key = '_id')
-Index.set(database, array, key, /* mutation or index — signature TBD */)
+Index.read(database, array, key = '_id')
+Index.create(database, array, key, value, objectId)
+Index.update(database, array, key, value, objectId)
+Index.delete(database, array, key, value, objectId)
 ```
 
-**Unresolved API detail:** Earlier discussions used `set` both for persisting an index root and inserting an entry; the prototype implemented entry insertion. Finalize a non-ambiguous API before declaring stable exports. Node operations can remain private (`getNode`, `setNode`, `deleteNode`) and take resolved paths/IDs. `Index.get()` should normalize/validate the returned format regardless of adapter; storage errors must not be treated as missing indexes.
+The CRUD names replace `get`/`set`/`remove` in index consumers. Create and update
+currently both retain the old entry insertion behavior; replacing a value still
+requires deleting its old entry first. Further index behavior is deferred. One
+handler dispatches `index.<operation>` envelopes with `index: [{ key, value,
+objectId }]`; read entries need only `key`. Whole-partition I/O remains separate.
+Private node operations take resolved paths/IDs. Storage errors must not be
+treated as missing indexes.
 
 The initial reference implementation uses **Node.js `fs`** and JSON files, optionally caching parsed nodes in a Map. Its path layout:
 
@@ -478,27 +510,34 @@ new lifetimes after intentional ID reuse; callers must include the creation date
 for that check. Creation timestamps are not a complete distributed version clock.
 Marker retention/purge and cross-server causal ordering remain open policies.
 
-### Resolved-document responses and propagation — implemented
+### Update patches and resulting state — implemented server contract
 
-Object updates validate shared `createUpdate` against a view of proposed property
-slots, then commit those slots to the owned live document. Replies, holder-targeted
-Mesh mutations, and `db.indexed` worker notifications carry the complete resolved
-record. Original request operators are removed from successful response envelopes;
-no outgoing `$set`/`$unset` document patch is generated. Unchanged fields remain in
-the delivered record. No-op replies return the full record without scheduling
-additional document/index persistence.
+Object updates accept `$update` on an object or the request envelope, with the
+per-object patch taking precedence. Supplied patches are reused as-is. Without
+one, DB builds a patch from the original fields and operators using shared update
+syntax; increment deltas and array operations retain their intent. Undefined
+assignments become explicit `$unset` entries in generated patches for transport.
+The normal shared `createUpdate` executes against prepared property slots before
+attachment; no separate patch-schema validation/correction layer is introduced.
+Existing immutable identity and creation-lifetime checks remain in place.
 
-Deferred index work coalesces by object address and publishes the latest complete
-live state. Create and recreated-lifetime records publish `set`; existing-lifetime
-records publish `update` with creation-lifetime metadata. Replicas install that
-complete state without evaluating update operators or fetching a missing base.
-Replacement removes absent fields while preserving an existing cached record's
-identity. Deletion markers and creation-lifetime checks remain enforced.
+Client replies and `db.indexed` worker notifications contain the complete result
+plus `$update`. Holder-targeted update mutations carry `_id`, `$update` and audit
+metadata, without a full object. Delivery views do not attach patches to owned
+records. Documents persisted locally or through persistence hooks remain complete
+records without transport patches. Creates and recreated-lifetime upserts still
+publish full `set` snapshots.
 
-The full record remains authoritative for queries, index reconciliation, and local
-persistence. Shared Utils update semantics and external persistence hooks are
-unchanged. This contract adds no cross-server causal ordering, conflict resolution,
-or multi-file transaction guarantees.
+Deferred indexing coalesces work by object address but retains each original
+patch for propagation. Receivers apply a patch to their existing local document,
+then persist the full result without originating the mutation again. Missing-base
+receivers fetch a current full snapshot from the publisher and do not replay the
+already-included patch. Index partitions retain their existing separate delivery
+path. Peer-to-worker notifications retain the received patch alongside local state.
+
+This stage does not update browser adapters, optimistic acknowledgment handling,
+operation ordering, deduplication/recovery, or field-level conflict resolution.
+Document deletion/lifetime checks and external persistence hooks are unchanged.
 
 ### Organization-owned logical storage hierarchy — implemented
 
@@ -574,8 +613,8 @@ after application do not imply that the already-applied memory state was undone.
 Before-state for index maintenance consists of field names, scalar values, and
 terminal-array digests, not a previous document snapshot. Removing an obsolete
 array index uses its stored digest even when its live array has since changed.
-Update replies and queued propagation retain the full live document. Serialization
-observes its current values, including changes that reverted before dispatch.
+Update replies expose a result view plus the original patch. Queued propagation
+retains each patch and its operation operands rather than diffing final state.
 Payload data is not cloned for Mesh; JSON serialization
 is the process/transport boundary. Routing envelopes, projections, result lists,
 and new split siblings are new containers, not copies of database-owned datasets.

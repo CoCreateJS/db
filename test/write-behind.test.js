@@ -214,7 +214,7 @@ test('deletion markers reject late updates and peer copies; upsert starts a new 
     assert.equal(marker.created.on, staleObject.created.on)
     const late = await send(db, 'update', { _id: id, value: 2 })
     assert.equal(late.success, false)
-    assert.match(late.error, /not found/)
+    assert.match(late.error.join('; '), /not found/)
     assert.equal(await db.applyReplicatedObjectMutation({ ...metadata, operation: 'set', object: staleObject }), false)
     await db.updateDistribution({ databaseId: database._id, arrayId: array._id, objectId: id, nodeId: 'peer', operation: 'add' })
     assert.deepEqual((await send(db, 'read', { _id: id })).object, [])
@@ -243,7 +243,7 @@ test('configured storage workflow acknowledges snapshots and can query CRUD duri
         calls.push(payload)
         assert.equal(payload.method, 'workflow.save-test')
         assert.equal(payload.organization_id, server.organization_id)
-        assert.equal(options.internal, true)
+        assert.equal(options, undefined)
         assert.ok(payload.storage[0].path)
         // A workflow loads its definition through CRUD. This must not deadlock.
         const result = await db.send({ ...scope, organization_id: '000000000000000000000001', storage: 'production', method: 'object.read' })

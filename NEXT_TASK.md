@@ -9,7 +9,7 @@
 - Filesystem-backed database, array, and object CRUD use the recursive index engine.
 - CoCreateDB initializes on the Cluster server instance as `server.db`; CRUD uses that instance after organization and host routing.
 - The recursive Distribution Index tracks regular index partition paths and their holder node IDs; partition files can be acquired from peers during traversal and mutations are targeted to current holders.
-- Object create/update/delete sends complete unprojected documents and current database/array metadata to the union of nodes holding the object's old/new index partitions. Receivers apply partition and document events in order.
+- Object creates/deletes send full records; updates send `$update` patches and current database/array metadata to known holders. Client update replies contain the result plus the patch. Cross-node operation ordering remains a follow-up discussion.
 - A legacy database/array/object availability map still supports exact `_id` metadata/document acquisition during the transition to index-trail data resolution.
 - Arrays are terminal index values stored in bounded chunks. Ordinary object paths remain recursively indexed; arrays do not create positional or nested-member index paths.
 - Peer fetches are targeted over Cluster's existing mesh, correlated, and time-bounded. The Cluster whitelist/connection path remains the trust boundary.
@@ -47,3 +47,9 @@
 - Preserve terminal array semantics and shared query-utility behavior.
 - Keep peer acquisition targeted by partition path and bounded by a timeout.
 - Preserve unrelated workspace changes and report consistency limitations accurately.
+
+## Follow-up discussion requested
+
+- Discuss operation ordering after the server `$update` contract is complete.
+- Keep IndexedDB generation, optimistic client acknowledgments/rendering, and
+  cross-node ordering/conflict policies outside this server patch task.

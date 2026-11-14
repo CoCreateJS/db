@@ -50,7 +50,7 @@ const union = (left, right) => new Set([...left, ...right])
 export async function queryIndexCandidates(index, database, array, query, { readObject } = {}) {
     const metadata = new Map()
     const getMetadata = key => {
-        if (!metadata.has(key)) metadata.set(key, (index.getMetadata ?? index.get).call(index, database, array, key))
+        if (!metadata.has(key)) metadata.set(key, (index.getMetadata ?? index.read).call(index, database, array, key))
         return metadata.get(key)
     }
     const hasArrayAncestor = async key => {
