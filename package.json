@@ -1,7 +1,7 @@
 {
   "name": "@cocreate/db",
   "version": "0.0.0-development",
-  "description": "JavaScript document database with rich queries, automatic indexing, and local-first storage.",
+  "description": "Local-first JavaScript document database with rich queries, automatic indexing, and distributed data support.",
   "keywords": [
     "cocreate",
     "database",
@@ -11,7 +11,8 @@
     "embedded-database",
     "local-first",
     "automatic-indexing",
-    "database-engine"
+    "database-engine",
+    "distributed-database"
   ],
   "scripts": {
     "example:filesystem": "node examples/filesystem.js",
