@@ -1,6 +1,6 @@
 {
   "name": "@cocreate/db",
-  "version": "0.0.0-development",
+  "version": "1.0.0",
   "description": "Local-first JavaScript document database with rich queries, automatic indexing, and distributed data support.",
   "keywords": [
     "cocreate",
