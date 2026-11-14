@@ -69,7 +69,7 @@ test('failed indexing rolls back partial memory nodes, retains the document, and
     const { db, directory } = await fixture(t, {
         nodeId: 'local',
         partitionAdapter: { onLocalChange: async (payload, apply) => {
-            if (fail && payload.path.includes('/index/')) { fail = false; throw new Error('index interrupted') }
+            if (fail && payload.path.startsWith('indexes/')) { fail = false; throw new Error('index interrupted') }
             return apply({ partitionId: payload.path, nodeId: 'local', operation: payload.operation === 'remove' ? 'remove' : 'add' })
         } }
     })

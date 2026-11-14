@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { dirname, resolve, sep, relative } from 'node:path'
-import { enableMemoryCache, peekMemoryJSON, writeMemoryJSON, markMemoryRemoval, pinMemoryPath, unpinMemoryPath, memoryEntries, memoryState, restoreMemoryState } from './memory.js'
+import { enableMemoryCache, peekMemoryJSON, writeMemoryJSON, markMemoryRemoval, pinMemoryPath, unpinMemoryPath } from './memory.js'
 
 import { recordFileBytes, removeFileBytes, flushFileBytes } from './bytes.js'
 
@@ -20,7 +20,7 @@ export function createPersistence({ directory, canFlush = () => true, storage, w
     if (stores.has(root)) throw new Error(`Persistence already initialized for ${root}`)
     enableMemoryCache(root)
     const dirty = new Map()
-    let revision = 0, holds = 0, running, timer, closed = false, lastError, checkpoint
+    let revision = 0, holds = 0, running, timer, closed = false, lastError
     const schedule = delay => {
         if (closed || timer || running || holds || !dirty.size || !canFlush()) return
         if (delay === undefined) {
@@ -36,9 +36,6 @@ export function createPersistence({ directory, canFlush = () => true, storage, w
             })
         }, delay)
         timer.unref?.()
-    }
-    const capture = path => {
-        if (checkpoint && !checkpoint.has(path)) checkpoint.set(path, { memory: memoryState(path), dirty: dirty.get(path) })
     }
     const stage = (path, operation, options = {}) => {
         if (closed) throw new Error('Persistence is closed')
@@ -93,12 +90,12 @@ export function createPersistence({ directory, canFlush = () => true, storage, w
                 }
                 if (!eligible) break
                 const [path, entry] = eligible
-                // Cache values are immutable snapshots; replacement while awaiting I/O
-                // leaves this revision stable and keeps the newer revision dirty.
+                // Keep the DB-owned value reference. Encoders own serialization;
+                // a newer staged revision must remain dirty after this acknowledgment.
                 const value = peekMemoryJSON(path)
                 const item = { path, ...entry, value }
                 await writeDisk(item)
-                if (storage) await storage({ ...item, path: relative(root, path).split(sep).join('/'), value: structuredClone(value) })
+                if (storage) await storage({ ...item, path: relative(root, path).split(sep).join('/'), value })
                 if (dirty.get(path) === entry) { dirty.delete(path); unpinMemoryPath(path) }
                 lastError = undefined
             }
@@ -113,31 +110,11 @@ export function createPersistence({ directory, canFlush = () => true, storage, w
     }
     const store = {
         root,
-        stageJSON(path, value) { path = resolve(path); capture(path); writeMemoryJSON(path, value); stage(path, 'set') },
+        stageJSON(path, value) { path = resolve(path); writeMemoryJSON(path, value); stage(path, 'set') },
         remove(path, options) {
             path = resolve(path)
-            capture(path)
-            for (const [file] of memoryEntries(path)) capture(file)
-            for (const file of dirty.keys()) if (inside(path, file)) capture(file)
             markMemoryRemoval(path)
             stage(path, 'remove', options)
-        },
-        checkpoint() {
-            if (checkpoint) throw new Error('Nested persistence checkpoint')
-            const undo = checkpoint = new Map()
-            const release = store.hold()
-            return {
-                commit() { checkpoint = undefined; release() },
-                rollback() {
-                    checkpoint = undefined
-                    for (const [path, before] of undo) {
-                        restoreMemoryState(path, before.memory)
-                        if (before.dirty) { dirty.set(path, before.dirty); pinMemoryPath(path) }
-                        else { dirty.delete(path); unpinMemoryPath(path) }
-                    }
-                    release()
-                }
-            }
         },
         hold() { holds++; return () => { holds--; schedule() } },
         schedule,

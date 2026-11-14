@@ -16,20 +16,21 @@ const fixture = async run => {
     }
 }
 
-test('memory cache startup reads no files and loads only requested JSON', async () => {
+test('memory cache startup loads only root breadcrumbs and requested JSON', async () => {
     await fixture(async directory => {
         const requested = join(directory, 'requested.json')
         await writeFile(requested, JSON.stringify({ value: 'requested' }))
         // An unrelated invalid file must not affect opening the database.
         await writeFile(join(directory, 'unused.json'), '{invalid JSON')
         const db = createDB({ directory, memoryCache: true })
-        assert.deepEqual(await db.ready, { files: 0 })
-        assert.deepEqual(db.memoryStats(), { files: 0, serializedBytes: 0 })
+        assert.equal((await db.ready).format, 'cocreate-uuid-v1')
+        const baseline = db.memoryStats()
+        assert.equal(baseline.files, 2)
         assert.deepEqual(await readMemoryJSON(requested), { value: 'requested' })
-        assert.equal(db.memoryStats().files, 1)
-        assert.equal(db.memoryStats().serializedBytes, Buffer.byteLength(JSON.stringify({ value: 'requested' })))
+        assert.equal(db.memoryStats().files, baseline.files + 1)
+        assert.equal(db.memoryStats().serializedBytes, baseline.serializedBytes + Buffer.byteLength(JSON.stringify({ value: 'requested' })))
         await assert.rejects(readMemoryJSON(join(directory, 'unused.json')), SyntaxError)
-        assert.equal(db.memoryStats().files, 1, 'failed reads must not populate the cache')
+        assert.equal(db.memoryStats().files, baseline.files + 1, 'failed reads must not populate the cache')
     })
 })
 
@@ -37,7 +38,7 @@ test('cold and warm cache reads reuse the same live object', async () => {
     await fixture(async directory => {
         const file = join(directory, 'item.json')
         await writeFile(file, JSON.stringify({ nested: { value: 1 } }))
-        createDB({ directory, memoryCache: true })
+        await createDB({ directory, memoryCache: true }).ready
         const first = await readMemoryJSON(file)
         first.nested.value = 2
         assert.strictEqual(await readMemoryJSON(file), first)
@@ -46,7 +47,7 @@ test('cold and warm cache reads reuse the same live object', async () => {
         assert.strictEqual(await readMemoryJSON(file), first, 'a warm read uses memory')
         removeMemoryPath(file)
         assert.equal(await readMemoryJSON(file), undefined)
-        assert.equal(memoryStats(directory).files, 0)
+        assert.equal(memoryStats(directory).files, 2)
     })
 })
 
@@ -54,7 +55,7 @@ test('persisted updates refresh demand-cached values and clearing memory preserv
     await fixture(async directory => {
         const file = join(directory, 'item.json')
         await writeFile(file, JSON.stringify({ value: 1 }))
-        createDB({ directory, memoryCache: true })
+        await createDB({ directory, memoryCache: true }).ready
         await readMemoryJSON(file)
         const updated = { value: 2 }
         await replaceJSON(file, updated)
@@ -71,7 +72,7 @@ test('persisted updates refresh demand-cached values and clearing memory preserv
 test('disabled cache does not retain reads, writes, or missing-file results', async () => {
     await fixture(async directory => {
         const file = join(directory, 'item.json')
-        createDB({ directory, memoryCache: false })
+        await createDB({ directory, memoryCache: false }).ready
         assert.equal(await readMemoryJSON(file), undefined)
         await writeFile(file, JSON.stringify({ value: 1 }))
         assert.deepEqual(await readMemoryJSON(file), { value: 1 })
@@ -90,7 +91,7 @@ test('enabling memory cache on an existing database starts cold and warms throug
         assert.equal(created.success, true, created.error)
         const cached = createDB({ directory, memoryCache: true })
         await cached.ready
-        assert.equal(cached.memoryStats().files, 0)
+        assert.equal(cached.memoryStats().files, 1)
         const read = await cached.send({ method: 'object.read', database: 'test', array: 'items', object: { _id: created.object[0]._id } })
         assert.equal(read.success, true, read.error)
         assert.equal(read.object[0].name, 'stored')

@@ -11,6 +11,7 @@ const KEY = '_id'
  */
 export function createDistributionIndex({ directory, maxBytes, cache = false, nodeId: owner } = {}) {
     const index = createIndex({
+        flat: false,
         directory,
         maxBytes,
         cache,
@@ -25,6 +26,7 @@ export function createDistributionIndex({ directory, maxBytes, cache = false, no
     })
 
     const partitionIndex = createIndex({
+        flat: false,
         directory,
         maxBytes,
         cache,
@@ -200,18 +202,13 @@ export function createDistributionIndex({ directory, maxBytes, cache = false, no
 export default createDistributionIndex
 
 /** References use the same stable entity addresses as DB's node distribution. */
-export function distributionReferences({ organization_id, storageId, databaseId, arrayId, objectIds = [], type = 'object' }, includeArray = false) {
-    const valid = value => typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value)
-    if (!valid(organization_id) || !valid(storageId)) return []
-    const storage = `${organization_id}/storages/${storageId}`
-    if (type === 'storage') return [`${storage}/storage.json`]
-    if (!valid(databaseId)) return []
-    const database = `${storage}/databases/${databaseId}`
-    if (type === 'database') return [`${database}/database.json`]
-    if (!valid(arrayId)) return [`${database}/arrays/index/index.json`]
-    const array = `${database}/arrays/${arrayId}`
-    if (type === 'array') return [`${array}/array.json`, `${database}/arrays/index/index.json`]
-    const references = objectIds.filter(valid).map(id => `${array}/objects/${id}.json`)
-    if (includeArray || !objectIds.length) references.push(`${array}/array.json`)
-    return [...new Set(references)]
+export function distributionReferences({ organization_id, storageFileId, databaseFileId, arrayFileId, objectIds = [], type = 'object' }, includeArray = false) {
+    if (!/^[a-f0-9]{24}$/i.test(organization_id)) return []
+    const reference = (kind, uuid) => /^[a-f0-9]{32}$/i.test(uuid) ? `${organization_id}/${kind}/${uuid}.json` : undefined
+    if (type === 'storage') return [reference('storages', storageFileId)].filter(Boolean)
+    if (type === 'database') return [reference('databases', databaseFileId), reference('storages', storageFileId)].filter(Boolean)
+    if (type === 'array') return [reference('arrays', arrayFileId), reference('databases', databaseFileId)].filter(Boolean)
+    const values = objectIds.map(uuid => reference('objects', uuid)).filter(Boolean)
+    if (includeArray || !values.length) values.push(reference('arrays', arrayFileId))
+    return [...new Set(values.filter(Boolean))]
 }

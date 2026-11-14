@@ -42,7 +42,7 @@ Do not rename the core API to `collection`, `field`, `column`, or `row`. Externa
   direction, then incremental changes. Disconnect removes that peer's contribution.
 
 1. **Logical root address:** `database + array + key`; e.g. `Index.read('production', 'users', 'age')`. Resolve logical database and array names through recursive name catalogs to stable IDs, then resolve the key root through the array field catalog. Do **not** expose internal IDs as the only public addressing mechanism.
-2. **Array field catalog:** A recursive ordered tree mapping `(key, type)` to index roots. Each mapping stores `[key, type, rootId, { length, first, last }]`, refreshed on every branch mutation. Legacy three-item mappings and structural `count` fields remain readable; touched nodes use length names. `Index.getMetadata()` exposes these summaries without fetching value roots for upgraded entries. `index.json` is its stable root; replication serialization measures the node against the preferred byte target. Overflow moves entries into 32-character hexadecimal child nodes and can add levels as needed.
+2. **Array field catalog:** A recursive ordered tree mapping `(key, type)` to index roots. Each mapping stores `[key, type, rootId, { length, first, last }]`, refreshed on every branch mutation. Legacy three-item mappings and structural `count` fields remain readable; touched nodes use length names. `Index.getMetadata()` exposes these summaries without fetching value roots for upgraded entries. Each root has a stable unique ID and lives in the organization-level `indexes/` folder; replication serialization measures the node against the preferred byte target. Overflow moves entries into 32-character hexadecimal child nodes and can add levels as needed.
 3. **Internal nodes:** independently addressable by unique, opaque IDs; parent references include child `id`, `first`, `last`, and `length`. Nodes can recursively reference nodes. No need to rename existing IDs during splits.
 4. **Types and automatic indexes:** the current prototype stores finite `number`, `string`, `boolean`, and explicit `null` values in separate branches. Automatically maintain an independent index for each supported field path on object creation; do not create compound indexes for ordinary field queries. Nested object leaves use dot paths, and array scalar values use their field path. Missing and unsupported composite values require explicit semantics; don't silently discard them in production.
 5. **Ordering:** entries sorted by `(value, objectId)` so equal values are deterministic and duplicate values across objects are supported. `first`/`last` are complete entry boundaries, not alphabetical buckets or just first letters.
@@ -51,7 +51,7 @@ Do not rename the core API to `collection`, `field`, `column`, or `row`. Externa
 8. **Storage isolation:** logical `Index.read()`/`Index.create()` entry points hide retrieval/persistence. Once a root is resolved, traversal can fetch child nodes directly by ID via internal node I/O, without repeatedly resolving the logical key. Filesystem-backed implementation is the initial reference; memory Map is an optional cache, **not** the sole persistence design.
 9. **On-demand:** never load a whole array or whole index tree merely to process a query. Fetch only required catalog, key roots, child nodes, and matched objects. Stream/cursor where appropriate. Memory usage is a primary optimization constraint.
 10. **Index every key:** on object creation/update, extract dot-notation keys and maintain indexes for all indexed values; on update, remove old `(value, objectId)` entries and add new; on deletion, remove entries. The `_id` enumeration index must be maintained even with no user query keys.
-11. **Entity catalogs:** recursively index logical database names and per-database array names to stable 24-character ObjectIds from `@cocreate/utils`. Keep metadata/configuration in JSON under those IDs; rename changes catalog entries and metadata without moving descendants. Database, array, and object records share the same create/read/update/delete processor, which indexes metadata fields as well as payload fields. Array and database counters are ordinary metadata values maintained through that contract.
+11. **Entity catalogs:** recursively index logical database names and per-database array names to stable 24-character ObjectIds from `@cocreate/utils`. Keep metadata/configuration in UUID-addressed JSON records; rename changes catalog entries and metadata without moving descendants. Database, array, and object records share the same create/read/update/delete processor, which indexes metadata fields as well as payload fields. Array and database counters are ordinary metadata values maintained through that contract.
 12. **Independent primitive:** keep `Index` importable/usable separately from higher-level CoCreateDB CRUD/query/storage orchestration.
 
 ## API direction
@@ -72,32 +72,42 @@ await setNode(database, array, node)
 
 Keep I/O asynchronous even when memory-backed. Make adapters replaceable without changing indexing algorithms. Avoid repeated root resolution during recursion.
 
-## Filesystem reference layout (provisional)
+## Filesystem reference layout — implemented
 
 ```text
-<storage-root>/databases/index/                 # database name -> database ID
-<storage-root>/databases/<database-id>/
-  database.json
-  arrays/index/                                  # array name -> array ID
-  arrays/<array-id>/
-    array.json
-    index/                                        # field/type -> index roots
-    objects/<object-id>.json
+<root>/<organization_id>/
+  root.json
+  indexes/<index-id>.json
+  storages/<file-uuid>.json
+  databases/<file-uuid>.json
+  arrays/<file-uuid>.json
+  objects/<file-uuid>.json
+  values/<value-id>.json
+  deleted/<deletion-id>.json
+  distribution/...
 ```
 
-Store database and array names in catalogs. Use shared `ObjectId()` values (24-character hexadecimal) for databases, arrays, and objects; use shared `uuid()` values without hyphens (32-character hexadecimal) for internal index nodes. Validate IDs and node references. Node JSON must be data only; do not import/execute `.js` data files. JSON was preferred over executable JavaScript because it parses efficiently, avoids side effects on reads, supports controlled cache lifetime, and matches existing serialized data transport. Use atomic file replacement where possible, but recognize that rename alone is **not** a multi-file transaction.
+`root.json` is permanent and points to the storage catalog. Each metadata record's
+`index` points to its child catalog. All catalogs use the existing recursive engine.
+Logical 24-character `_id` values remain public API identities; records use separate
+32-character UUID filenames, and index entries point to those UUIDs. UUID identity
+is non-enumerable runtime metadata and travels explicitly in peer envelopes.
+Keep DB-owned plain objects/arrays live; do not clone datasets or introduce a Map
+representation that must be converted for JSON. Runtime queues and directories may
+retain their existing private bookkeeping. Old datasets need explicit migration;
+never silently rewrite them. Disk remains JSON data, never executable modules.
 
 ## Index node shape (illustrative, not frozen schema)
 
 ```js
 // Catalog root/leaf (length = objects, catalogLength = catalog mappings)
-{ id: 'root', kind: 'catalog', length: 1000000, catalogLength: 2,
+{ id: 'catalog-id', kind: 'catalog', length: 1000000, catalogLength: 2,
   entries: [['_id', 'string', 'id-root', { length: 1000000, first: {}, last: {} }],
             ['age', 'number', 'age-root', { length: 1000000, first: {}, last: {} }]] }
 
 // Once this root exceeds maxBytes, its entries are split into 32-character hexadecimal files;
-// index.json stays the root and points to bounded child nodes.
-{ id: 'root', kind: 'catalog', length: 1000000, catalogLength: 2,
+// The catalog ID stays stable and points to bounded child nodes.
+{ id: 'catalog-id', kind: 'catalog', length: 1000000, catalogLength: 2,
   indexes: [{ id: 'uuid', length: 1, first: ['_id', 'string'], last: ['_id', 'string'] },
             { id: 'uuid-2', length: 1, first: ['age', 'number'], last: ['age', 'number'] }] }
 
@@ -117,6 +127,12 @@ Store database and array names in catalogs. Use shared `ObjectId()` values (24-c
 Never interpret `{ first: {}, last: {} }` as valid runtime boundaries; these placeholders are schematic only.
 
 ## Engineering style
+
+- Reuse request-local resolved references through the operation. `resolution.js`
+  holds live records and resolved aliases in an async request context, including
+  queued indexing; it is not a persisted index or cross-request lookup cache.
+  Creation, rename, deletion, and recreation must keep those references current.
+  Independent server requests require separate contexts.
 
 - ESM, plain JavaScript; prefer small composable functions, minimal dependencies, and clear interfaces.
 - DB runtime errors accumulate in `data.error` arrays through local error handlers; preserve earlier entries. Do not console-log DB API failures. Delivery failures after acknowledgment remain visible in `persistenceStats().backgroundError`.
@@ -140,15 +156,15 @@ Never interpret `{ first: {}, last: {} }` as valid runtime boundaries; these pla
 
 ## Implementation status and priorities
 
-**Current implementation:** storage/database/array/object CRUD uses recursive catalogs and automatic field indexes. Index CRUD delegates to the current entry operations; update remains an insertion alias. Workers use the primary engine. Local inventory follows `db.disk`; peer inventories remain in memory and are exchanged on control connections. Worker/client recipient maps remain separate memory-only delivery metadata. Updates preserve `$update` patches for peers and return the resolved document plus patch to clients. Arrays are terminal values stored whole outside index nodes, with legacy chunks readable.
+**Current implementation:** storage/database/array/object CRUD uses recursive catalogs and automatic field indexes. Index CRUD delegates to the current entry operations; update remains an insertion alias. Workers use the primary engine. Local inventory follows `db.disk`; peer inventories remain in memory and are exchanged on control connections. Worker/client recipient maps remain separate memory-only delivery metadata. Updates preserve `$update` patches for peers and return the resolved document plus patch to clients. Arrays are terminal values stored whole outside index nodes, in flat UUID-addressed value files.
 
-**Remaining work:** see [NEXT_TASK.md](./NEXT_TASK.md). Workflow file-tree persistence and fallback, cross-node conflict/ordering policy, client IndexedDB changes, terminal-array value transfer, recipient cleanup, multi-file transactions and crash recovery remain incomplete. Keep disconnected persistence paths and the entity-holder acquisition directory until their replacements are decided. Passing isolated inventory tests is not proof of live-network or provider recovery.
+**Remaining work:** see [NEXT_TASK.md](./NEXT_TASK.md). Workflow file-tree persistence and fallback, cross-node conflict/ordering policy, client IndexedDB changes, recipient cleanup, multi-file transactions and crash recovery remain incomplete. Keep disconnected persistence paths and the entity-holder acquisition directory until their replacements are decided. Passing isolated inventory tests is not proof of live-network or provider recovery.
 
 ## Future direction — proposed, not finalized
 
 - Object payloads in FS/S3/GCS/Azure and other storage adapters; optional multi-destination reads/writes.
 - CoCreate AST workflows may orchestrate storage selection, fan-out, fallback, quorum, or replication **at operation/policy level**, not necessarily per hot-path node access.
-- Partition availability events, on-demand partition fetch, and holder-targeted regular-index updates are implemented over the existing Cluster mesh. Control-peer inventory snapshots are implemented. Terminal-array value acquisition, external persistence fallback, and index/document commit semantics remain open. Event retry/replay relies on Cluster.
+- Partition availability events, on-demand partition fetch, and holder-targeted regular-index updates are implemented over the existing Cluster mesh. Control-peer inventory snapshots are implemented. External persistence fallback, and index/document commit semantics remain open. Event retry/replay relies on Cluster.
 - Cloud object stores provide durability/replication features, but do not automatically provide multi-object transactions or database-level consistency.
 
 ## Codex working protocol
@@ -156,7 +172,7 @@ Never interpret `{ first: {}, last: {} }` as valid runtime boundaries; these pla
 1. Read this file and ARCHITECTURE.md before implementing.
 2. Identify which behavior is **decided**, **prototype**, or **proposed**.
 3. Keep existing public naming, index invariants, and lightweight design unless explicitly asked to change them.
-4. For ambiguities (notably `Index.create`, type semantics, and commit protocol), surface the tradeoff and propose the smallest consistent solution rather than silently deciding. Catalog scaling currently uses a bounded recursive tree rooted at `index.json`.
+4. For ambiguities (notably `Index.create`, type semantics, and commit protocol), surface the tradeoff and propose the smallest consistent solution rather than silently deciding. Catalog scaling currently uses a bounded recursive tree rooted at its stable catalog ID.
 5. Make incremental changes with executable tests; report what was tested and what remains unsupported.
 
 
@@ -184,22 +200,37 @@ explicitly enabled. No multi-file crash-atomic transaction was added.
 
 The primary defaults to `writeBehind: true`. Object create/update/delete publishes
 the document state to memory, then schedules index reconciliation by stable
-object path. Queue entries coalesce revisions; the previously indexed record is
-retained for removing old entries. Pending documents supplement every object
-query, including filtered updates and deletes. An in-memory index checkpoint
-restores partial node changes if reconciliation fails; retries retain the pending
-document. Catalog metadata stays immediately indexed in memory.
+object path. Queue entries coalesce revisions; previous index entries are
+retained for removing obsolete entries. Creates queue counter/availability actions after
+the memory acknowledgment; updates queue reconciliation without scanning the new
+document after commit. Pending documents supplement every object query, including
+filtered updates and deletes. Backend failures retain pending work and expose an
+internal error; they cannot change the already completed requester response.
+Initial namespace creation is part of finding the document's owner. Other metadata,
+client registration messages, peer delivery, and persistence do not gate success.
+Reads use the data available during query execution and return after filtering,
+sorting, pagination, and projection. Do not flush pending indexes, wait for later
+updates, or add snapshot coordination to prepare a read response. Availability
+claims, acquired-file bookkeeping, and recovery indexing continue afterward.
+Deletes acknowledge removal from owned memory with an immediate lifetime guard;
+tombstone file writes and index cleanup are backend work. Later subscription events
+propagate changes naturally. The response is complete independently of these jobs.
 
 After successful indexing, holder-targeted index/document Mesh messages and a
 `db.indexed` IPC notification to workers are dispatched before disk persistence.
 Disk writes/removals share one sequential address/revision queue, resolving the
-latest immutable memory value at flush time. New updates during I/O remain dirty.
+latest live memory value at flush time. New updates during I/O remain dirty.
 Dirty paths are pinned against cache clearing. Retain clean payloads as cache;
-there is no automatic LRU limit yet. Optional required storage acknowledgment is
-configured by `storageWorkflow` / `COCREATE_DB_STORAGE_WORKFLOW`, invoked through
-`server.workflow.run(...)`. No workflow is seeded here.
+there is no automatic LRU limit yet. The low-level persistence queue supports a
+required storage callback. The retained `storageWorkflow` /
+`COCREATE_DB_STORAGE_WORKFLOW` hook calls `server.workflow.run(...)`, but server
+external writes remain feature-gated off. Configuring the name alone does not
+enable it; no workflow is seeded here.
 
-`db.flush()` drains indexing and currently eligible persistence; `db.close()` also
+Peer delivery has a separate queue, with structural split preparation serialized
+under the primary queue. Pending delivery holds disk persistence, not subsequent
+memory CRUD. Explicit write-through mode remains synchronous for local tools.
+`db.flush()` drains indexing, delivery, and currently eligible persistence; `db.close()` also
 unregisters the write-behind adapter. Primary shutdown registers a close handler.
 Automatic indexing/persistence retries are in memory, not a durable journal.
 An acknowledged memory write can be lost on a crash before persistence; Mesh
@@ -209,7 +240,8 @@ conservatively gates persistence for the root because catalogs/nodes are shared.
 Persistence cooldown defaults to 25 ms per path, bounded by a 1000 ms maximum wait
 once indexing is eligible; configure both through `persistenceOptions`. Flush and
 shutdown drain bypass cooldown. Do not debounce index processing or propagation.
-Deletion lifetime markers persist under `deleted/<objectId>.json`. Keep them until
+Deletion lifetime markers persist under `deleted/<deletionId>.json`, keyed by a
+hash of the logical database, array, and object ID. Keep them until
 an explicit recreation/upsert establishes a fresh creation date; ordinary updates
 cannot change `created.on`. ID-only updates cannot identify an old lifetime after
 intentional ID reuse; timestamps do not replace distributed version coordination.
@@ -236,7 +268,7 @@ organization/host routing; do not resolve the persistence directory or construct
 a DB in CRUD, and do not call GetDriver for this dispatch.
 
 Store data under <root>/<organization_id>/storages/<stable-storage-id>/databases/...
-with a recursive storage-name catalog at <organization_id>/storages/index.
+with its recursive storage-name catalog stored by ID under <organization_id>/indexes/.
 Storage rename changes references/metadata, never descendant directories. Keep
 provider selection and persistence endpoint design separate for a later task.
 The relative object/index engine is internal and remains independently testable.
@@ -245,7 +277,7 @@ the full prefix. Put organization identity inside scope on DB Mesh control event
 Use a shared root persistence queue across namespaces. Existing datasets are left
 for the user's reset and bootstrap; do not infer or perform a legacy migration.
 
-### Live-reference core — current contract (supersedes detached-copy/rollback descriptions above)
+### Live-reference core — current contract
 
 Checkpoint `3244ff0` preserves the implementation before this refactor. Cache,
 index traversal, CRUD values, and outgoing distribution payloads now retain live
@@ -285,12 +317,10 @@ remote partition acceptance uses the same policy. A failed background index job
 remains pending with `indexError` and is not retried indefinitely by a timer;
 explicit flush or new work can attempt it again. No progress/retry console logging.
 
-Persistence redesign and provider snapshot semantics are out of scope for this
-phase. `src/persistence.js` is unchanged from the checkpoint; its existing external
-storage snapshot hook is not part of the no-clone, memory-only validation. Existing
-persistent-mode examples must not be taken as proof of durability/rollback under
-this new live-reference contract. IPC and real-network serialization inherently
-construct data in another process; this contract removes DB-side defensive copies.
+Local disk and external persistence staging retain live values until encoding.
+External workflow writes remain disabled. This contract does not establish
+multi-file rollback, crash durability, or distributed transactions. IPC and
+network parsing necessarily create receiver-side values.
 
 ### Replication-time splitting and local byte accounting — current contract
 
@@ -336,3 +366,14 @@ must store that file/tree representation too; this recovery bridge does not add
 MongoDB-specific tree encoding or redefine persistence as object forwarding.
 Disable `db.externalPersistence` and restart after the required records have been
 recovered. Existing local DB directories are not moved or silently migrated.
+
+### Flat automatic index files
+
+All automatic catalog and field nodes live under `<organization_id>/indexes/`.
+Each file is `<id>.json`; catalog IDs are stable hashes of organization-relative
+namespace paths. Nodes reference their catalog ID; the root stores its namespace
+path for cold split ancestry. The logical tree, ordering, and partition size policy
+are preserved; records and terminal values now use flat files. Storage-tier routing is not part
+of partition I/O. Delete only nodes reachable from the affected catalog roots.
+Distribution indexes retain their prior local-only layout (`flat: false`).
+Nested automatic catalogs require migration; never silently read them as empty.

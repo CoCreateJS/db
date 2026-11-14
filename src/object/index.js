@@ -1,4 +1,6 @@
 import { join, resolve } from 'node:path'
+import { fileId, identify, newFileId, recordPath, fileIdFromPath } from '../files.js'
+import { ensureRoot } from '../root.js'
 import { rm } from '../io.js'
 import { createUpdate, ObjectId, queryData } from '@cocreate/utils'
 import { adjustArrayLength, ensureArray, materializeArray, sendArray } from '../array/index.js'
@@ -14,11 +16,12 @@ import {
 } from '../storage.js'
 import { hasQueryConditions, normalizeQuery, queryIndexCandidates } from '../query.js'
 import { applyReadFilter } from '../read.js'
-import { createRecord, deleteRecord, findRecordByName, readRecordById, readRecords, reconcileEntrySets } from '../records.js'
-import { indexEntries, entryKey } from '../entries.js'
+import { createRecord, deleteRecord, findRecordByName, readRecordById, readRecords, recordReference, reconcileEntrySets } from '../records.js'
+import { indexEntries, entryKey, arrayDigest } from '../entries.js'
 import { prepareMutation, live } from '../mutation.js'
 import { createPersistence } from '../persistence.js'
 import { enableMemoryCache, memoryStats, removeMemoryPath } from '../memory.js'
+import { withResolution, currentResolution, resolvedCatalog, afterResponse } from '../resolution.js'
 
 function errorHandler(data, error) {
     if (!Array.isArray(data.error)) data.error = data.error === undefined ? [] : [data.error]
@@ -48,7 +51,7 @@ function createUpdatePatch(input, request) {
         for (const [path, value] of Object.entries(values)) patch[`${operator}.${path}`] = value
     }
     for (const [key, value] of Object.entries(input)) {
-        if (['_id', 'filter', '$storage', '$database', '$array'].includes(key)) continue
+        if (['_id', 'filter', '$storage', '$database', '$array', '$bytes'].includes(key)) continue
         if (value === undefined && !key.startsWith('$')) removed[key] = true
         else patch[key] = value
     }
@@ -70,25 +73,26 @@ function applyObjectUpdate(current, patch, audit) {
 
 // Delivery views do not attach transport metadata to the persisted document.
 function updateReply(record, patch) {
-    return { ...record, $update: patch }
+    return identify({ ...record, $update: patch }, fileId(record))
 }
-const peerUpdate = (record, patch) => ({ _id: record._id, $update: patch, updated: record.updated })
+const peerUpdate = (record, patch) => identify({ _id: record._id, $update: patch, updated: record.updated }, fileId(record))
 
 /**
  * Create a filesystem-backed CoCreateDB instance.
  * The configured directory contains database/array index files and object JSON files.
  */
 export function createDB({
-    directory = './storage', maxIndexBytes = 128 * 1024, cache = false, memoryCache = false,
-    nodeId, distributionAdapter, peerReader, partitionAdapter, documentMutationAdapter,
+    directory = './storage', indexRoot = directory, indexScope = 'standalone', managedRoot = false, maxIndexBytes = 128 * 1024, cache = false, memoryCache = false,
+    nodeId, distributionAdapter, peerReader, peerDistribution, partitionAdapter, documentMutationAdapter,
     writeBehind = false, memoryOnly = false, disk = true, sharedPersistence, scheduleIndexing = operation => operation(), onIndexed, persistenceOptions = {}
 } = {}) {
     const root = resolve(directory)
+    const namespace = join(root, 'catalogs', indexScope)
     const peers = createPeerDistribution(nodeId)
     const adapters = createDistributionAdapters(nodeId, peers)
     distributionAdapter = { ...adapters.distributionAdapter, ...distributionAdapter }
     partitionAdapter = { ...adapters.partitionAdapter, ...partitionAdapter }
-    if (memoryCache || memoryOnly || disk === false) enableMemoryCache(root, { memoryOnly: memoryOnly || disk === false })
+    if (memoryCache || memoryOnly || disk === false) enableMemoryCache(resolve(indexRoot), { memoryOnly: memoryOnly || disk === false })
     const deferred = writeBehind || memoryOnly || disk === false
     const deletedObjects = new Map()
     const getDeletion = async (database, array, id) => {
@@ -96,9 +100,10 @@ export function createDB({
         if (!deletedObjects.has(path)) deletedObjects.set(path, await readJSON(path))
         return deletedObjects.get(path)
     }
+    const deletionMarker = object => ({ _id: object._id, fileId: fileId(object), created: { on: object.created?.on }, deleted: { on: new Date().toISOString() } })
     const markDeleted = async (database, array, object) => {
         const path = objectDeletionPath(root, database, array, object._id)
-        const marker = { _id: object._id, created: { on: object.created?.on }, deleted: { on: new Date().toISOString() } }
+        const marker = deletionMarker(object)
         await replaceJSON(path, marker)
         deletedObjects.set(path, marker)
     }
@@ -113,7 +118,7 @@ export function createDB({
     const documentRevisions = new Map()
     let indexTimer, indexScheduled = false, indexError, closing = false
     const persistence = memoryOnly || disk === false ? undefined : sharedPersistence ?? (writeBehind ? createPersistence({
-        ...persistenceOptions, directory: root, canFlush: () => pendingIndexes.size === 0
+        ...persistenceOptions, directory: resolve(indexRoot), canFlush: () => pendingIndexes.size === 0
     }) : undefined)
     const requestIndexing = (delay = 0) => {
         if (indexScheduled || closing || !pendingIndexes.size) return
@@ -130,16 +135,19 @@ export function createDB({
         }, delay)
         indexTimer.unref?.()
     }
-    const queueIndex = (database, array, before, objectId, publish = true, createdOn, update) => {
-        const path = objectPath(root, database, array, objectId)
+    const queueIndex = (database, array, before, object, publish = true, createdOn, update, actions = []) => {
+        const path = objectPath(root, database, array, fileId(object))
+        const objectId = object._id
         let entry = pendingIndexes.get(path)
         if (!entry) {
-            entry = { database, array, objectId, indexed: before ?? [], createdOn, revision: 0, publish, holders: new Set(), updates: [] }
+            entry = { database, array, objectId, fileId: fileId(object), indexed: before ?? [], createdOn, revision: 0, publish, holders: new Set(), updates: [], actions: [] }
             pendingIndexes.set(path, entry)
         }
         entry.revision = (documentRevisions.get(path) ?? 0) + 1
         documentRevisions.set(path, entry.revision)
         entry.publish ||= publish
+        entry.resolved = currentResolution()
+        entry.actions.push(...actions)
         if (update) entry.updates.push(update)
         requestIndexing()
     }
@@ -147,40 +155,56 @@ export function createDB({
         const release = persistence?.hold()
         try {
             for (const [path, entry] of pendingIndexes) {
-                const revision = entry.revision
-                const indexedBefore = entry.indexed
-                try {
-                    const latest = await readJSON(path)
-                    const after = indexEntries(latest)
-                    for (const holder of await captureEntryHolders(entry.database, entry.array, entry.indexed, entry.objectId)) entry.holders.add(holder)
-                    await reconcileEntrySets(storageIndex, entry.database, entry.array, entry.objectId, entry.indexed, after)
-                    entry.indexed = after
-                    if (latest)
-                        for (const holder of await captureObjectHolders(entry.database, entry.array, latest)) entry.holders.add(holder)
-                    const operation = !latest ? 'remove' : entry.createdOn && entry.createdOn === latest.created?.on ? 'update' : 'set'
-                    const updates = entry.updates.slice()
-                    if (operation === 'update') {
-                        // Index reconciliation can coalesce; incremental operations cannot.
-                        for (const update of updates) {
-                            if (entry.publish) await publishObjectMutation(operation, entry.database, entry.array, update, entry.holders, latest.created?.on)
-                            await onIndexed?.({ databaseId: entry.database, arrayId: entry.array, objectId: entry.objectId,
-                                revision, operation, object: updateReply(latest, update.$update) })
+                const processing = currentResolution()
+                const resolved = entry.resolved && processing && processing !== entry.resolved
+                    ? { ...processing, catalogs: entry.resolved.catalogs, files: entry.resolved.files } : entry.resolved
+                await withResolution(async () => {
+                    const revision = entry.revision
+                    const indexedBefore = entry.indexed
+                    try {
+                        if (typeof entry.indexed === 'function') entry.indexed = entry.indexed()
+                        // Read acquisition notices precede the indexes built from it.
+                        // Both stages publish through this backend transaction's outbox.
+                        while (entry.resolved?.background?.length) {
+                            await entry.resolved.background[0]()
+                            entry.resolved.background.shift()
                         }
-                    } else {
-                        const object = latest ?? entry.removed
-                        if (entry.publish && object)
-                            await publishObjectMutation(operation, entry.database, entry.array, object, entry.holders, latest?.created?.on)
-                        await onIndexed?.({ databaseId: entry.database, arrayId: entry.array, objectId: entry.objectId, revision, operation, object: live(object) })
+                        while (entry.actions.length) {
+                            await entry.actions[0]()
+                            entry.actions.shift()
+                        }
+                        const latest = await readJSON(path)
+                        const after = indexEntries(latest)
+                        for (const holder of await captureEntryHolders(entry.database, entry.array, entry.indexed, entry.fileId)) entry.holders.add(holder)
+                        await reconcileEntrySets(storageIndex, entry.database, entry.array, entry.fileId, entry.indexed, after)
+                        entry.indexed = after
+                        if (latest)
+                            for (const holder of await captureObjectHolders(entry.database, entry.array, latest)) entry.holders.add(holder)
+                        const operation = !latest ? 'remove' : entry.createdOn && entry.createdOn === latest.created?.on ? 'update' : 'set'
+                        const updates = entry.updates.slice()
+                        if (operation === 'update') {
+                            // Index reconciliation can coalesce; incremental operations cannot.
+                            for (const update of updates) {
+                                if (entry.publish) await publishObjectMutation(operation, entry.database, entry.array, update, entry.holders, latest.created?.on)
+                                await onIndexed?.({ ...await resolveDistributionIds({ databaseId: entry.database, arrayId: entry.array }), objectId: entry.fileId,
+                                    revision, operation, object: updateReply(latest, update.$update) })
+                            }
+                        } else {
+                            const object = latest ?? entry.removed
+                            if (entry.publish && object)
+                                await publishObjectMutation(operation, entry.database, entry.array, object, entry.holders, latest?.created?.on)
+                            await onIndexed?.({ ...await resolveDistributionIds({ databaseId: entry.database, arrayId: entry.array }), objectId: entry.fileId, revision, operation, object: live(object) })
+                        }
+                        entry.updates.splice(0, updates.length)
+                        if (entry.revision === revision) pendingIndexes.delete(path)
+                    } catch (error) {
+                        indexError = error
+                        storageIndex.clearCache()
+                        distributionIndex.clearCache()
+                        entry.indexed = indexedBefore
+                        throw error
                     }
-                    entry.updates.splice(0, updates.length)
-                    if (entry.revision === revision) pendingIndexes.delete(path)
-                } catch (error) {
-                    indexError = error
-                    storageIndex.clearCache()
-                    distributionIndex.clearCache()
-                    entry.indexed = indexedBefore
-                    throw error
-                }
+                }, resolved)
             }
             indexError = undefined
         } finally { release?.() }
@@ -190,19 +214,31 @@ export function createDB({
         await processPendingIndexes()
     }
     const flush = async () => { await flushIndexes(); await persistence?.flush() }
-    const ready = Promise.resolve({ files: 0 })
+    let ready
     const storageIndex = createIndex({
         directory: root,
+        indexRoot,
         maxBytes: maxIndexBytes,
         cache,
         resolveArrayDirectory: ({ directory, database, array }) => {
             if (database === DATABASE_CATALOG && array === DATABASE_CATALOG_ARRAY)
-                return join(directory, 'databases')
+                return join(namespace, 'databases')
             if (array === ARRAY_CATALOG)
-                return join(databaseDirectory(directory, database), 'arrays')
-            return arrayDirectory(directory, database, array)
+                return join(databaseDirectory(namespace, database), 'arrays')
+            return arrayDirectory(namespace, database, array)
         },
         readPartition: path => partitionAdapter?.read?.(path),
+        readValue: async ({ path, objectId, key, digest }) => {
+            for (const type of ['objects', 'arrays', 'databases', 'storages']) {
+                const record = await readJSON(recordPath(root, type, objectId))
+                const value = key.split('.').reduce((value, part) => value?.[part], record)
+                if (Array.isArray(value) && arrayDigest(value) === digest) return value
+            }
+            if (peerReader) for (const nodeId of (peerDistribution ?? peers).findFile(objectId)) {
+                const value = await peerReader({ nodeId, type: 'value', fileId: fileIdFromPath(path) })
+                if (Array.isArray(value) && arrayDigest(value) === digest) return value
+            }
+        },
         onPartitionChange: change => {
             if (!nodeId) return
             const payload = { ...change, nodeId }
@@ -215,29 +251,37 @@ export function createDB({
                 })
         }
     })
+    ready = managedRoot ? storageIndex.ensureCatalog(DATABASE_CATALOG, DATABASE_CATALOG_ARRAY) : ensureRoot(root, storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, 'databases')
+    // send() awaits this promise; keep initialization rejection attached until then.
+    ready.catch(() => {})
     const distributionIndex = createDistributionIndex({
-        directory: root,
+        directory: join(root, 'distribution', indexScope),
         nodeId,
         maxBytes: maxIndexBytes,
         cache
     })
 
+    const readDatabase = id => readRecordById(storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, uuid => databaseMetadataPath(root, uuid), id)
+    const readArray = (database, id) => readRecordById(storageIndex, database, ARRAY_CATALOG, uuid => arrayMetadataPath(root, database, uuid), id)
+    const resolvedScope = ({ database, array }) => {
+        const db = resolvedCatalog(storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY)?.names[database]
+        const dataset = db && resolvedCatalog(storageIndex, db._id, ARRAY_CATALOG)?.names[array]
+        return { databaseId: db?._id, arrayId: dataset?._id, databaseFileId: fileId(db), arrayFileId: fileId(dataset),
+            databaseIndex: db?.index, arrayIndex: dataset?.index }
+    }
     const resolveDistributionIds = async ({ database, databaseId, array, arrayId, objectId }) => {
-        if (!databaseId && database) {
-            const databaseRecord = await findRecordByName(
-                storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
-                id => databaseMetadataPath(root, id), database
-            )
-            databaseId = databaseRecord?._id ?? database
+        const db = databaseId ? await readDatabase(databaseId) : database ? await findRecordByName(storageIndex,
+            DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, id => databaseMetadataPath(root, id), database) : undefined
+        databaseId = db?._id ?? databaseId
+        const dataset = arrayId ? await readArray(databaseId, arrayId) : array && databaseId ? await findRecordByName(storageIndex,
+            databaseId, ARRAY_CATALOG, id => arrayMetadataPath(root, databaseId, id), array) : undefined
+        if (objectId && !/^[a-f0-9]{32}$/i.test(objectId) && dataset) {
+            for await (const entry of storageIndex.scan(databaseId, dataset._id, '_id', { type: 'string', lower: objectId, upper: objectId }))
+                if (entry.value === objectId) { objectId = entry.objectId; break }
         }
-        if (!arrayId && array && databaseId) {
-            const arrayRecord = await findRecordByName(
-                storageIndex, databaseId, ARRAY_CATALOG,
-                id => arrayMetadataPath(root, databaseId, id), array
-            )
-            arrayId = arrayRecord?._id ?? array
-        }
-        return { databaseId, arrayId, objectId }
+        return { databaseId, arrayId: dataset?._id ?? arrayId, objectId, databaseFileId: fileId(db) ?? await recordReference(storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, databaseId),
+            arrayFileId: fileId(dataset) ?? (databaseId ? await recordReference(storageIndex, databaseId, ARRAY_CATALOG, dataset?._id ?? arrayId) : undefined),
+            databaseIndex: db?.index, arrayIndex: dataset?.index }
     }
 
     const updateLocalDistribution = payload => distributionIndex.update(payload)
@@ -299,7 +343,8 @@ export function createDB({
 
     const markLocalAvailability = async (ids, operation) => {
         if (!nodeId) return
-        const payload = { ...ids, nodeId, operation }
+        if (afterResponse(() => markLocalAvailability(ids, operation))) return
+        const payload = { ...ids, ...await resolveDistributionIds(ids), nodeId, operation }
         if (distributionAdapter?.onLocalChange)
             return distributionAdapter.onLocalChange(payload, updateLocalDistribution)
         return updateLocalDistribution(payload)
@@ -308,7 +353,7 @@ export function createDB({
     const localObjectIds = async (databaseId, arrayId) => {
         const ids = []
         for await (const entry of storageIndex.scan(databaseId, arrayId, '_id', { type: 'string' }))
-            ids.push(entry.value)
+            ids.push(entry.objectId)
         return ids
     }
 
@@ -316,7 +361,7 @@ export function createDB({
         const holders = new Set()
         if (!documentMutationAdapter?.publish) return holders
         const entries = flattenIndexValues(object).filter(([key]) => key !== '_id')
-        const paths = await storageIndex.locatePartitions(database, array, entries, object._id)
+        const paths = await storageIndex.locatePartitions(database, array, entries, fileId(object))
         for (const path of paths)
             for (const holder of await getPartitionHolders(path)) holders.add(holder)
         return holders
@@ -332,14 +377,16 @@ export function createDB({
 
     const publishObjectMutation = async (operation, databaseId, arrayId, object, holders, createdOn) => {
         if (!documentMutationAdapter?.publish || !holders.size) return
+        const database = await readDatabase(databaseId), array = await readArray(databaseId, arrayId)
         await documentMutationAdapter.publish({
             operation,
             databaseId,
             arrayId,
             object: live(object),
+            fileId: fileId(object),
             ...(createdOn ? { createdOn } : {}),
-            database: live(await readJSON(databaseMetadataPath(root, databaseId))),
-            array: live(await readJSON(arrayMetadataPath(root, databaseId, arrayId))),
+            database: live(database), databaseFileId: fileId(database),
+            array: live(array), arrayFileId: fileId(array),
             targets: [...holders].filter(id => id !== nodeId)
         })
     }
@@ -364,7 +411,7 @@ export function createDB({
             await markLocalAvailability(entity, 'add')
     }
 
-    const createObjects = async (request, database, array, { publishMutation = true } = {}) => {
+    const createObjects = async (request, database, array, { publishMutation = true, acquired = false } = {}) => {
         const values = request.object === undefined
             ? []
             : Array.isArray(request.object) ? request.object : [request.object]
@@ -384,6 +431,8 @@ export function createDB({
             if (request.organization_id && !Object.hasOwn(object, 'organization_id'))
                 object.organization_id = request.organization_id
 
+            if (await readLocalObject(database, array, object._id)) throw new Error(`Object already exists: ${object._id}`)
+            if (!fileId(object)) identify(object, newFileId())
             const audit = auditMetadata(request)
             const deletion = await getDeletion(database, array, object._id)
             if (deletion) {
@@ -393,20 +442,35 @@ export function createDB({
             object.created ??= { ...audit }
             object.updated ??= { ...audit }
 
-            const file = objectPath(root, database, array, object._id)
+            const file = objectPath(root, database, array, fileId(object))
+            if (deferred) {
+                await writeExclusiveJSON(file, object)
+                deletedObjects.set(objectDeletionPath(root, database, array, object._id), undefined)
+                queueIndex(database, array, undefined, object, publishMutation, undefined, undefined, [
+                    ...(deletion ? [() => rm(objectDeletionPath(root, database, array, object._id), { force: true })] : []),
+                    ...(!acquired ? [
+                        () => adjustArrayLength(root, storageIndex, database, array, 1, request),
+                        () => adjustDatabaseLengths(root, storageIndex, database, { objects: 1 }, request)
+                    ] : []),
+                    () => markLocalAvailability({ databaseId: database }, 'add'),
+                    () => markLocalAvailability({ databaseId: database, arrayId: array }, 'add'),
+                    () => markLocalAvailability({ databaseId: database, arrayId: array, objectId: fileId(object) }, 'add')
+                ])
+                created.push(tagRecord(object, request))
+                continue
+            }
             let wroteObject = false
             let arrayLengthUpdated = false
             let databaseLengthUpdated = false
 
             try {
-                if (deferred) await writeExclusiveJSON(file, object)
-                else await createRecord(storageIndex, database, array, file, object)
+                await createRecord(storageIndex, database, array, file, object)
                 wroteObject = true
                 await clearDeletion(database, array, object._id)
-                await adjustArrayLength(root, storageIndex, database, array, 1, request)
-                arrayLengthUpdated = true
-                await adjustDatabaseLengths(root, storageIndex, database, { objects: 1 }, request)
-                databaseLengthUpdated = true
+                if (!acquired) await adjustArrayLength(root, storageIndex, database, array, 1, request)
+                arrayLengthUpdated = !acquired
+                if (!acquired) await adjustDatabaseLengths(root, storageIndex, database, { objects: 1 }, request)
+                databaseLengthUpdated = !acquired
             } catch (error) {
                 if (databaseLengthUpdated)
                     await adjustDatabaseLengths(root, storageIndex, database, { objects: -1 }, request).catch(() => {})
@@ -422,8 +486,7 @@ export function createDB({
             }
 
             created.push(tagRecord(object, request))
-            if (deferred) queueIndex(database, array, undefined, object._id, publishMutation)
-            else if (publishMutation) {
+            if (publishMutation) {
                 const holders = await captureObjectHolders(database, array, object)
                 await publishObjectMutation('set', database, array, object, holders)
             }
@@ -432,9 +495,13 @@ export function createDB({
         return created
     }
 
-    const readLocalObject = async (database, array, objectId) => {
-        const file = objectPath(root, database, array, objectId)
-        return readRecordById(storageIndex, database, array, () => file, objectId)
+    const readLocalObject = async (database, array, id) => {
+        for (const pending of pendingIndexes.values())
+            if (pending.database === database && pending.array === array && pending.objectId === id) {
+                const record = await readJSON(objectPath(root, database, array, pending.fileId))
+                if (record) return record
+            }
+        return readRecordById(storageIndex, database, array, uuid => objectPath(root, database, array, uuid), id)
     }
 
     const hydrateObjects = async (request, records) => {
@@ -457,34 +524,28 @@ export function createDB({
                 await getDeletion(database._id, array._id, record._id)) continue
             await createObjects({ ...request, method: 'object.create', object: record }, database._id, array._id,
                 { publishMutation: false })
-            await markLocalAvailability({ databaseId: database._id }, 'add')
-            await markLocalAvailability({ databaseId: database._id, arrayId: array._id }, 'add')
-            await markLocalAvailability({ databaseId: database._id, arrayId: array._id, objectId: record._id }, 'add')
+            if (!deferred) {
+                await markLocalAvailability({ databaseId: database._id }, 'add')
+                await markLocalAvailability({ databaseId: database._id, arrayId: array._id }, 'add')
+                await markLocalAvailability({ databaseId: database._id, arrayId: array._id, objectId: fileId(record) }, 'add')
+            }
         }
-        // Install the index revision now; the normal local disk queue follows it.
-        await flushIndexes()
+        // Pending memory records already satisfy reads; indexing is backend work.
+        if (!deferred) await flushIndexes()
     }
 
-    const readLocalEntity = async ({ type, databaseId, arrayId, objectId }) => {
-        let file
-        let id
-        if (type === 'database') {
-            file = databaseMetadataPath(root, databaseId)
-            id = databaseId
-        } else if (type === 'array') {
-            file = arrayMetadataPath(root, databaseId, arrayId)
-            id = arrayId
-        } else if (type === 'object') {
-            file = objectPath(root, databaseId, arrayId, objectId)
-            id = objectId
-        } else {
-            throw new TypeError('Peer fetch type must be database, array, or object')
+    const readLocalEntity = async ({ type, databaseId, arrayId, objectId, fileId: uuid }) => {
+        if (type === 'value') {
+            const value = await readJSON(recordPath(root, 'values', uuid))
+            return value && identify(value, uuid)
         }
-        const record = await readJSON(file)
-        return record?._id === id ? record : undefined
+        if (type === 'database') return readDatabase(uuid ?? databaseId)
+        if (type === 'array') return readArray(databaseId, uuid ?? arrayId)
+        if (type === 'object') return readLocalObject(databaseId, arrayId, uuid ?? objectId)
+        throw new TypeError('Peer fetch type must be database, array, or object')
     }
 
-    const applyReplicatedObjectMutation = async ({ operation, database, array, object, createdOn, serverId, upsert = false }) => {
+    const applyReplicatedObjectMutation = async ({ operation, database, array, object, fileId: uuid, databaseFileId, arrayFileId, createdOn, serverId, upsert = false }) => {
         if (!['set', 'update', 'remove'].includes(operation) || !object || !isObjectId(object._id))
             throw new TypeError('Invalid replicated object mutation')
         const databaseId = database?._id
@@ -492,7 +553,11 @@ export function createDB({
         if (!isObjectId(databaseId) || !isObjectId(arrayId) || database._id !== databaseId || array._id !== arrayId)
             throw new TypeError('Replicated object mutation requires database and array metadata')
 
-        let current = await readLocalObject(databaseId, arrayId, object._id)
+        identify(database, databaseFileId ?? fileId(database))
+        identify(array, arrayFileId ?? fileId(array))
+        identify(object, uuid ?? fileId(object))
+        let current = await readLocalObject(databaseId, arrayId, fileId(object))
+        if (current && fileId(current) !== fileId(object) && operation !== 'set') return false
         const deletion = await getDeletion(databaseId, arrayId, object._id)
         if (operation === 'update') {
             if (deletion || (createdOn && current?.created?.on && createdOn !== current.created.on)) return false
@@ -502,7 +567,7 @@ export function createDB({
             } else {
                 if (!peerReader || !serverId) throw new Error(`Cannot apply an update without the base object: ${object._id}`)
                 // The publishing node's snapshot already includes this operation.
-                current = await peerReader({ nodeId: serverId, type: 'object', databaseId, arrayId, objectId: object._id })
+                current = await peerReader({ nodeId: serverId, type: 'object', databaseId, arrayId, objectId: fileId(object), fileId: fileId(object) })
                 if (!current || current._id !== object._id || (createdOn && current.created?.on !== createdOn)) return false
             }
         }
@@ -510,9 +575,9 @@ export function createDB({
             (current?.created?.on && object.created?.on && object.created.on < current.created.on))) return false
         if (operation === 'remove' && !current && staleGeneration(object, deletion)) return false
         if (operation === 'remove' && current?.created?.on && object.created?.on && current.created.on !== object.created.on) return false
-        await replaceJSON(databaseMetadataPath(root, databaseId), database)
-        await replaceJSON(arrayMetadataPath(root, databaseId, arrayId), array)
-        const file = objectPath(root, databaseId, arrayId, object._id)
+        await materializeDatabase(root, storageIndex, database)
+        await materializeArray(root, storageIndex, database, array)
+        const file = objectPath(root, databaseId, arrayId, fileId(object))
         if (operation === 'remove') {
             await markDeleted(databaseId, arrayId, object)
             removeMemoryPath(file)
@@ -525,12 +590,13 @@ export function createDB({
 
         await markLocalAvailability({ databaseId }, 'add')
         await markLocalAvailability({ databaseId, arrayId }, 'add')
-        await markLocalAvailability({ databaseId, arrayId, objectId: object._id }, operation === 'remove' ? 'remove' : 'add')
+        await markLocalAvailability({ databaseId, arrayId, objectId: fileId(object) }, operation === 'remove' ? 'remove' : 'add')
         return true
     }
 
     const acquireEntity = async (type, databaseId, arrayId, objectId) => {
         if (!peerReader) return undefined
+        const ids = await resolveDistributionIds({ databaseId, arrayId, objectId })
         const refs = type === 'database'
             ? await getDistribution({ databaseId })
             : type === 'array'
@@ -545,9 +611,10 @@ export function createDB({
                     type,
                     databaseId,
                     arrayId,
-                    objectId
+                    objectId: ids.objectId ?? objectId,
+                    fileId: type === 'database' ? ids.databaseFileId : type === 'array' ? ids.arrayFileId : /^[a-f0-9]{32}$/i.test(ids.objectId ?? '') ? ids.objectId : undefined
                 })
-                if (record?._id === (type === 'database' ? databaseId : type === 'array' ? arrayId : objectId))
+                if ((type === 'object' && fileId(record) === objectId) || record?._id === (type === 'database' ? databaseId : type === 'array' ? arrayId : objectId))
                     return record
             } catch { /* Try the next available holder. */ }
         }
@@ -574,7 +641,7 @@ export function createDB({
     const resolveDatabaseFromPeers = async name => {
         for (const { id, nodeIds } of await listDistribution()) {
             if (!isObjectId(id)) continue
-            if (await readJSON(databaseMetadataPath(root, id))) continue
+            if (await readDatabase(id)) continue
             for (const remoteNodeId of nodeIds) {
                 if (remoteNodeId === nodeId || !peerReader) continue
                 try {
@@ -590,7 +657,7 @@ export function createDB({
     const resolveArrayFromPeers = async (database, name) => {
         for (const { id, nodeIds } of await listDistribution({ databaseId: database._id })) {
             if (!isObjectId(id)) continue
-            if (await readJSON(arrayMetadataPath(root, database._id, id))) continue
+            if (await readArray(database._id, id)) continue
             for (const remoteNodeId of nodeIds) {
                 if (remoteNodeId === nodeId || !peerReader) continue
                 try {
@@ -610,13 +677,13 @@ export function createDB({
 
     const resolveAllDatabasesFromPeers = async () => {
         for (const { id } of await listDistribution())
-            if (isObjectId(id) && !(await readJSON(databaseMetadataPath(root, id))))
+            if (isObjectId(id) && !(await readDatabase(id)))
                 await materializeDatabaseFromPeer(id)
     }
 
     const resolveAllArraysFromPeers = async database => {
         for (const { id } of await listDistribution({ databaseId: database._id }))
-            if (isObjectId(id) && !(await readJSON(arrayMetadataPath(root, database._id, id))))
+            if (isObjectId(id) && !(await readArray(database._id, id)))
                 await materializeArrayFromPeer(database, id)
     }
 
@@ -637,16 +704,19 @@ export function createDB({
                     database: request.database,
                     array: request.array,
                     object: record
-                }, databaseId, arrayId, { publishMutation: false })
+                }, databaseId, arrayId, { publishMutation: false, acquired: true })
             } catch (error) {
                 const concurrent = await readLocalObject(databaseId, arrayId, objectId)
                 if (!concurrent) throw error
+                return concurrent
             }
 
-            await markLocalAvailability({ databaseId }, 'add')
-            await markLocalAvailability({ databaseId, arrayId }, 'add')
-            await markLocalAvailability({ databaseId, arrayId, objectId }, 'add')
-            return readLocalObject(databaseId, arrayId, objectId)
+            if (!deferred) {
+                await markLocalAvailability({ databaseId }, 'add')
+                await markLocalAvailability({ databaseId, arrayId }, 'add')
+                await markLocalAvailability({ databaseId, arrayId, objectId }, 'add')
+            }
+            return record
         })()
         acquisitionPromises.set(key, promise)
         try {
@@ -659,7 +729,7 @@ export function createDB({
     const loadObject = async (database, array, objectId, request = {}) => {
         const object = await readLocalObject(database, array, objectId)
         if (object) return object
-        if (pendingIndexes.has(objectPath(root, database, array, objectId)))
+        if ((/^[a-f0-9]{32}$/i.test(objectId) && pendingIndexes.has(objectPath(root, database, array, objectId))))
             throw new Error(`Object file not found: ${objectId}`)
         const acquired = await materializeObjectFromPeer(database, array, objectId, request)
         if (acquired) return acquired
@@ -670,7 +740,7 @@ export function createDB({
         const hydrated = new Map()
         const readForPlanning = async objectId => {
             if (hydrated.has(objectId)) return hydrated.get(objectId)
-            const object = pendingIndexes.has(objectPath(root, database, array, objectId))
+            const object = (/^[a-f0-9]{32}$/i.test(objectId) && pendingIndexes.has(objectPath(root, database, array, objectId)))
                 ? await readLocalObject(database, array, objectId)
                 : await loadObject(database, array, objectId, request)
             hydrated.set(objectId, object)
@@ -683,7 +753,7 @@ export function createDB({
 
         const candidates = new Set(ids)
         for (const entry of pendingIndexes.values())
-            if (entry.database === database && entry.array === array) candidates.add(entry.objectId)
+            if (entry.database === database && entry.array === array) candidates.add(entry.fileId)
         for (const objectId of candidates) {
             const path = objectPath(root, database, array, objectId)
             const pending = pendingIndexes.has(path)
@@ -706,7 +776,7 @@ export function createDB({
                 : []
         for (const objectId of requestedIds)
             if (typeof objectId === 'string' && /^[0-9a-f]{24}$/i.test(objectId))
-                if (!pendingIndexes.has(objectPath(root, database, array, objectId.toLowerCase())))
+                if (!(/^[a-f0-9]{32}$/i.test(objectId) && pendingIndexes.has(objectPath(root, database, array, objectId.toLowerCase()))))
                     await materializeObjectFromPeer(database, array, objectId.toLowerCase(), request)
 
         const objects = await selectObjects(database, array, query, request)
@@ -780,24 +850,28 @@ export function createDB({
             const createdOn = current.created?.on
             const patch = createUpdatePatch(input, request)
             const mutation = applyObjectUpdate(current, patch, auditMetadata(request))
+            const changed = mutation.changed
             mutation.commit()
             const updated = live(current)
+            if (deferred) {
+                if (changed) {
+                    await replaceJSON(objectPath(root, database, array, fileId(current)), updated)
+                    queueIndex(database, array, before, current, true, createdOn, peerUpdate(updated, patch))
+                }
+                updatedObjects.push(updateReply(tagRecord(updated, request), patch))
+                continue
+            }
             const after = indexEntries(updated)
             const beforeKeys = new Set(before.map(entryKey)), afterKeys = new Set(after.map(entryKey))
             const changedKeys = new Set()
             for (const entry of before) if (!afterKeys.has(entryKey(entry))) changedKeys.add(entry.key)
             for (const entry of after) if (!beforeKeys.has(entryKey(entry))) changedKeys.add(entry.key)
             if (changedKeys.size) {
-                if (deferred) {
-                    await replaceJSON(objectPath(root, database, array, current._id), updated)
-                    queueIndex(database, array, before, current._id, true, createdOn, peerUpdate(updated, patch))
-                } else {
-                    const holders = await captureEntryHolders(database, array, before, current._id)
-                    await reconcileEntrySets(storageIndex, database, array, current._id, before, after)
-                    await replaceJSON(objectPath(root, database, array, current._id), updated)
-                    for (const holder of await captureObjectHolders(database, array, updated)) holders.add(holder)
-                    await publishObjectMutation('update', database, array, peerUpdate(updated, patch), holders, updated.created?.on)
-                }
+                const holders = await captureEntryHolders(database, array, before, fileId(current))
+                await reconcileEntrySets(storageIndex, database, array, fileId(current), before, after)
+                await replaceJSON(objectPath(root, database, array, fileId(current)), updated)
+                for (const holder of await captureObjectHolders(database, array, updated)) holders.add(holder)
+                await publishObjectMutation('update', database, array, peerUpdate(updated, patch), holders, updated.created?.on)
             }
             updatedObjects.push(updateReply(tagRecord(updated, request), patch))
         }
@@ -829,13 +903,27 @@ export function createDB({
 
         for (const object of objects) {
             const holders = deferred ? new Set() : await captureObjectHolders(database, array, object)
-            const file = objectPath(root, database, array, object._id)
+            const file = objectPath(root, database, array, fileId(object))
+            if (deferred) {
+                const marker = deletionMarker(object)
+                const markerPath = objectDeletionPath(root, database, array, object._id)
+                await rm(file, { force: true })
+                deletedObjects.set(markerPath, marker)
+                queueIndex(database, array, () => indexEntries(object), object, true, object.created?.on, undefined, [
+                    () => replaceJSON(markerPath, marker),
+                    () => adjustArrayLength(root, storageIndex, database, array, -1, request),
+                    () => adjustDatabaseLengths(root, storageIndex, database, { objects: -1 }, request),
+                    () => markLocalAvailability({ databaseId: database, arrayId: array, objectId: fileId(object) }, 'remove')
+                ])
+                pendingIndexes.get(file).removed = object
+                deleted.push(tagRecord(object, request))
+                continue
+            }
             let arrayLengthUpdated = false
             let databaseLengthUpdated = false
 
             try {
-                if (deferred) await rm(file, { force: true })
-                else await deleteRecord(storageIndex, database, array, file, object)
+                await deleteRecord(storageIndex, database, array, file, object)
                 await markDeleted(database, array, object)
                 await adjustArrayLength(root, storageIndex, database, array, -1, request)
                 arrayLengthUpdated = true
@@ -853,16 +941,14 @@ export function createDB({
             }
 
             deleted.push(tagRecord(object, request))
-            if (deferred) {
-                queueIndex(database, array, indexEntries(object), object._id, true, object.created?.on)
-                pendingIndexes.get(file).removed = object
-            } else await publishObjectMutation('remove', database, array, object, holders)
+            await publishObjectMutation('remove', database, array, object, holders)
         }
 
         return deleted
     }
 
     const readIndex = async (method, database, array, key = '_id') => {
+        await ready
         const databaseRecord = await findRecordByName(
             storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
             id => databaseMetadataPath(root, id), database
@@ -882,6 +968,7 @@ export function createDB({
         read: (database, array, key) => readIndex('read', database, array, key),
         getMetadata: (database, array, key) => readIndex('getMetadata', database, array, key),
         create: async (database, array, key, value, objectId, request = {}) => {
+            await ready
             const databaseMetadata = await ensureDatabase(root, storageIndex, database, {}, request)
             const arrayMetadata = await ensureArray(root, storageIndex, databaseMetadata, array, {}, request)
             let existing = false
@@ -905,6 +992,7 @@ export function createDB({
             }
         },
         delete: async (database, array, key, value, objectId, request = {}) => {
+            await ready
             const databaseRecord = await findRecordByName(
                 storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
                 id => databaseMetadataPath(root, id), database
@@ -934,6 +1022,7 @@ export function createDB({
             return removed
         },
         scan: async function* (database, array, key = '_id', options = {}) {
+            await ready
             const databaseRecord = await findRecordByName(
                 storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
                 id => databaseMetadataPath(root, id), database
@@ -952,10 +1041,20 @@ export function createDB({
     }
 
     index.update = index.create
+    for (const method of ['read', 'getMetadata', 'create', 'update', 'delete']) {
+        const operation = index[method]
+        index[method] = (...args) => withResolution(() => operation(...args))
+    }
 
-    return {
+    const api = {
         index,
+        async dropIndexes() {
+            const records = await readRecords(storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, uuid => databaseMetadataPath(root, uuid))
+            await sendDatabase(root, storageIndex, 'delete', { database: records.map(value => value.name) })
+            await storageIndex.drop(DATABASE_CATALOG, DATABASE_CATALOG_ARRAY)
+        },
         resolveDistributionIds,
+        resolvedScope,
         updateDistribution,
         getDistribution,
         listDistribution,
@@ -995,6 +1094,7 @@ export function createDB({
                     throw new TypeError('CRUD request must include a method')
 
                 const [type, method] = request.method.split('.')
+                if (deferred && method === 'delete' && ['database', 'array'].includes(type)) await flushIndexes()
 
                 if (!['create', 'read', 'update', 'delete'].includes(method))
                     throw new Error(`Unsupported CRUD method: ${request.method}`)
@@ -1154,10 +1254,10 @@ export function createDB({
                 response.array = arrayName
                 if (method === 'create') {
                     response.object = await createObjects(request, databaseId, arrayId)
-                    for (const object of response.object) {
+                    if (!deferred) for (const object of response.object) {
                         await markLocalAvailability({ databaseId }, 'add')
                         await markLocalAvailability({ databaseId, arrayId }, 'add')
-                        await markLocalAvailability({ databaseId, arrayId, objectId: object._id }, 'add')
+                        await markLocalAvailability({ databaseId, arrayId, objectId: fileId(object) }, 'add')
                     }
                 }
                 else if (method === 'read') response.object = await readObjects(request, databaseId, arrayId)
@@ -1166,8 +1266,8 @@ export function createDB({
                 }
                 else {
                     response.object = await deleteObjects(request, databaseId, arrayId)
-                    for (const object of response.object)
-                        await markLocalAvailability({ databaseId, arrayId, objectId: object._id }, 'remove')
+                    if (!deferred) for (const object of response.object)
+                        await markLocalAvailability({ databaseId, arrayId, objectId: fileId(object) }, 'remove')
                 }
                 response.success = true
                 return response
@@ -1176,4 +1276,7 @@ export function createDB({
             } finally { release?.() }
         }
     }
+    const send = api.send
+    api.send = request => withResolution(() => send(request))
+    return api
 }

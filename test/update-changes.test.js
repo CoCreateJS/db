@@ -4,6 +4,7 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createDB } from '../src/object/index.js'
+import { fileId, identify } from '../src/files.js'
 import { objectPath } from '../src/storage.js'
 
 const scope = { database: 'changes', array: 'items' }
@@ -51,7 +52,7 @@ for (const writeBehind of [false, true]) {
             assert.equal(indexed[0].object.name, 'Ana')
         }
         const { database, array } = await metadata(db)
-        const stored = JSON.parse(await readFile(objectPath(directory, database._id, array._id, original._id), 'utf8'))
+        const stored = JSON.parse(await readFile(objectPath(directory, database._id, array._id, fileId(original)), 'utf8'))
         assert.equal(stored.score, 12)
         assert.equal(stored.name, 'Ana')
         assert.equal('old' in stored, false)
@@ -125,7 +126,7 @@ test('peers apply deltas to their own document, preserve unrelated state and per
     const published = []
     const { db, directory } = await fixture(t, { documentMutationAdapter: { publish: value => published.push(value) } })
     const original = (await send(db, 'create', { score: 20, local: 'keep', old: true })).object[0]
-    const envelope = { operation: 'update', ...await metadata(db), createdOn: original.created.on }
+    const envelope = { operation: 'update', ...await metadata(db), fileId: fileId(original), createdOn: original.created.on }
     published.length = 0
     const patch = { $inc: { score: 2 }, $unset: { old: true } }
     assert.equal(await db.applyReplicatedObjectMutation({ ...envelope, object: { _id: original._id, $update: patch } }), true)
@@ -136,7 +137,7 @@ test('peers apply deltas to their own document, preserve unrelated state and per
     assert.equal('old' in current, false)
     assert.equal('$update' in current, false)
     assert.equal(published.length, 0, 'replica application must not originate the patch again')
-    const stored = JSON.parse(await readFile(objectPath(directory, envelope.database._id, envelope.array._id, original._id), 'utf8'))
+    const stored = JSON.parse(await readFile(objectPath(directory, envelope.database._id, envelope.array._id, fileId(original)), 'utf8'))
     assert.equal(stored.score, 22)
     assert.equal(stored.local, 'keep')
     assert.equal('old' in stored, false)
@@ -145,14 +146,15 @@ test('peers apply deltas to their own document, preserve unrelated state and per
 
 test('a missing-base peer acquires current state without applying the included increment twice', async t => {
     let reads = 0
-    const { db } = await fixture(t, { peerReader: async request => { reads++; return { _id: request.objectId,
-        created: { on: '2026-01-01T00:00:00.000Z' }, score: 12, local: 'snapshot' } } })
+    const { db } = await fixture(t, { peerReader: async request => { reads++; return identify({ _id: '000000000000000000000003',
+        created: { on: '2026-01-01T00:00:00.000Z' }, score: 12, local: 'snapshot' }, request.fileId) } })
     const database = { _id: '000000000000000000000001', name: scope.database }
     const array = { _id: '000000000000000000000002', databaseId: database._id, name: scope.array }
     const id = '000000000000000000000003'
-    assert.equal(await db.applyReplicatedObjectMutation({ operation: 'update', database, array, serverId: 'peer',
+    assert.equal(await db.applyReplicatedObjectMutation({ operation: 'update', database, array, serverId: 'peer', fileId: '00000000000000000000000000000003',
+        databaseFileId: '00000000000000000000000000000001', arrayFileId: '00000000000000000000000000000002',
         createdOn: '2026-01-01T00:00:00.000Z', object: { _id: id, $update: { $inc: { score: 2 } } } }), true)
-    const object = await db.readLocalEntity({ type: 'object', databaseId: database._id, arrayId: array._id, objectId: id })
+    const object = await db.readLocalEntity({ type: 'object', databaseId: database._id, arrayId: array._id, fileId: '00000000000000000000000000000003' })
     assert.equal(reads, 1)
     assert.equal(object.score, 12)
     assert.equal(object.local, 'snapshot')

@@ -3,7 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { createUpdate, queryData } from '@cocreate/utils'
+import { queryData } from '@cocreate/utils'
+import { fileId } from '../src/files.js'
 import { createDB } from '../src/object/index.js'
 import { flattenIndexValues } from '../src/storage.js'
 import { removeMemoryPath } from '../src/memory.js'
@@ -112,6 +113,7 @@ for (const { memoryCache, writeBehind = false } of [{ memoryCache: false }, { me
                         const created = await db.send({ method: 'object.create', database: 'selectors', array: 'updates', object: structuredClone(initial) })
                         assert.equal(created.success, true, created.error)
                         const objectId = created.object[0]._id
+                        const uuid = fileId(created.object[0])
                         const updated = await db.send({ method: 'object.update', database: 'selectors', array: 'updates', object: { _id: objectId, ...structuredClone(mutation) }, ...globals })
                         assert.equal(updated.success, true, updated.error)
                         assert.deepEqual(body(updated.object[0]), expected)
@@ -122,7 +124,7 @@ for (const { memoryCache, writeBehind = false } of [{ memoryCache: false }, { me
                         for (const key of keys) {
                             const actual = []
                             for await (const entry of db.index.scan('selectors', 'updates', key)) actual.push([entry.value, entry.objectId])
-                            assert.deepEqual(actual, after.filter(([path]) => path === key).map(([, value]) => [value, objectId]), key)
+                            assert.deepEqual(actual, after.filter(([path]) => path === key).map(([, value]) => [value, uuid]), key)
                         }
                         await db.close()
                         removeMemoryPath(directory)

@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util'
+
 // Internal records and index nodes have one owner and are passed by reference.
 const targets = new WeakMap()
 export const live = value => targets.get(value) ?? value
@@ -80,7 +82,13 @@ export function prepareMutation(record) {
         views.set(value, proxy)
         return proxy
     }
-    return { value: view(record), commit() {
+    return { value: view(record), get changed() {
+        return actions.some(({ target, key }) => {
+            const change = slots.get(target).get(key)
+            return change.deleted ? Object.hasOwn(target, key) :
+                !Object.hasOwn(target, key) || !isDeepStrictEqual(target[key], change.value)
+        })
+    }, commit() {
         for (const { target, key, value, deleted } of actions)
             if (deleted) Reflect.deleteProperty(target, key)
             else Reflect.set(target, key, value)

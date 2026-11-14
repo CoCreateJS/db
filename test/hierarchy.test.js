@@ -3,7 +3,7 @@ import test from 'node:test'
 import { mkdtemp, rm, access, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createDB, initializeServerDB } from '../src/index.js'
+import { createDB, initializeServerDB, fileId } from '../src/index.js'
 import { EventEmitter } from 'node:events'
 
 const org = '000000000000000000000001'
@@ -46,7 +46,7 @@ for (const writeBehind of [false, true]) test(`organization/storage/database iso
     assert.notEqual(record._id, 'production')
     const database = (await send(db, 'database.read')).database.find(item => item.name === 'app')
     const array = (await send(db, 'array.read')).array[0]
-    const file = join(directory, org, 'storages', record._id, 'databases', database._id, 'arrays', array._id, 'objects', `${objectId}.json`)
+    const file = join(directory, org, 'objects', `${fileId((await send(db, 'object.read', { object: objectId })).object[0])}.json`)
     assert.equal(JSON.parse(await readFile(file, 'utf8')).value, 0)
     await assert.rejects(access(join(directory, org, 'storages', 'production')), { code: 'ENOENT' })
 })
@@ -63,7 +63,7 @@ test('renaming storage changes the name reference and preserves directory/databa
     const read = await send(db, 'object.read', { storage: 'renamed' })
     assert.equal(read.object[0]._id, made.object[0]._id)
     assert.equal((await send(db, 'database.read', { storage: 'renamed' })).database[0]._id, database._id)
-    await access(join(directory, org, 'storages', storage._id, 'databases', database._id))
+    await access(join(directory, org, 'databases', `${fileId(database)}.json`))
 })
 
 test('concurrent first writes share one stable storage reference', async t => {
@@ -90,7 +90,7 @@ test('primary runtime keeps fully scoped partition paths and entity availability
     assert.ok(events.some(event => event.method === 'db.distribution' && event.scope?.organization_id === org && event.scope?.storageId))
     const partitions = await db.listPartitions()
     assert.ok(partitions.length)
-    assert.ok(partitions.every(item => item.partitionId.startsWith(`${org}/storages/`)))
+    assert.ok(partitions.every(item => item.partitionId.startsWith(`${org}/indexes/`)))
     for (const partition of partitions) assert.ok(await db.readIndexPartition(partition.partitionId))
 })
 
@@ -99,10 +99,10 @@ test('replicated storage metadata preserves the same ID and propagates renames w
     const target = await fixture(t)
     await send(source.db, 'storage.create')
     const record = (await send(source.db, 'storage.read')).storage[0]
-    await target.db.applyStorageMutation({ organization_id: org, storageId: record._id, operation: 'set', record: JSON.parse(JSON.stringify(record)) })
+    await target.db.applyStorageMutation({ organization_id: org, storageId: record._id, storageFileId: fileId(record), operation: 'set', record: JSON.parse(JSON.stringify(record)) })
     const created = await send(target.db, 'object.create', { object: { value: 9 } })
     const renamed = (await send(source.db, 'storage.update', { name: 'development' })).storage[0]
-    await target.db.applyStorageMutation({ organization_id: org, storageId: record._id, operation: 'set', record: JSON.parse(JSON.stringify(renamed)) })
+    await target.db.applyStorageMutation({ organization_id: org, storageId: record._id, storageFileId: fileId(record), operation: 'set', record: JSON.parse(JSON.stringify(renamed)) })
     const read = await send(target.db, 'object.read', { storage: 'development' })
     assert.equal(read.object[0]._id, created.object[0]._id)
     assert.equal(read.storageId, record._id)

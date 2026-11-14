@@ -4,11 +4,13 @@ import { persistenceFor } from './persistence.js'
 import { memoryEntries, memoryRemoved, removeMemoryPath, memoryOnly, markMemoryRemoval } from './memory.js'
 
 import { removeFileBytes, flushFileBytes } from './bytes.js'
+import { forgetResolvedPath } from './resolution.js'
 
 export async function mkdir(path, options) {
     if (!memoryOnly(path) && !persistenceFor(path)) return fs.mkdir(path, options)
 }
 export async function rm(path, options = {}) {
+    forgetResolvedPath(resolve(path), options.recursive)
     const store = persistenceFor(path)
     if (memoryOnly(path)) return markMemoryRemoval(path)
     if (store) return store.remove(path, options)

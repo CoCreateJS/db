@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { indexId } from '../src/index/index.js'
 import { test } from 'node:test'
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -47,18 +48,18 @@ test('catalog statistics stay current through splits, duplicate insertion, delet
         index = createIndex({ directory, maxBytes: 512 })
         const metadata = await index.getMetadata('dev', 'items', 'rank')
         assert.equal(metadata.indexes.number.length, 1)
-        const catalog = JSON.parse(await readFile(join(directory, 'dev/items/index/index.json')))
+        const catalog = JSON.parse(await readFile(join(directory, 'indexes', `${indexId('dev/items')}.json`)))
         assert.deepEqual(catalog.entries[0][3], {
             length: 1, first: { value: 7, objectId: '7' }, last: { value: 7, objectId: '7' }
         })
-        for (const file of await readdir(join(directory, 'dev/items/index'))) {
-            const node = JSON.parse(await readFile(join(directory, 'dev/items/index', file)))
+        for (const file of await readdir(join(directory, 'indexes'))) {
+            const node = JSON.parse(await readFile(join(directory, 'indexes', file)))
             assert.equal('count' in node, false)
             assert.equal('catalogCount' in node, false)
             for (const child of node.indexes ?? []) assert.equal('count' in child, false)
         }
         // Metadata is served from the catalog, without a value-root read.
-        await rm(join(directory, 'dev/items/index', `${metadata.indexes.number.id}.json`))
+        await rm(join(directory, 'indexes', `${metadata.indexes.number.id}.json`))
         assert.deepEqual(await index.getMetadata('dev', 'items', 'rank'), metadata)
         for (const condition of [8, { $gt: 7 }, { $lt: 7 }]) {
             const result = await queryIndexCandidates(index, 'dev', 'items', { rank: condition })
@@ -72,7 +73,7 @@ test('legacy recursive lengths and mappings remain readable and are upgraded on 
     await fixture(async directory => {
         const index = createIndex({ directory, maxBytes: 512 })
         for (let value = 0; value < 30; value++) await index.create('dev', 'items', 'rank', value, String(value))
-        const path = join(directory, 'dev/items/index')
+        const path = join(directory, 'indexes')
         for (const file of await readdir(path)) {
             const node = JSON.parse(await readFile(join(path, file)))
             if (node.length !== undefined) { node.count = node.length; delete node.length }
@@ -85,7 +86,7 @@ test('legacy recursive lengths and mappings remain readable and are upgraded on 
         assert.equal((await reopened.getMetadata('dev', 'items', 'rank')).indexes.number.length, 30)
         await reopened.create('dev', 'items', 'rank', 30, '30')
         assert.equal((await reopened.getMetadata('dev', 'items', 'rank')).indexes.number.length, 31)
-        const root = JSON.parse(await readFile(join(path, 'index.json')))
+        const root = JSON.parse(await readFile(join(path, `${indexId('dev/items')}.json`)))
         assert.equal(root.entries[0][3].length, 31)
         assert.equal('count' in root, false)
     })

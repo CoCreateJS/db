@@ -1,16 +1,19 @@
 import { join, resolve } from 'node:path'
-import { readdir } from './io.js'
+import { fileId, identify, newFileId, recordPath, stableId } from './files.js'
+import { ensureRoot, readRoot, FORMAT } from './root.js'
+import { indexId } from './index/index.js'
+import { readdir, rm } from './io.js'
 import { ObjectId } from '@cocreate/utils'
 import { createDB as createEngine } from './object/index.js'
 import createIndex from './index/index.js'
 import { createDistributionIndex, distributionReferences } from './distribution.js'
-import { createPeerDistribution, createDistributionAdapters } from './peers.js'
+import { createPeerDistribution, createDistributionAdapters, mergeDistributionLists } from './peers.js'
 import { createPersistence } from './persistence.js'
 import { memoryStats, enableMemoryCache } from './memory.js'
-import { auditMetadata, readJSON, replaceJSON, removeDirectoryPreservingDistribution } from './storage.js'
-import { createRecord, updateRecord, deleteRecord } from './records.js'
+import { auditMetadata, readJSON, replaceJSON } from './storage.js'
+import { createRecord, updateRecord, deleteRecord, readRecordById } from './records.js'
 import { applyReadFilter } from './read.js'
-import { live } from './mutation.js'
+import { withResolution, resolvedCatalog } from './resolution.js'
 
 function errorHandler(data, error) {
     if (!Array.isArray(data.error)) data.error = data.error === undefined ? [] : [data.error]
@@ -50,48 +53,74 @@ export function createDB(options = {}) {
     if (options.memoryCache || options.memoryOnly || options.disk === false) enableMemoryCache(root, { memoryOnly: options.memoryOnly || options.disk === false })
     const persistence = !options.memoryOnly && options.disk !== false && options.writeBehind ? createPersistence({ ...options.persistenceOptions, directory: root,
         canFlush: () => [...namespaces.values()].every(state => !state.engine.persistenceStats().pendingIndexes) }) : undefined
-    const storageFile = (organization, storageId) => join(root, organization, 'storages', storageId, 'storage.json')
-    const context = (organization, record) => ({ organization_id: organization, storageId: record._id, storage: record.name })
+    const storageFile = (organization, uuid) => recordPath(join(root, organization), 'storages', uuid)
+    const context = (organization, record) => ({ organization_id: organization, storageId: record._id, storage: record.name, storageFileId: fileId(record) })
 
-    const organizationState = organization => {
+    const organizationState = (organization, incomingRoot) => {
         id(organization, 'organization_id')
         if (organizations.has(organization)) return organizations.get(organization)
-        const holders = createDistributionIndex({ directory: join(root, organization, 'storages'), maxBytes: options.maxIndexBytes, cache: options.cache, nodeId: options.nodeId })
-        const index = createIndex({ directory: root, maxBytes: options.maxIndexBytes, cache: options.cache,
-            resolveArrayDirectory: () => join(root, organization, 'storages'),
-            readPartition: path => options.partitionAdapter?.read?.(path),
-            onPartitionChange: payload => {
-                if (!options.nodeId) return
-                return options.partitionAdapter?.onLocalChange
-                    ? options.partitionAdapter.onLocalChange({ ...payload, nodeId: options.nodeId }, holders.updatePartition)
-                    : holders.updatePartition({ partitionId: payload.path, nodeId: options.nodeId, operation: payload.operation === 'remove' ? 'remove' : 'add' })
+        const holders = createDistributionIndex({ directory: join(root, organization, 'distribution', 'root'), maxBytes: options.maxIndexBytes, cache: options.cache, nodeId: options.nodeId })
+        const adapter = options.partitionAdapter
+        const qualify = path => path.startsWith(`${organization}/`) ? path : `${organization}/${path}`
+        const partitions = {
+            update: payload => adapter.update({ ...payload, partitionId: qualify(payload.partitionId ?? payload.path) }, holders.updatePartition),
+            get: path => adapter.get(qualify(path), holders.getPartition),
+            list: () => adapter.list(holders.listPartitions),
+            read: adapter.read ? path => adapter.read(qualify(path)) : undefined,
+            onLocalChange: payload => {
+                const value = { ...payload, nodeId: options.nodeId, path: qualify(payload.path ?? payload.partitionId) }
+                return adapter.onLocalChange ? adapter.onLocalChange(value, holders.updatePartition)
+                    : holders.updatePartition({ partitionId: value.path, nodeId: options.nodeId, operation: value.operation === 'remove' ? 'remove' : 'add' })
             }
+        }
+        const index = createIndex({ directory: join(root, organization), indexRoot: join(root, organization),
+            maxBytes: options.maxIndexBytes, cache: options.cache,
+            resolveArrayDirectory: () => join(root, organization, 'catalogs', 'storages'),
+            readPartition: partitions.read,
+            onPartitionChange: payload => options.nodeId && partitions.onLocalChange(payload)
         })
-        const state = { organization, index, holders }
+        const state = { organization, index, holders, partitions }
+        state.ready = incomingRoot ? (async () => {
+            await readRoot(join(root, organization))
+            await replaceJSON(join(root, organization, 'root.json'), incomingRoot)
+            return incomingRoot
+        })() : ensureRoot(join(root, organization), index, CATALOG, STORAGES, 'storages', value => options.onRootChange?.({ organization_id: organization, value }))
+        state.ready.catch(() => {})
         organizations.set(organization, state)
         return state
     }
     const findStorage = async (organization, storage) => {
         name(storage, 'storage')
-        const { index } = organizationState(organization)
+        const state = organizationState(organization)
+        await state.ready
+        const { index } = state
+        const existing = resolvedCatalog(index, CATALOG, STORAGES)?.names[storage]
+        if (existing) return existing
         for await (const entry of index.scan(CATALOG, STORAGES, 'name', { type: 'string', lower: storage, upper: storage })) {
-            if (entry.value === storage) return live(await readJSON(storageFile(organization, entry.objectId)))
+            if (entry.value !== storage) continue
+            const record = await readRecordById(index, CATALOG, STORAGES, uuid => storageFile(organization, uuid), entry.objectId)
+            if (record) return record
+            const peer = peers.findScope(organization, storage)
+            if (peer && options.peerReader) {
+                const acquired = await options.peerReader({ ...peer, type: 'storage', fileId: entry.objectId })
+                if (acquired) return createRecord(index, CATALOG, STORAGES, storageFile(organization, fileId(acquired)), acquired)
+            }
         }
     }
-    const createStorage = async (organization, storage, request = {}, storageId, notify = true) => {
+    const createStorage = async (organization, storage, request = {}, storageId, notify = true, uuid = newFileId()) => {
         const existing = await findStorage(organization, storage)
         if (existing) {
             if (storageId && existing._id !== storageId) throw new Error('Storage name resolves to a different stable ID')
             return existing
         }
         const index = organizationState(organization).index
-        const record = { _id: storageId ? id(storageId, 'storageId') : ObjectId().toString(), name: storage,
-            created: auditMetadata(request), updated: auditMetadata(request) }
-        await createRecord(index, CATALOG, STORAGES, storageFile(organization, record._id), record)
-        if (notify) await options.onStorageChange?.({ organization_id: organization, storageId: record._id, storage: record.name, operation: 'set', record })
+        const record = { _id: storageId ? id(storageId, 'storageId') : ObjectId().toString(), name: storage, created: auditMetadata(request), updated: auditMetadata(request) }
+        record.index = indexId(`catalogs/${record._id}/databases`)
+        await createRecord(index, CATALOG, STORAGES, storageFile(organization, uuid), record)
+        await engineFor(organization, record).engine.ready
+        if (notify) await options.onStorageChange?.({ organization_id: organization, storageId: record._id, storageFileId: fileId(record), storage: record.name, operation: 'set', record })
         return record
     }
-    const qualify = (prefix, path) => path.startsWith(prefix) ? path : prefix + path
     const engineFor = (organization, record) => {
         const prefix = `${organization}/storages/${id(record._id, 'storageId')}/`
         if (namespaces.has(prefix)) {
@@ -101,9 +130,9 @@ export function createDB(options = {}) {
         }
         const state = { organization, record, prefix }
         const scope = () => context(organization, state.record)
-        const adapter = options.partitionAdapter
         const distribution = options.distributionAdapter
-        const engine = createEngine({ ...options, directory: join(root, organization, 'storages', record._id),
+        const engine = createEngine({ ...options, directory: join(root, organization), indexScope: record._id, managedRoot: true,
+            indexRoot: join(root, organization),
             sharedPersistence: persistence,
             scheduleIndexing: options.scheduleIndexing ?? serialize,
             persistenceOptions: options.persistenceOptions,
@@ -116,20 +145,7 @@ export function createDB(options = {}) {
                 list: (payload, read) => distribution?.list ? distribution.list({ ...payload, ...scope() }, read) : read(payload),
                 onLocalChange: (payload, apply) => distribution?.onLocalChange ? distribution.onLocalChange({ ...payload, ...scope() }, apply) : apply(payload)
             },
-            partitionAdapter: {
-                update: (payload, apply) => {
-                    const value = { ...payload, partitionId: qualify(prefix, payload.partitionId ?? payload.path) }
-                    return adapter?.update ? adapter.update(value, apply) : apply(value)
-                },
-                get: (path, read) => adapter?.get ? adapter.get(qualify(prefix, path), read) : read(qualify(prefix, path)),
-                list: read => adapter?.list ? adapter.list(read) : read(),
-                read: adapter?.read ? path => adapter.read(qualify(prefix, path)) : undefined,
-                onLocalChange: (payload, apply) => {
-                    const value = { ...payload, path: qualify(prefix, payload.path ?? payload.partitionId) }
-                    return adapter?.onLocalChange ? adapter.onLocalChange(value, apply)
-                        : apply({ partitionId: value.path, nodeId: options.nodeId, operation: value.operation === 'remove' ? 'remove' : 'add' })
-                }
-            }
+            partitionAdapter: organizationState(organization).partitions
         })
         state.engine = engine
         namespaces.set(prefix, state)
@@ -138,24 +154,22 @@ export function createDB(options = {}) {
     const byId = async payload => {
         const organization = id(payload.organization_id, 'organization_id')
         const storageId = id(payload.storageId, 'storageId')
-        const deleted = await readJSON(join(root, organization, 'storages', 'deleted', `${storageId}.json`))
+        const deleted = await readJSON(join(root, organization, 'deleted', `${stableId('storage:' + storageId)}.json`))
         if (deleted) throw new Error('Storage has been deleted')
-        let record = await readJSON(storageFile(organization, storageId))
-        if (!record && payload.storage) record = await createStorage(organization, payload.storage, {}, storageId, false)
-        if (!record) record = { _id: storageId, name: payload.storage }
+        const state = organizationState(organization)
+        await state.ready
+        let record = await readRecordById(state.index, CATALOG, STORAGES, uuid => storageFile(organization, uuid), payload.storageFileId ?? storageId)
+        if (!record && options.peerReader) {
+            record = await options.peerReader({ ...payload, type: 'storage', nodeId: payload.nodeId ?? payload.serverId ?? peers.findScope(organization, payload.storage)?.nodeId, fileId: payload.storageFileId })
+            if (record) await createRecord(state.index, CATALOG, STORAGES, storageFile(organization, fileId(record)), record)
+        }
+        if (!record) throw new Error('Storage file not found')
         return engineFor(organization, record)
     }
-    const parsePartition = path => {
-        if (typeof path !== 'string' || path.includes('\\') || path.includes('\0')) throw new TypeError('Invalid scoped index partition path')
-        const parts = path.split('/')
-        id(parts[0], 'organization_id')
-        if (parts[1] !== 'storages' || parts.some(part => !part || part === '.' || part === '..')) throw new TypeError('Invalid scoped index partition path')
-        return { organization: parts[0], storageId: parts[2] === 'index' ? undefined : id(parts[2], 'storageId'), path }
-    }
-    const partitionState = async path => {
-        const target = parsePartition(path)
-        return target.storageId ? { ...target, state: await byId({ organization_id: target.organization, storageId: target.storageId }) }
-            : { ...target, state: organizationState(target.organization) }
+    const partitionState = path => {
+        const match = /^([a-f0-9]{24})\/(indexes\/[a-f0-9]{32}\.json)$/i.exec(path)
+        if (!match) throw new TypeError('Invalid scoped index partition path')
+        return { ...organizationState(match[1]), path: match[2] }
     }
     const forScope = async (scope, create = false) => {
         const organization = id(scope.organization_id, 'organization_id')
@@ -170,6 +184,22 @@ export function createDB(options = {}) {
     const flushIndexes = async () => { for (const state of namespaces.values()) await state.engine.flushIndexes() }
     const api = {
         ready: Promise.resolve({ files: 0 }),
+        async applyRoots(roots = []) {
+            for (const item of roots) {
+                const organization = id(item.organization_id, 'organization_id')
+                if (item.value?.format !== FORMAT || item.value.storages !== indexId('catalogs/storages'))
+                    throw new Error('Invalid organization root')
+                const state = organizationState(organization, item.value)
+                await state.ready
+                const path = `indexes/${item.value.storages}.json`
+                const local = await state.index.readPartition(path)
+                if (local && !local.catalogLength) {
+                    await state.index.removePartition(path)
+                    if (options.nodeId) await state.partitions.onLocalChange({ path, operation: 'remove', acquired: true })
+                }
+                await replaceJSON(join(root, organization, 'root.json'), item.value)
+            }
+        },
         distribution: {
             local: {
                 async snapshot() {
@@ -180,9 +210,13 @@ export function createDB(options = {}) {
                     const entities = [], partitions = []
                     for (const organization of ids) {
                         const state = organizationState(organization)
+                        await state.ready
                         for await (const entry of state.index.scan(CATALOG, STORAGES, '_id', { type: 'string' })) {
-                            const record = await readJSON(storageFile(organization, entry.objectId))
-                            if (record) engineFor(organization, record)
+                            const record = await readRecordById(state.index, CATALOG, STORAGES, uuid => storageFile(organization, uuid), entry.objectId)
+                            if (record) {
+                                entities.push(context(organization, record))
+                                engineFor(organization, record)
+                            }
                         }
                         partitions.push(...await state.holders.listPartitions())
                     }
@@ -190,16 +224,21 @@ export function createDB(options = {}) {
                         const local = state.engine.distribution.local
                         const scope = context(state.organization, state.record)
                         for (const database of await local.list()) {
-                            entities.push({ ...scope, databaseId: database.id })
+                            const db = await state.engine.readLocalEntity({ type: 'database', databaseId: database.id })
+                            const dbScope = { ...scope, databaseId: database.id, databaseFileId: fileId(db), databaseIndex: db?.index }
+                            entities.push(dbScope)
                             for (const array of await local.list({ databaseId: database.id })) {
-                                entities.push({ ...scope, databaseId: database.id, arrayId: array.id })
+                                const metadata = await state.engine.readLocalEntity({ type: 'array', databaseId: database.id, arrayId: array.id })
+                                const arrayScope = { ...dbScope, arrayId: array.id, arrayFileId: fileId(metadata), arrayIndex: metadata?.index }
+                                entities.push(arrayScope)
                                 for (const object of await local.list({ databaseId: database.id, arrayId: array.id }))
-                                    entities.push({ ...scope, databaseId: database.id, arrayId: array.id, objectId: object.id })
+                                    entities.push({ ...arrayScope, objectId: object.id })
                             }
                         }
-                        partitions.push(...await local.listPartitions())
                     }
-                    return { entities, partitions: partitions.map(({ partitionId }) => ({ partitionId })) }
+                    const roots = []
+                    for (const organization of ids) roots.push({ organization_id: organization, value: await organizationState(organization).ready })
+                    return { roots, entities, partitions: partitions.map(({ partitionId }) => ({ partitionId })) }
                 }
             },
             peers: options.peerDistribution
@@ -242,8 +281,8 @@ export function createDB(options = {}) {
                         const renamed = name(request.name ?? request.newName, 'storage name')
                         const conflict = await findStorage(organization, renamed)
                         if (conflict && conflict._id !== record._id) throw new Error('Storage name already exists')
-                        record = await updateRecord(state.index, CATALOG, STORAGES, storageFile(organization, record._id), record,
-                            { ...record, name: renamed, updated: auditMetadata(request) })
+                        record = await updateRecord(state.index, CATALOG, STORAGES, storageFile(organization, fileId(record)), record,
+                            value => { value.name = renamed; value.updated = auditMetadata(request) })
                         const loaded = namespaces.get(`${organization}/storages/${record._id}/`)
                         if (loaded) loaded.record = record
                         await options.onStorageChange?.({ ...context(organization, record), operation: 'set', record })
@@ -251,9 +290,10 @@ export function createDB(options = {}) {
                         if (record) {
                             const loaded = engineFor(organization, record)
                             await loaded.engine.flushIndexes()
-                            await deleteRecord(state.index, CATALOG, STORAGES, storageFile(organization, record._id), record)
-                            await removeDirectoryPreservingDistribution(root, join(root, organization, 'storages', record._id))
-                            await replaceJSON(join(root, organization, 'storages', 'deleted', `${record._id}.json`), { _id: record._id, name: record.name })
+                            await loaded.engine.dropIndexes()
+                            await deleteRecord(state.index, CATALOG, STORAGES, storageFile(organization, fileId(record)), record)
+                            await rm(storageFile(organization, fileId(record)), { force: true })
+                            await replaceJSON(join(root, organization, 'deleted', `${stableId('storage:' + record._id)}.json`), { _id: record._id, name: record.name })
                             namespaces.delete(loaded.prefix)
                             await options.onStorageChange?.({ ...context(organization, record), operation: 'remove', record })
                         }
@@ -279,24 +319,28 @@ export function createDB(options = {}) {
                 const record = payload.record
                 if (!record || record._id !== storageId || !['set', 'remove'].includes(payload.operation)) throw new Error('Invalid storage mutation')
                 name(record.name, 'storage')
-                const file = storageFile(organization, storageId)
-                const current = await readJSON(file)
-                const index = organizationState(organization).index
+                identify(record, payload.storageFileId ?? fileId(record))
+                const file = storageFile(organization, fileId(record))
+                const state = organizationState(organization)
+                await state.ready
+                const { index } = state
+                const current = await readRecordById(index, CATALOG, STORAGES, uuid => storageFile(organization, uuid), fileId(record))
                 if (payload.operation === 'remove') {
-                    const loaded = namespaces.get(`${organization}/storages/${storageId}/`)
-                    if (loaded) await loaded.engine.flushIndexes()
+                    const loaded = engineFor(organization, current ?? record)
+                    await loaded.engine.flushIndexes()
+                    await loaded.engine.dropIndexes()
                     if (current) await deleteRecord(index, CATALOG, STORAGES, file, current)
-                    await removeDirectoryPreservingDistribution(root, join(root, organization, 'storages', storageId))
-                    await replaceJSON(join(root, organization, 'storages', 'deleted', `${storageId}.json`), { _id: storageId, name: record.name })
+                    await rm(file, { force: true })
+                    await replaceJSON(join(root, organization, 'deleted', `${stableId('storage:' + storageId)}.json`), { _id: storageId, name: record.name })
                     if (loaded) namespaces.delete(loaded.prefix)
                 } else {
-                    if (await readJSON(join(root, organization, 'storages', 'deleted', `${storageId}.json`))) return false
+                    if (await readJSON(join(root, organization, 'deleted', `${stableId('storage:' + storageId)}.json`))) return false
                     const conflict = await findStorage(organization, record.name)
                     if (conflict && conflict._id !== storageId) throw new Error('Conflicting storage reference')
                     if (current) await updateRecord(index, CATALOG, STORAGES, file, current, record)
                     else await createRecord(index, CATALOG, STORAGES, file, record)
                     const loaded = namespaces.get(`${organization}/storages/${storageId}/`)
-                    if (loaded) loaded.record = record
+                    if (loaded) loaded.record = current ?? record
                 }
                 return true
             })
@@ -308,47 +352,61 @@ export function createDB(options = {}) {
         async getDistribution(payload) { return (await byId(payload)).engine.getDistribution(payload) },
         async listDistribution(payload) { return (await byId(payload)).engine.listDistribution(payload) },
         async readLocalEntity(payload) {
-            if (payload.type === 'storage') return readJSON(storageFile(id(payload.organization_id, 'organization_id'), id(payload.storageId, 'storageId')))
+            if (payload.type === 'value') {
+                const value = await readJSON(recordPath(join(root, id(payload.organization_id, 'organization_id')), 'values', payload.fileId))
+                return value && identify(value, payload.fileId)
+            }
+            if (payload.type === 'storage') {
+                const state = organizationState(id(payload.organization_id, 'organization_id'))
+                await state.ready
+                return readRecordById(state.index, CATALOG, STORAGES, uuid => storageFile(payload.organization_id, uuid), payload.fileId ?? payload.storageFileId ?? payload.storageId)
+            }
             return (await byId(payload)).engine.readLocalEntity(payload)
         },
         async applyReplicatedObjectMutation(payload) { return (await byId(payload)).engine.applyReplicatedObjectMutation(payload) },
         async updatePartition(payload) {
             if (options.peerDistribution && payload.nodeId !== options.nodeId) return options.peerDistribution.updatePartition(payload)
-            const target = await partitionState(payload.partitionId ?? payload.path)
-            return target.storageId ? target.state.engine.updatePartition(payload) : target.state.holders.updatePartition(payload)
+            const target = partitionState(payload.partitionId ?? payload.path)
+            return target.partitions.update(payload)
         },
         async getPartitionHolders(path) {
-            const target = await partitionState(path)
-            return target.storageId ? target.state.engine.getPartitionHolders(path) : target.state.holders.getPartition(path)
+            const target = partitionState(path)
+            return target.partitions.get(path)
         },
         async listPartitions() {
             const result = []
             for (const state of organizations.values()) result.push(...await state.holders.listPartitions())
-            for (const state of namespaces.values()) result.push(...await state.engine.listPartitions())
-            return result
+            return mergeDistributionLists(result, peers.listPartitions(), 'partitionId')
         },
         async readIndexPartition(path) {
-            const target = await partitionState(path)
-            return target.storageId ? target.state.engine.readIndexPartition(path.slice(target.state.prefix.length)) : target.state.index.readPartition(path)
+            const target = partitionState(path)
+            await target.ready
+            return target.index.readPartition(target.path)
         },
         async applyIndexPartition(path, value, options) {
-            const target = await partitionState(path)
-            return target.storageId ? target.state.engine.applyIndexPartition(path.slice(target.state.prefix.length), value, options) : target.state.index.applyPartition(path, value)
+            const target = partitionState(path)
+            await target.ready
+            const node = await target.index.applyPartition(target.path, value)
+            await target.partitions.onLocalChange({ path, value: node, operation: 'set', acquired: !options?.replicated, replicated: options?.replicated })
+            return node
         },
         async removeIndexPartition(path, options) {
-            const target = await partitionState(path)
-            return target.storageId ? target.state.engine.removeIndexPartition(path.slice(target.state.prefix.length), options) : target.state.index.removePartition(path)
+            const target = partitionState(path)
+            await target.ready
+            await target.index.removePartition(target.path)
+            await target.partitions.onLocalChange({ path, operation: 'remove', acquired: !options?.replicated, replicated: options?.replicated })
         }
     }
     const send = api.send.bind(api)
-    api.send = request => serialize(async () => {
+    api.send = request => serialize(() => withResolution(async () => {
         const [type, method] = String(request.method).split('.')
+        const fast = (options.writeBehind || options.memoryOnly || options.disk === false) && type === 'object'
         // Resolve before deletion/rename, and after creation, using the same entity IDs as node distribution.
         let state, ids
         try {
             if (type !== 'storage') {
                 state = await forScope(request)
-                if (state) ids = await state.engine.resolveDistributionIds({ database: request.database, array: request.array })
+                if (state && !fast) ids = await state.engine.resolveDistributionIds({ database: request.database, array: request.array })
             }
         } catch { /* send() returns the normal validation error envelope. */ }
         const result = await send(request)
@@ -356,17 +414,17 @@ export function createDB(options = {}) {
         delete result.distributionKeys
         if (result.success !== false && !(Array.isArray(result.error) ? result.error.length : result.error)) {
             state ??= type === 'storage' ? undefined : await forScope(request)
-            if (state && method === 'create') ids = await state.engine.resolveDistributionIds({ database: request.database, array: request.array })
+            if (state && fast) ids = state.engine.resolvedScope(request)
+            else if (state && method === 'create') ids = await state.engine.resolveDistributionIds({ database: request.database, array: request.array })
             const storageId = state?.record._id ?? result.storage?.[0]?._id
-            const address = { ...ids, organization_id: request.organization_id, storageId, type }
-            const objects = value => (Array.isArray(value) ? value : [value])
-                .map(item => typeof item === 'string' ? item : item?._id).filter(Boolean)
-            const requested = objects(request.object)
-            result.distribution = distributionReferences({ ...address, objectIds: [...new Set([...requested, ...objects(result.object)])] }, Boolean(request.filter) || !requested.length)
+            const address = { ...ids, organization_id: request.organization_id, storageId, type,
+                storageFileId: fileId(state?.record ?? result.storage?.[0]) }
+            const objects = value => (Array.isArray(value) ? value : [value]).map(fileId).filter(Boolean)
+            result.distribution = distributionReferences({ ...address, objectIds: objects(result.object) }, Boolean(request.filter) || !objects(result.object).length)
             result.distributionKeys = distributionReferences({ ...address, objectIds: objects(result.object) }, method !== 'read')
         }
         return result
-    })
+    }))
     api.index = Object.fromEntries(['read', 'getMetadata', 'create', 'update', 'delete'].map(method => [method, async (scope, ...args) => {
         const state = await forScope(scope, method === 'create' || method === 'update')
         if (!state) return undefined

@@ -1,4 +1,5 @@
 import { getPersistenceDriver } from './driver.js'
+import { readPersistenceResponse } from './response.js'
 
 /**
  * Resolve a named persistence from an organization's configured API records.
@@ -43,7 +44,7 @@ export async function sendPersistence(data, { organization, organizationId = dat
     if (!persistence) throw new Error(`No persistence is configured for organization "${organizationId}".`)
 
     const driver = await getPersistenceDriver(persistence.provider)
-    return driver.send({ ...data, persistenceConfig: persistence })
+    return readPersistenceResponse(await driver.send({ ...data, persistenceConfig: persistence }), data)
 }
 
 export { getPersistenceDriver, registerPersistenceDriver, persistenceDrivers } from './driver.js'

@@ -2,14 +2,19 @@
 
 Implemented: server-owned CRUD, supplied/generated `$update` patches, resolved
 client replies, peer patch application, index CRUD naming, `disk`, separate local
-and peer distribution, connection inventory exchange, and accumulated API errors.
+and peer distribution, connection inventory exchange, accumulated API errors, flat UUID record/value files, permanent root.json, and peer file identity transfer.
+
+## Index layout migration
+
+- Migrate existing datasets to flat UUID record files and root.json before using an existing dataset. The code never automatically migrates live files; dataset backup/bootstrap is a separate operation.
+- Coordinate peer versions: old nested partition paths are not the new wire format.
 
 ## Persistence workflow
 
 - Wire the agreed `persistence` envelope and `persistence.create/read/update/delete`
   operations to the configured workflow. The retained hook still uses `storage`
   and external workflow writes are disabled.
-- Add file-level fallback after memory, disk, and known peers. Return parsed file
+- Add file-level fallback after memory, disk, and known peers. Accept parsed objects or serialized JSON file
   values and use the existing acquisition paths; cache locally when disk is enabled.
 - Keep response timing and durability explicit. Do not silently require external
   acknowledgment before notifying users; operation ordering is pending discussion.
@@ -23,17 +28,17 @@ and peer distribution, connection inventory exchange, and accumulated API errors
 - Client IndexedDB generation/application of `$update` and client acknowledgment.
 - Index update semantics beyond the current insertion alias, tier-level index
   addressing, and optional custom definitions/uniqueness.
-- Transfer of terminal-array value files; arrays are currently stored whole,
-  with legacy chunk encodings readable.
 - Batching large inventory exchanges and handling legacy local ownership when
   the server ID had already changed before stable local markers were introduced.
 - Worker/client recipient removal and reconstruction after disconnect/restart.
 - Multi-file rollback, write-behind failure handling, and crash recovery. Existing
   baseline failures are not evidence of durable transactions.
 
-Known write-behind checks still need separate attention: rollback at
-`test/write-behind.test.js:67`, pending sequential persistence at line 92, and
-workflow acknowledgment at line 231 while the external hook remains disabled.
+Known checks in `test/write-behind.test.js` still need attention:
+the failed-indexing rollback test, the sequential-persistence test (old public-ID
+filename and snapshot assumptions), the deletion-marker test (old nested path),
+and workflow acknowledgment while the external hook remains disabled.
+These expectations need explicit reconciliation with the current contract.
 
 The entity-holder directory is currently used for metadata and exact-object
 acquisition. Keep it; replacing it with index-trail lookup requires a separate

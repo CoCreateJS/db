@@ -2,6 +2,7 @@ import { queryData, searchData, sortData } from '@cocreate/utils'
 import { normalizeQuery } from './query.js'
 
 import { live } from './mutation.js'
+import { inheritIdentity } from './files.js'
 
 function readFilter(request) {
     if (request.filter) return request.filter
@@ -86,12 +87,12 @@ function project(record, projection) {
         }
         if ((projection._id !== 0 && projection._id !== false) && record._id !== undefined)
             output._id = record._id
-        return output
+        return inheritIdentity(record, output)
     }
 
     const paths = excludes.map(([key]) => key.replace(/\[(\d+)\]/g, '.$1').split('.'))
     if (projection._id === 0 || projection._id === false) paths.push(['_id'])
-    return excludeView(record, paths)
+    return inheritIdentity(record, excludeView(record, paths))
 }
 
 function normalizeSort(sort) {

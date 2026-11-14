@@ -9,6 +9,7 @@ import { initializeServerDB } from '../src/index.js'
 import { createPeerDistribution } from '../src/peers.js'
 import { createDistributionIndex } from '../src/distribution.js'
 import { createDB as createEngine } from '../src/object/index.js'
+import { fileId } from '../src/files.js'
 import { removeMemoryPath } from '../src/memory.js'
 
 const scope = { organization_id: '000000000000000000000001', storage: 'production', database: 'app', array: 'items' }
@@ -67,7 +68,7 @@ for (const disk of [true, false]) test(`local inventory follows disk=${disk}; pe
     assert.equal(created.success, true)
     await db.flush()
     const inventory = await db.distribution.local.snapshot()
-    assert.ok(inventory.entities.some(value => value.objectId === created.object[0]._id))
+    assert.ok(inventory.entities.some(value => value.objectId === fileId(created.object[0])))
     assert.ok(inventory.partitions.length)
     const announce = { method: 'db.distribution', serverId: 'peer-only-id', nodeId: 'peer-only-id', ...inventory.entities[0], operation: 'add' }
     await Promise.all(server.cluster.rawListeners(announce.method).map(listener => listener(announce)))
@@ -85,7 +86,7 @@ for (const disk of [true, false]) test(`local inventory follows disk=${disk}; pe
 
 test('restart advertises saved local inventory under the new server ID without restoring peers', async t => {
     const first = await fixture(t, 'before')
-    const created = await first.db.send({ ...scope, method: 'object.create', object: { value: 1 } })
+    const created = await first.db.send({ ...scope, method: 'object.create', object: { value: 1, tags: ['shared'] } })
     await first.db.flush()
     const snapshot = await first.db.distribution.local.snapshot()
     first.db.distribution.peers.replace('peer', snapshot, 'peer-session', 1)
@@ -93,7 +94,7 @@ test('restart advertises saved local inventory under the new server ID without r
     removeMemoryPath(first.directory)
     const restarted = await fixture(t, 'after', {}, first.directory)
     const inventory = await restarted.db.distribution.local.snapshot()
-    assert.ok(inventory.entities.some(value => value.objectId === created.object[0]._id))
+    assert.ok(inventory.entities.some(value => value.objectId === fileId(created.object[0])))
     assert.deepEqual(restarted.db.distribution.peers.get(snapshot.entities[0]), [])
     assert.deepEqual(await restarted.db.getDistribution(inventory.entities.find(value => value.objectId)), ['after'])
 })
@@ -125,22 +126,23 @@ test('partial standalone adapters retain the local/peer split for entity and par
     assert.deepEqual(await db.getDistribution({ databaseId: entity.databaseId }), ['peer'])
     assert.deepEqual(await db.getPartitionHolders('part/index.json'), ['peer'])
     assert.deepEqual(await db.distribution.local.list(), [])
-    assert.deepEqual(await db.distribution.local.listPartitions(), [])
+    assert.equal((await db.distribution.local.listPartitions()).some(value => value.nodeIds.includes('peer')), false)
     assert.deepEqual(await readdir(directory), [])
 })
 
 test('connecting peers exchange local inventories once, then apply changes and forget disconnects', async t => {
     const first = await fixture(t, 'one', { disk: false })
     const second = await fixture(t, 'two', { disk: false })
-    const created = await first.db.send({ ...scope, method: 'object.create', object: { value: 1 } })
+    const created = await first.db.send({ ...scope, method: 'object.create', object: { value: 1, tags: ['shared'] } })
     await first.db.flush()
     const pending = new Set(), messages = []
     for (const [source, target] of [[first.server, second.server], [second.server, first.server]]) {
         source.cluster.send = payload => {
             if (payload.server && payload.server !== target.id) return
-            messages.push(payload)
-            for (const listener of target.cluster.rawListeners(payload.method)) {
-                const task = Promise.resolve().then(() => listener(payload))
+            const message = JSON.parse(JSON.stringify(payload))
+            messages.push(message)
+            for (const listener of target.cluster.rawListeners(message.method)) {
+                const task = Promise.resolve().then(() => listener(message))
                 pending.add(task)
                 task.then(() => pending.delete(task), () => {})
             }
@@ -148,6 +150,7 @@ test('connecting peers exchange local inventories once, then apply changes and f
     }
     async function settle() {
         for (let i = 0; i < 20; i++) {
+            await Promise.all([first.db.flush(), second.db.flush()])
             await setImmediate()
             if (!pending.size) return
             await Promise.all([...pending])
@@ -158,12 +161,26 @@ test('connecting peers exchange local inventories once, then apply changes and f
     await settle()
     assert.equal(messages.filter(value => value.method === 'db.distribution.sync').length, 2)
     const local = await first.db.distribution.local.snapshot()
-    const object = local.entities.find(value => value.objectId === created.object[0]._id)
+    const object = local.entities.find(value => value.objectId === fileId(created.object[0]))
     assert.deepEqual(second.db.distribution.peers.get(object), ['one'])
-    const fetched = await second.db.send({ ...scope, method: 'object.read', object: { _id: created.object[0]._id } })
+    const fetched = await second.db.send({ ...scope, method: 'object.read', filter: { query: { tags: { $in: ['shared'] } } } })
     assert.equal(fetched.success, true, fetched.error?.join('; '))
     assert.equal(fetched.object[0].value, 1)
+    assert.equal(fileId(fetched.object[0]), fileId(created.object[0]))
+    assert.ok(messages.some(value => value.method === 'db.document.request' && value.type === 'value'))
     await settle()
+    assert.equal(second.db.persistenceStats().backgroundError, undefined)
+    assert.equal(second.db.persistenceStats().indexError, undefined)
+    const tags = (await first.db.index.read(scope, 'app', 'items', 'tags')).indexes.array
+    assert.ok((await first.db.getPartitionHolders(`${scope.organization_id}/indexes/${tags.id}.json`)).includes('two'),
+        'read follow-up registers the queried partition before later changes')
+    await first.db.send({ ...scope, method: 'object.update', object: { _id: created.object[0]._id, $update: { $inc: { value: 2 } } } })
+    await first.db.flush()
+    await settle()
+    assert.equal(first.db.persistenceStats().indexError, undefined)
+    assert.equal(first.db.persistenceStats().backgroundError, undefined)
+    assert.ok(messages.some(value => value.method === 'db.object.mutation' && value.operation === 'update'), 'registered peer receives the update patch')
+    assert.equal(fetched.object[0].value, 3, 'peer patches mutate the acquired object reference')
     await first.db.send({ ...scope, method: 'object.delete', object: { _id: created.object[0]._id } })
     await settle()
     assert.deepEqual(second.db.distribution.peers.get(object), [])

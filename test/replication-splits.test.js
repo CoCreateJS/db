@@ -61,7 +61,7 @@ test('mutations do not measure or split; replication encoding splits live nodes 
 test('catalog splitting happens only on serialization and keeps metadata and ordered lookups correct', async t => {
     const { index, drain, directory } = fixture(t, 1024)
     for (let i = 0; i < 80; i++) await index.create('db', 'items', `key-${String(i).padStart(3, '0')}`, i, 'one')
-    const catalog = memoryEntries(directory).find(([path]) => path.endsWith('/index/index.json'))[1]
+    const catalog = memoryEntries(directory).find(([, node]) => node.kind === 'catalog' && node.id === node.catalog)[1]
     assert.equal(catalog.entries.length, 80)
     await drain()
     assert.ok(catalog.indexes)
@@ -127,7 +127,7 @@ test('primary sends scoped split siblings and parent updates using the prepared 
     const oldPaths = new Set(held.map(item => item.partitionId))
     assert.ok([...final.keys()].some(path => !oldPaths.has(path)), 'new siblings are delivered to the original holder')
     for (const [path, value] of final) {
-        assert.ok(path.startsWith(`${scope.organization_id}/storages/`), path)
+        assert.ok(path.startsWith(`${scope.organization_id}/indexes/`), path)
         assert.equal(JSON.stringify(value), JSON.stringify(await db.readIndexPartition(path)))
     }
     const read = await db.send({ ...scope, method: 'object.read', filter: { query: { rank: 100 } } })

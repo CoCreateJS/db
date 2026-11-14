@@ -1,12 +1,13 @@
 import { link, rename, writeFile } from 'node:fs/promises'
-import { mkdir, readdir, rm, unlink } from './io.js'
+import { mkdir, unlink } from './io.js'
 import { persistenceFor } from './persistence.js'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { readMemoryJSON, writeMemoryJSON, removeMemoryPath, memoryOnly, peekMemoryJSON } from './memory.js'
+import { readMemoryJSON, writeMemoryJSON, memoryOnly, peekMemoryJSON } from './memory.js'
 
 import { live } from './mutation.js'
 import { recordFileBytes, flushFileBytes } from './bytes.js'
+import { recordPath, stableId } from './files.js'
 export const DATABASE_CATALOG = '__catalog__'
 export const DATABASE_CATALOG_ARRAY = 'databases'
 export const ARRAY_CATALOG = '__arrays__'
@@ -37,33 +38,22 @@ export function arrayDirectory(root, databaseId, arrayId) {
 }
 
 export function databaseMetadataPath(root, databaseId) {
-    return join(databaseDirectory(root, databaseId), 'database.json')
+    return recordPath(root, 'databases', databaseId)
 }
 
 export function arrayMetadataPath(root, databaseId, arrayId) {
-    return join(arrayDirectory(root, databaseId, arrayId), 'array.json')
+    return recordPath(root, 'arrays', arrayId)
 }
 export function objectDeletionPath(root, databaseId, arrayId, objectId) {
-    return join(arrayDirectory(root, databaseId, arrayId), 'deleted', `${objectId}.json`)
+    return join(root, 'deleted', `${stableId(JSON.stringify([databaseId, arrayId, objectId]))}.json`)
 }
 export const typeOf = value => value === null ? 'null' :
     typeof value === 'boolean' ? 'boolean' :
         typeof value === 'string' ? 'string' :
             typeof value === 'number' && Number.isFinite(value) ? 'number' : null
 
-export const validPathPart = (value, label) => {
-    if (typeof value !== 'string' || !value || value === '.' || value === '..' || /[\\/\0]/.test(value))
-        throw new TypeError(`${label} must be a non-empty path-safe string`)
-
-    return encodeURIComponent(value)
-}
-
 export function objectPath(root, databaseId, arrayId, objectId) {
-    return join(
-        arrayDirectory(root, databaseId, arrayId),
-        'objects',
-        `${objectId}.json`
-    )
+    return recordPath(root, 'objects', objectId)
 }
 
 export async function readJSON(file) {
@@ -89,7 +79,7 @@ export function setPath(object, path, value) {
 
 export function normalizeObject(input) {
     for (const key of Object.keys(input)) {
-        if (key.startsWith('$')) { delete input[key]; continue }
+        if (key.startsWith('$') && key !== '$bytes') { delete input[key]; continue }
         if (key.split('.').some(part => ['__proto__', 'prototype', 'constructor'].includes(part)))
             throw new TypeError(`Invalid object key path: ${key}`)
     }
@@ -165,57 +155,6 @@ export async function replaceJSON(file, value) {
         return writeMemoryJSON(file, value)
     } catch (error) {
         await unlink(temporary).catch(() => {})
-        throw error
-    }
-}
-
-/** Remove local data while retaining every nested Distribution Index directory. */
-export async function removeDirectoryPreservingDistribution(root, directory) {
-    if (memoryOnly(directory) || persistenceFor(directory)) {
-        for (const entry of await readdir(directory, { withFileTypes: true })) {
-            if (entry.name === 'distribution' && entry.isDirectory()) continue
-            const path = join(directory, entry.name)
-            if (entry.isDirectory()) await removeDirectoryPreservingDistribution(root, path)
-            else await rm(path, { force: true })
-        }
-        return
-    }
-    const preserved = []
-
-    const collect = async current => {
-        let entries
-        try {
-            entries = await readdir(current, { withFileTypes: true })
-        } catch (error) {
-            if (error.code === 'ENOENT') return
-            throw error
-        }
-
-        for (const entry of entries) {
-            if (!entry.isDirectory()) continue
-            const path = join(current, entry.name)
-            if (entry.name === 'distribution') {
-                const temporary = join(root, `.distribution-preserve-${randomUUID()}`)
-                await rename(path, temporary)
-                preserved.push({ path, temporary })
-            } else await collect(path)
-        }
-    }
-
-    try {
-        removeMemoryPath(directory)
-        await collect(directory)
-        await rm(directory, { recursive: true, force: true })
-
-        for (const { path, temporary } of preserved) {
-            await mkdir(join(path, '..'), { recursive: true })
-            await rename(temporary, path)
-        }
-    } catch (error) {
-        for (const { path, temporary } of preserved.reverse()) {
-            await mkdir(join(path, '..'), { recursive: true }).catch(() => {})
-            await rename(temporary, path).catch(() => {})
-        }
         throw error
     }
 }

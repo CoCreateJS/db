@@ -95,15 +95,3 @@ export function markMemoryRemoval(path) {
     removed.add(path)
     files.set(path, undefined)
 }
-
-export function memoryState(file) {
-    file = resolve(file)
-    return { present: files.has(file), value: files.get(file), removed: removed.has(file) }
-}
-export function restoreMemoryState(file, state) {
-    file = resolve(file)
-    if (state.present) files.set(file, state.value)
-    else files.delete(file)
-    if (state.removed) removed.add(file)
-    else removed.delete(file)
-}

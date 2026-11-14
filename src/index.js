@@ -14,6 +14,7 @@
 
 import createIndex from './index/index.js'
 export { resolveDirectory } from './directory.js'
+export { fileId } from './files.js'
 import { createDistributionIndex } from './distribution.js'
 import { createDB } from './scoped.js'
 import { CoCreateDB, DB_PROVIDER, init, initLocal, initializeServerDB } from './server.js'

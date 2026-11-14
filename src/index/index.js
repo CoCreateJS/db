@@ -29,17 +29,20 @@
  * locking, crash recovery, snapshots, or cross-process cache invalidation.
  * Index values: finite numbers, strings, booleans, explicit nulls, and terminal arrays.
  */
-import { mkdir, readdir, rm, unlink } from '../io.js'
+import { rm } from '../io.js'
 import { replaceJSON } from '../storage.js'
-import { createHash } from 'node:crypto'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { uuid } from '@cocreate/utils'
 import { arrayDigest } from '../entries.js'
 import { live } from '../mutation.js'
 import { registerPartition } from '../partition.js'
-import { readMemoryJSON, removeMemoryPath, memoryEnabled, memoryOnly } from '../memory.js'
+import { readMemoryJSON, removeMemoryPath, memoryEnabled } from '../memory.js'
+
+import { stableId } from '../files.js'
+import { afterResponse } from '../resolution.js'
 
 const newId = () => uuid().replaceAll('-', '')
+export const indexId = stableId
 const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0
 const compareEntry = (a, b) => compare(a[0], b[0]) || compare(a[1], b[1])
 const boundary = entry => ({ value: entry[0], objectId: entry[1] })
@@ -56,23 +59,34 @@ export function createIndex({
     cache: cacheEnabled = false,
     resolveArrayDirectory,
     indexDirectoryName = 'index',
-    onPartitionChange,
+    indexRoot = directory,
+    flat = true,
+    onPartitionChange: partitionChange,
+    readValue,
     readPartition
 } = {}) {
     if (maxBytes < 512) throw new Error('maxBytes must be at least 512')
     if (typeof indexDirectoryName !== 'string' || !indexDirectoryName || indexDirectoryName === '.' || indexDirectoryName === '..' || /[\\/\0]/.test(indexDirectoryName))
         throw new TypeError('indexDirectoryName must be a safe directory name')
     const base = resolve(directory)
+    const origin = flat ? resolve(indexRoot) : base
     const cache = cacheEnabled ? new Map() : null
-    const arrayValues = new Map()
+    const arrayValues = Object.create(null)
     const reportedPartitions = new Set()
+    const onPartitionChange = partitionChange && (change => {
+        const notify = async () => {
+            try { await partitionChange(change) }
+            catch (error) { reportedPartitions.delete(join(origin, change.path)); throw error }
+        }
+        if (!afterResponse(notify)) return notify()
+    })
     const parents = new Map()
     let remembered = new WeakSet()
     let changedPartitions
     const remember = (file, node, changed = false) => {
         if (!node || (!changed && remembered.has(node))) return node
         remembered.add(node)
-        const dir = join(file, '..', '..')
+        const dir = flat ? undefined : join(file, '..', '..')
         for (const child of node.indexes ?? []) parents.set(nodeFile(dir, child.id), file)
         if (node.kind === 'catalog')
             for (const entry of node.entries ?? []) parents.set(nodeFile(dir, entry[2]), file)
@@ -102,64 +116,32 @@ export function createIndex({
     }
 
     const indexDirectory = dir => join(dir, indexDirectoryName)
-    const catalogFile = dir => join(indexDirectory(dir), 'index.json')
-    const nodeFile = (dir, id) => join(indexDirectory(dir), `${id}.json`)
-    const arrayValueDirectory = (dir, key, objectId, digest) => join(
-        indexDirectory(dir),
-        'values',
-        createHash('sha256').update(key).digest('hex'),
-        `${createHash('sha256').update(objectId).digest('hex')}-${digest}`
-    )
+    const catalogRootId = dir => flat ? indexId(relative(origin, dir)) : 'root'
+    const nodeFile = (dir, id) => {
+        if (flat && !/^[a-f0-9]{32}$/i.test(id)) throw new TypeError('Invalid index node ID')
+        return join(flat ? join(origin, 'indexes') : indexDirectory(dir), `${id === 'root' ? 'index' : id}.json`)
+    }
+    const arrayValueFile = (dir, key, objectId, digest) => join(origin, 'values', `${indexId(JSON.stringify([catalogRootId(dir), key, objectId, digest]))}.json`)
     const normalizedValue = (value, type = typeOf(value)) => type === 'array' ? arrayDigest(value) : value
-
     const writeArrayValue = async (dir, key, value, objectId, digest) => {
-        const directory = arrayValueDirectory(dir, key, objectId, digest)
-        if (cacheEnabled || memoryEnabled(directory)) arrayValues.set(directory, live(value))
-        if (memoryOnly(directory)) return
-        await mkdir(directory, { recursive: true })
-        // A terminal value is whole data, not a structurally split index node.
-        await replaceJSON(join(directory, 'value.json'), value)
-        for (const file of await readdir(directory))
-            if (/^\d+\.json$/.test(file)) await unlink(join(directory, file))
+        const file = arrayValueFile(dir, key, objectId, digest)
+        if (cacheEnabled || memoryEnabled(file)) arrayValues[file] = live(value)
+        await replaceJSON(file, value)
     }
-
     const readArrayValue = async (dir, key, objectId, digest) => {
-        const directory = arrayValueDirectory(dir, key, objectId, digest)
-        if (arrayValues.has(directory)) return arrayValues.get(directory)
-        try {
-            const whole = await readMemoryJSON(join(directory, 'value.json'))
-            if (whole !== undefined) {
-                if (!Array.isArray(whole)) throw new Error(`Invalid indexed array value for ${key}/${objectId}`)
-                if (cacheEnabled || memoryEnabled(directory)) arrayValues.set(directory, live(whole))
-                return live(whole)
-            }
-            // Legacy bounded array encodings remain readable.
-            const files = (await readdir(directory)).filter(file => file.endsWith('.json')).sort()
-            const chunks = []
-            let total
-            for (const file of files) {
-                const envelope = await readMemoryJSON(join(directory, file))
-                if (!Number.isSafeInteger(envelope.index) || !Number.isSafeInteger(envelope.total) ||
-                    typeof envelope.chunk !== 'string' || envelope.index !== chunks.length ||
-                    (total !== undefined && envelope.total !== total))
-                    throw new Error(`Corrupt indexed array value for ${key}/${objectId}`)
-                total = envelope.total
-                chunks.push(envelope.chunk)
-            }
-            if (!total || chunks.length !== total)
-                throw new Error(`Incomplete indexed array value for ${key}/${objectId}`)
-            const value = JSON.parse(chunks.join(''))
-            if (cacheEnabled || memoryEnabled(directory)) arrayValues.set(directory, value)
-            return value
-        } catch (error) {
-            if (error.code === 'ENOENT')
-                throw new Error(`Missing indexed array value for ${key}/${objectId}`)
-            throw error
+        const file = arrayValueFile(dir, key, objectId, digest)
+        if (Object.hasOwn(arrayValues, file)) return arrayValues[file]
+        let value = await readMemoryJSON(file)
+        if (value === undefined && readValue) {
+            value = await readValue({ path: relative(origin, file), objectId, key, digest })
+            if (value !== undefined) await replaceJSON(file, value)
         }
+        if (!Array.isArray(value)) throw new Error(`Missing indexed array value for ${key}/${objectId}`)
+        if (cacheEnabled || memoryEnabled(file)) arrayValues[file] = live(value)
+        return live(value)
     }
-    const catalogRootId = 'root'
 
-    const partitionPath = file => relative(base, file).split(/[\\/]/).join('/')
+    const partitionPath = file => relative(origin, file).split(/[\\/]/).join('/')
 
     const reportLocalPartition = async (file, value) => {
         if (!onPartitionChange || reportedPartitions.has(file)) return
@@ -224,16 +206,24 @@ export function createIndex({
         return node
     }
     const getNode = async (dir, id) => normalizeLengths(await readJSON(nodeFile(dir, id)))
-    const setNode = (dir, node) => writeJSON(nodeFile(dir, node.id), node)
+    const setNode = (dir, node) => {
+        if (flat) {
+            node.catalog = catalogRootId(dir)
+            if (node.id === node.catalog) node.path = relative(origin, dir).split(/[\\/]/).join('/')
+        }
+        return writeJSON(nodeFile(dir, node.id), node)
+    }
 
-    const catalogNodeFile = (dir, id) => id === catalogRootId ? catalogFile(dir) : nodeFile(dir, id)
     const getCatalogNode = async (dir, id) => {
-        let node = normalizeLengths(await readJSON(catalogNodeFile(dir, id)))
+        let node = normalizeLengths(await readJSON(nodeFile(dir, id)))
 
-        if (!node && id === catalogRootId)
+        if (!node && id === catalogRootId(dir)) {
+            if (flat && await readMemoryJSON(join(dir, indexDirectoryName, 'index.json')))
+                throw new Error('Nested index files require migration to the flat indexes directory')
             return { id, kind: 'catalog', length: 0, catalogLength: 0, entries: [] }
+        }
 
-        if (id === catalogRootId && node.keys) {
+        if (id === catalogRootId(dir) && node.keys) {
             const entries = []
             for (const [key, branches] of Object.entries(node.keys))
                 for (const [type, rootId] of Object.entries(branches))
@@ -244,9 +234,9 @@ export function createIndex({
 
         return node
     }
-    const setCatalogNode = (dir, node) => writeJSON(catalogNodeFile(dir, node.id), node)
+    const setCatalogNode = setNode
     const deleteCatalogNode = async (dir, id) => {
-        if (id !== catalogRootId) await deleteNode(dir, id)
+        if (id !== catalogRootId(dir)) await deleteNode(dir, id)
     }
 
     const deleteNode = async (dir, id) => {
@@ -261,23 +251,10 @@ export function createIndex({
             await onPartitionChange({ path: partitionPath(file), operation: 'remove' })
     }
 
-    const validPartitionPath = path => {
-        if (typeof path !== 'string' || !path || path.includes('\\') || path.includes('\0')) return false
-        const parts = path.split('/')
-        if (parts.some(part => !part || part === '.' || part === '..')) return false
-        const indexAt = parts.lastIndexOf('index')
-        if (indexAt < 0 || indexAt === parts.length - 1 || parts.includes('values') || parts.includes('distribution')) return false
-        const file = parts.at(-1)
-        return file === 'index.json' || /^[a-f0-9]{32}\.json$/i.test(file)
-    }
-
     const resolvePartitionFile = path => {
-        if (!validPartitionPath(path)) throw new TypeError('Invalid index partition path')
-        const file = resolve(base, path)
-        const withinBase = relative(base, file)
-        if (!withinBase || withinBase === '..' || withinBase.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) || isAbsolute(withinBase))
-            throw new TypeError('Index partition path must stay inside the configured directory')
-        return file
+        if (typeof path !== 'string' || !/^indexes\/[a-f0-9]{32}\.json$/i.test(path))
+            throw new TypeError('Invalid index partition path')
+        return join(origin, path)
     }
 
 
@@ -548,7 +525,7 @@ export function createIndex({
 
         updateCatalogNode(node)
 
-        if (!node.catalogLength && id !== catalogRootId) {
+        if (!node.catalogLength && id !== catalogRootId(dir)) {
             await deleteCatalogNode(dir, id)
             return { node: null, removed: true }
         }
@@ -561,16 +538,16 @@ export function createIndex({
         const entryKey = [key, type]
         if (rootId) {
             const node = rootNode ?? await getNode(dir, rootId)
-            await insertCatalogNode(dir, catalogRootId, [key, type, rootId, {
+            await insertCatalogNode(dir, catalogRootId(dir), [key, type, rootId, {
                 length: node.length, first: live(node.first), last: live(node.last)
             }])
             return
         }
 
         if (!await getCatalogRoot(dir, key, type)) return
-        await removeCatalogNode(dir, catalogRootId, entryKey)
+        await removeCatalogNode(dir, catalogRootId(dir), entryKey)
 
-        let current = await getCatalogNode(dir, catalogRootId)
+        let current = await getCatalogNode(dir, catalogRootId(dir))
         while (current.indexes?.length === 1) {
             const child = await getCatalogNode(dir, current.indexes[0].id)
             const objectLength = current.length ?? 0
@@ -588,7 +565,7 @@ export function createIndex({
         // Keep a stable empty root after the last catalog entry is removed.
         if (!current.catalogLength && !current.entries)
             await setCatalogNode(dir, updateCatalogNode({
-                id: catalogRootId,
+                id: catalogRootId(dir),
                 kind: 'catalog',
                 length: current.length ?? 0,
                 entries: []
@@ -603,9 +580,9 @@ export function createIndex({
     }
 
     const getCatalogEntry = async (dir, key, type, nodes) => {
-        const read = id => readLookupNode(catalogNodeFile(dir, id), () => getCatalogNode(dir, id), nodes)
+        const read = id => readLookupNode(nodeFile(dir, id), () => getCatalogNode(dir, id), nodes)
         const entry = [key, type]
-        let node = await read(catalogRootId)
+        let node = await read(catalogRootId(dir))
 
         while (node) {
             if (node.entries) {
@@ -641,7 +618,7 @@ export function createIndex({
                         await visit(await getCatalogNode(dir, child.id))
             }
         }
-        await visit(await getCatalogNode(dir, catalogRootId))
+        await visit(await getCatalogNode(dir, catalogRootId(dir)))
         return { database, array, key, indexes }
     }
 
@@ -658,7 +635,7 @@ export function createIndex({
     }
 
     const adjustLength = async (dir, delta) => {
-        const root = await getCatalogNode(dir, catalogRootId)
+        const root = await getCatalogNode(dir, catalogRootId(dir))
         const currentLength = Number.isSafeInteger(root.length) && root.length >= 0
             ? root.length
             : 0
@@ -690,24 +667,26 @@ export function createIndex({
             }
             return parents.has(targetFile)
         }
-        await visitCatalog(await getCatalogNode(dir, catalogRootId))
+        await visitCatalog(await getCatalogNode(dir, catalogRootId(dir)))
     }
 
     const splitForSend = async (file, node) => {
         // Oversized indivisible values and minimum-fanout nodes are valid.
         if (node.entries ? node.entries.length < 2 : !node.indexes || node.indexes.length < 4) return
-        const dir = join(file, '..', '..')
-        if (node.id !== catalogRootId && !parents.has(file)) await findParent(dir, node)
-        if (node.id !== catalogRootId && !parents.has(file)) return
+        const catalog = flat ? await readJSON(nodeFile(undefined, node.catalog)) : undefined
+        const dir = flat ? resolve(origin, catalog.path) : join(file, '..', '..')
+        if (flat && (relative(origin, dir).startsWith('..') || isAbsolute(relative(origin, dir)))) throw new Error('Invalid index catalog path')
+        if (node.id !== catalogRootId(dir) && !parents.has(file)) await findParent(dir, node)
+        if (node.id !== catalogRootId(dir) && !parents.has(file)) return
         const changes = new Map()
         changedPartitions = changes
         try {
-            if (node.kind === 'catalog' && node.id === catalogRootId) {
+            if (node.kind === 'catalog' && node.id === catalogRootId(dir)) {
                 await liftCatalogRoot(dir, node, splitCatalogNode(node))
             } else {
                 const sibling = node.kind === 'catalog' ? splitCatalogNode(node) : split(node)
                 await writeJSON(file, node)
-                await writeJSON(nodeFile(dir, sibling.id), sibling)
+                await setNode(dir, sibling)
                 let children = [node, sibling], childFile = file
                 const ancestors = new Set()
                 while (parents.has(childFile)) {
@@ -869,8 +848,8 @@ export function createIndex({
         await setRoot(dir, key, type, node?.id, node)
 
         if (type === 'array') {
-            arrayValues.delete(arrayValueDirectory(dir, key, objectId, indexedValue))
-            await rm(arrayValueDirectory(dir, key, objectId, indexedValue), { recursive: true, force: true }).catch(() => {})
+            delete arrayValues[arrayValueFile(dir, key, objectId, indexedValue)]
+            await rm(arrayValueFile(dir, key, objectId, indexedValue), { force: true }).catch(() => {})
         }
 
         if (key === '_id') await adjustLength(dir, -1)
@@ -1013,7 +992,31 @@ export function createIndex({
     }
 
     return {
+        catalogId: (database, array) => catalogRootId(address(database, array)),
+        async ensureCatalog(database, array) {
+            const dir = address(database, array)
+            return setCatalogNode(dir, await getCatalogNode(dir, catalogRootId(dir)))
+        },
         getMetadata,
+        async drop(database, array) {
+            const dir = address(database, array)
+            const visited = new Set()
+            const remove = async (id, key, type) => {
+                if (visited.has(id)) return
+                visited.add(id)
+                const file = nodeFile(dir, id)
+                const node = normalizeLengths(cache?.get(file) ?? await readMemoryJSON(file))
+                for (const child of node?.indexes ?? []) await remove(child.id, key, type)
+                if (node?.kind === 'catalog') for (const entry of node.entries ?? []) await remove(entry[2], entry[0], entry[1])
+                else if (type === 'array') for (const [digest, uuid] of node?.entries ?? []) {
+                    const file = arrayValueFile(dir, key, uuid, digest)
+                    delete arrayValues[file]
+                    await rm(file, { force: true })
+                }
+                await deleteNode(dir, id)
+            }
+            await remove(catalogRootId(dir))
+        },
 
         // Logical access: database + array + key.
 
@@ -1085,9 +1088,7 @@ export function createIndex({
             const file = resolvePartitionFile(path)
             if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.id !== 'string')
                 throw new TypeError('Index partition must be a JSON index node')
-            const expectedId = path.split('/').at(-1) === 'index.json'
-                ? 'root'
-                : path.split('/').at(-1).slice(0, -5)
+            const expectedId = !flat && path.split('/').at(-1) === 'index.json' ? 'root' : path.split('/').at(-1).slice(0, -5)
             if (value.id !== expectedId)
                 throw new Error('Index partition ID does not match its path')
             return writeJSON(file, value, { notify: false })
@@ -1103,7 +1104,7 @@ export function createIndex({
         // Lower-level node access stays internal
         // to the implementation.
 
-        clearCache: () => { cache?.clear(); arrayValues.clear(); parents.clear(); remembered = new WeakSet() }
+        clearCache: () => { cache?.clear(); for (const file of Object.keys(arrayValues)) delete arrayValues[file]; parents.clear(); remembered = new WeakSet() }
     }
 }
 

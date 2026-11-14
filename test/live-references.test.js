@@ -4,10 +4,8 @@ import { EventEmitter } from 'node:events'
 import { access } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { createDB } from '../src/object/index.js'
-import { createDB as createScopedDB } from '../src/scoped.js'
 import { initializeServerDB } from '../src/server.js'
 import { readMemoryJSON, removeMemoryPath } from '../src/memory.js'
-import { arrayDirectory } from '../src/storage.js'
 import { setImmediate } from 'node:timers/promises'
 
 const base = { organization_id: '000000000000000000000001', storage: 'dev', database: 'app', array: 'files' }
@@ -72,7 +70,7 @@ test('a structural failure remains inspectable without an endless background ret
     let fail = false, attempts = 0
     const db = createDB({ directory: root, memoryOnly: true, nodeId: 'local', partitionAdapter: {
         onLocalChange: (event, apply) => {
-            if (fail && event.path.includes('/index/')) { attempts++; throw Error('interrupted index publication') }
+            if (fail && event.path.startsWith('indexes/')) { attempts++; throw Error('interrupted index publication') }
             return apply({ partitionId: event.path, nodeId: 'local', operation: event.operation === 'remove' ? 'remove' : 'add' })
         }
     } })
@@ -129,7 +127,7 @@ test('partition delivery updates the cached node in place with either index-cach
         const database = (await db.send({ ...base, method: 'database.read' })).database[0]
         const array = (await db.send({ ...base, method: 'array.read' })).array[0]
         const node = (await db.index.read('app', 'files', 'value')).indexes.number
-        const path = `databases/${database._id}/arrays/${array._id}/index/${node.id}.json`
+        const path = `indexes/${node.id}.json`
         // Deserialization is the transport boundary; receiving does not clone it again.
         const incoming = JSON.parse(JSON.stringify(node))
         incoming.entries[0][0] = 2
@@ -158,7 +156,7 @@ test('index nodes split in place, retain identity, and accept indivisible large 
     const arrayRead = await db.send({ ...base, method: 'array.read' })
     assert.equal(arrayRead.success, true, arrayRead.error)
     const array = arrayRead.array[0]
-    const path = `${arrayDirectory(root, database._id, array._id)}/index/${valueRoot.id}.json`
+    const path = `${root}/indexes/${valueRoot.id}.json`
     assert.strictEqual(await readMemoryJSON(path), valueRoot, 'the original leaf is mutated rather than replaced')
     assert.equal((await send(db, 'read', undefined, { filter: { query: { rank: { $gte: 0 } } } })).object.length, 35)
     assert.equal(db.persistenceStats().pendingIndexes, 0)

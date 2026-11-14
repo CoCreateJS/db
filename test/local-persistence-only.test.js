@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events'
 import { mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { tmpdir } from 'node:os'
+import { fileId } from '../src/files.js'
 import { initializeServerDB } from '../src/server.js'
 import { registerPersistenceDriver, persistenceDrivers } from '../src/persistence/driver.js'
 import { removeMemoryPath } from '../src/memory.js'
@@ -38,10 +39,10 @@ test('configured MongoDB and workflows are bypassed while local documents and by
     assert.equal(missing.success, true, missing.error)
     assert.deepEqual(missing.object, [])
     const paths = await readdir(directory, { recursive: true })
-    const path = join(directory, paths.find(path => path.endsWith(`objects/${id}.json`)))
+    const path = join(directory, paths.find(path => path.endsWith(`objects/${fileId(created.object[0])}.json`)))
     assert.equal(JSON.parse(await readFile(path, 'utf8')).workers, 2)
     const bytes = JSON.parse(await readFile(join(dirname(path), '.bytes'), 'utf8'))
-    assert.equal(bytes[`${id}.json`], (await stat(path)).size)
+    assert.equal(bytes[`${fileId(created.object[0])}.json`], (await stat(path)).size)
     assert.throws(() => db.persistence.send({ ...scope, method: 'object.read' }), /temporarily disabled/)
     assert.throws(() => db.persistence.getDriver('mongodb'), /temporarily disabled/)
     assert.equal(providerCalls, 0)

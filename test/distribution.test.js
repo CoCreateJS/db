@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import { getDistribution } from '@cocreate/utils/distribution'
-import { createDB, initializeServerDB } from '../src/index.js'
+import { createDB, initializeServerDB, fileId } from '../src/index.js'
 
 const scope = { organization_id: '000000000000000000000001', storage: 'production', database: 'app', array: 'items' }
 async function fixture(t, server) {
@@ -24,7 +24,7 @@ test('ordinary CRUD reuses stable document distribution and list interest includ
     const [first, second] = created.object
     const read = await send({ method: 'object.read', object: { _id: first._id } })
     assert.equal(read.distribution.length, 1)
-    assert.ok(read.distribution[0].endsWith(`/objects/${first._id}.json`))
+    assert.ok(read.distribution[0].endsWith(`/objects/${fileId(first)}.json`))
     const repeat = await send({ method: 'object.read', object: first._id, databaseId: 'untrusted', distribution: ['untrusted'] })
     assert.deepEqual(repeat.distribution, read.distribution)
     const unrelated = await send({ method: 'object.update', object: { _id: second._id, name: 'changed' } })
@@ -88,7 +88,7 @@ test('applied peer changes deliver CRUD through the same references outside the 
     await server.cluster.listeners('db.object.mutation')[0]({
         serverId: 'source', targets: ['target'], operation: 'update',
         scope: { organization_id: scope.organization_id, storageId, storage: scope.storage },
-        database, array, createdOn: record.created.on,
+        database, array, fileId: fileId(record), databaseFileId: fileId(database), arrayFileId: fileId(array), createdOn: record.created.on,
         object: { _id: record._id, $update: patch }
     })
     assert.equal(delivered.length, 1)

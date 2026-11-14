@@ -32,25 +32,27 @@ Logical names resolve through catalogs to stable IDs, so renames do not move dat
 The fixed hierarchy is organization → storages → databases → arrays → objects.
 Nested storages/databases are not implemented. Metadata, objects, field indexes,
 and terminal array values have their own files. Organization and entity IDs are
-24-character ObjectIds; internal index node IDs are 32-character hexadecimal IDs.
+24-character ObjectIds. Records have separate immutable UUID file addresses;
+`_id` stays inside the record as an indexed public value.
 
 ```text
-<directory>/<organization_id>/storages/
-  index/                           # storage catalog
-  <storageId>/
-    storage.json
-    databases/
-      index/                       # database catalog
-      <databaseId>/
-        database.json
-        arrays/
-          index/                   # array catalog
-          <arrayId>/
-            array.json
-            objects/<objectId>.json
-            index/                 # field/type catalog and recursive nodes
-              values/.../value.json
+<directory>/<organization_id>/
+  root.json                       # permanent storage-catalog entry point
+  indexes/<indexId>.json           # catalog and field-index partitions
+  storages/<fileUUID>.json
+  databases/<fileUUID>.json
+  arrays/<fileUUID>.json
+  objects/<fileUUID>.json
+  values/<valueId>.json            # complete terminal arrays
+  deleted/<deletionId>.json
+  distribution/...                # local inventory only
 ```
+
+The root points to the storage catalog. Storage, database, and array metadata
+carry an `index` reference to their child catalog. Index leaves map field values
+to file UUIDs. Catalogs use the same recursive index engine and split during peer
+serialization. Empty root/catalog entry points remain available. Rename and update
+keep file UUIDs unchanged; the same public `_id` may appear in different arrays.
 
 ## Configuration and lifetime
 
@@ -79,8 +81,19 @@ is the process working directory; server initialization can prompt for it.
 
 Files are loaded on demand, not eagerly at startup. DB-owned values remain live
 references; callers should not mutate supplied/returned values outside DB APIs.
-Server mutations acknowledge the live result before deferred indexing and disk
-flush. `flush()` drains indexing and queued writes; `close()` flushes before closing.
+With the server's default write-behind mode, object create/update acknowledges
+the owned in-memory value. Object delete acknowledges removing that owned value,
+with an immediate memory-only lifetime guard. Reads return the available data
+after query evaluation, sorting, pagination, and projection. They do not wait for
+pending indexing or a coordinated snapshot; later subscribed events propagate
+subsequent changes. Counters, availability, index reconciliation, client
+registration messages, peer delivery, and disk persistence continue afterward.
+Pending documents remain visible to reads. Peer network waits do not hold the
+primary memory-operation queue; structural splits still run under that queue.
+Already completed success responses are not changed by backend failures, which
+remain visible in `persistenceStats()`. Explicit write-through mode remains
+synchronous for local tools. `flush()` drains indexing, delivery, and queued writes;
+`close()` flushes before closing.
 An acknowledgment is not crash durability until those disk writes finish.
 
 API errors accumulate in `data.error` arrays and set `success: false`. Background
@@ -90,14 +103,26 @@ the payload being processed; workflow invocation needs no `internal` flag.
 
 ## Read resolution and acquisition
 
+Each request retains resolved catalog names, IDs, and live record references in
+a temporary context. CRUD, counter updates, distribution, peer publishing, and
+recovery reuse those references instead of resolving the same record again.
+The context uses plain objects/arrays and Node's async request scope; it is never
+persisted or placed in a CRUD response. Rename/delete/recreation invalidate the
+affected references. Queued index work retains its originating context until it
+finishes; independent server requests start separate contexts. The normal shared
+cache remains a separate lifetime and policy.
+
 The existing lookup order is memory → disk → known peer holders. Missing index
 partitions are requested by path; complete records can be requested by scoped
 entity ID. Disk text is parsed by file I/O and network JSON by the transport.
-DB receives parsed values, not JSON strings embedded inside `value`.
+Peer acquisition receives parsed values. The persistence boundary additionally
+accepts JSON strings and parses them before installation.
 
-Acquired partitions are installed locally; acquired records use the local
-object/index pipeline before response projection. Local writes follow `disk` and
-write-behind settings. Acquisition does not publish a new user mutation.
+Acquired partitions and records are made available in memory for the requested
+query. Availability bookkeeping and recovery indexing follow the response; local
+cache writes follow `disk` and write-behind settings. Acquisition does not publish
+a new user mutation. A read response never waits for unrelated backend work once
+its result is prepared, and a backend failure cannot retroactively change it.
 Metadata discovery and object retrieval have separate paths: this is not yet one
 uniform resolver for every CRUD target. An advertised partition whose holders
 cannot supply it produces an error. File-level persistence-workflow fallback is
@@ -156,9 +181,24 @@ server ID cannot be inferred safely and is not silently adopted.
 The same recursive engine indexes namespace catalogs and object fields. Supported
 values have separate number/string/boolean/null/array branches, ordered by value
 and then object ID. Ordinary object leaves use dot paths. Terminal arrays are
-stored whole outside index nodes; legacy numbered chunks remain readable. Query
+stored whole in flat `values/` files outside index nodes. Query
 matching uses shared utilities; nested array-member queries can require scans.
 Custom index definitions and uniqueness constraints are not implemented.
+
+Automatic index nodes are sibling files under `<organization_id>/indexes/`.
+Their logical tree still follows node IDs. Catalog roots have stable 32-character
+IDs derived from their organization-relative namespace address, so they can be
+resolved from `root.json` and parent metadata without a directory scan. Each node references
+its catalog; the catalog retains its logical namespace path for cold traversal.
+Peer partition addresses are `<organization_id>/indexes/<indexId>.json` and do not
+require storage/database/array routing. Deletion walks the affected catalog tree;
+it never removes another scope's indexes. Local distribution retains its layout.
+
+This is an on-disk and peer-wire format change. Existing datasets require
+migration; DB rejects unversioned data before writing new roots. This
+change does not migrate or modify an existing live data directory. `flat: false`
+is reserved for the existing local distribution indexes, not automatic indexes.
+
 
 ```js
 import { createIndex } from '@cocreate/db'
@@ -200,15 +240,24 @@ The agreed workflow envelope, not yet wired, is:
     organization_id: '...', host: '...',
     persistence: [{
         method: 'persistence.update',
-        path: '.../index.json',
+        path: '.../indexes/<indexId>.json',
         value: { /* complete parsed file contents */ }
     }]
 }
 ```
 
 Persistence create/read/update/delete are workflow input operations, not separate
-provider methods in DB. Reads must return parsed file values suitable for the same
-acquisition paths as peers, followed by local caching when disk is enabled.
+provider methods in DB. Persistence return values may be parsed objects or JSON
+strings. The boundary parses strings and observes their UTF-8 size as `$bytes`;
+parsed objects retain their references and any existing observation without being
+encoded for measurement. Envelope size is not attributed to individual files.
+Malformed JSON accumulates a safe error on the request's `error` array, with
+`success: false`, and is not installed. The current recovery bridge applies this
+to returned records; the retained workflow hook also normalizes responses without
+enabling file-tree reads or external writes. `$bytes` is reserved metadata, excluded
+from automatic indexes and ordinary field-to-patch generation. It is a last-read
+observation, not a promise of the current in-memory or persisted file size.
+File acquisition still needs local caching when disk is enabled.
 Persistence retry/acknowledgment and response-versus-durability semantics still
 need implementation. Preserve the disconnected hooks until that work is decided.
 

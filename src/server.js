@@ -1,5 +1,6 @@
 import { addDistribution, getDistribution } from '@cocreate/utils/distribution'
 import Config from '@cocreate/config'
+import { fileId, identify } from './files.js'
 import { distributionReferences } from './distribution.js'
 import { createPeerDistribution, createDistributionAdapters } from './peers.js'
 import { createDB } from './scoped.js'
@@ -8,6 +9,8 @@ import { randomUUID } from 'node:crypto'
 import { getPersistence, getPersistenceDriver, sendPersistence } from './persistence/index.js'
 import { splitSerializedPartition, encodePartitionEnvelope } from './partition.js'
 import { localReadRequest, persistenceReadRequest } from './persistence/envelopes.js'
+import { readPersistenceResponse } from './persistence/response.js'
+import { withResolution, currentResolution } from './resolution.js'
 
 function errorHandler(data, error) {
     if (!Array.isArray(data.error)) data.error = data.error === undefined ? [] : [data.error]
@@ -104,6 +107,11 @@ function idsFrom(payload) {
     return {
         organization_id: payload.organization_id,
         storageId: payload.storageId,
+        storageFileId: payload.storageFileId,
+        databaseFileId: payload.databaseFileId,
+        arrayFileId: payload.arrayFileId,
+        databaseIndex: payload.databaseIndex,
+        arrayIndex: payload.arrayIndex,
         storage: payload.storage,
         databaseId: payload.databaseId,
         arrayId: payload.arrayId,
@@ -152,14 +160,17 @@ export function initializeServerDB(server, {
     // DB replication uses the existing control transport. Tenant identity belongs
     // inside its scope, rather than the client-notification organization field.
     const meshSend = async payload => {
-        const { organization_id, storageId, storage, ...message } = payload
-        const envelope = organization_id ? { ...message, scope: { organization_id, storageId, storage } } : payload
+        const { organization_id, storageId, storage, storageFileId, ...message } = payload
+        const envelope = organization_id ? { ...message, scope: { organization_id, storageId, storage, storageFileId } } : payload
         // Preserve the encoding through Mesh so ordinary partitions encode once.
         // Whole documents do not use this split path.
         if (envelope.value && ['db.partition.update', 'db.partition.response'].includes(envelope.method)) {
             envelope.uuid ??= randomUUID()
-            const { encoded, bytes } = encodePartitionEnvelope(envelope)
-            const changes = await splitSerializedPartition(envelope.value, bytes)
+            const prepare = async () => {
+                const frame = encodePartitionEnvelope(envelope)
+                return { ...frame, changes: await splitSerializedPartition(envelope.value, frame.bytes) }
+            }
+            const { encoded, changes } = await (currentResolution()?.delivering ? serializePreparation(prepare) : prepare())
             if (changes) {
                 const prefix = envelope.path.slice(0, -changes.path.length)
                 for (const change of changes.partitions) publish({
@@ -197,16 +208,17 @@ export function initializeServerDB(server, {
     const peerRequests = new Map()
     const partitionRequests = new Map()
     let transactionQueue = Promise.resolve()
-    let outgoing
+    let deliveryQueue = Promise.resolve()
     let messageId = 0
     const publish = payload => {
+        const outgoing = currentResolution()?.outgoing
         if (!outgoing) return meshSend(payload)
         const key = payload.method === 'db.partition.update'
             ? JSON.stringify([payload.server, payload.path, payload.organization_id, payload.storageId])
             : ++messageId
         outgoing.set(key, payload)
     }
-    const dispatchChanges = async () => {
+    const dispatchChanges = async (outgoing = currentResolution()?.outgoing) => {
         while (outgoing?.size) {
             const [key, payload] = outgoing.entries().next().value
             outgoing.delete(key)
@@ -216,15 +228,45 @@ export function initializeServerDB(server, {
     const withPropagation = async operation => {
         const release = db?.holdPersistence?.()
         const messages = new Map()
-        outgoing = messages
+        const context = currentResolution()
+        context.outgoing = messages
+        context.beforePropagation = []
+        context.afterPropagation = []
+        context.background = writeBehind ? [] : undefined
         try {
             const result = await operation()
-            await dispatchChanges()
+            const complete = () => withResolution(async () => {
+                context.delivering = writeBehind
+                context.reading = false
+                try {
+                    if (context.background?.length) await serializePreparation(async () => {
+                        for (const action of context.background) {
+                            try { await action() }
+                            catch (error) { errorResponse({ method: 'db.read.lifecycle' }, error) }
+                        }
+                    })
+                    for (const action of context.beforePropagation) await action()
+                    await dispatchChanges(messages)
+                    for (const action of context.afterPropagation) await action()
+                } finally { context.delivering = false }
+            }, context)
+            if (writeBehind && (messages.size || context.background.length || context.beforePropagation.length || context.afterPropagation.length)) {
+                const finish = db?.holdPersistence?.()
+                deliveryQueue = deliveryQueue.then(() => new Promise(resolve => setImmediate(resolve)))
+                    .then(complete).catch(error => errorResponse({ method: 'db.propagation' }, error)).finally(() => finish?.())
+            } else if (!writeBehind) await complete()
             return result
-        } finally { outgoing = undefined; release?.() }
+        } finally { release?.() }
+    }
+    // Splits still mutate indexes under the primary queue; network I/O does not.
+    const serializePreparation = operation => {
+        const context = currentResolution()
+        const result = transactionQueue.then(() => withResolution(operation, context))
+        transactionQueue = result.catch(() => {})
+        return result
     }
     const serializeTransaction = operation => {
-        const result = transactionQueue.then(() => withPropagation(operation))
+        const result = transactionQueue.then(() => withResolution(() => withPropagation(operation), null))
         transactionQueue = result.catch(() => {})
         return result
     }
@@ -384,28 +426,28 @@ export function initializeServerDB(server, {
         peerReader: readFromPeer,
         partitionAdapter,
         documentMutationAdapter,
+        onRootChange: payload => publish({ method: 'db.root.update', broadcast: true, workers: false, serverId: server.id, ...payload }),
         onStorageChange: payload => publish({ method: 'db.storage.mutation', broadcast: true, workers: false, serverId: server.id, ...payload }),
         writeBehind,
         scheduleIndexing: serializeTransaction,
         onIndexed: async data => {
-            // Dispatch holder updates before allowing this revision to persist.
-            await dispatchChanges()
             const keys = distributionReferences({ ...data, objectIds: [data.objectId] }, true)
             const notification = { method: 'db.indexed', data, master: false, broadcast: false,
                 worker: [...getDistribution(server.workers.distribution, keys)] }
-            deliver(notification, () => server.send(notification))
+            currentResolution().afterPropagation.push(() => deliver(notification, () => server.send(notification)))
         },
         persistenceOptions: {
             ...(persistence ?? persistenceOptions),
             ...((EXTERNAL_PERSISTENCE_WRITES_ENABLED && providerEnabled && (persistence?.workflow ?? persistenceWorkflow ?? storageWorkflow)) ? { storage: async item => {
                 const workflow = persistence?.workflow ?? persistenceWorkflow ?? storageWorkflow
                 if (!server.workflow?.run) throw new Error('Storage workflow service is unavailable')
-                const result = await server.workflow.run({
+                const data = {
                     method: workflow.startsWith('workflow.') ? workflow : `workflow.${workflow}`,
                     organization_id: server.organization_id,
                     host: server.host,
                     storage: [item]
-                })
+                }
+                const result = readPersistenceResponse(await server.workflow.run(data), data)
                 if (result?.success !== true || (Array.isArray(result.error) ? result.error.length : result.error))
                     throw new Error('Storage workflow did not acknowledge persistence')
             } } : {}),
@@ -423,6 +465,7 @@ export function initializeServerDB(server, {
             return Promise.resolve(errorHandler({ ...request }, 'Database is closing'))
         return serializeTransaction(async () => {
             const [type, method] = String(request?.method || '').split('.')
+            currentResolution().reading = method === 'read'
             let result = await sendLocal(method === 'read' ? localReadRequest(request) : request)
             const organizationConfig = organization || request?.organization
             const hasProvider = providerEnabled && (request?.persistence || organizationConfig?.bootstrapPersistence ||
@@ -463,14 +506,19 @@ export function initializeServerDB(server, {
                     const message = { method: 'db.distribution.set', server: server.id, serverId: server.id,
                         worker: workerId, master: false, broadcast: false,
                         data: { organization_id: request.organization_id, clientId: request.clientId, distribution: result.distribution } }
-                    if (workerId === server.workerId) server.emit('db.distribution.set', message)
-                    else {
-                        const registered = await server.send(message)
-                        if (registered?.success === false)
-                            throw Object.assign(new Error('Distribution registration failed'), {
-                                errors: registered.error?.length ? registered.error : ['Distribution registration failed']
-                            })
+                    const register = async () => {
+                        if (workerId === server.workerId) server.emit('db.distribution.set', message)
+                        else {
+                            const registered = await server.send(message)
+                            if (registered?.success === false)
+                                throw Object.assign(new Error('Distribution registration failed'), {
+                                    errors: registered.error?.length ? registered.error : ['Distribution registration failed']
+                                })
+                        }
                     }
+                    if (writeBehind)
+                        currentResolution().beforePropagation.push(() => deliver(message, register))
+                    else await register()
                 }
             }
             return result
@@ -479,7 +527,12 @@ export function initializeServerDB(server, {
     const flushIndexesLocal = db.flushIndexes.bind(db)
     const closeLocal = db.close.bind(db)
     db.flush = async () => {
-        await serializeTransaction(flushIndexesLocal)
+        let drained
+        do {
+            await serializeTransaction(flushIndexesLocal)
+            drained = deliveryQueue
+            await drained
+        } while (db.persistenceStats().pendingIndexes || drained !== deliveryQueue)
         await db.flushPersistence()
     }
     db.close = async () => {
@@ -562,18 +615,21 @@ export function initializeServerDB(server, {
         server.on('db.peer.fetch', async payload => {
             const data = payload.data ?? payload
             const record = await readFromPeer(data)
-            return { ...payload, success: true, result: record }
+            return { ...payload, success: true, result: record, fileId: payload.fileId ?? fileId(record) }
         })
         server.on('db.distribution', payload => serializeTransaction(() => db.updateDistribution(idsFrom(payload.data ?? payload))))
         server.cluster.on('db.document.request', payload => {
             payload = { ...payload, ...payload.scope }
             if (payload.targetId !== server.id || !payload.requesterId || !payload.requestId) return
-            Promise.resolve(db.readLocalEntity(payload)).then(record => {
+            withResolution(() => withPropagation(() => {
+                currentResolution().reading = true
+                return db.readLocalEntity(payload)
+            }), null).then(record => {
                 const response = {
                     requesterId: payload.requesterId,
                     responderId: server.id,
                     requestId: payload.requestId,
-                    record
+                    record, fileId: payload.fileId ?? fileId(record)
                 }
                 meshSend({
                     method: 'db.document.response',
@@ -600,7 +656,7 @@ export function initializeServerDB(server, {
             peerRequests.delete(payload.requestId)
             clearTimeout(pending.timer)
             if (payload.error?.length) pending.reject(Object.assign(new Error('Peer request failed'), { errors: payload.error }))
-            else pending.resolve(payload.record)
+            else pending.resolve(payload.record ? identify(payload.record, payload.fileId) : undefined)
         })
         server.cluster.on('db.partition.request', payload => {
             if (payload.targetId !== server.id || !payload.requesterId || !payload.requestId) return
@@ -659,7 +715,7 @@ export function initializeServerDB(server, {
                 const data = { method: 'object.' + (payload.operation === 'remove' ? 'delete' : payload.operation === 'update' ? 'update' : 'create'),
                     organization_id: payload.organization_id, storage: payload.storage, database: payload.database.name, array: payload.array.name,
                     object: [object], success: true, master: false, broadcast: false, server: server.id }
-                data.distributionKeys = distributionReferences({ ...payload, databaseId: payload.database._id, arrayId: payload.array._id, objectIds: [payload.object._id] }, true)
+                data.distributionKeys = distributionReferences({ ...payload, databaseId: payload.database._id, arrayId: payload.array._id, objectIds: [payload.fileId] }, true)
                 data.worker = [...getDistribution(server.workers.distribution, data.distributionKeys)]
                 return data
             }).then(data => data && server.send(data))
@@ -684,10 +740,16 @@ export function initializeServerDB(server, {
             return meshSend({ method: 'db.distribution.sync', server: nodeId, serverId: server.id,
                 session, revision, reply, inventory })
         })
+        server.cluster.on('db.root.update', payload => {
+            if (payload.serverId === server.id) return
+            return serializeReplication(payload, () => db.applyRoots([{ organization_id: payload.scope?.organization_id ?? payload.organization_id, value: payload.value }]))
+        })
         server.cluster.on('db.distribution.sync', payload => {
             if (payload.serverId === server.id) return
-            return serializeReplication(payload, () => peers.replace(payload.serverId, payload.inventory, payload.session, payload.revision))
-                .then(() => !payload.reply && sendInventory(payload.serverId, true))
+            return serializeReplication(payload, async () => {
+                if (peers.replace(payload.serverId, payload.inventory, payload.session, payload.revision))
+                    await db.applyRoots(payload.inventory.roots)
+            }).then(() => !payload.reply && sendInventory(payload.serverId, true))
                 .catch(error => errorResponse(payload, error))
         })
         server.cluster.on('peerConnected', ({ nodeId }) => {

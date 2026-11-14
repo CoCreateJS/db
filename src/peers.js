@@ -56,6 +56,7 @@ export function createPeerDistribution(localId) {
     const list = (scope = {}) => {
         const result = new Map()
         for (const [nodeId, peer] of inventories) for (const value of peer.entities.values()) {
+            if (!value.databaseId) continue
             if (value.organization_id !== scope.organization_id || value.storageId !== scope.storageId) continue
             if (scope.databaseId !== undefined && value.databaseId !== scope.databaseId) continue
             if (scope.arrayId !== undefined && value.arrayId !== scope.arrayId) continue
@@ -112,6 +113,18 @@ export function createPeerDistribution(localId) {
         findScope(organization, storage) {
             for (const peer of inventories.values()) for (const value of peer.entities.values())
                 if (value.organization_id === organization && value.storage === storage) return value
+        },
+        findFile(uuid) {
+            const nodes = []
+            for (const [nodeId, peer] of inventories) {
+                for (const value of peer.entities.values()) {
+                    if ([value.objectId, value.databaseFileId, value.arrayFileId, value.storageFileId].includes(uuid)) {
+                        nodes.push(nodeId)
+                        break
+                    }
+                }
+            }
+            return nodes
         }
     }
 }

@@ -1,279 +1,88 @@
-import { mkdir, rm } from '../io.js'
+import { rm } from '../io.js'
 import { ObjectId } from '@cocreate/utils'
-import { removeMemoryPath } from '../memory.js'
-import { ARRAY_CATALOG, arrayDirectory, arrayMetadataPath, auditMetadata, databaseMetadataPath, readJSON, removeDirectoryPreservingDistribution } from '../storage.js'
-import { createRecord, deleteRecord, findRecordByName, readRecords, updateRecord } from '../records.js'
-import { adjustDatabaseLengths, ensureDatabase } from '../database/index.js'
+import { DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, ARRAY_CATALOG, arrayMetadataPath,
+    databaseMetadataPath, objectPath, auditMetadata } from '../storage.js'
+import { createRecord, deleteRecord, findRecordByName, readRecordById, readRecords, updateRecord } from '../records.js'
+import { fileId, identify, newFileId } from '../files.js'
+import { ensureDatabase, adjustDatabaseLengths } from '../database/index.js'
 import { applyReadFilter } from '../read.js'
 
-const arrayName = name => {
-    if (typeof name !== 'string' || !name.trim())
-        throw new TypeError('array name must be a non-empty string')
-    return name
+const name = value => {
+    if (typeof value !== 'string' || !value.trim()) throw new TypeError('array name must be a non-empty string')
+    return value
 }
+const find = (root, index, database, value) => findRecordByName(index, database._id, ARRAY_CATALOG, uuid => arrayMetadataPath(root, database._id, uuid), value)
 
-const validateConfig = config => {
-    if (!config || typeof config !== 'object' || Array.isArray(config))
-        throw new TypeError('array.config must be an object')
-    return config
-}
-
-const arrayFile = (root, databaseId, arrayId) => arrayMetadataPath(root, databaseId, arrayId)
-const databaseFile = (root, databaseId) => databaseMetadataPath(root, databaseId)
-
-const normalizeArrayMetadata = value => {
-    const metadata = { ...value }
-    metadata.length ??= metadata.count ?? 0
-    delete metadata.count
-    return metadata
-}
-
-export async function ensureArray(root, index, database, name, config = {}, request = {}) {
-    arrayName(name)
-    const existing = await findRecordByName(
-        index, database._id, ARRAY_CATALOG,
-        id => arrayFile(root, database._id, id), name
-    )
-    if (existing) {
-        const normalized = normalizeArrayMetadata(existing)
-        if (JSON.stringify(normalized) !== JSON.stringify(existing))
-            return updateRecord(index, database._id, ARRAY_CATALOG, arrayFile(root, database._id, existing._id), existing, normalized)
-        return existing
-    }
-
+export async function ensureArray(root, index, database, value, config = {}, request = {}) {
+    name(value)
+    const existing = await find(root, index, database, value)
+    if (existing) return existing
     const id = ObjectId().toString()
-    const audit = auditMetadata(request)
-    const record = {
-        _id: id,
-        name,
-        databaseId: database._id,
-        length: 0,
-        config: { ...validateConfig(config) },
-        created: audit,
-        updated: audit
-    }
-    const directory = arrayDirectory(root, database._id, id)
-    await mkdir(directory, { recursive: true })
-
-    try {
-        await createRecord(index, database._id, ARRAY_CATALOG, arrayFile(root, database._id, id), record)
-        await adjustDatabaseLengths(root, index, database._id, { arrays: 1 }, request)
-    } catch (error) {
-        const persisted = await readJSON(arrayFile(root, database._id, id))
-        if (persisted)
-            await deleteRecord(index, database._id, ARRAY_CATALOG, arrayFile(root, database._id, id), persisted).catch(() => {})
-        removeMemoryPath(directory)
-        await rm(directory, { recursive: true, force: true }).catch(() => {})
-        throw error
-    }
-
+    const record = { _id: id, name: value, databaseId: database._id, index: index.catalogId(database._id, id), length: 0,
+        config, created: auditMetadata(request), updated: auditMetadata(request) }
+    await index.ensureCatalog(database._id, id)
+    await createRecord(index, database._id, ARRAY_CATALOG, arrayMetadataPath(root, database._id, newFileId()), record)
+    await adjustDatabaseLengths(root, index, database._id, { arrays: 1 }, request)
     return record
 }
 
-/** Materialize a remote array catalog record under its existing stable ID. */
 export async function materializeArray(root, index, database, source) {
-    arrayName(source?.name)
-    if (source.databaseId !== database._id)
-        throw new Error('Remote array belongs to a different database')
-    const metadata = normalizeArrayMetadata(source)
-    const record = {
-        ...metadata,
-        length: 0,
-        config: source.config && typeof source.config === 'object' && !Array.isArray(source.config)
-            ? source.config
-            : {}
-    }
-    const file = arrayFile(root, database._id, record._id)
-    const current = await readJSON(file)
-    if (current) {
-        if (JSON.stringify(current) !== JSON.stringify(record))
-            await updateRecord(index, database._id, ARRAY_CATALOG, file, current, record)
-        return record
-    }
-
-    const directory = arrayDirectory(root, database._id, record._id)
-    await mkdir(directory, { recursive: true })
-    try {
-        await createRecord(index, database._id, ARRAY_CATALOG, file, record)
-        await adjustDatabaseLengths(root, index, database._id, { arrays: 1 })
-        return record
-    } catch (error) {
-        const persisted = await readJSON(file)
-        if (persisted)
-            await deleteRecord(index, database._id, ARRAY_CATALOG, file, persisted).catch(() => {})
-        removeMemoryPath(directory)
-        await rm(directory, { recursive: true, force: true }).catch(() => {})
-        throw error
-    }
+    name(source?.name)
+    if (source.databaseId !== database._id) throw new Error('Remote array belongs to a different database')
+    const current = await readRecordById(index, database._id, ARRAY_CATALOG, uuid => arrayMetadataPath(root, database._id, uuid), fileId(source))
+    if (current) return updateRecord(index, database._id, ARRAY_CATALOG, arrayMetadataPath(root, database._id, fileId(current)), current, source)
+    return createRecord(index, database._id, ARRAY_CATALOG, arrayMetadataPath(root, database._id, fileId(source)), source)
 }
 
-async function migrateArrayMetadata(root, index, databaseId, metadata) {
-    const normalized = normalizeArrayMetadata(metadata)
-    if (JSON.stringify(normalized) === JSON.stringify(metadata)) return metadata
-    return updateRecord(index, databaseId, ARRAY_CATALOG,
-        arrayFile(root, databaseId, metadata._id), metadata, normalized)
-}
-
-async function arrayRecord(root, index, database, metadata) {
-    const normalized = await migrateArrayMetadata(root, index, database._id, metadata)
-    return {
-        ...normalized,
-        $storage: ['db'],
-        $database: [database.name]
-    }
-}
-
-async function resolveDatabase(root, index, name) {
-    return findRecordByName(index, '__catalog__', 'databases', id => databaseFile(root, id), name)
-}
-
-export async function adjustArrayLength(root, index, databaseId, arrayId, delta, request = {}) {
-    const file = arrayFile(root, databaseId, arrayId)
-    const current = await readJSON(file)
-    if (!current) throw new Error(`Array not found: ${arrayId}`)
-
-    const length = (current.length ?? current.count ?? 0) + delta
-    if (!Number.isSafeInteger(length) || length < 0)
-        throw new Error('Array length would become invalid')
-
-    const metadata = { ...current }
-    delete metadata.count
-
-    return updateRecord(index, databaseId, ARRAY_CATALOG, file, current, {
-        ...metadata,
-        length,
-        updated: auditMetadata(request)
+export async function adjustArrayLength(root, index, databaseId, id, delta, request = {}) {
+    const record = await readRecordById(index, databaseId, ARRAY_CATALOG, uuid => arrayMetadataPath(root, databaseId, uuid), id)
+    if (!record) throw new Error(`Array not found: ${id}`)
+    if (record.length + delta < 0) throw new Error('Array length would become invalid')
+    return updateRecord(index, databaseId, ARRAY_CATALOG, arrayMetadataPath(root, databaseId, fileId(record)), record, value => {
+        value.length += delta
+        value.updated = auditMetadata(request)
     })
 }
 
-async function readArrays(root, index, database, request) {
-    const records = await readRecords(
-        index,
-        database._id,
-        ARRAY_CATALOG,
-        id => arrayFile(root, database._id, id)
-    )
-    const enriched = await Promise.all(records.map(async record => ({
-        ...await migrateArrayMetadata(root, index, database._id, record),
-        $storage: ['db'],
-        $database: [database.name]
-    })))
-    return applyReadFilter(enriched, request, {
-        database: database.name,
-        array: ARRAY_CATALOG
-    })
-}
-
-export async function sendArray(root, index, method, request) {
-    const databaseName = request.database
-    if (typeof databaseName !== 'string' || !databaseName)
-        throw new TypeError(`array.${method} requires one database name`)
-
-    let database = await resolveDatabase(root, index, databaseName)
-    if (method === 'create' && !database)
-        database = await ensureDatabase(root, index, databaseName, {}, request)
-
+export async function sendArray(root, index, method, data) {
+    if (typeof data.database !== 'string' || !data.database) throw new TypeError(`array.${method} requires one database name`)
+    let database = await findRecordByName(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, uuid => databaseMetadataPath(root, uuid), data.database)
+    if (!database && method === 'create') database = await ensureDatabase(root, index, data.database, {}, data)
     if (!database) {
-        if (method === 'read' || method === 'delete') {
-            request.array = []
-            return request.array
+        if (method === 'read' || method === 'delete') return data.array = []
+        throw new Error(`Database not found: ${data.database}`)
+    }
+    const view = record => identify({ ...record, $storage: ['db'], $database: [database.name] }, fileId(record))
+    if (method === 'read') return data.array = applyReadFilter((await readRecords(index, database._id, ARRAY_CATALOG,
+        uuid => arrayMetadataPath(root, database._id, uuid))).map(view), data, { database: data.database, array: ARRAY_CATALOG })
+    const names = data.array === undefined ? [] : Array.isArray(data.array) ? data.array : [data.array]
+    if (method === 'create' && !names.length) throw new TypeError('array.create requires an array name')
+    const results = []
+    for (const value of names) {
+        const record = method === 'create' ? await ensureArray(root, index, database, value, data.config, data) : await find(root, index, database, name(value))
+        if (!record) {
+            if (method === 'delete') continue
+            throw new Error(`Array not found: ${value}`)
         }
-        throw new Error(`Database not found: ${databaseName}`)
-    }
-
-    if (method === 'read') {
-        request.array = await readArrays(root, index, database, request)
-        return request.array
-    }
-
-    if (method === 'create') {
-        const names = request.array === undefined
-            ? []
-            : Array.isArray(request.array) ? request.array : [request.array]
-        if (!names.length) throw new TypeError('array.create requires an array name')
-        const records = []
-
-        for (const value of names) {
-            const metadata = await ensureArray(root, index, database, arrayName(value), request.config, request)
-            records.push(await arrayRecord(root, index, database, metadata))
+        if (method === 'update') {
+            const renamed = name(data.name ?? data.newName ?? record.name)
+            if (data.config === undefined && renamed === record.name) throw new Error('array.update requires a new name or config')
+            const collision = await find(root, index, database, renamed)
+            if (collision && collision._id !== record._id) throw new Error(`Array already exists: ${renamed}`)
+            await updateRecord(index, database._id, ARRAY_CATALOG, arrayMetadataPath(root, database._id, fileId(record)), record, current => {
+                current.name = renamed
+                if (data.config) Object.assign(current.config, data.config)
+                current.updated = auditMetadata(data)
+            })
         }
-
-        request.array = records
-        return records
-    }
-
-    if (method === 'update') {
-        const oldName = arrayName(request.array)
-        const newName = arrayName(request.name ?? request.newName ?? oldName)
-        if (request.config === undefined && newName === oldName)
-            throw new Error('array.update requires a new name or config')
-
-        const current = await findRecordByName(
-            index, database._id, ARRAY_CATALOG,
-            id => arrayFile(root, database._id, id), oldName
-        )
-        if (!current) throw new Error(`Array not found: ${oldName}`)
-
-        const collision = await findRecordByName(
-            index, database._id, ARRAY_CATALOG,
-            id => arrayFile(root, database._id, id), newName
-        )
-        if (collision && collision._id !== current._id)
-            throw new Error(`Array already exists: ${newName}`)
-
-        const updated = {
-            ...current,
-            name: newName,
-            config: request.config === undefined
-                ? current.config
-                : { ...current.config, ...validateConfig(request.config) },
-            updated: auditMetadata(request)
+        if (method === 'delete') {
+            for await (const entry of index.scan(database._id, record._id, '_id', { type: 'string' })) await rm(objectPath(root, database._id, record._id, entry.objectId), { force: true })
+            await index.drop(database._id, record._id)
+            await adjustDatabaseLengths(root, index, database._id, { arrays: -1, objects: -record.length }, data)
+            await deleteRecord(index, database._id, ARRAY_CATALOG, arrayMetadataPath(root, database._id, fileId(record)), record)
         }
-        const metadata = await updateRecord(
-            index, database._id, ARRAY_CATALOG,
-            arrayFile(root, database._id, current._id), current, updated
-        )
-        request.array = [await arrayRecord(root, index, database, metadata)]
-        return request.array
+        results.push(view(record))
     }
-
-    if (method === 'delete') {
-        const names = request.array === undefined
-            ? []
-            : Array.isArray(request.array) ? request.array : [request.array]
-        const records = []
-
-        for (const value of names) {
-            const name = arrayName(value)
-            const current = await findRecordByName(
-                index, database._id, ARRAY_CATALOG,
-                id => arrayFile(root, database._id, id), name
-            )
-            if (!current) continue
-
-            const result = await arrayRecord(root, index, database, current)
-            await adjustDatabaseLengths(root, index, database._id, {
-                arrays: -1,
-                objects: -(current.length ?? current.count ?? 0)
-            }, request)
-            try {
-                await deleteRecord(index, database._id, ARRAY_CATALOG, arrayFile(root, database._id, current._id), current)
-                await removeDirectoryPreservingDistribution(root, arrayDirectory(root, database._id, current._id))
-            } catch (error) {
-                await mkdir(arrayDirectory(root, database._id, current._id), { recursive: true }).catch(() => {})
-                await createRecord(index, database._id, ARRAY_CATALOG, arrayFile(root, database._id, current._id), current).catch(() => {})
-                await adjustDatabaseLengths(root, index, database._id, {
-                    arrays: 1,
-                    objects: current.length ?? current.count ?? 0
-                }, request).catch(() => {})
-                throw error
-            }
-            records.push(result)
-        }
-
-        request.array = records
-        return records
-    }
-
-    throw new Error(`Unsupported CRUD method: array.${method}`)
+    if (!['create', 'update', 'delete'].includes(method)) throw new Error(`Unsupported CRUD method: array.${method}`)
+    return data.array = results
 }

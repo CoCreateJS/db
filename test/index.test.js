@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
+import { indexId } from '../src/index/index.js'
 import { test } from 'node:test'
 import { createUpdate, queryData } from '@cocreate/utils'
-import { createDistributionIndex, createIndex } from '../src/index.js'
+import { createDistributionIndex, createIndex, fileId } from '../src/index.js'
 import { createDB } from '../src/object/index.js'
 import { queryIndexCandidates } from '../src/query.js'
 import { splitSerializedPartition } from '../src/partition.js'
@@ -33,7 +34,7 @@ test('memoryCache keeps demand-cached CRUD reads coherent with disk', async () =
     try {
         const db = createDB({ directory, memoryCache: true })
         await db.ready
-        assert.equal(db.memoryStats().files, 0)
+        assert.equal(db.memoryStats().files, 2)
         await db.send({ method: 'object.create', database: 'memory', array: 'items', object: { name: 'first' } })
         assert.ok(db.memoryStats().files > 0)
         const initial = await db.send({ method: 'object.read', database: 'memory', array: 'items' })
@@ -60,12 +61,13 @@ const resolveArrayDirectory = async (directory, database, array) => {
 
     assert.ok(databaseId, `missing database catalog entry: ${database}`)
     assert.ok(arrayId, `missing array catalog entry: ${array}`)
-    return join(directory, 'databases', databaseId, 'arrays', arrayId)
+    return join(directory, 'catalogs', 'standalone', 'databases', databaseId, 'arrays', arrayId)
 }
 
 const readCatalog = async (directory, database, array) => {
-    const base = join(await resolveArrayDirectory(directory, database, array), 'index')
-    const root = JSON.parse(await readFile(join(base, 'index.json'), 'utf8'))
+    const path = relative(directory, await resolveArrayDirectory(directory, database, array))
+    const base = join(directory, 'indexes')
+    const root = JSON.parse(await readFile(join(base, `${indexId(path)}.json`), 'utf8'))
     const keys = {}
     const visit = async node => {
         if (node.entries) {
@@ -148,8 +150,8 @@ test('object.create writes documents and indexes under a configured filesystem r
         assert.deepEqual(created.object[0].profile, { city: 'Lima' })
 
         const arrayDirectory = await resolveArrayDirectory(directory, 'test-database', 'users')
-        const objectFiles = (await readdir(join(arrayDirectory, 'objects'))).filter(file => file.endsWith('.json'))
-        const indexDirectory = join(arrayDirectory, 'index')
+        const objectFiles = (await readdir(join(directory, 'objects'))).filter(file => file.endsWith('.json'))
+        const indexDirectory = join(directory, 'indexes')
         const nodeFiles = new Set((await readdir(indexDirectory)).filter(file => file.endsWith('.json') && file !== 'index.json'))
         const { root: catalog, keys } = await readCatalog(directory, 'test-database', 'users')
 
@@ -167,7 +169,7 @@ test('object.create writes documents and indexes under a configured filesystem r
                 assert.ok(nodeFiles.has(`${nodeId}.json`))
 
         const stored = JSON.parse(await readFile(
-            join(arrayDirectory, 'objects', `${created.object[0]._id}.json`),
+            join(directory, 'objects', `${fileId(created.object[0])}.json`),
             'utf8'
         ))
         assert.equal(stored.name, 'Ada')
@@ -270,43 +272,23 @@ test('database and array catalogs resolve stable IDs, report lengths, rename, an
     })
 })
 
-test('database and array reads migrate legacy count fields to persisted length metadata', async () => {
+test('database and array counters persist in flat metadata files across restart', async () => {
     await withIndex(async (_index, directory) => {
         const db = createDB({ directory })
-        const database = (await db.send({ method: 'database.create', database: 'legacy-lengths' })).database[0]
-        const array = (await db.send({ method: 'array.create', database: 'legacy-lengths', array: 'items' })).array[0]
-        await db.send({ method: 'object.create', database: 'legacy-lengths', array: 'items', object: { value: 1 } })
-
-        const databaseFile = join(directory, 'databases', database._id, 'database.json')
-        const arrayFile = join(directory, 'databases', database._id, 'arrays', array._id, 'array.json')
-        const databaseMetadata = JSON.parse(await readFile(databaseFile, 'utf8'))
-        const arrayMetadata = JSON.parse(await readFile(arrayFile, 'utf8'))
-        databaseMetadata.count = databaseMetadata.arrayLength
-        databaseMetadata.objectCount = databaseMetadata.objectLength
-        delete databaseMetadata.arrayLength
-        delete databaseMetadata.objectLength
-        arrayMetadata.count = arrayMetadata.length
-        delete arrayMetadata.length
-        await writeFile(databaseFile, JSON.stringify(databaseMetadata))
-        await writeFile(arrayFile, JSON.stringify(arrayMetadata))
-
-        const read = await db.send({ method: 'database.read' })
-        const migratedDatabase = read.database.find(record => record.name === 'legacy-lengths')
-        assert.equal(migratedDatabase.arrayLength, 1)
-        assert.equal(migratedDatabase.objectLength, 1)
-        assert.equal('count' in migratedDatabase, false)
-        assert.equal('objectCount' in migratedDatabase, false)
-        assert.equal(migratedDatabase.arrays[0].length, 1)
-        assert.equal('count' in migratedDatabase.arrays[0], false)
-
-        const persistedDatabase = JSON.parse(await readFile(databaseFile, 'utf8'))
-        const persistedArray = JSON.parse(await readFile(arrayFile, 'utf8'))
-        assert.equal(persistedDatabase.arrayLength, 1)
-        assert.equal(persistedDatabase.objectLength, 1)
-        assert.equal('count' in persistedDatabase, false)
-        assert.equal('objectCount' in persistedDatabase, false)
-        assert.equal(persistedArray.length, 1)
-        assert.equal('count' in persistedArray, false)
+        const database = (await db.send({ method: 'database.create', database: 'lengths' })).database[0]
+        const array = (await db.send({ method: 'array.create', database: 'lengths', array: 'items' })).array[0]
+        await db.send({ method: 'object.create', database: 'lengths', array: 'items', object: { value: 1 } })
+        const databaseFile = join(directory, 'databases', `${fileId(database)}.json`)
+        const arrayFile = join(directory, 'arrays', `${fileId(array)}.json`)
+        assert.equal(JSON.parse(await readFile(databaseFile, 'utf8')).objectLength, 1)
+        assert.equal(JSON.parse(await readFile(arrayFile, 'utf8')).length, 1)
+        const reopened = createDB({ directory })
+        const record = (await reopened.send({ method: 'database.read' })).database[0]
+        assert.equal(record.arrayLength, 1)
+        assert.equal(record.objectLength, 1)
+        assert.equal(record.arrays[0].length, 1)
+        assert.equal(fileId(record), fileId(database))
+        assert.equal(fileId(record.arrays[0]), fileId(array))
     })
 })
 
@@ -590,15 +572,16 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
         for (let i = 0; i < fields.length; i++)
             await index.create('test', 'catalog', fields[i], i, 'object-1')
 
-        const indexDirectory = join(directory, 'test', 'catalog', 'index')
-        const pending = ['test/catalog/index/index.json']
+        const indexDirectory = join(directory, 'indexes')
+        const rootFile = `${indexId('test/catalog')}.json`
+        const pending = [`indexes/${rootFile}`]
         while (pending.length) {
             const path = pending.pop()
             const value = await index.readPartition(path)
             const changes = await splitSerializedPartition(value, Buffer.byteLength(JSON.stringify(value)))
             if (changes) pending.push(...changes.partitions.map(change => change.path))
         }
-        const root = JSON.parse(await readFile(join(indexDirectory, 'index.json'), 'utf8'))
+        const root = JSON.parse(await readFile(join(indexDirectory, rootFile), 'utf8'))
         assert.ok(root.indexes, 'overflowed catalog root should point to child 32-character hexadecimal files')
         assert.equal(root.entries, undefined)
         assert.equal(root.catalogLength, fields.length)
@@ -619,16 +602,16 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
             )
         }
 
-        const catalogFiles = (await readdir(indexDirectory)).filter(file => file.endsWith('.json') && file !== 'index.json')
+        const catalogFiles = (await readdir(indexDirectory)).filter(file => file.endsWith('.json') && file !== rootFile)
         assert.ok(catalogFiles.length > fields.length, 'catalog splits should add 32-character hexadecimal files alongside field nodes')
 
         for (let i = 0; i < fields.length; i++)
             await index.delete('test', 'catalog', fields[i], i, 'object-1')
 
-        const emptyRoot = JSON.parse(await readFile(join(indexDirectory, 'index.json'), 'utf8'))
+        const emptyRoot = JSON.parse(await readFile(join(indexDirectory, rootFile), 'utf8'))
         assert.deepEqual(emptyRoot.entries, [])
         assert.equal(emptyRoot.catalogLength, 0)
-        assert.deepEqual((await readdir(indexDirectory)).filter(file => file.endsWith('.json')).sort(), ['index.json'])
+        assert.deepEqual((await readdir(indexDirectory)).filter(file => file.endsWith('.json')).sort(), [rootFile])
     }, { maxBytes: 512 })
 })
 
@@ -662,7 +645,7 @@ test('migrates a legacy flat catalog when the next key root is written', async (
         assert.equal(root.keys, undefined)
         assert.ok(root.entries || root.indexes)
         assert.equal(root.length, 1)
-    })
+    }, { flat: false })
 })
 
 test('rejects invalid logical path components and unsupported indexed values', async () => {
@@ -685,7 +668,7 @@ test('object.update changes indexed fields and unsets nested fields without chan
         })
         assert.equal(created.success, true)
         const [ada] = created.object
-        const catalogFile = join(await resolveArrayDirectory(directory, 'test', 'users'), 'index', 'index.json')
+        const catalogFile = join(directory, 'indexes', `${indexId(relative(directory, await resolveArrayDirectory(directory, 'test', 'users')))}.json`)
 
         const updated = await db.send({
             method: 'object.update', database: 'test', array: 'users',
@@ -965,7 +948,7 @@ test('large terminal arrays remain whole outside index nodes and survive scans',
         const [entry] = await collect(index.scan('large-arrays', 'items', 'values', { type: 'array' }))
         assert.deepEqual(entry.value, array)
 
-        const indexDirectory = join(directory, 'large-arrays', 'items', 'index')
+        const indexDirectory = join(directory, 'values')
         const inspect = async path => {
             const files = await readdir(path, { withFileTypes: true })
             const sizes = []
@@ -976,13 +959,13 @@ test('large terminal arrays remain whole outside index nodes and survive scans',
             }
             return sizes
         }
-        const nodeSizes = await inspect(indexDirectory)
+        const nodeSizes = [...await inspect(indexDirectory), ...await inspect(join(directory, 'indexes'))]
         const indexNodes = nodeSizes.filter(file => !file.path.includes(`${join('values', '')}`))
         const storedValues = nodeSizes.filter(file => file.path.includes(`${join('values', '')}`))
         assert.ok(indexNodes.length > 0)
         assert.ok(indexNodes.every(file => file.size <= 512))
         assert.equal(storedValues.length, 1)
-        assert.ok(storedValues[0].path.endsWith('value.json'))
+        assert.match(storedValues[0].path, /values\/[a-f0-9]{32}\.json$/)
         assert.ok(storedValues[0].size > 512)
     })
 })
@@ -1111,8 +1094,8 @@ test('CRUD writes register recursive index root and node files as locally held p
         const partitions = await db.listPartitions()
         assert.ok(partitions.length > 0)
         assert.ok(partitions.every(({ nodeIds }) => nodeIds.includes('node-local')))
-        assert.ok(partitions.some(({ partitionId }) => partitionId.endsWith('/index/index.json')))
-        assert.ok(partitions.some(({ partitionId }) => /\/index\/[a-f0-9]{32}\.json$/i.test(partitionId)))
+        assert.ok(partitions.some(({ partitionId }) => /^indexes\/[a-f0-9]{32}\.json$/.test(partitionId)))
+        assert.ok(partitions.some(({ partitionId }) => /^indexes\/[a-f0-9]{32}\.json$/i.test(partitionId)))
         assert.ok(partitions.every(({ partitionId }) => !partitionId.includes('/values/')))
     })
 })
@@ -1132,13 +1115,14 @@ test('object.read resolves cold database and array names, fetches full documents
             const local = createDB({
                 directory: localDirectory,
                 nodeId: 'node-b',
+                partitionAdapter: { read: path => remote.readIndexPartition(path) },
                 peerReader: async ({ nodeId, ...entity }) =>
                     nodeId === 'node-a' ? remote.readLocalEntity(entity) : undefined
             })
             for (const entity of [
                 { databaseId: database._id },
                 { databaseId: database._id, arrayId: array._id },
-                { databaseId: database._id, arrayId: array._id, objectId: object._id }
+                { databaseId: database._id, arrayId: array._id, objectId: fileId(object) }
             ]) {
                 await local.updateDistribution({ ...entity, nodeId: 'node-a', operation: 'add' })
             }
@@ -1174,7 +1158,7 @@ test('array and database deletion preserve peer availability references', async 
         const createdObject = await db.send({
             method: 'object.create', database: 'retained', array: 'first', object: { value: 1 }
         })
-        const objectId = createdObject.object[0]._id
+        const objectId = fileId(createdObject.object[0])
 
         for (const entity of [
             { databaseId },
@@ -1192,7 +1176,7 @@ test('array and database deletion preserve peer availability references', async 
         const secondObject = await db.send({
             method: 'object.create', database: 'retained', array: 'second', object: { value: 2 }
         })
-        const secondObjectId = secondObject.object[0]._id
+        const secondObjectId = fileId(secondObject.object[0])
         await db.updateDistribution({ databaseId, arrayId: secondArrayId, nodeId: 'peer-node', operation: 'add' })
         await db.updateDistribution({ databaseId, arrayId: secondArrayId, objectId: secondObjectId, nodeId: 'peer-node', operation: 'add' })
 
@@ -1201,7 +1185,7 @@ test('array and database deletion preserve peer availability references', async 
         assert.deepEqual(await db.getDistribution({ databaseId }), ['peer-node'])
         assert.deepEqual(await db.getDistribution({ databaseId, arrayId: secondArrayId }), ['peer-node'])
         assert.deepEqual(await db.getDistribution({ databaseId, arrayId: secondArrayId, objectId: secondObjectId }), ['peer-node'])
-        assert.equal(JSON.parse(await readFile(join(directory, 'databases', databaseId, 'arrays', 'distribution', 'index.json'), 'utf8')).entries.length, 0)
+        assert.equal((await db.listDistribution({ databaseId })).some(item => item.nodeIds.includes('local-node')), false)
     })
 })
 
@@ -1250,7 +1234,7 @@ test('object.delete removes an object and prunes all empty indexes and catalog r
         })
         assert.equal(deleted.success, true, deleted.error)
         assert.equal(deleted.object.length, 1)
-        await assert.rejects(readFile(join(arrayPath, 'objects', `${created.object[0]._id}.json`)), { code: 'ENOENT' })
+        await assert.rejects(readFile(join(directory, 'objects', `${fileId(created.object[0])}.json`)), { code: 'ENOENT' })
 
         let { root: catalog, keys } = await readCatalog(directory, 'test', 'users')
         assert.equal(catalog.length, 1)
@@ -1267,7 +1251,7 @@ test('object.delete removes an object and prunes all empty indexes and catalog r
         ;({ root: catalog, keys } = await readCatalog(directory, 'test', 'users'))
         assert.equal(catalog.length, 0)
         assert.deepEqual(keys, {})
-        assert.deepEqual((await readdir(join(arrayPath, 'index'))).filter(file => file.endsWith('.json')).sort(), ['index.json'])
-        assert.deepEqual((await readdir(join(arrayPath, 'objects'))).filter(file => file.endsWith('.json')), [])
+        assert.ok((await readdir(join(directory, 'indexes'))).includes(`${catalog.id}.json`))
+        assert.deepEqual((await readdir(join(directory, 'objects'))).filter(file => file.endsWith('.json')), [])
     })
 })
