@@ -352,8 +352,8 @@ export function createDB(options = {}) {
         async getDistribution(payload) { return (await byId(payload)).engine.getDistribution(payload) },
         async listDistribution(payload) { return (await byId(payload)).engine.listDistribution(payload) },
         async readLocalEntity(payload) {
-            if (payload.type === 'value') {
-                const value = await readJSON(recordPath(join(root, id(payload.organization_id, 'organization_id')), 'values', payload.fileId))
+            if (payload.type === 'key') {
+                const value = await readJSON(recordPath(join(root, id(payload.organization_id, 'organization_id')), 'keys', payload.fileId))
                 return value && identify(value, payload.fileId)
             }
             if (payload.type === 'storage') {

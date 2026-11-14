@@ -62,7 +62,7 @@ export function createIndex({
     indexRoot = directory,
     flat = true,
     onPartitionChange: partitionChange,
-    readValue,
+    readKey,
     readPartition
 } = {}) {
     if (maxBytes < 512) throw new Error('maxBytes must be at least 512')
@@ -71,7 +71,7 @@ export function createIndex({
     const base = resolve(directory)
     const origin = flat ? resolve(indexRoot) : base
     const cache = cacheEnabled ? new Map() : null
-    const arrayValues = Object.create(null)
+    const keyRecords = Object.create(null)
     const reportedPartitions = new Set()
     const onPartitionChange = partitionChange && (change => {
         const notify = async () => {
@@ -121,24 +121,25 @@ export function createIndex({
         if (flat && !/^[a-f0-9]{32}$/i.test(id)) throw new TypeError('Invalid index node ID')
         return join(flat ? join(origin, 'indexes') : indexDirectory(dir), `${id === 'root' ? 'index' : id}.json`)
     }
-    const arrayValueFile = (dir, key, objectId, digest) => join(origin, 'values', `${indexId(JSON.stringify([catalogRootId(dir), key, objectId, digest]))}.json`)
+    const keyFile = (dir, key, objectId, digest) => join(origin, 'keys', `${indexId(JSON.stringify([catalogRootId(dir), key, objectId, digest]))}.json`)
     const normalizedValue = (value, type = typeOf(value)) => type === 'array' ? arrayDigest(value) : value
-    const writeArrayValue = async (dir, key, value, objectId, digest) => {
-        const file = arrayValueFile(dir, key, objectId, digest)
-        if (cacheEnabled || memoryEnabled(file)) arrayValues[file] = live(value)
-        await replaceJSON(file, value)
+    const writeKey = async (dir, key, value, objectId, digest) => {
+        const file = keyFile(dir, key, objectId, digest)
+        const record = { catalog: catalogRootId(dir), objectId, name: key, value: live(value) }
+        if (cacheEnabled || memoryEnabled(file)) keyRecords[file] = record
+        await replaceJSON(file, record)
     }
-    const readArrayValue = async (dir, key, objectId, digest) => {
-        const file = arrayValueFile(dir, key, objectId, digest)
-        if (Object.hasOwn(arrayValues, file)) return arrayValues[file]
-        let value = await readMemoryJSON(file)
-        if (value === undefined && readValue) {
-            value = await readValue({ path: relative(origin, file), objectId, key, digest })
-            if (value !== undefined) await replaceJSON(file, value)
+    const readKeyValue = async (dir, key, objectId, digest) => {
+        const file = keyFile(dir, key, objectId, digest)
+        let record = keyRecords[file] ?? await readMemoryJSON(file)
+        if (record === undefined && readKey) {
+            record = await readKey({ path: relative(origin, file), catalog: catalogRootId(dir), objectId, key, digest })
+            if (record !== undefined) await replaceJSON(file, record)
         }
-        if (!Array.isArray(value)) throw new Error(`Missing indexed array value for ${key}/${objectId}`)
-        if (cacheEnabled || memoryEnabled(file)) arrayValues[file] = live(value)
-        return live(value)
+        if (record?.catalog !== catalogRootId(dir) || record.objectId !== objectId || record.name !== key || !Array.isArray(record.value))
+            throw new Error(`Missing indexed key value for ${key}/${objectId}`)
+        if (cacheEnabled || memoryEnabled(file)) keyRecords[file] = record
+        return live(record.value)
     }
 
     const partitionPath = file => relative(origin, file).split(/[\\/]/).join('/')
@@ -765,7 +766,7 @@ export function createIndex({
 
         const dir = address(database, array)
         const indexedValue = normalizedValue(value, type)
-        if (type === 'array') await writeArrayValue(dir, key, value, objectId, indexedValue)
+        if (type === 'array') await writeKey(dir, key, value, objectId, indexedValue)
         const existing = await root(dir, key, type)
 
         const entry = [indexedValue, objectId]
@@ -848,8 +849,8 @@ export function createIndex({
         await setRoot(dir, key, type, node?.id, node)
 
         if (type === 'array') {
-            delete arrayValues[arrayValueFile(dir, key, objectId, indexedValue)]
-            await rm(arrayValueFile(dir, key, objectId, indexedValue), { force: true }).catch(() => {})
+            delete keyRecords[keyFile(dir, key, objectId, indexedValue)]
+            await rm(keyFile(dir, key, objectId, indexedValue), { force: true }).catch(() => {})
         }
 
         if (key === '_id') await adjustLength(dir, -1)
@@ -959,7 +960,7 @@ export function createIndex({
 
                 yield {
                     value: currentType === 'array'
-                        ? await readArrayValue(dir, key, entry[1], entry[0])
+                        ? await readKeyValue(dir, key, entry[1], entry[0])
                         : entry[0],
                     objectId: entry[1]
                 }
@@ -1009,8 +1010,8 @@ export function createIndex({
                 for (const child of node?.indexes ?? []) await remove(child.id, key, type)
                 if (node?.kind === 'catalog') for (const entry of node.entries ?? []) await remove(entry[2], entry[0], entry[1])
                 else if (type === 'array') for (const [digest, uuid] of node?.entries ?? []) {
-                    const file = arrayValueFile(dir, key, uuid, digest)
-                    delete arrayValues[file]
+                    const file = keyFile(dir, key, uuid, digest)
+                    delete keyRecords[file]
                     await rm(file, { force: true })
                 }
                 await deleteNode(dir, id)
@@ -1104,7 +1105,7 @@ export function createIndex({
         // Lower-level node access stays internal
         // to the implementation.
 
-        clearCache: () => { cache?.clear(); for (const file of Object.keys(arrayValues)) delete arrayValues[file]; parents.clear(); remembered = new WeakSet() }
+        clearCache: () => { cache?.clear(); for (const file of Object.keys(keyRecords)) delete keyRecords[file]; parents.clear(); remembered = new WeakSet() }
     }
 }
 

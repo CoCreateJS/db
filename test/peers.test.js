@@ -167,7 +167,11 @@ test('connecting peers exchange local inventories once, then apply changes and f
     assert.equal(fetched.success, true, fetched.error?.join('; '))
     assert.equal(fetched.object[0].value, 1)
     assert.equal(fileId(fetched.object[0]), fileId(created.object[0]))
-    assert.ok(messages.some(value => value.method === 'db.document.request' && value.type === 'value'))
+    assert.ok(messages.some(value => value.method === 'db.document.request' && value.type === 'key'))
+    const transferredKey = messages.find(value => value.method === 'db.document.response' && value.record?.name === 'tags')?.record
+    assert.equal(transferredKey?.objectId, fileId(created.object[0]))
+    assert.deepEqual(transferredKey.value, ['shared'])
+    assert.match(transferredKey.catalog, /^[a-f0-9]{32}$/)
     await settle()
     assert.equal(second.db.persistenceStats().backgroundError, undefined)
     assert.equal(second.db.persistenceStats().indexError, undefined)

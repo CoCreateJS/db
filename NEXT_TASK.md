@@ -2,7 +2,7 @@
 
 Implemented: server-owned CRUD, supplied/generated `$update` patches, resolved
 client replies, peer patch application, index CRUD naming, `disk`, separate local
-and peer distribution, connection inventory exchange, accumulated API errors, flat UUID record/value files, permanent root.json, and peer file identity transfer.
+and peer distribution, connection inventory exchange, accumulated API errors, flat UUID record/key files, permanent root.json, and peer file identity transfer.
 
 ## Index layout migration
 

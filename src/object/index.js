@@ -228,15 +228,16 @@ export function createDB({
             return arrayDirectory(namespace, database, array)
         },
         readPartition: path => partitionAdapter?.read?.(path),
-        readValue: async ({ path, objectId, key, digest }) => {
+        readKey: async ({ path, catalog, objectId, key, digest }) => {
             for (const type of ['objects', 'arrays', 'databases', 'storages']) {
                 const record = await readJSON(recordPath(root, type, objectId))
                 const value = key.split('.').reduce((value, part) => value?.[part], record)
-                if (Array.isArray(value) && arrayDigest(value) === digest) return value
+                if (Array.isArray(value) && arrayDigest(value) === digest) return { catalog, objectId, name: key, value }
             }
             if (peerReader) for (const nodeId of (peerDistribution ?? peers).findFile(objectId)) {
-                const value = await peerReader({ nodeId, type: 'value', fileId: fileIdFromPath(path) })
-                if (Array.isArray(value) && arrayDigest(value) === digest) return value
+                const record = await peerReader({ nodeId, type: 'key', fileId: fileIdFromPath(path) })
+                if (record?.catalog === catalog && record.objectId === objectId && record.name === key &&
+                    Array.isArray(record.value) && arrayDigest(record.value) === digest) return record
             }
         },
         onPartitionChange: change => {
@@ -535,14 +536,14 @@ export function createDB({
     }
 
     const readLocalEntity = async ({ type, databaseId, arrayId, objectId, fileId: uuid }) => {
-        if (type === 'value') {
-            const value = await readJSON(recordPath(root, 'values', uuid))
+        if (type === 'key') {
+            const value = await readJSON(recordPath(root, 'keys', uuid))
             return value && identify(value, uuid)
         }
         if (type === 'database') return readDatabase(uuid ?? databaseId)
         if (type === 'array') return readArray(databaseId, uuid ?? arrayId)
         if (type === 'object') return readLocalObject(databaseId, arrayId, uuid ?? objectId)
-        throw new TypeError('Peer fetch type must be database, array, or object')
+        throw new TypeError('Peer fetch type must be key, database, array, or object')
     }
 
     const applyReplicatedObjectMutation = async ({ operation, database, array, object, fileId: uuid, databaseFileId, arrayFileId, createdOn, serverId, upsert = false }) => {

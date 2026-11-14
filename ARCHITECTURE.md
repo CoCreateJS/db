@@ -81,7 +81,7 @@ are flat within the organization; logical ownership lives in catalogs:
   databases/<fileUUID>.json
   arrays/<fileUUID>.json
   objects/<fileUUID>.json
-  values/<valueId>.json
+  keys/<keyId>.json
   deleted/<deletionId>.json
   distribution/...
 ```
@@ -280,11 +280,11 @@ The filesystem `createIndex` writer reports index root/node writes and removals 
 
 The older database/array/object entity-availability map remains for compatibility with exact-ID metadata/document acquisition. It is not the intended query-location model; the agreed direction is to traverse the regular index and its partition-holder references, then resolve the resulting data locally or through configured persistence. CoCreateDB initializes on the Cluster server instance as `server.db`; CRUD consumes that instance for routed requests.
 
-Current limits: inventory exchange is implemented over control-peer connections, but full inventories are not yet batched. File-level workflow persistence fallback and terminal-array value-file acquisition are not wired. Creates/deletes publish full records; updates publish `$update` patches and current database/array metadata to affected holders. A missing base is acquired from the sender without replaying an already included patch. This remains best-effort propagation without a durable outbox, distributed conflict policy, or multi-file transaction. Response ordering and external acknowledgment policy remain follow-up decisions; do not impose a new durability boundary implicitly.
+Current limits: inventory exchange is implemented over control-peer connections, but full inventories are not yet batched. File-level workflow persistence fallback is not wired; terminal-array key records can be acquired from peers. Creates/deletes publish full records; updates publish `$update` patches and current database/array metadata to affected holders. A missing base is acquired from the sender without replaying an already included patch. This remains best-effort propagation without a durable outbox, distributed conflict policy, or multi-file transaction. Response ordering and external acknowledgment policy remain follow-up decisions; do not impose a new durability boundary implicitly.
 
 ### Terminal array indexing — implemented
 
-`flattenIndexValues()` descends through ordinary object properties to full dot-notation paths, then treats an array as one terminal value. It does not create positional keys or nested property paths from array members. The recursive index stores a digest in its array branch and saves the complete live array in an organization-level `values/<id>.json` file. Missing value files can be acquired from known peers or recovered from the locally held owning record. `index.scan({ type: 'array' })` hydrates the full array value. Updates replace one terminal array entry, not an entry per position. Query planning uses the array branch to find candidate documents for membership and element operators; shared `queryData` validates the query. Queries into object fields inside arrays remain correct but scan candidate documents because those paths are not independently indexed.
+`flattenIndexValues()` descends through ordinary object properties to full dot-notation paths, then treats an array as one terminal value. It does not create positional keys or nested property paths from array members. The recursive index stores a digest in its array branch and saves a key record `{ catalog, objectId, name, value }` in an organization-level `keys/<id>.json` file. Its `value` retains the complete live array. Missing key records can be acquired from known peers or recovered from the locally held owning record. `index.scan({ type: 'array' })` hydrates the full array value. Updates replace one terminal array entry, not an entry per position. Query planning uses the array branch to find candidate documents for membership and element operators; shared `queryData` validates the query. Queries into object fields inside arrays remain correct but scan candidate documents because those paths are not independently indexed.
 
 ## 8. Storage adapters and object stores — future phase
 
@@ -340,7 +340,7 @@ A practical first milestone can deliberately be **single-process/single-writer**
 
 ## 11. Initial prototype status
 
-The repository contains a filesystem-backed ESM index plus a `createDB({ directory })` factory exposing `send()` for database, array, and object CRUD. Database/array name catalogs resolve to stable IDs; object payloads and indexes use flat UUID-addressed files. The recursive Distribution Index maps regular index partition paths to holder nodes. The Cluster adapter acquires missing partitions over targeted requests and sends changed partition contents to current holders; the older entity availability map remains for exact-ID metadata/document acquisition. Create indexes `_id` and supported field values independently; equality queries intersect candidates and range queries scan indexed type branches using shared JavaScript relational semantics. Indexes support number, string, boolean, null, and terminal array branches. Ordinary objects flatten to dot paths; full array values are stored whole in flat value files so array positions and nested members do not create independent index entries. Array object lengths are indexed in their parent database catalog and checked against `_id` roots; catalog `catalogLength` tracks mappings, and node lengths track subtree entries. An in-memory Map cache is opt-in.
+The repository contains a filesystem-backed ESM index plus a `createDB({ directory })` factory exposing `send()` for database, array, and object CRUD. Database/array name catalogs resolve to stable IDs; object payloads and indexes use flat UUID-addressed files. The recursive Distribution Index maps regular index partition paths to holder nodes. The Cluster adapter acquires missing partitions over targeted requests and sends changed partition contents to current holders; the older entity availability map remains for exact-ID metadata/document acquisition. Create indexes `_id` and supported field values independently; equality queries intersect candidates and range queries scan indexed type branches using shared JavaScript relational semantics. Indexes support number, string, boolean, null, and terminal array branches. Ordinary objects flatten to dot paths; full array values are stored whole in flat key records so array positions and nested members do not create independent index entries. Array object lengths are indexed in their parent database catalog and checked against `_id` roots; catalog `catalogLength` tracks mappings, and node lengths track subtree entries. An in-memory Map cache is opt-in.
 
 The Node tests cover index traversal and mutation, CRUD/catalog identities, shared operators, projections, demand-loaded peer data, holder-targeted propagation, local/peer inventory separation, disk-disabled operation, snapshot replacement and revision handling, disconnect/reconnect lifecycle, and restart under a new server ID. These are isolated tests. They do not establish multi-file transaction safety, crash recovery, real-network durability, workflow persistence fallback or complete user-subscription cleanup. Terminal-array transfer has isolated peer coverage. Existing rollback/write-behind baseline failures remain unresolved.
 
@@ -682,7 +682,8 @@ receive their normal updates. Mesh accepts the prepared frame to avoid a second
 serialization. Oversized single entries and minimum-fanout internal nodes remain
 valid. Unreplicated standalone indexes can grow above the preferred target.
 
-Terminal arrays are retained whole in memory and written as `values/<id>.json`. They are data, not index partitions.
+Terminal arrays are retained whole in memory and written in `keys/<id>.json`
+records containing `{ catalog, objectId, name, value }`. They are data, not index partitions.
 No byte-bound fragmentation happens during array mutations.
 
 Successful local disk writes capture bytes from their existing complete-file
@@ -735,8 +736,8 @@ records the virtual namespace path for cold split ancestry. No physical catalog
 directory or global record map is required.
 
 `root.json` is exchanged in connection inventories and announced on creation.
-Peers acquire catalogs, metadata records, object records, and terminal-array value
-files on demand. Parsed transport values become local live references; acquired
+Peers acquire catalogs, metadata records, object records, and terminal-array key
+records on demand. Parsed transport values become local live references; acquired
 files are saved locally when disk is enabled. Physical file UUIDs travel with peer
 requests, responses, and mutations. Peer updates still carry `$update`; clients
 receive the resolved record plus patch. Complete records are stored locally.
@@ -745,3 +746,20 @@ Deletion follows the affected catalogs and file references, never the whole shar
 indexes directory. Local distribution retains its separate internal layout and
 follows `disk`; peer inventory stays in memory. Existing datasets and old peer wire
 formats require coordinated migration; none is performed automatically.
+
+### Named terminal-array key records
+
+`keys/<id>.json` replaces raw terminal-array files under `values/`. Records hold
+`{ catalog, objectId, name, value }`: the owning catalog, physical owner UUID,
+dot-notation field name, and complete array. The key record shares its value with
+the owned document in memory. Full documents remain in `objects/`; scalar field
+indexes and nested ordinary-object indexing are unchanged. Arrays containing
+objects remain terminal, with no positional or recursive child catalogs yet.
+Nested storage options, uniqueness definitions, and public key CRUD remain future
+work. Existing digest-based filenames identify an indexed field revision; they
+are not permanent field identities. Index removal/drop deletes its key records.
+
+Peer fetches use `type: 'key'` and transfer the named record, not a raw array.
+Peers must run the matching format. This change does not migrate existing files;
+an owning document can supply a missing key record through the normal read path.
+Standalone indexes without owning documents need an explicit migration/rebuild.

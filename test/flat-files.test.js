@@ -60,10 +60,53 @@ test('all records use UUID filenames and metadata breadcrumbs reach every catalo
             assert.equal(catalog.id, record.value.index)
         }
     }
-    const values = await readdir(join(root, 'values'))
+    const values = await readdir(join(root, 'keys'))
     assert.ok(values.some(name => /^[a-f0-9]{32}\.json$/.test(name)))
     assert.equal((await readdir(root)).includes('catalogs'), false, 'logical catalog paths are not physical directories')
     assert.ok(result.distribution.includes(`${org}/objects/${fileId(body)}.json`))
+})
+
+test('array key records retain ownership and live values through update, restart, and unset', async t => {
+    const { db, directory, instances, root } = await fixture(t)
+    const items = [{ name: 'first', nested: { score: 1 } }]
+    const body = { profile: { items } }
+    const created = await send(db, 'object.create', { object: body })
+    assert.equal(created.success, true, created.error?.join('; '))
+    const stored = await onlyFile(root, 'keys')
+    assert.equal(stored.value.name, 'profile.items')
+    assert.equal(stored.value.objectId, fileId(body))
+    assert.match(stored.value.catalog, /^[a-f0-9]{32}$/)
+    assert.deepEqual(stored.value.value, items)
+    const liveKey = await readMemoryJSON(join(root, 'keys', `${stored.id}.json`))
+    assert.strictEqual(liveKey.value, items)
+    assert.strictEqual(liveKey.value[0], items[0])
+    assert.equal((await readdir(root)).includes('values'), false)
+    const document = JSON.parse(await readFile(join(root, 'objects', `${fileId(body)}.json`)))
+    assert.equal(document._id, body._id)
+    assert.deepEqual(document.profile, body.profile)
+
+    const updated = await send(db, 'object.update', { object: { _id: body._id,
+        $update: { $set: { 'profile.items': [{ name: 'second', nested: { score: 2 } }] } } } })
+    assert.equal(updated.success, true, updated.error?.join('; '))
+    await db.flush()
+    const changed = await onlyFile(root, 'keys')
+    assert.notEqual(changed.id, stored.id, 'terminal index values retain their revision-specific digest addressing')
+    assert.strictEqual((await readMemoryJSON(join(root, 'keys', `${changed.id}.json`))).value, body.profile.items)
+    assert.deepEqual(changed.value.value, [{ name: 'second', nested: { score: 2 } }])
+    await db.close()
+    removeMemoryPath(directory)
+    await rm(join(root, 'keys', `${changed.id}.json`))
+    const reopened = createDB({ directory })
+    instances.push(reopened)
+    const found = await send(reopened, 'object.read', { filter: { query: { 'profile.items': { $elemMatch: { name: 'second' } } } } })
+    assert.equal(found.success, true, found.error?.join('; '))
+    assert.equal(found.object.length, 1)
+    assert.deepEqual(found.object[0].profile.items, changed.value.value)
+    assert.deepEqual((await onlyFile(root, 'keys')).value, changed.value, 'a missing key record is restored from its complete owning document')
+    const removed = await send(reopened, 'object.update', { object: { _id: body._id, $update: { $unset: { 'profile.items': true } } } })
+    assert.equal(removed.success, true, removed.error?.join('; '))
+    await reopened.flush()
+    assert.deepEqual((await readdir(join(root, 'keys'))).filter(name => name.endsWith('.json')), [])
 })
 
 test('updates mutate the stored references and retain the physical UUID', async t => {

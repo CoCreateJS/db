@@ -1,11 +1,17 @@
 {
   "name": "@cocreate/db",
   "version": "0.0.0-development",
-  "description": "Filesystem-backed CoCreate object storage and automatic per-field indexing.",
+  "description": "JavaScript document database with rich queries, automatic indexing, and local-first storage.",
   "keywords": [
     "cocreate",
     "database",
-    "db"
+    "document-database",
+    "javascript",
+    "nosql",
+    "embedded-database",
+    "local-first",
+    "automatic-indexing",
+    "database-engine"
   ],
   "scripts": {
     "example:filesystem": "node examples/filesystem.js",

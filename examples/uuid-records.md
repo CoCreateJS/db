@@ -10,7 +10,7 @@ The production layout is covered by `test/flat-files.test.js`, `test/flat-indexe
   databases/<fileUUID>.json
   arrays/<fileUUID>.json
   objects/<fileUUID>.json
-  values/<valueId>.json
+  keys/<keyId>.json
   deleted/<deletionId>.json
   distribution/...
 ```

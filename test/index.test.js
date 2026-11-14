@@ -948,7 +948,7 @@ test('large terminal arrays remain whole outside index nodes and survive scans',
         const [entry] = await collect(index.scan('large-arrays', 'items', 'values', { type: 'array' }))
         assert.deepEqual(entry.value, array)
 
-        const indexDirectory = join(directory, 'values')
+        const indexDirectory = join(directory, 'keys')
         const inspect = async path => {
             const files = await readdir(path, { withFileTypes: true })
             const sizes = []
@@ -960,12 +960,12 @@ test('large terminal arrays remain whole outside index nodes and survive scans',
             return sizes
         }
         const nodeSizes = [...await inspect(indexDirectory), ...await inspect(join(directory, 'indexes'))]
-        const indexNodes = nodeSizes.filter(file => !file.path.includes(`${join('values', '')}`))
-        const storedValues = nodeSizes.filter(file => file.path.includes(`${join('values', '')}`))
+        const indexNodes = nodeSizes.filter(file => !file.path.includes(`${join('keys', '')}`))
+        const storedValues = nodeSizes.filter(file => file.path.includes(`${join('keys', '')}`))
         assert.ok(indexNodes.length > 0)
         assert.ok(indexNodes.every(file => file.size <= 512))
         assert.equal(storedValues.length, 1)
-        assert.match(storedValues[0].path, /values\/[a-f0-9]{32}\.json$/)
+        assert.match(storedValues[0].path, /keys\/[a-f0-9]{32}\.json$/)
         assert.ok(storedValues[0].size > 512)
     })
 })
@@ -1096,7 +1096,7 @@ test('CRUD writes register recursive index root and node files as locally held p
         assert.ok(partitions.every(({ nodeIds }) => nodeIds.includes('node-local')))
         assert.ok(partitions.some(({ partitionId }) => /^indexes\/[a-f0-9]{32}\.json$/.test(partitionId)))
         assert.ok(partitions.some(({ partitionId }) => /^indexes\/[a-f0-9]{32}\.json$/i.test(partitionId)))
-        assert.ok(partitions.every(({ partitionId }) => !partitionId.includes('/values/')))
+        assert.ok(partitions.every(({ partitionId }) => !partitionId.includes('/keys/')))
     })
 })
 

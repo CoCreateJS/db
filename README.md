@@ -1,5 +1,369 @@
 # CoCreateDB
 
+### One Database Engine. Any Runtime. Any Storage.
+
+**Not just a Data Lake. Not just a Data Warehouse. An Intelligent Data Ocean.**
+
+**Local-first. Memory-first. AI-native. Storage-agnostic. Distributed by design.**
+
+CoCreateDB is a lightweight, JavaScript-native NoSQL document database engine built for rich querying, intelligent indexing, and flexible persistence.
+
+Designed to work across devices, runtimes, clouds, storage providers, and database systems, CoCreateDB brings database intelligence closer to applications while separating data processing from where data is stored.
+
+**Your data doesn't have to live where your database runs.**
+
+[GitHub](<https://github.com/CoCreateJS/db>) · npm: `@cocreate/db` · [CoCreateJS](<https://github.com/CoCreateJS>)
+
+---
+
+## Why CoCreateDB?
+
+Traditional database architectures often require dedicated servers, network communication, caching infrastructure, and separate storage services.
+
+CoCreateDB takes a different approach.
+
+- **In-process execution:** Run database operations directly inside Node.js without a separate database server.
+- **Rich document querying:** MongoDB-inspired queries, updates, deletes, sorting, and nested object operations.
+- **Independent indexing:** Segmented indexes enable selective access to data without loading entire collections.
+- **Memory-first performance:** Keep frequently accessed data in memory and retrieve other objects on demand.
+- **Storage independence:** Separate querying and indexing from physical persistence.
+- **AI-ready architecture:** Expose structured metadata and indexing primitives to authorized AI workflows.
+- **Distributed vision:** Support local-first processing, synchronization, and data placement across infrastructure.
+
+CoCreateDB is designed to minimize infrastructure requirements without sacrificing expressive document operations.
+
+---
+
+## An Intelligent Data Ocean
+
+CoCreateDB introduces the concept of a **Data Ocean**: a unified, metadata-driven data architecture connecting active computation, distributed memory, and durable storage.
+
+Rather than treating data as a static repository, the Data Ocean vision describes how information can move between active and persistent states.
+
+### Surface Currents — Active Memory
+
+Frequently accessed data remains in memory, close to the applications using it.
+
+Local execution avoids unnecessary database-server communication and enables fast reads and writes.
+
+### Deep-Water Persistence — Durable Storage
+
+Inactive data can reside in local filesystems, object storage, or external databases without occupying application memory.
+
+Storage capacity and application compute can scale independently.
+
+### Upwelling — On-Demand Hydration
+
+CoCreateDB uses independently addressable indexes and metadata to identify relevant data.
+
+Only the required index partitions and objects need to be retrieved, rather than loading entire collections.
+
+**Active when needed. Persistent when idle. Discoverable through indexes.**
+
+The broader Data Ocean architecture envisions this behavior across multiple clouds, regions, devices, and storage providers. Distributed lifecycle automation and provider support depend on implementation maturity.
+
+---
+
+## One Engine. Any Environment.
+
+CoCreateDB is designed to separate database intelligence from the environment in which it executes.
+
+| Dimension | Intended environments |
+| --- | --- |
+| **Any Device** | Browsers, desktops, mobile, servers, edge devices |
+| **Any Runtime** | Client-side, server-side, serverless, distributed |
+| **Any Cloud** | AWS, Google Cloud, Azure, DigitalOcean, private infrastructure |
+| **Any Storage** | Memory, filesystem, IndexedDB, S3-compatible storage, cloud buckets |
+| **Any Database** | CoCreateDB and external database persistence adapters |
+
+CoCreateDB currently targets Node.js. Other runtime and storage integrations are part of its portability vision and should be verified individually.
+
+### Where It Fits
+
+CoCreateDB is particularly relevant for Node.js backends, self-hosted applications, microservices, local-first systems, development tools, data-processing services, and applications exploring distributed or object-storage-backed persistence.
+
+It is also intended to serve as the native database engine for CoCreate Server while remaining independently usable.
+
+
+A typical starting point is an embedded Node.js service that stores and queries documents in a named array:
+
+```js
+import { createDB } from '@cocreate/db'
+
+const db = createDB({ directory: './data' })
+const scope = {
+  organization_id: '000000000000000000000001',
+  storage: 'production',
+  database: 'app',
+  array: 'users'
+}
+
+const created = await db.send({
+  ...scope,
+  method: 'object.create',
+  object: { name: 'Ada', status: 'active' }
+})
+const result = await db.send({
+  ...scope,
+  method: 'object.read',
+  object: { _id: created.object[0]._id }
+})
+
+await db.close()
+```
+
+See [CRUD and hierarchy](#crud-and-hierarchy) for the full API and configuration details.
+
+---
+
+## AI-Native Data Intelligence
+
+**AI shouldn't have to search blindly through an entire database to find what matters.**
+
+CoCreateDB's local-first execution and independently accessible indexes create a foundation for integrating AI directly with database operations.
+
+Authorized AI agents can potentially use database primitives to:
+
+- Discover available keys and data structures.
+- Inspect index metadata and value ranges.
+- Identify relevant objects before retrieving them.
+- Execute structured queries.
+- Analyze and transform documents.
+- Perform permitted create, read, update, and delete operations.
+- Coordinate data workflows across distributed infrastructure.
+
+In the Data Ocean vision, AI can use metadata to determine what information is needed while CoCreateDB handles indexing, location, and retrieval.
+
+AI-native integration is an architectural direction, not a claim that a language model or autonomous agent is bundled with the engine. Access must remain permission-controlled.
+
+---
+
+## Rich Document Operations
+
+CoCreateDB uses a JavaScript-oriented data model:
+
+**Storage → Database → Array → Object → Key**
+
+Objects support nested structures and dot-notation paths such as:
+
+``` javascript
+"user.location.country"
+```
+
+### Query Operators
+
+| Category | Operators |
+| --- | --- |
+| Comparison | `$eq`, `$ne`, `$lt`, `$lte`, `$gt`, `$gte` |
+| Logical | `$and`, `$or`, `$nor`, `$not` |
+| Membership | `$in`, `$nin` |
+| Arrays | `$all`, `$elemMatch`, `$size` |
+| Elements | `$exists`, `$type` |
+| Patterns | `$regex`, `$options` |
+| Numeric | `$mod` |
+
+Example query expression:
+
+``` javascript
+{
+  status: "active",
+  age: { $gte: 18 },
+  "user.location.country": "Costa Rica"
+}
+```
+
+### Updates and Deletes
+
+CoCreateDB's mutation utilities support direct assignments, nested paths, and structured operators.
+
+| Category | Operators |
+| --- | --- |
+| Fields | `$rename`, `$unset`, `$delete`, `$inc` |
+| Arrays | `$push`, `$each`, `$splice`, `$pop`, `$shift`, `$pull`, `$addToSet`, `$slice` |
+
+Example update expression:
+
+``` javascript
+{
+  $inc: { views: 1 },
+  $push: { tags: "database" },
+  $unset: { "user.temporary": true }
+}
+```
+
+Object-level deletion is distinct from removing fields or array elements.
+
+CoCreateDB uses MongoDB-inspired syntax; exact compatibility and index-backed execution depend on the operator and implementation.
+
+---
+
+## Indexing at the Core
+
+**The index is not just a performance feature. It is a foundational database primitive.**
+
+CoCreateDB organizes indexes into independently addressable segments.
+
+Index metadata can include:
+
+- First and last indexed values.
+- Entry counts.
+- Object identifiers.
+- Previous and next segment references.
+- Hierarchical references for larger indexes.
+
+This structure allows the engine to navigate relevant portions of an index instead of loading every indexed value.
+
+Query planning can use index metadata to narrow candidate objects and reduce unnecessary reads.
+
+The same independently accessible indexing architecture provides a foundation for AI-assisted data discovery and distributed storage navigation.
+
+---
+
+## Memory-First Execution and Persistence
+
+CoCreateDB prioritizes local memory while supporting on-demand data loading.
+
+Its intended retrieval hierarchy is:
+
+1. Local process memory.
+2. Local filesystem.
+3. Peer memory.
+4. Peer filesystem.
+5. External persistence.
+
+The peer and remote-storage paths are part of the distributed architecture vision.
+
+### Storage-Agnostic Design
+
+CoCreateDB separates query execution, indexing, caching, and object operations from persistence.
+
+The architecture is intended to accommodate local filesystems, object-storage providers, external databases, and custom adapters.
+
+Native objects, indexes, and metadata can be persisted as independently addressable structures, supporting selective retrieval and potential restoration without rebuilding all indexes.
+
+### Deferred Writes
+
+Foreground database operations can be separated from queued persistence work.
+
+The reported `db.flush()` behavior waits for queued index and filesystem writes; it does not independently establish crash durability or an `fsync` guarantee.
+
+---
+
+## Distributed by Design
+
+CoCreateDB's distributed architecture envisions multiple nodes performing local operations and synchronizing changes asynchronously.
+
+The design favors eventual consistency for suitable workloads.
+
+Its goals include:
+
+- Local-first reads and writes.
+- Peer synchronization.
+- Distributed data placement.
+- New-node bootstrap.
+- Field-level conflict handling.
+- Configurable persistent storage.
+
+Replication, conflict resolution, recovery, and consistency guarantees must be verified before production use.
+
+---
+
+## Performance: CoCreateDB vs. MongoDB
+
+Preliminary direct-call benchmarks measured CoCreateDB running in-process against MongoDB accessed through its Node.js driver.
+
+### Read and Write Latency
+
+| Operation | CoCreateDB | MongoDB | Difference |
+| --- | ---: | ---: | ---: |
+| Read by ID | **0.950 ms** | 1.747 ms | 45.6% lower |
+| Equality query | **0.645 ms** | 1.758 ms | 63.3% lower |
+| Range query | 3.930 ms | **3.457 ms** | 13.7% higher |
+| Create | **0.788 ms** | 1.737 ms | 54.6% lower |
+| Update | **0.515 ms** | 2.206 ms | 76.7% lower |
+
+CoCreateDB recorded lower measured latency in four of the five operations shown.
+
+The CoCreateDB figures reflect its latest reported measurements. MongoDB values are from an earlier comparison run, not a newly rerun matched test.
+
+### Deferred Persistence
+
+| Operation | CoCreateDB |
+| --- | ---: |
+| Deferred create | 12.753 ms |
+| Deferred update | 0.404 ms |
+| Flush after create batch | 62.165 ms |
+| Flush after update batch | 9.167 ms |
+
+Flush times represent batch completion measurements, not per-object latency.
+
+### Benchmark Conditions
+
+The tests used 1,000 seeded documents and averages of three subsequent calls after a separately measured first call.
+
+CoCreateDB operations executed in-process; MongoDB operations included driver and network communication with write concern `{ w: 1, j: false }`.
+
+These measurements are preliminary, are not durability-equivalent, and do not establish universal performance superiority. Delete performance was not measured in this comparison.
+
+---
+
+## Lightweight by Design
+
+Reported implementation measurements:
+
+| Metric | Measurement |
+| --- | ---: |
+| Source files | 29 |
+| Lines of JavaScript | 5,703 |
+| Source content | \~267 KiB |
+| External runtime dependencies | 0 reported |
+| Incremental JavaScript heap | \~3.2 MiB |
+| Incremental resident memory | \~22 MiB |
+
+Memory measurements compare an empty Node.js runtime with an initialized, empty CoCreateDB instance.
+
+Source size is not the npm package size, and production memory usage depends on workload and cache configuration.
+
+---
+
+## Is CoCreateDB Right for You?
+
+CoCreateDB is designed for developers seeking an embeddable JavaScript document database with rich queries, independent indexing, memory-first performance, and flexible persistence.
+
+It is particularly attractive when reducing infrastructure dependencies and controlling data placement are priorities.
+
+Applications requiring mature distributed transactions, strict global consistency, established enterprise tooling, or specialized analytical engines should verify that CoCreateDB satisfies those requirements before adoption.
+
+---
+
+## Project
+
+**CoCreateDB** is an independent database engine within the CoCreateJS ecosystem.
+
+- **GitHub:** [CoCreateJS/db](<https://github.com/CoCreateJS/db>)
+- **npm:** `@cocreate/db`
+- **Language:** JavaScript
+- **Primary runtime:** Node.js
+- **Database model:** NoSQL documents
+- **Core architecture:** Independent segmented indexes, memory-first execution, storage-agnostic persistence
+
+
+---
+
+## The Future of Data Is Not Tied to One Location
+
+CoCreateDB combines a practical JavaScript document database with a larger vision for distributed, intelligent data infrastructure.
+
+**One Database Engine. Any Runtime. Any Storage.**
+
+**An Intelligent Data Ocean—where data is active when needed, persistent when idle, and discoverable wherever it lives.**
+
+---
+
+*Performance figures are preliminary November 2026 measurements. Runtime compatibility, storage adapters, distributed behavior, and production guarantees should be verified against the current implementation.*
+
+# CoCreateDB
+
 CoCreateDB (`@cocreate/db`) is CoCreate's filesystem-backed database engine.
 It provides storage, database, array, object, and index CRUD through `send(data)`.
 The recursive index engine is also independently usable.
@@ -43,7 +407,7 @@ and terminal array values have their own files. Organization and entity IDs are
   databases/<fileUUID>.json
   arrays/<fileUUID>.json
   objects/<fileUUID>.json
-  values/<valueId>.json            # complete terminal arrays
+  keys/<keyId>.json            # named terminal-array key records
   deleted/<deletionId>.json
   distribution/...                # local inventory only
 ```
@@ -181,7 +545,8 @@ server ID cannot be inferred safely and is not silently adopted.
 The same recursive engine indexes namespace catalogs and object fields. Supported
 values have separate number/string/boolean/null/array branches, ordered by value
 and then object ID. Ordinary object leaves use dot paths. Terminal arrays are
-stored whole in flat `values/` files outside index nodes. Query
+stored whole in flat `keys/` records outside index nodes, with the field name,
+owning record UUID, catalog ID, and live array value. Query
 matching uses shared utilities; nested array-member queries can require scans.
 Custom index definitions and uniqueness constraints are not implemented.
 

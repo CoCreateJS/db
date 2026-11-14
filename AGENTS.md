@@ -82,7 +82,7 @@ Keep I/O asynchronous even when memory-backed. Make adapters replaceable without
   databases/<file-uuid>.json
   arrays/<file-uuid>.json
   objects/<file-uuid>.json
-  values/<value-id>.json
+  keys/<key-id>.json
   deleted/<deletion-id>.json
   distribution/...
 ```
@@ -156,7 +156,7 @@ Never interpret `{ first: {}, last: {} }` as valid runtime boundaries; these pla
 
 ## Implementation status and priorities
 
-**Current implementation:** storage/database/array/object CRUD uses recursive catalogs and automatic field indexes. Index CRUD delegates to the current entry operations; update remains an insertion alias. Workers use the primary engine. Local inventory follows `db.disk`; peer inventories remain in memory and are exchanged on control connections. Worker/client recipient maps remain separate memory-only delivery metadata. Updates preserve `$update` patches for peers and return the resolved document plus patch to clients. Arrays are terminal values stored whole outside index nodes, in flat UUID-addressed value files.
+**Current implementation:** storage/database/array/object CRUD uses recursive catalogs and automatic field indexes. Index CRUD delegates to the current entry operations; update remains an insertion alias. Workers use the primary engine. Local inventory follows `db.disk`; peer inventories remain in memory and are exchanged on control connections. Worker/client recipient maps remain separate memory-only delivery metadata. Updates preserve `$update` patches for peers and return the resolved document plus patch to clients. Arrays are terminal values stored whole outside index nodes, in flat key records containing their name, owner, catalog, and whole value.
 
 **Remaining work:** see [NEXT_TASK.md](./NEXT_TASK.md). Workflow file-tree persistence and fallback, cross-node conflict/ordering policy, client IndexedDB changes, recipient cleanup, multi-file transactions and crash recovery remain incomplete. Keep disconnected persistence paths and the entity-holder acquisition directory until their replacements are decided. Passing isolated inventory tests is not proof of live-network or provider recovery.
 
@@ -377,3 +377,13 @@ are preserved; records and terminal values now use flat files. Storage-tier rout
 of partition I/O. Delete only nodes reachable from the affected catalog roots.
 Distribution indexes retain their prior local-only layout (`flat: false`).
 Nested automatic catalogs require migration; never silently read them as empty.
+
+### Terminal-array key records
+
+Store indexed whole arrays in `keys/<id>.json` as
+`{ catalog, objectId, name, value }`. `objectId` is the physical owner UUID;
+`name` is the dot path. Keep `value` as the owned array reference in memory.
+Current IDs derive from catalog, owner, path, and array digest, so an array
+revision can have a different key-file ID. Peer retrieval uses `type: 'key'`.
+Complete documents remain in `objects/`. Do not add scalar key files, recursive
+array-element decomposition, key CRUD, or `nested`/`unique` settings in this step.
