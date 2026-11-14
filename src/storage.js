@@ -1,7 +1,6 @@
 import { link, rename, writeFile } from 'node:fs/promises'
 import { mkdir, readdir, rm, unlink } from './io.js'
 import { persistenceFor } from './persistence.js'
-import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { readMemoryJSON, writeMemoryJSON, removeMemoryPath, memoryOnly, peekMemoryJSON } from './memory.js'
@@ -117,19 +116,6 @@ export function flattenIndexValues(object, prefix = '', entries = []) {
     }
 
     return entries
-}
-
-export function uniqueIndexEntries(object) {
-    const entries = new Map()
-
-    for (const [key, value] of flattenIndexValues(object)) {
-        const identity = Array.isArray(value)
-            ? JSON.stringify([key, createHash('sha256').update(JSON.stringify(value)).digest('hex')])
-            : JSON.stringify([key, value])
-        entries.set(identity, [key, value])
-    }
-
-    return [...entries.values()]
 }
 
 export async function writeExclusiveJSON(file, value) {

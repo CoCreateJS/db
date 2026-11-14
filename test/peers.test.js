@@ -8,11 +8,13 @@ import { setImmediate } from 'node:timers/promises'
 import { initializeServerDB } from '../src/index.js'
 import { createPeerDistribution } from '../src/peers.js'
 import { createDistributionIndex } from '../src/distribution.js'
+import { createDB as createEngine } from '../src/object/index.js'
 import { removeMemoryPath } from '../src/memory.js'
 
 const scope = { organization_id: '000000000000000000000001', storage: 'production', database: 'app', array: 'items' }
 const entity = { ...scope, storageId: '000000000000000000000099', databaseId: '000000000000000000000002' }
 const empty = { entities: [], partitions: [] }
+const cleanup = new WeakMap()
 
 test('peer snapshots replace only that peer, exclude self, and reject older revisions/sessions', () => {
     const peers = createPeerDistribution('self')
@@ -45,7 +47,17 @@ async function fixture(t, id, options = {}, directory) {
         return values[0] ?? payload
     }
     initializeServerDB(server, { directory, ...options })
-    t.after(async () => { await server.db.close(); removeMemoryPath(directory); await rm(directory, { recursive: true, force: true }) })
+    if (!cleanup.has(t)) cleanup.set(t, new Map())
+    const directories = cleanup.get(t)
+    if (!directories.has(directory)) {
+        directories.set(directory, [])
+        t.after(async () => {
+            for (const db of directories.get(directory).toReversed()) await db.close()
+            removeMemoryPath(directory)
+            await rm(directory, { recursive: true, force: true })
+        })
+    }
+    directories.get(directory).push(server.db)
     return { server, directory, db: server.db }
 }
 
@@ -101,6 +113,19 @@ test('legacy combined inventories retain the current owner and drop foreign disk
 test('disk=false does not disable the configured external recovery interface', async t => {
     const { db, directory } = await fixture(t, 'diskless', { disk: false, externalPersistence: true })
     assert.equal(db.persistence.enabled, true)
+    assert.deepEqual(await readdir(directory), [])
+})
+
+test('partial standalone adapters retain the local/peer split for entity and partition updates', async t => {
+    const directory = await mkdtemp(join(tmpdir(), 'coc-partial-adapters-'))
+    const db = createEngine({ directory, nodeId: 'self', disk: false, distributionAdapter: {}, partitionAdapter: {} })
+    t.after(async () => { await db.close(); removeMemoryPath(directory); await rm(directory, { recursive: true, force: true }) })
+    await db.updateDistribution({ databaseId: entity.databaseId, nodeId: 'peer', operation: 'add' })
+    await db.updatePartition({ partitionId: 'part/index.json', nodeId: 'peer', operation: 'add' })
+    assert.deepEqual(await db.getDistribution({ databaseId: entity.databaseId }), ['peer'])
+    assert.deepEqual(await db.getPartitionHolders('part/index.json'), ['peer'])
+    assert.deepEqual(await db.distribution.local.list(), [])
+    assert.deepEqual(await db.distribution.local.listPartitions(), [])
     assert.deepEqual(await readdir(directory), [])
 })
 

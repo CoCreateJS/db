@@ -11,6 +11,23 @@ export function mergeDistributionLists(local, peers, key = 'id') {
     return [...values.values()]
 }
 
+/** Local updates use the file-backed index; peer updates stay in memory. */
+export function createDistributionAdapters(nodeId, peers) {
+    const update = (payload, apply) => !nodeId || payload.nodeId === nodeId ? apply(payload) : peers.update(payload)
+    return {
+        distributionAdapter: {
+            update,
+            get: async (payload, read) => [...new Set([...await read(payload), ...peers.get(payload)])].sort(),
+            list: async (payload, read) => mergeDistributionLists(await read(payload), peers.list(payload))
+        },
+        partitionAdapter: {
+            update,
+            get: async (path, read) => [...new Set([...await read(path), ...peers.getPartition(path)])].sort(),
+            list: async read => mergeDistributionLists(await read(), peers.listPartitions(), 'partitionId')
+        }
+    }
+}
+
 /** Peer inventories belong only to this process, never to the file/index store. */
 export function createPeerDistribution(localId) {
     const inventories = new Map()
@@ -31,7 +48,10 @@ export function createPeerDistribution(localId) {
         else entries.set(key, value)
         return { changed: had !== entries.has(key), nodeIds: value.partitionId ? getPartition(key) : get(value) }
     }
-    const get = value => [...inventories].filter(([, peer]) => peer.entities.has(entityKey(value))).map(([id]) => id)
+    const get = value => {
+        const key = entityKey(value)
+        return [...inventories].filter(([, peer]) => peer.entities.has(key)).map(([id]) => id)
+    }
     const getPartition = path => [...inventories].filter(([, peer]) => peer.partitions.has(path)).map(([id]) => id)
     const list = (scope = {}) => {
         const result = new Map()
@@ -89,6 +109,9 @@ export function createPeerDistribution(localId) {
             return inventories.delete(nodeId)
         },
         connect: nodeId => disconnected.delete(nodeId),
-        scopes: () => [...inventories.values()].flatMap(peer => [...peer.entities.values()])
+        findScope(organization, storage) {
+            for (const peer of inventories.values()) for (const value of peer.entities.values())
+                if (value.organization_id === organization && value.storage === storage) return value
+        }
     }
 }

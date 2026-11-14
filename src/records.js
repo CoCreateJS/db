@@ -20,11 +20,6 @@ export async function updateRecord(index, database, array, file, current, update
     return live(current)
 }
 
-export async function reconcileRecordIndexes(index, database, array, current, updated) {
-    return reconcileEntrySets(index, database, array, updated?._id ?? current?._id,
-        indexEntries(current), indexEntries(updated))
-}
-
 export async function reconcileEntrySets(index, database, array, objectId, before, after) {
     const afterKeys = new Set(after.map(entryKey))
     const beforeKeys = new Set(before.map(entryKey))

@@ -1,7 +1,7 @@
 import { addDistribution, getDistribution } from '@cocreate/utils/distribution'
 import Config from '@cocreate/config'
 import { distributionReferences } from './distribution.js'
-import { createPeerDistribution, mergeDistributionLists } from './peers.js'
+import { createPeerDistribution, createDistributionAdapters } from './peers.js'
 import { createDB } from './scoped.js'
 import { resolveDirectory } from './directory.js'
 import { randomUUID } from 'node:crypto'
@@ -176,6 +176,7 @@ export function initializeServerDB(server, {
         return server.cluster.send(envelope)
     }
     const peers = createPeerDistribution(server.id)
+    const adapters = createDistributionAdapters(server.id, peers)
     const session = randomUUID()
     let revision = 0
     let db, backgroundError
@@ -338,9 +339,7 @@ export function initializeServerDB(server, {
     }
 
     const partitionAdapter = {
-        update: (payload, apply) => payload.nodeId === server.id ? apply(payload) : peers.updatePartition(payload),
-        get: async (path, read) => [...new Set([...await read(path), ...peers.getPartition(path)])],
-        list: async read => mergeDistributionLists(await read(), peers.listPartitions(), 'partitionId'),
+        ...adapters.partitionAdapter,
         onLocalChange: localPartitionChange,
         read: readPartitionFromPeers
     }
@@ -359,9 +358,7 @@ export function initializeServerDB(server, {
     }
 
     const distributionAdapter = {
-        update: (payload, apply) => payload.nodeId === server.id ? apply(payload) : peers.update(payload),
-        get: async (payload, read) => [...new Set([...await read(payload), ...peers.get(payload)])],
-        list: async (payload, read) => mergeDistributionLists(await read(payload), peers.list(payload), 'id'),
+        ...adapters.distributionAdapter,
         onLocalChange: async (payload, apply) => {
             const result = await apply(payload)
             if (result.changed) {

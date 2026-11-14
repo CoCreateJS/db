@@ -4,7 +4,7 @@ import { ObjectId } from '@cocreate/utils'
 import { createDB as createEngine } from './object/index.js'
 import createIndex from './index/index.js'
 import { createDistributionIndex, distributionReferences } from './distribution.js'
-import { createPeerDistribution, mergeDistributionLists } from './peers.js'
+import { createPeerDistribution, createDistributionAdapters } from './peers.js'
 import { createPersistence } from './persistence.js'
 import { memoryStats, enableMemoryCache } from './memory.js'
 import { auditMetadata, readJSON, replaceJSON, removeDirectoryPreservingDistribution } from './storage.js'
@@ -35,16 +35,9 @@ const STORAGES = 'storages'
 export function createDB(options = {}) {
     options = { ...options }
     const peers = options.peerDistribution ??= createPeerDistribution(options.nodeId)
-    options.distributionAdapter ??= {
-        update: (payload, apply) => !options.nodeId || payload.nodeId === options.nodeId ? apply(payload) : peers.update(payload),
-        get: async (payload, read) => [...new Set([...await read(payload), ...peers.get(payload)])].sort(),
-        list: async (payload, read) => mergeDistributionLists(await read(payload), peers.list(payload))
-    }
-    options.partitionAdapter ??= {
-        update: (payload, apply) => !options.nodeId || payload.nodeId === options.nodeId ? apply(payload) : peers.updatePartition(payload),
-        get: async (path, read) => [...new Set([...await read(path), ...peers.getPartition(path)])].sort(),
-        list: async read => mergeDistributionLists(await read(), peers.listPartitions(), 'partitionId')
-    }
+    const adapters = createDistributionAdapters(options.nodeId, peers)
+    options.distributionAdapter = { ...adapters.distributionAdapter, ...options.distributionAdapter }
+    options.partitionAdapter = { ...adapters.partitionAdapter, ...options.partitionAdapter }
     const root = resolve(options.directory ?? process.cwd())
     let queue = Promise.resolve()
     const serialize = operation => {
@@ -169,7 +162,7 @@ export function createDB(options = {}) {
         const record = await findStorage(organization, name(scope.storage, 'storage')) ??
             (create ? await createStorage(organization, scope.storage, scope) : undefined)
         if (!record) {
-            const peer = options.peerDistribution?.scopes().find(value => value.organization_id === organization && value.storage === scope.storage)
+            const peer = peers.findScope(organization, scope.storage)
             if (peer) return byId(peer)
         }
         return record ? engineFor(organization, record) : undefined

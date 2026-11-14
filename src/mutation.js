@@ -16,7 +16,7 @@ export function replaceLive(target, source) {
  * The view retains only changed property slots, not copies of objects or nodes.
  */
 export function prepareMutation(record) {
-    const slots = new WeakMap(), views = new WeakMap(), actions = [], paths = new Set()
+    const slots = new WeakMap(), views = new WeakMap(), actions = []
     const changes = target => {
         if (!slots.has(target)) slots.set(target, new Map())
         return slots.get(target)
@@ -29,13 +29,12 @@ export function prepareMutation(record) {
         changes(target).set(key, { value, deleted })
         actions.push({ target, key, value, deleted })
     }
-    const view = (value, path = '', arrayPath) => {
+    const view = value => {
         value = live(value)
         if (!value || typeof value !== 'object') return value
         if (views.has(value)) return views.get(value)
         const proxy = new Proxy(value, {
-            get: (target, key) => view(get(target, key), path ? `${path}.${String(key)}` : String(key),
-                arrayPath ?? (Array.isArray(target) ? path : undefined)),
+            get: (target, key) => view(get(target, key)),
             has: (target, key) => slots.get(target)?.has(key) ? !slots.get(target).get(key).deleted : key in target,
             ownKeys(target) {
                 const keys = new Set(Reflect.ownKeys(target))
@@ -55,10 +54,8 @@ export function prepareMutation(record) {
                 value = live(value)
                 const current = get(target, key)
                 if (Object.is(current, value) && (Object.hasOwn(target, key) || slots.get(target)?.has(key))) return true
-                const changedPath = arrayPath ?? (Array.isArray(target) ? path : path ? `${path}.${String(key)}` : String(key))
-                paths.add(changedPath)
                 if (Array.isArray(current) && Array.isArray(value)) {
-                    const array = view(current, path ? `${path}.${String(key)}` : String(key))
+                    const array = view(current)
                     for (let i = 0; i < value.length; i++) array[i] = live(value[i])
                     array.length = value.length
                     return true
@@ -74,7 +71,6 @@ export function prepareMutation(record) {
             },
             deleteProperty(target, key) {
                 if (key in target || slots.get(target)?.has(key)) {
-                    paths.add(arrayPath ?? (Array.isArray(target) ? path : path ? `${path}.${String(key)}` : String(key)))
                     stage(target, key, undefined, true)
                 }
                 return true
@@ -84,37 +80,9 @@ export function prepareMutation(record) {
         views.set(value, proxy)
         return proxy
     }
-    return { value: view(record), paths, commit() {
+    return { value: view(record), commit() {
         for (const { target, key, value, deleted } of actions)
             if (deleted) Reflect.deleteProperty(target, key)
             else Reflect.set(target, key, value)
     } }
-}
-
-// Resolve at dispatch time so a queued patch follows the current document.
-export function liveChanges(record, paths) {
-    record = live(record)
-    const changes = {}
-    const get = path => path.split('.').reduce((value, key) => value?.[key], record)
-    const selected = []
-    for (const path of paths) {
-        if (selected.some(parent => path.startsWith(parent + '.'))) continue
-        for (let i = selected.length - 1; i >= 0; i--)
-            if (selected[i].startsWith(path + '.')) selected.splice(i, 1)
-        selected.push(path)
-    }
-    Object.defineProperties(changes, {
-        $set: { enumerable: true, get() {
-            const values = {}
-            for (const path of selected) if (get(path) !== undefined)
-                Object.defineProperty(values, path, { enumerable: true, get: () => get(path) })
-            return values
-        } },
-        $unset: { enumerable: true, get() {
-            const values = {}
-            for (const path of selected) if (get(path) === undefined) values[path] = true
-            return values
-        } }
-    })
-    return changes
 }

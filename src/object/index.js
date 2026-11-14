@@ -4,13 +4,13 @@ import { createUpdate, ObjectId, queryData } from '@cocreate/utils'
 import { adjustArrayLength, ensureArray, materializeArray, sendArray } from '../array/index.js'
 import { adjustDatabaseLengths, ensureDatabase, materializeDatabase, sendDatabase } from '../database/index.js'
 import createIndex from '../index/index.js'
-import { createPeerDistribution, mergeDistributionLists } from '../peers.js'
+import { createPeerDistribution, createDistributionAdapters } from '../peers.js'
 import indexCRUD from '../index/crud.js'
 import { createDistributionIndex } from '../distribution.js'
 import {
     ARRAY_CATALOG, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
     arrayDirectory, arrayMetadataPath, auditMetadata, databaseDirectory, databaseMetadataPath,
-    normalizeObject, objectPath, objectDeletionPath, readJSON, replaceJSON, writeExclusiveJSON, setPath, typeOf, flattenIndexValues
+    normalizeObject, objectPath, objectDeletionPath, readJSON, replaceJSON, writeExclusiveJSON, setPath, flattenIndexValues
 } from '../storage.js'
 import { hasQueryConditions, normalizeQuery, queryIndexCandidates } from '../query.js'
 import { applyReadFilter } from '../read.js'
@@ -85,16 +85,9 @@ export function createDB({
 } = {}) {
     const root = resolve(directory)
     const peers = createPeerDistribution(nodeId)
-    distributionAdapter ??= {
-        update: (payload, apply) => !nodeId || payload.nodeId === nodeId ? apply(payload) : peers.update(payload),
-        get: async (payload, read) => [...new Set([...await read(payload), ...peers.get(payload)])].sort(),
-        list: async (payload, read) => mergeDistributionLists(await read(payload), peers.list(payload))
-    }
-    partitionAdapter ??= {
-        update: (payload, apply) => !nodeId || payload.nodeId === nodeId ? apply(payload) : peers.updatePartition(payload),
-        get: async (path, read) => [...new Set([...await read(path), ...peers.getPartition(path)])].sort(),
-        list: async read => mergeDistributionLists(await read(), peers.listPartitions(), 'partitionId')
-    }
+    const adapters = createDistributionAdapters(nodeId, peers)
+    distributionAdapter = { ...adapters.distributionAdapter, ...distributionAdapter }
+    partitionAdapter = { ...adapters.partitionAdapter, ...partitionAdapter }
     if (memoryCache || memoryOnly || disk === false) enableMemoryCache(root, { memoryOnly: memoryOnly || disk === false })
     const deferred = writeBehind || memoryOnly || disk === false
     const deletedObjects = new Map()
