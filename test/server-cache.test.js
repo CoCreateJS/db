@@ -20,7 +20,7 @@ test('worker CRUD uses only the primary engine and cache through awaited IPC', {
     const created = await db.send({ ...scope, method: 'object.create', object: { value: 1 } });
     assert.equal(created.success, true, created.error);
     const objectId = created.object[0]._id;
-    const worker = fork(new URL('../fixtures/db-cache-worker.mjs', import.meta.url), [], {
+    const worker = fork(new URL('./fixtures/db-cache-worker.mjs', import.meta.url), [], {
         env: { ...process.env, COCREATE_TEST_DB_DIRECTORY: join(directory, 'must-not-exist') }, stdio: ['ignore', 'ignore', 'pipe', 'ipc']
     });
     t.after(async () => {

@@ -15,7 +15,6 @@
     "distributed-database"
   ],
   "scripts": {
-    "example:filesystem": "node examples/filesystem.js",
     "test": "node --test",
     "start": "webpack --config webpack.config.js --watch",
     "build": "NODE_ENV=production webpack --config webpack.config.js"

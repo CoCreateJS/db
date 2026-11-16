@@ -21,4 +21,4 @@ import { CoCreateDB, DB_PROVIDER, init, initLocal, initializeServerDB } from './
 export { getPersistence, sendPersistence, getPersistenceDriver, registerPersistenceDriver, persistenceDrivers } from './persistence/index.js'
 
 export { createIndex, createDistributionIndex, createDB, CoCreateDB, init, initLocal, initializeServerDB, DB_PROVIDER }
-export default createIndex
+export default CoCreateDB

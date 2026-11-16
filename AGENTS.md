@@ -152,13 +152,13 @@ Never interpret `{ first: {}, last: {} }` as valid runtime boundaries; these pla
 - Updates changing/removing/adding nested keys; no stale index entries.
 - On-demand node fetches, cache invalidation, bounded memory, restart from persisted files.
 - Missing/corrupt files, malformed paths, oversized single entries, failed writes, and interrupted multi-node updates.
-- Standalone multi-writer conflicts are **not solved** by the current prototype. The `@cocreate/cluster` integration serializes writes through its primary; cross-server write coordination and crash recovery remain unsupported.
+- Mutation execution, conflict precedence, peer propagation, and persistence lifecycle are defined in [`specifications/`](specifications/). Follow those files as the authoritative policy; do not introduce a competing definition here.
 
 ## Implementation status and priorities
 
 **Current implementation:** storage/database/array/object CRUD uses recursive catalogs and automatic field indexes. Index CRUD delegates to the current entry operations; update remains an insertion alias. Workers use the primary engine. Local inventory follows `db.disk`; peer inventories remain in memory and are exchanged on control connections. Worker/client recipient maps remain separate memory-only delivery metadata. Updates preserve `$update` patches for peers and return the resolved document plus patch to clients. Arrays are terminal values stored whole outside index nodes, in flat key records containing their name, owner, catalog, and whole value.
 
-**Remaining work:** see [NEXT_TASK.md](./NEXT_TASK.md). Workflow file-tree persistence and fallback, cross-node conflict/ordering policy, client IndexedDB changes, recipient cleanup, multi-file transactions and crash recovery remain incomplete. Keep disconnected persistence paths and the entity-holder acquisition directory until their replacements are decided. Passing isolated inventory tests is not proof of live-network or provider recovery.
+**Remaining work:** see [NEXT_TASK.md](./NEXT_TASK.md). Workflow file-tree persistence and fallback, delivery recovery, client IndexedDB changes, recipient cleanup, multi-file transactions and crash recovery remain incomplete. Mutation and reconciliation behavior is specified in `specifications/`; implementation alignment remains tracked in `NEXT_TASK.md`. Keep disconnected persistence paths and the entity-holder acquisition directory until their replacements are decided. Passing isolated inventory tests is not proof of live-network or provider recovery.
 
 ## Future direction — proposed, not finalized
 
@@ -212,9 +212,14 @@ Reads use the data available during query execution and return after filtering,
 sorting, pagination, and projection. Do not flush pending indexes, wait for later
 updates, or add snapshot coordination to prepare a read response. Availability
 claims, acquired-file bookkeeping, and recovery indexing continue afterward.
-Deletes acknowledge removal from owned memory with an immediate lifetime guard;
-tombstone file writes and index cleanup are backend work. Later subscription events
-propagate changes naturally. The response is complete independently of these jobs.
+Current implementation: deletes acknowledge removal from owned memory with an
+immediate lifetime guard; tombstone writes and index cleanup are backend work.
+Mutation and reconciliation behavior is defined in
+[`specifications/mutations.md`](specifications/mutations.md) and
+[`specifications/reconciliation.md`](specifications/reconciliation.md). Current
+implementation differences and required alignment are tracked in
+[`NEXT_TASK.md`](NEXT_TASK.md); do not treat legacy stale-generation checks,
+delete markers, or missing-base acquisition as the policy definition.
 
 After successful indexing, holder-targeted index/document Mesh messages and a
 `db.indexed` IPC notification to workers are dispatched before disk persistence.
@@ -240,24 +245,15 @@ conservatively gates persistence for the root because catalogs/nodes are shared.
 Persistence cooldown defaults to 25 ms per path, bounded by a 1000 ms maximum wait
 once indexing is eligible; configure both through `persistenceOptions`. Flush and
 shutdown drain bypass cooldown. Do not debounce index processing or propagation.
-Deletion lifetime markers persist under `deleted/<deletionId>.json`, keyed by a
-hash of the logical database, array, and object ID. Keep them until
-an explicit recreation/upsert establishes a fresh creation date; ordinary updates
-cannot change `created.on`. ID-only updates cannot identify an old lifetime after
-intentional ID reuse; timestamps do not replace distributed version coordination.
-
-Object updates use `$update` as the mutation patch. Reuse a supplied per-object
-or envelope patch as-is; otherwise generate it from the request fields/operators.
-Do not add a patch-schema validation/correction layer. Execute through existing
-Utils `createUpdate` with the existing document identity/lifetime invariants.
-Client responses include the resulting record plus `$update`; peers receive
-`_id`, `$update` and audit metadata. The patch stays in delivery, never on the
-owned/persisted record. Peer application merges into its local document without
-originating the operation again. Missing-base acquisition fetches a current full
-snapshot and does not replay an already-included increment over it. Keep each
-pending patch when coalescing index work so increments/appends are not lost.
-Client adapters, operation ordering, deduplication/recovery and field-conflict
-policies are separate work; no new guarantees in those areas are implied.
+Mutation application and conflict precedence are specified in
+[`specifications/mutations.md`](specifications/mutations.md) and
+[`specifications/reconciliation.md`](specifications/reconciliation.md).
+Peer/client message behavior is specified in
+[`specifications/replication.md`](specifications/replication.md), and storage
+lifecycle in [`specifications/persistence.md`](specifications/persistence.md).
+Current code behavior is noted separately above; use `NEXT_TASK.md` for
+implementation alignment rather than treating implementation details as the
+contract.
 
 ### Required public namespace hierarchy
 

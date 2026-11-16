@@ -221,31 +221,31 @@ The same independently accessible indexing architecture provides a foundation fo
 
 ## Memory-First Execution and Persistence
 
-CoCreateDB prioritizes local memory while supporting on-demand data loading.
+CoCreateDB processes data in memory and returns CRUD results as soon as the
+requested data and operation result are ready. Durable reads and writes are
+mediated by the configured persistence workflow; the core does not prescribe a
+fixed filesystem/peer/provider retrieval order. The workflow decides which
+storage operations to run and in what order.
 
-Its intended retrieval hierarchy is:
-
-1. Local process memory.
-2. Local filesystem.
-3. Peer memory.
-4. Peer filesystem.
-5. External persistence.
-
-The peer and remote-storage paths are part of the distributed architecture vision.
+The current prototype still contains direct filesystem paths and persistence
+flags. Those are implementation gaps against the persistence architecture in
+[`specifications/persistence.md`](specifications/persistence.md), tracked in
+[`NEXT_TASK.md`](NEXT_TASK.md).
 
 ### Storage-Agnostic Design
 
-CoCreateDB separates query execution, indexing, caching, and object operations from persistence.
-
-The architecture is intended to accommodate local filesystems, object-storage providers, external databases, and custom adapters.
+CoCreateDB separates query execution, indexing, in-memory data operations, and
+persistence. All durable storage operations pass through the persistence
+workflow. The workflow may use local filesystems, object-storage providers,
+external databases, or custom providers.
 
 Native objects, indexes, and metadata can be persisted as independently addressable structures, supporting selective retrieval and potential restoration without rebuilding all indexes.
 
 ### Deferred Writes
 
-Foreground database operations can be separated from queued persistence work.
-
-The reported `db.flush()` behavior waits for queued index and filesystem writes; it does not independently establish crash durability or an `fsync` guarantee.
+Persistence runs after the CRUD response. `db.flush()` may drain pending DB and
+workflow work, but it does not independently establish crash durability or
+multi-artifact atomicity.
 
 ---
 
@@ -261,10 +261,14 @@ Its goals include:
 - Peer synchronization.
 - Distributed data placement.
 - New-node bootstrap.
-- Field-level conflict handling.
+- Timestamp-based mutation reconciliation; see the focused specifications below.
 - Configurable persistent storage.
 
-Replication, conflict resolution, recovery, and consistency guarantees must be verified before production use.
+Mutation execution, conflict precedence, peer propagation, and persistence are
+defined in [`specifications/`](specifications/). The timestamp-based
+reconciliation contract and its implementation gaps are documented there and
+tracked in [NEXT_TASK.md](NEXT_TASK.md). Recovery and durability guarantees must
+be verified before production use.
 
 ---
 
@@ -364,7 +368,9 @@ CoCreateDB combines a practical JavaScript document database with a larger visio
 
 # CoCreateDB
 
-CoCreateDB (`@cocreate/db`) is CoCreate's filesystem-backed database engine.
+CoCreateDB (`@cocreate/db`) is CoCreate's memory-first database engine. The
+current prototype uses filesystem persistence; the target routes durable
+operations through the persistence workflow.
 It provides storage, database, array, object, and index CRUD through `send(data)`.
 The recursive index engine is also independently usable.
 
@@ -393,11 +399,16 @@ Each target supports create/read/update/delete. Database and array updates renam
 metadata or merge configuration. Storage updates currently rename the storage.
 Logical names resolve through catalogs to stable IDs, so renames do not move data.
 
-The fixed hierarchy is organization → storages → databases → arrays → objects.
+The logical hierarchy is organization namespace → storages → databases → arrays → objects.
 Nested storages/databases are not implemented. Metadata, objects, field indexes,
 and terminal array values have their own files. Organization and entity IDs are
 24-character ObjectIds. Records have separate immutable UUID file addresses;
 `_id` stays inside the record as an indexed public value.
+
+The following tree documents the current prototype's local filesystem layout.
+It is not the target storage execution model: the persistence specification
+routes all durable operations through a workflow, and the workflow owns provider
+paths and I/O.
 
 ```text
 <directory>/<organization_id>/
@@ -418,6 +429,14 @@ to file UUIDs. Catalogs use the same recursive index engine and split during pee
 serialization. Empty root/catalog entry points remain available. Rename and update
 keep file UUIDs unchanged; the same public `_id` may appear in different arrays.
 
+### File roles and naming direction
+
+The intended names and relationships for the entry index, index nodes,
+distribution map, data artifacts, and logical scopes are defined in
+[`specifications/architecture.md`](specifications/architecture.md). The current format
+still uses `root.json` and its existing directories; migration to the specified
+layout requires a separate, explicit compatibility plan.
+
 ## Configuration and lifetime
 
 `CoCreateDB.init(server)` attaches `server.db` to Cluster. Workers forward requests
@@ -435,19 +454,20 @@ to the primary; they do not own database engines or filesystem caches.
 }
 ```
 
-`disk` defaults to true. With `disk: false`, both data and local distribution use
-memory without disk reads/writes. This does not itself disable external
-persistence. `memoryOnly: true` is the stricter test mode and disables external
-persistence too. Server defaults enable memory caching and write-behind;
-standalone defaults use write-through without retaining a shared memory cache.
-`COCREATE_DB_DIRECTORY` overrides the configured directory. Otherwise the default
-is the process working directory; server initialization can prompt for it.
+The options shown above describe the current prototype. Its `disk`,
+`memoryOnly`, `memoryCache`, `writeBehind`, and `COCREATE_DB_DIRECTORY` behavior
+is being aligned with the persistence workflow specification. In the target
+design, provider and filesystem path configuration belong to the workflow; the
+core has no direct-disk bypass or storage destination flag.
 
-Files are loaded on demand, not eagerly at startup. DB-owned values remain live
+In the current prototype, files are loaded on demand, not eagerly at startup.
+DB-owned values remain live
 references; callers should not mutate supplied/returned values outside DB APIs.
 With the server's default write-behind mode, object create/update acknowledges
 the owned in-memory value. Object delete acknowledges removing that owned value,
-with an immediate memory-only lifetime guard. Reads return the available data
+with a memory-only lifetime guard in the current implementation. The agreed
+mutation policy below removes stale-generation checks; this implementation gap is
+tracked in [NEXT_TASK.md](NEXT_TASK.md). Reads return the available data
 after query evaluation, sorting, pagination, and projection. They do not wait for
 pending indexing or a coordinated snapshot; later subscribed events propagate
 subsequent changes. Counters, availability, index reconciliation, client
@@ -492,24 +512,14 @@ uniform resolver for every CRUD target. An advertised partition whose holders
 cannot supply it produces an error. File-level persistence-workflow fallback is
 not wired yet.
 
-## Update contract
+## Specifications
 
-Each object can provide `$update`; an envelope-level `$update` is also accepted.
-The server reuses a supplied patch. Otherwise it constructs one from the original
-request, preserving operators and operands. Shared update utilities apply it
-locally. API execution errors accumulate normally; DB does not rewrite a supplied
-patch into a different schema.
-
-Clients receive the resolved document plus `$update`. Existing peer documents
-receive `_id`, `$update`, and update metadata, rather than a full stale document.
-A peer missing the base acquires the sender's current record without replaying a
-patch already included in it. A create followed by updates before initial indexing
-publishes the final create snapshot. Disk stores the complete document without
-transport `$update` metadata.
-
-Cross-node ordering, field conflict rules, operation deduplication, and client
-IndexedDB changes remain separate work. `$inc` retains its delta in the patch;
-this alone does not establish exactly-once delivery or distributed merge policy.
+[`specifications/README.md`](specifications/README.md) is the catalog and defines
+the runtime `index.json` entry point. The focused specifications cover the
+overall structure, scopes, field indexes, data artifacts, distribution,
+CRUD request and response flows, mutations, reconciliation, replication, and
+persistence. Each behavior has one authoritative definition; current
+implementation alignment is listed in [`NEXT_TASK.md`](NEXT_TASK.md).
 
 ## Distribution and delivery
 
