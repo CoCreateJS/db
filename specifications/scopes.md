@@ -1,73 +1,50 @@
 # CoCreateDB Scope Specification
 
-## Scope
+## Scope hierarchy
 
-This specification defines the logical scope path used to address CoCreateDB
-data. The overall physical layout is summarized in
-[architecture.md](architecture.md); the root entry artifact is defined in
-[README.md](README.md).
-
-## Scope path
-
-Every organization-scoped request carries a required, caller-supplied
-`organization_id` in its payload. It is the immutable top-level namespace scope
-and creates the main entry point for that organization's database tree:
+Every operation carries a required, caller-supplied `organizationId` as a top-level payload property. It is immutable for the operation, selects tenancy per request, and is separate from application object content and instance configuration.
 
 ```text
-configured base directory → organization_id (namespace scope) → storage → database → array → object → key
+organizationId → storage → database → array → object → key
 ```
 
-The namespace scope is separate from the child data-scope path below. It
-participates in addressing every child scope, but the CRUD method does not target
-it as an `organization.create`, `organization.read`, `organization.update`, or
-`organization.delete` operation. The first request that resolves an
-organization initializes its namespace root as needed. The organization ID is
-not generated from the path; it is supplied by the caller and used as the
-namespace directory name.
+Illustrative object creation payload:
 
-The child data-scope path, beneath the namespace scope, is:
-
-```text
-storage → database → array → object → key
+```js
+{
+    method: "object.create",
+    organizationId: "organization-a",
+    storage: "production",
+    database: "application",
+    array: "users",
+    object: { name: "Example" }
+}
 ```
 
-Each scope is resolved through its parent scope. `storage`, `database`, `array`,
-`object`, and `key` name logical levels in the data model; they do not each
-create an independent root of the organization tree.
+The method selects a child scope and operation; organization is not a CRUD method prefix. A key is a logical path within an object, not a separate CRUD target. Each child scope is resolved through its parent using catalog/index references. Identical logical names in different parent scopes do not identify the same record.
 
-## Namespace path and filesystem workflow
+## Tenancy isolation
 
-The organization namespace is the first storage address. CoCreateDB passes the
-caller-supplied organization ID through the persistence boundary; it does not
-perform direct filesystem path construction or append a product-name directory.
-If a local filesystem persistence workflow is configured, its base directory
-determines the physical path and follows this convention: relative paths resolve
-from the process working directory, and an unspecified path defaults to the
-working directory itself.
+The authorized organization context is validated before bootstrap resolution or artifact acquisition. A payload ID is an address, not proof of authorization. All cache entries, pending work, subscriptions, provider operations and peer messages preserve organization context. UUID lookup alone cannot cross a tenancy boundary, even if two namespaces contain the same UUID. The organization ID is not generated from a filesystem path or rewritten by ordinary CRUD.
 
-Examples for a local filesystem workflow, with `<organization_id>` supplied by
-the request and `COCREATE_DB_DIRECTORY` unset:
+## Namespace provisioning
 
-```text
-workflow path unset or "."        → <cwd>/<organization_id>/
-workflow path "../CoCreateDB"    → <cwd>/../CoCreateDB/<organization_id>/
-workflow path "../organizations" → <cwd>/../organizations/<organization_id>/
-workflow path "../clusterdb"     → <cwd>/../clusterdb/<organization_id>/
-workflow path "../"              → <cwd>/../<organization_id>/
-```
+The external bootstrap authority supplies the required `index.json` for the selected organization. New namespace creation is explicit; reopening does not silently initialize a missing namespace. See [README.md](README.md).
 
-The workflow's base path controls placement only. It does not change the logical
-namespace identity or add another scope level. The current core `directory` and
-`COCREATE_DB_DIRECTORY` handling is legacy behavior to migrate into the
-filesystem workflow.
+## Filesystem workflow
 
-## Scope and artifact distinction
+A filesystem workflow resolves its base path relative to the process working directory (CWD), defaulting to CWD when unspecified. `COCREATE_DB_DIRECTORY` belongs to workflow configuration. The workflow does not append an implicit product-name directory.
 
-Scopes describe where a value belongs logically. Index nodes, distribution
-records, and data files are physical artifacts used to locate, organize, or
-persist those values. An artifact's filename or node ID does not change the
-logical scope path.
+| Configured base | Organization location |
+| --- | --- |
+| Unset or `.` | `<cwd>/<organizationId>/` |
+| `../` | `<cwd>/../<organizationId>/` |
+| `../CoCreateDB` | `<cwd>/../CoCreateDB/<organizationId>/` |
+| `../organizations` | `<cwd>/../organizations/<organizationId>/` |
+| `../clusterdb` | `<cwd>/../clusterdb/<organizationId>/` |
 
-The `data/` representation of scoped records is defined in
-[data.md](data.md). The root index and index-node relationship is defined in
-[README.md](README.md) and [indexes.md](indexes.md).
+The canonical data artifact path is `<base>/<organizationId>/data/<uuid>`. The workflow validates path components and prevents traversal or namespace escape. Bootstrap and distribution ownership are separate from durable data persistence; the corresponding integration must know its local location.
+
+## Addressing invariants
+
+Physical addresses use organization context plus opaque UUID. Storage, database, array, object and key names express logical relationships, not physical paths. Provider remapping and artifact relocation do not alter these relationships. See [data.md](data.md) for identity and [crud.md](crud.md) for method routing.

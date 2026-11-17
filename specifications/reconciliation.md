@@ -44,16 +44,12 @@ operation twice.
 Create, update, upsert, and delete use the same ordering policy. An update to an
 absent document does not create it unless it is an upsert. A delete prevents an
 older upsert from restoring the document; only a newer upsert may restore it.
-The implementation needs durable deletion-order metadata or an equivalent
-authoritative recovery rule if this guarantee must hold after temporary markers
-are lost.
+Durable deletion-order metadata or an equivalent authoritative recovery rule preserves this guarantee after temporary markers are lost.
 
-## Requirements still needing implementation
+## Ordering, identity and recovery
 
-- Stable ordering for equal-timestamp mutations.
-- Per-field ordering where document-level timestamps are insufficient.
-- Idempotency for relative operators and duplicate delivery.
-- Deterministic delete-versus-upsert behavior across delayed replication.
-- Recovery behavior when persistence or propagation fails.
+Equal-time ordering is deterministic across nodes. Metadata distinguishes independent paths and overlapping parent/child and array changes. Relative operations preserve original intent and identity and have an explicit ordering and replay policy; deduplication prevents a repeated delivery from applying the same effect twice. A timestamp alone does not guarantee convergence under clock skew or noncommutative operations.
 
-These are protocol requirements; they do not imply distributed locking.
+Competing creates and recreation require agreement on logical identity and artifact UUID mapping. Deletion-order and deduplication metadata required across restarts belongs in `data/`, under the same workflow as other durable artifacts. Retention must account for delayed replay. Missing bases are acquired or explicitly reported; a relative operation cannot be applied to an invented empty object.
+
+The precise tie-breaker, clock assumptions, per-path metadata, relative-operation ordering and retention horizon are explicit protocol parameters. No convergence guarantee beyond the defined protocol is inferred. See [replication.md](replication.md) and [persistence.md](persistence.md).

@@ -24,20 +24,16 @@ A CRUD method has the form `<scope>.<operation>`:
 
 The method prefix identifies which child data-scope handler receives the
 request; the suffix selects the CRUD operation applied there. Every request also
-carries `organization_id` as its immutable top-level namespace scope. That
+carries `organizationId` as its immutable top-level namespace scope. That
 namespace is part of the address but is not a CRUD method prefix. Scope routing
-and hierarchy are defined in [scopes.md](scopes.md). The current scoped engine
-accepts these five prefixes and four operation suffixes. Object CRUD requires a
-database and array scope; the filesystem prototype accepts one database and
-array per object request. A `key` is addressed as data within an object, not as
-a separate CRUD method prefix in the current dispatcher.
+and hierarchy are defined in [scopes.md](scopes.md). Object CRUD resolves one storage, database and array scope per request. A `key` is addressed as data within an object, not as a separate CRUD method prefix.
 
 ## Common request and response conventions
 
 - Requests identify the target scope and use the `<scope>.<operation>` method.
 - Successful responses use a property named for the target scope, such as
   `object`, `array`, or `database`.
-- Object mutation responses return the resulting document and its update object
+- Object mutation responses return the resulting document and its `$update` object
   to clients. Reads return document state without an update object.
 - Failed validation or execution returns `success: false` with error details.
 - The scope handler owns scope-specific validation and behavior; the database
@@ -127,26 +123,22 @@ the field values without schema-based coercion; the query value is compared to
 the stored value using the shared operator's semantics. Indexes narrow candidate
 sets only when that cannot change the result.
 
-The shared `@cocreate/utils` query set includes `$eq`, `$ne`, `$not`, `$lt`,
+The shared `@cocreate/utils` query contract governs operators such as `$eq`, `$ne`, `$not`, `$lt`,
 `$lte`, `$gt`, `$gte`, `$in`, `$nin`, `$all`, `$elemMatch`, `$size`, `$exists`,
 `$regex`, `$options`, `$type`, `$mod`, `$where`, `$and`, `$or`, and `$nor`.
 
-Object update modifiers use shared `createUpdate` behavior. The supported set
+Object update modifiers use shared `createUpdate` behavior. The shared operator set
 includes `$set`, `$rename`, `$inc`, `$push`, `$each`, `$splice`, `$unset`,
 `$delete`, `$slice`, `$pop`, `$shift`, `$addToSet`, and `$pull`. Their operand,
 path, array, and validation semantics are owned by the Utils operator contract;
 this specification describes how CRUD invokes them, not a second operator
 implementation. See [`../utils/README.md`](../utils/README.md) in the sibling
-CoCreate modules repository for the current shared operator reference.
+CoCreate modules repository for the shared operator reference.
 
-## Target contract versus current implementation
+## Tenancy and identity
 
-The timestamp-based `updated.on` reconciliation and peer/client payload
-distinction above describe the target contracts. Current code applies
-creation-time stale-generation guards rather than the specified timestamp
-convergence. It returns resulting object state and `$update` to clients for
-updates; peers receive update patches for ordinary updates, while create/delete
-peer propagation still includes full records. Track these implementation gaps
-in [`../NEXT_TASK.md`](../NEXT_TASK.md). The exact no-match/update response,
-per-scope authorization contract, and complete non-object scope CRUD semantics
-remain open.
+Every operation selects an authorized tenancy through top-level `organizationId` alongside the child scope properties. The value is never derived from the application object. Object `_id` and artifact UUID are distinct; ordinary updates preserve both. Requests cannot alter ownership or immutable creation metadata. Scope deletion respects reachability and must not leave orphaned owned resources or delete unrelated scopes.
+
+## Operator and response boundaries
+
+The shared Utils contract is authoritative for supported operator names, operand semantics and extended-value handling. Executable predicates such as `$where` require explicit authorization and execution policy; a serialized value is not permission to execute code. No-match updates without upsert never create objects. The exact no-match response shape, uniqueness rules, per-scope authorization and non-object lifecycle details require an explicit public contract; no success shape or cascade guarantee is inferred here.

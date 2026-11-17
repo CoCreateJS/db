@@ -1,47 +1,26 @@
 # CoCreateDB Distribution Specification
 
-## Scope
+## Local distribution state
 
-This specification defines the purpose and ownership of `distribution/` data.
-The overall physical layout is summarized in [architecture.md](architecture.md).
-
-## Role of `distribution/`
-
-`distribution/` maps data and index artifacts to the cluster nodes that hold
-them. It records location and availability; it does not contain document
-payloads or replace the indexes used to filter query results.
-
-For a filesystem persistence workflow, the organization-level path may include:
+`distribution/` contains the local operational metadata used to manage and maintain distribution of files held on local disk. It is separate from `data/`, is not a portable database artifact, and is excluded from database cloud persistence and export. The local distribution subsystem owns its inventory lifecycle and location; it does not create a second durable database persistence path.
 
 ```text
-<workflow-base>/<organization_id>/
-  distribution/
+<organizationId>/distribution/
+    <local operational metadata>
 ```
 
-This is an artifact role, not a core-owned filesystem path. The persistence
-workflow maps distribution artifacts to its configured provider.
+Durable reconciliation and deletion records belong in `data/`. The local inventory is distinct from remote-peer inventory learned in memory; remote inventory is not persisted by default.
 
-## Placement records
+## Holders and discovery
 
-A distribution record identifies an artifact or partition and its current
-holder node or nodes. Placement metadata must refer to the artifact using its
-stable scope/address or partition identity, rather than copying the artifact's
-contents into the distribution map.
+Holder records identify artifacts using exact organization and UUID context, location, availability and revision information. A cached holder and a durable holder are not interchangeable; advertisements indicate what can actually be supplied. Discovery supports targeted requests, inventory exchange, session/reconnect handling, stale-holder cleanup and bounded timeouts. Record representation and restart reconstruction follow the distribution integration contract.
 
-Distribution state is distinct from:
+## Demand-driven acquisition
 
-- **Indexes:** structures that map field values to candidate object identities.
-- **Data:** persisted object values and other data artifacts.
-- **Replication:** messages that carry mutations or state between nodes.
+A node opens a namespace using its external bootstrap and acquires necessary root/catalog paths, index segments and objects on demand from authorized available sources. It retains decoded working-set values in the organization Map. Full replication and whole-index hydration are not required. Subscriptions and holder promotion track demand; eviction releases working-set copies without deleting the database or removing its last required durable copy.
 
-## Discovery and acquisition
+Artifact addresses remain stable when a file moves between holders. References resolve through authorized discovery rather than semantic file paths. An advertised but unavailable artifact is an acquisition failure, not an empty index or absent object. Locked, corrupt and incomplete artifacts are distinguishable from absence. Reconnection never regenerates lost content silently.
 
-Distribution information supports locating holders and requesting missing
-artifacts. An advertised artifact that no holder can supply is an availability
-failure; it must not be treated as an empty index or absent document without
-checking the relevant data source.
+## Responsibility boundaries
 
-The exact record schema, consistency protocol, stale-holder cleanup, inventory
-exchange, and recovery rules remain implementation contracts to define as the
-distribution system evolves. Current prototype behavior and outstanding work
-are recorded in `ARCHITECTURE.md` and `NEXT_TASK.md`.
+Placement identifies where values are available, not which objects match a query. Indexes identify candidates; data artifacts contain complete values; replication conveys mutations. Local inventory ownership, exact holder/revision schema, subscription lifetime, eviction and restart policy are explicit integration parameters. See [replication.md](replication.md), [data.md](data.md) and [persistence.md](persistence.md).

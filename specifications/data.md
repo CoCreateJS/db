@@ -1,50 +1,37 @@
 # CoCreateDB Data Specification
 
-## Scope
+## Data ownership
 
-This specification defines the role of the `data/` artifact group. The complete
-storage map is in [architecture.md](architecture.md); logical addressing is in
-[scopes.md](scopes.md). Persistence workflows decide the physical backend and
-mapping for these artifacts.
+`data/` contains every database-owned durable artifact: complete application objects, scope catalogs, index roots and segments, and durable reconciliation metadata. It is the sole database-managed cloud persistence and portable export boundary. The external bootstrap manifest and local distribution state are not data artifacts.
 
-## Role of `data/`
+## Artifact addressing
 
-`data/` names the group of persisted data artifacts: the actual values belonging
-to CoCreateDB scopes. It is separate from `indexes/`, which contains lookup
-structures, and `distribution/`, which records where artifacts are held. The
-name identifies an artifact role/address; it does not require a physical
-directory named `data/` in every provider.
+Each artifact has an opaque randomly generated UUID. The canonical filename is exactly that UUID, without an extension or semantic path. UUIDs are unique within the organization namespace; collisions cannot overwrite unrelated artifacts. Ordinary updates preserve UUID identity. New artifacts, including new index segments, receive new addresses. A deleted address is not reused for unrelated data. The precise UUID textual representation and concurrent creation mapping are governed by the identity contract.
 
-For a filesystem persistence workflow, the intended organization-level layout
-may be represented as:
+Logical object `_id` identifies an object within its logical scope; the physical UUID identifies its stored artifact. Index/catalog references resolve logical identities to UUIDs. Relocation to another holder does not change those references.
 
-```text
-<workflow-base>/<organization_id>/
-  data/
-    <storage>/<database>/<array>/...
+## Complete objects
+
+One application object occupies one artifact, including nested objects, arrays and supported binary values. Keys describe paths in the object rather than separately stored payloads. For example:
+
+```js
+{
+    _id: "logical-id",
+    settings: { appearance: { theme: "dark" } },
+    permissions: ["read", "write"]
+}
 ```
 
-The persistence workflow maps these logical artifact paths to its configured
-provider. It may store them in local files, cloud object stores, or other
-destinations. The precise encoding and filenames are subject to the storage
-layout migration task. The logical path remains
-`organization namespace → storage → database → array → object → key` regardless
-of encoding.
+Indexes for `settings.appearance.theme` and `permissions` can both reference the same complete object UUID. Reads acquire that object, verify predicates and apply projection in memory. Updates apply shared operators to its logical paths and persist the resulting complete object, not separate terminal key artifacts. A small update to a large object may therefore rewrite the whole artifact.
 
-## Stored values
+## Unified values
 
-- An object represents a document's key-value data.
-- Values retain their supplied JSON-compatible representation; indexing does
-  not normalize or rewrite document values.
-- Nested object keys remain part of the object value. Indexing nested paths is a
-  separate projection described in [indexes.md](indexes.md).
-- Object identity and scope addressing determine which document an artifact
-  represents; physical file IDs are storage details.
-- Index metadata, holder maps, and query-only projections are not document data.
+Runtime values remain decoded JavaScript values. The shared serialization contract preserves nested objects/arrays, strings, booleans, null, explicit undefined distinct from missing, finite and non-finite numbers including NaN and infinities, and native binary bytes. Unsupported values are rejected explicitly. Binary values are atomic for traversal unless an explicit operator contract provides otherwise. Encoding does not execute content or infer schemas. See [persistence.md](persistence.md).
 
-## Boundaries
+## Decoded working set
 
-Mutation behavior that changes stored objects is specified in
-[mutations.md](mutations.md). Durable authority, local cache, deletion, and
-restart behavior are specified in [persistence.md](persistence.md). This file
-does not define a second mutation or persistence policy.
+One organization-scoped `data` Map holds decoded artifacts keyed by exact UUID. Existence checks distinguish an explicitly stored undefined from absence (`Map.has`). Multiple organizations can have separate Maps in a registry. Acquisition is lazy, and caching does not create a duplicate authoritative object model. Index projections are derived data, not alternative application object storage. Eviction removes a working-set copy; deletion changes durable database state.
+
+## Lifecycle
+
+Accepted mutations produce stable resulting values for persistence. Deletion removes the object and relevant index entries while retaining required ordering metadata as data artifacts. Publication, retries and recovery follow [persistence.md](persistence.md); placement and retrieval follow [distribution.md](distribution.md).

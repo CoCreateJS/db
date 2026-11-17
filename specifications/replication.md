@@ -2,42 +2,20 @@
 
 ## Scope
 
-This specification defines how mutation information moves between peers and
-clients. Mutation semantics are defined in [mutations.md](mutations.md),
-conflict precedence in [reconciliation.md](reconciliation.md), and storage
-lifecycle in [persistence.md](persistence.md).
-
-## Peer propagation
-
-- Peers receive operation-tagged mutation/update objects with the addressing,
-  original timestamp and identity, and reconciliation metadata needed to apply
-  them.
-- Ordinary peer mutations propagate update objects rather than resulting
-  document snapshots.
-- Receiving peers reconcile incoming operations against their own state before
-  applying them.
-- Duplicate delivery must not apply relative operations more than once.
-- A reconciled update must retain enough original ordering information for
-  downstream peers to make the same decision.
+Replication propagates mutation intent to peers and resulting state to clients. [Mutations](mutations.md) owns application; [reconciliation](reconciliation.md) owns precedence; [distribution](distribution.md) owns artifact acquisition.
 
 ## Client propagation
 
-Clients receive the resulting document state together with the corresponding
-mutation/update object. Deletions include explicit deletion state.
+Clients receive the resulting object and corresponding `$update` for accepted mutations, with explicit deletion state for deletes. Reads return state without a mutation update. The client response is initiated immediately when required acquisition and in-memory result construction finish; neither disk, cloud, peer nor client acknowledgment gates it. Client-side IndexedDB durability is independent.
 
-Return this response as soon as the in-memory CRUD result is ready. Peer
-delivery, persistence, and client acknowledgment are not prerequisites. CoCreateDB
-does not wait for a client acknowledgment before continuing backend work;
-durable client-side recovery is a separate client responsibility and protocol.
+## Peer propagation
 
-## Delivery and responsibility boundaries
+Initiate peer dispatch back-to-back with client response handoff, prioritizing the client without waiting for either acknowledgment. Peer mutations carry operation tags, original timestamp and identity, authorized organization and scope addressing, UUID mapping as needed, and required reconciliation metadata. They carry update intent rather than redundant resulting object snapshots. Create intent includes sufficient initial values; deletion explicitly identifies the lifecycle operation.
 
-CoCreateDB owns peer message shape and mutation application. Mesh owns routing
-and delivery mechanics. CRUD Client/Server and CRDT callers may handle their own
-offline intent, validation, and pre-submission reconciliation, but CoCreateDB
-still applies its specified reconciliation policy to peer mutations.
+Receiving nodes reconcile against their own state, preserve original identity and timestamps, and prevent duplicate effects and re-origination loops. An update filtered at one node is not necessarily appropriate at another. Missing bases are resolved through complete-artifact acquisition or explicit failure; mutation messages and artifact acquisition are distinct protocols.
 
-Message delivery, retries, durable acknowledgments, and multi-file atomicity are
-separate guarantees. A successful send alone does not establish durable replica
-acknowledgment. Current implementation gaps and alignment work are tracked in
-`NEXT_TASK.md`.
+## Delivery boundaries
+
+CoCreateDB owns mutation message semantics; Mesh owns routing and delivery mechanics. Shared transport encoding preserves the agreed value model end to end on supported paths. Unsupported paths cannot silently coerce values. Transport security is independent of encryption at rest. CRUD Client/Server and CRDT callers can perform independent validation or offline intent management without replacing database reconciliation.
+
+Dispatch success does not establish peer application, durable acknowledgment or crash recovery. Delivery retries, revision agreement and durable acknowledgments follow their explicit integration contracts. Full database replication is not required.

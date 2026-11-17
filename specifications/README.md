@@ -1,77 +1,54 @@
 # CoCreateDB Specifications
 
-This directory contains the authoritative contracts for CoCreateDB. Each
-specification owns one responsibility and links to related contracts rather
-than redefining them.
+Repository: `CoCreateJS/db` · Package: `@cocreate/db`
+
+These specifications define the normative product contracts for CoCreateDB. Each document owns one responsibility; cross-references identify the authority for related behavior. Requirements describe the product architecture, not implementation status. Illustrative structures do not establish additional public APIs. A contract that leaves representation or policy unspecified does not authorize arbitrary incompatible choices.
 
 ## Storage model
 
-- [Architecture](architecture.md) — overview and relationships among all storage parts.
-- [Scopes](scopes.md) — logical addressing from storage through key.
-- [Root index (`index.json`)](#runtime-root-index-indexjson) — organization
-  entry point and root manifest metadata.
-- [Indexes](indexes.md) — per-field indexes, ordered nodes, schemaless values,
-  and query candidate planning.
-- [Data](data.md) — persisted documents and other data artifacts under `data/`.
-- [Distribution](distribution.md) — cluster placement and holder mappings.
+- [Architecture](architecture.md) — system boundaries and relationships.
+- [Scopes](scopes.md) — organization tenancy and logical addressing.
+- [Root index](#runtime-root-index-indexjson) — external bootstrap manifest.
+- [Indexes](indexes.md) — recursive indexing and candidate planning.
+- [Data](data.md) — UUID artifacts, complete objects and decoded state.
+- [Distribution](distribution.md) — local placement, holders and acquisition.
 
 ## Mutation and lifecycle
 
-- [CRUD](crud.md) — scope/method routing, operation flows, and operator use.
-- [Mutations](mutations.md) — how accepted operations change document state.
-- [Reconciliation](reconciliation.md) — conflict precedence and convergence
-  requirements.
-- [Replication](replication.md) — peer and client propagation contracts.
-- [Persistence](persistence.md) — workflow-owned durable storage operations.
-- [Edge cases](edge-cases.md) — cross-layer problem scenarios, resolutions, and
-  remaining work.
+- [CRUD](crud.md) — operation envelopes and scope handlers.
+- [Mutations](mutations.md) — accepted operation application.
+- [Reconciliation](reconciliation.md) — conflict precedence and convergence.
+- [Replication](replication.md) — client and peer propagation.
+- [Persistence](persistence.md) — workflows, serialization, encryption and recovery.
+- [Edge cases](edge-cases.md) — cross-layer correctness requirements.
 
 ## Runtime root index: `index.json`
 
-`index.json` is the required entry point inside each organization namespace.
-`organization_id` is supplied by the caller. A persistence workflow chooses
-where this namespace is stored. If that workflow uses the filesystem, the
-namespace path follows `<workflow-base>/<organization_id>/`; see
-[scopes.md](scopes.md) for path examples.
+Each organization has a required external bootstrap manifest. The caller supplies `organizationId` in the operation payload; the bootstrap authority resolves the manifest for that authorized namespace. In a filesystem deployment the canonical layout is:
 
-Storage, database, array, and lower scopes are resolved by following references
-from this entry point; they are not separate filesystem roots. The root index
-leads into index structures and scope catalogs, while document values are
-`data/` artifacts and placement metadata is described by `distribution/`. These
-are logical artifact roles; the persistence workflow chooses their physical
-provider and representation.
+```text
+<base>/<organizationId>/
+  index.json
+  data/
+    <uuid>
+  distribution/
+```
 
-The root manifest records the CoCreateDB package version that created it and a
-generic reference to the top index node:
+The manifest provides the entry point into the database but is not itself a database-owned artifact. Ordinary CRUD, data artifact transfer, export and cloud persistence exclude it. The bootstrap authority supplies it through an explicit integration boundary; direct filesystem access by the database core is not required.
 
 ```json
 {
   "version": "1.0.0",
-  "root": "<top-index-node-id>"
+  "root": "<uuid>"
 }
 ```
 
-There is no `format` field. `version` is informational provenance, not a schema
-compatibility gate. Opening a database does not require the manifest version to
-match the running package version. If an incompatible schema distinction is
-needed in a future release, define it when that need exists instead of using
-package version as an implicit format switch.
+`root` identifies the first independently addressable index/catalog artifact in `data/`. The top index makes all scopes reachable. The storages catalog is its first scope catalog, not an alternative namespace root. Neither physical directories nor inferred filenames determine the logical hierarchy.
 
-The root ID scheme is independent of the manifest version. UUID, ULID, or other
-supported IDs are identifiers referenced by the tree; changing or supporting an
-ID scheme does not by itself require a different root-manifest format.
+`version` records package provenance. The version is embedded at build time and synchronized with `package.json` during release. Opening a namespace does not require package-version equality; the manifest has no `format` field. Encoding compatibility is governed by [persistence.md](persistence.md).
 
-The package version must be embedded as a static build-time value so source,
-bundled, and minified builds can create manifests without reading `package.json`
-at runtime. Keep that value synchronized with `package.json` through a build or
-release script and validate synchronization there.
+### Provisioning and reopening
 
-The root index is distinct from the field indexes documented in
-[indexes.md](indexes.md). `index.json` is the top-level route into the tree;
-`indexes/` contains nodes used to resolve field values to object candidates.
+Creation of a namespace requires an explicit provisioning handshake between the database and the external bootstrap authority. A new root is allocated, initialized and published according to the agreed provisioning contract. Opening an existing namespace uses its existing root; unavailable, malformed or inaccessible manifests and roots are failures, not instructions to create another database. Recovery of the manifest is an external responsibility. Root publication must not imply successful durable initialization unless the relevant durability conditions are satisfied.
 
-The new manifest replaces the current `format`/`storages` root metadata. The
-migration from the existing `root.json` layout and references is tracked in
-[`../NEXT_TASK.md`](../NEXT_TASK.md). This README is both the catalog for this
-specifications directory and the root-index specification; it is not itself the
-runtime JSON index.
+**The entry point discovers the data. The data defines the database. Distribution makes the data available.**

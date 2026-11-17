@@ -1,333 +1,201 @@
-# CoCreateDB — Specification Alignment Tasks
+# CoCreateDB — Unified Data Architecture and Implementation Tasks
 
-The specifications under [`specifications/`](specifications/README.md) define
-the target contracts. Implementation tasks below bring the code, public names,
-tests, and documentation into line with those contracts. These are implementation
-targets; a spec describing a behavior does not mean that behavior is implemented.
+> Task revision: v0.5 · 2026-11-17
+> Repository: `CoCreateJS/db` · Package: `@cocreate/db`
+> Previous baseline: [v0.4](NEXT_TASK-v0.4.md) · [NEXT_TASK-v0.3.md](NEXT_TASK-v0.3.md) · [v0.2](NEXT_TASK-v0.2.md) · [v0.1](NEXT_TASK-v0.1.md)
 
-## How to complete each alignment task
+## Objective
 
-For each workstream:
+Converge the existing CoCreateDB implementation on a unified, storage-independent JavaScript value architecture: complete application objects, deeply traversable indexes, independently addressable index segments, flat extensionless UUID persistence, a shared lossless serialization standard, and demand-driven distribution.
 
-1. Map each relevant specification rule to the current source path and public
-   method/function name.
-2. Record the concrete code gap before changing it. Keep names consistent across
-   the method envelope, implementation, persisted artifact, and documentation.
-3. Implement only the behavior owned by that specification. Cross-cutting rules
-   should link to their authoritative specification rather than be copied.
-4. Add or update focused tests for the stated contract, including failure and
-   boundary cases.
-5. Update the specification only if implementation work exposes a real open
-   decision; do not weaken a settled rule merely to fit existing code.
-6. Report changed paths, test results, remaining gaps, and any compatibility or
-   migration effects.
+This is an incremental refactor, not a replacement engine. Reuse the existing indexing primitive, CRUD dispatcher, shared operators, mutation pipeline, holder discovery, cache, primary/worker integration and tests wherever compatible. Remove redundant physical representations once their replacement is verified. Existing persisted datasets are disposable for this development transition; the target database will be initialized cleanly. No legacy data migration or backward-compatible persistence reader is required.
 
-Use [`specifications/edge-cases.md`](specifications/edge-cases.md) to track
-cross-layer scenarios and their resolution status. Keep implementation actions in
-the owning workstream below and link back to the edge-case entry rather than
-duplicating its analysis.
+## 1. Implementation authority and review
 
-## Current implementation gaps confirmed from source
+Read `AGENTS.md`, root `ARCHITECTURE.md`, this task and every file in `specifications/` before editing. Root architecture describes implemented behavior; specifications describe the previous target. This task records the newly agreed target and supersedes conflicting prior target rules (particularly physical layout, key artifacts, serialization, and bootstrap ownership). Other specification contracts remain applicable. `WHITEPAPER.md` is conceptual context, not executable requirements.
 
-- Field indexes still use value-type branches; the target is one schemaless
-  ordered index per field path. See [indexes.md](specifications/indexes.md).
-- Mutation application has creation-time stale-generation/deletion-marker
-  checks, but timestamp-based convergence by `updated.on` is not implemented as
-  specified. See [reconciliation.md](specifications/reconciliation.md).
-- Object update replies include the resulting object and `$update`; peer updates
-  carry patches, while create/delete peer delivery still includes full records.
-  See [replication.md](specifications/replication.md) and
-  [crud.md](specifications/crud.md).
-- Scope/method routing already dispatches `<scope>.<operation>` for storage,
-  database, array, index, and object. The physical layout still uses the current
-  `root.json` and record paths rather than the proposed `index.json`, `indexes/`,
-  `distribution/`, and `data/` organization. See
-  [scopes.md](specifications/scopes.md),
-  [root-index specification](specifications/README.md),
-  and [architecture.md](specifications/architecture.md).
-- Local persistence, write-behind, peer delivery, and external persistence are
-  separate paths today, and `writeBehind` currently selects different response
-  timing. External workflow writes remain disabled. The target is unconditional
-  response-first behavior with asynchronous backend work; align and decouple
-  these paths to that contract.
+- Map existing source, exports, tests, queues, paths, cache keys and peer messages to the workstreams below. Confirm prior reported gaps against the actual checkout; do not assume they remain unchanged.
+- Identify reusable code and propose small dependency-ordered changes. Preserve unrelated workspace edits and public names wherever possible.
+- Resolve the open contracts in section 13 before implementing behavior that depends on them. Do not invent incompatible public APIs or weaken invariants to pass legacy tests.
+- Keep a workstream checklist, record source paths and focused tests, and report clean initialization requirements. Align owning specifications when separately authorized; update root architecture only to reflect validated implementation. Do not rewrite the whitepaper as part of this task.
 
-## Workstreams
+## 2. Target architecture and addressing
 
-### 1. Schemaless indexes and query planning
+```text
+<organizationId>/
+  index.json
+  data/
+    <uuid>
+    <uuid>
+    ...
+  distribution/
+    <local operational metadata>
+```
 
-Authoritative contract: [indexes.md](specifications/indexes.md).
+- `organizationId` is an immutable, caller-supplied top-level operation payload property, alongside `storage`, `database`, `array`, and `object`. It selects the tenancy namespace per operation; it is not a CRUD target, nested object property, or instance-wide configuration. Validate the authorized organization context before resolving its bootstrap or accessing artifacts. Scope isolation applies to memory, persistence, discovery and peer messages.
+- Example payload (method-specific fields omitted): `{"organizationId":"<id>","storage":"<storage>","database":"<database>","array":"<array>","object":{}}`.
+- `index.json` is the externally provisioned bootstrap entry point. `data/` contains all database-owned durable artifacts: scope catalogs, index roots and segments, complete objects, and durable reconciliation metadata. No separate `indexes/`, `objects/`, `keys/`, or `deleted/` trees in the target namespace.
+- `distribution/` retains the existing local distribution implementation and manages distribution state for files held on the local disk. It is never persisted to cloud storage by the DB. Its lifecycle and ownership must be explicit (section 10).
+- Only `data/` is eligible for database-managed cloud persistence. Every database-managed UUID artifact resides under `data/`; `distribution/` and the required external `index.json` are excluded from database cloud persistence and artifact export.
+- Each data artifact has an opaque randomly generated UUID, with no extension or semantic path. Preserve its address across ordinary updates; allocate a new address only for a new artifact, including index splits. Never reuse a deleted identity for unrelated data. Handle collisions without overwrite. Logical object IDs (`_id`) remain distinct from artifact UUIDs.
+- Index/catalog references establish logical structure. The logical hierarchy is organizationId → storage → database → array → object → key; key paths do not determine physical file locations.
+- Use one organization-scoped `data` Map keyed by the exact artifact UUID, holding decoded values. A stored `undefined` must not be confused with absence (`Map.has`). A registry or equivalent namespace boundary may hold multiple organization Maps. Reuse existing metadata/ownership mechanisms where needed; do not maintain duplicate authoritative object representations.
+- Provider implementations may map addresses internally, but core addresses are UUIDs; no core filename extension, path inference, type-dependent directory or implicit product-named directory.
 
-- Replace per-type index branches with one logical index per indexed field path.
-- Preserve stored values as supplied; do not normalize them by field or apparent
-  type. Keep equality and relational query semantics in the shared operators.
-- Define a deterministic ordering suitable for the tree while preserving query
-  results. JavaScript relational comparison is not a total order over arbitrary
-  mixed values; use broad candidate scans and operator verification wherever
-  pruning cannot be proven safe.
-- Keep each node's actual first/last value boundaries and order chunks by those
-  boundaries, not by filenames or IDs.
-- Keep date conversion out of DB indexing: callers provide UTC ISO date strings
-  when they need chronological string sorting.
-- Align index creation, updates, deletes, nested-field extraction, query
-  candidate planning, sorting, README examples, and index function names with the
-  spec. Do not add type-specific index configuration as part of this work.
-- Cover mixed-value equality/range queries, missing values, nested values,
-  boundary pruning, sorting, and chunk split/reopen behavior.
+## 3. Bootstrap and scope discovery
 
-### 2. CRUD operations, scopes, and naming
+Preserve the existing target manifest shape:
 
-Authoritative contracts: [crud.md](specifications/crud.md) and
-[scopes.md](specifications/scopes.md).
+```json
+{"version":"1.0.0","root":"<uuid>"}
+```
 
-- Preserve the method convention `<scope>.<operation>`: the prefix chooses the
-  handler and the suffix chooses `create`, `read`, `update`, or `delete`.
-- Align object, array, database, storage, and index behavior with the CRUD spec;
-  keep `key` as a value/path inside an object unless a future contract adds a
-  separate key method.
-- Document request and response properties, identity handling, filters, sort,
-  pagination, projection, upsert, no-match behavior, and errors at the correct
-  scope. Resolve the currently open no-match/update response contract.
-- Keep query and update operators delegated to the shared Utils semantics. Make
-  the supported operator list and examples consistent with that source of truth.
-- Align public function and method names such as index operations and persistence
-  operations with the nouns and verbs used in the specs. Avoid duplicate aliases
-  unless compatibility requires them.
-- Implement and verify the namespace/path convention in
-  [scopes.md](specifications/scopes.md): every payload supplies an immutable
-  `organization_id` namespace scope that creates the main entry point under the
-  configured base. It addresses all child scopes but is not itself a CRUD method
-  target. Initialize the organization root on first use.
-- Move physical path configuration into the selected persistence workflow. For
-  the filesystem workflow, keep the rule that its configured base path contains
-  `<organization_id>/`, relative paths resolve from CWD, and an unset path means
-  CWD; do not add an implicit `CoCreateDB` folder. Verify `.`, `../`,
-  `../CoCreateDB`, `../organizations`, and `../clusterdb` through that workflow.
+- `version` is informational package provenance, embedded at build time and checked against `package.json` during release, not runtime. No `format` field; no package-version equality gate. Codec compatibility is separate.
+- `root` addresses the first independently persisted index/catalog in `data/`. The top index makes every scope reachable; the storages catalog is the first scope catalog, not a competing namespace root.
+- The required manifest is resolved for the payload organizationId and is not a database-owned artifact or cloud-persisted by the DB. It is external bootstrap configuration, outside ordinary data CRUD, artifact transfer/export and persistence lifecycle. Accept a provisioned entry point through an explicit integration contract; do not require direct core filesystem access. Provisioning may use files, startup configuration or another external authority.
+- Replace implicit organization first-use initialization with an explicit new-namespace provisioning handshake. Reopening an existing namespace must not silently generate a new root when the manifest or a referenced artifact is unavailable. Define root publication and independent recovery before enabling creation.
+- Keep filesystem workflow base configuration relative to CWD, default CWD; test `.`, `../`, `../CoCreateDB`, `../organizations`, `../clusterdb`. Move `COCREATE_DB_DIRECTORY` handling to the workflow. The bootstrap authority must separately know how to resolve its manifest.
+- Test existing/new namespace, incorrect organization, unavailable root, malformed manifest, version mismatch, and reopening from a provisioned root with an empty cache.
 
-### 3. Mutation processing and timestamp reconciliation
+## 4. Unified serialization and encryption
 
-Authoritative contracts: [mutations.md](specifications/mutations.md) and
-[reconciliation.md](specifications/reconciliation.md).
+Implement one portable codec contract (`serialize(value)` / `deserialize(bytes)`; names illustrative until shared export is confirmed). Runtime values remain decoded; all ordinary data artifacts are persisted as serialized bytes. No raw/text mode switch, native file extension or binary-specific extraction. Socket and Mesh should ultimately share the same codec/value model; do not block DB work on a complete Socket rewrite.
 
-- Implement `updated.on` as the mutation timestamp used for Newer Mutation Wins;
-  preserve the original time and mutation identity through peer processing.
-- Define deterministic equal-timestamp ordering and enough per-change ordering
-  metadata to reconcile independent field changes.
-- Apply accepted operators to the selected current state in one mutation path,
-  returning the resulting object and update object. Preserve relative operator
-  intent such as `$inc`.
-- Implement consistent create/update/upsert/delete ordering, including missing
-  documents, deleted documents, delayed upserts, and newer recreation.
-- Make duplicate delivery idempotent, including relative operators.
-- Remove or replace current creation-time stale-generation behavior only as part
-  of implementing the specified timestamp reconciliation and deletion-order
-  guarantees. Temporary markers alone do not provide a durable deletion-order
-  guarantee.
-- Cover same-field conflicts, independent fields, equal timestamps, duplicate
-  operations, delete/upsert races, and ordered CRUD sequences.
+- Compare candidate codecs (CBOR, MessagePack or another suitable implementation) in Node and browser environments. Select only after round-trip and performance tests. Preserve nested objects/arrays, strings, booleans, null, explicit undefined versus missing, finite and non-finite numbers including NaN/Infinity, and native binary bytes. Define BigInt, typed arrays, Buffer/Uint8Array/ArrayBuffer normalization, Date, sparse arrays, Map/Set and cyclic/shared references explicitly; do not promise unsupported types or JS reference identity across process boundaries.
+- Preserve the existing UTC ISO string date convention for ordered queries; never infer or evaluate date expressions. Reject unsupported values explicitly. No executable persisted values, eval, dynamic import or arbitrary constructor execution. Validate decoding limits and hostile inputs.
+- Define codec compatibility independently of the bootstrap package version; use a documented encoding/envelope or external format contract for the new format and its future evolution; no previous-format reader is required. Avoid per-file extension detection. Measure encoded size, serialization and deserialization CPU, allocation and representative binary workloads.
+- Persistence write pipeline: obtain stable resulting value → serialize → optionally encrypt → workflow provider writes bytes. Read: acquire bytes → decrypt if required → deserialize → validate and publish decoded value. Define the exact codec/encryption ownership at the workflow boundary so bytes are not encoded twice. Encryption policy and key selection belong to the workflow; use authenticated encryption, versioned key references, and rotation/recovery support. Do not store the key with ciphertext. Indexes and metadata may contain sensitive values too.
+- Keep transport security independent of at-rest encryption. Existing Socket JSON behavior is an integration gap for extended values; coordinate deployment of the new codec and explicitly report unsupported paths until shared codec integration works end to end. No Base64 as the default transport of binary fields, no separate attachment protocol for ordinary values.
+- Large object streaming/chunk transport is a separate evaluated task; do not mistake index segmentation for binary streaming. Measure and bound memory and message sizes. A small update to a large complete object may rewrite the full artifact; do not introduce implicit data fragmentation to hide that limitation.
 
-### 4. Client and peer propagation
+## 5. Complete objects and logical keys
 
-Authoritative contract: [replication.md](specifications/replication.md).
+- Persist one complete application object per object UUID, including nested objects, arrays and supported binary values. An object's `_id` identifies it logically; indexes resolve to its physical UUID. The UUID remains stable throughout ordinary mutations.
+- Keys represent paths within objects, not separately persisted application data. Remove terminal key payload artifacts and reconstruction dependencies once complete-object storage is verified. Retain key-index catalogs, nested path extraction and query logic. Index entries and segments remain independent artifacts.
+- For example, `settings.appearance.theme = "dark"` and individual members of `permissions` may each be indexed; both lead to the same complete object UUID. Binary views are atomic values for traversal unless an explicit operator contract says otherwise; never enumerate bytes as nested keys by accident.
+- Reads acquire the complete object, apply filters and projection in memory, and preserve supported value types. Updates apply to logical paths using shared operators and persist the resulting whole object. Deletes remove the object and relevant index entries and retain necessary reconciliation state through the workflow.
+- Test nested objects, arrays of objects, binary-containing objects, missing/undefined, projections, nested updates and deletion with no separate key payload artifacts. Verify same UUID through updates and all matching indexes.
 
-- Return resulting object state plus the corresponding update object to clients
-  for mutations; include explicit deletion state for deletes.
-- The client response is the primary outcome: send it immediately once the
-  in-memory result is ready. Do not make response speed or completion depend on
-  a survivability flag, a peer, or any storage layer.
-- Send peers the operation-tagged update object with addressing, original
-  timestamp/identity, and reconciliation metadata, not the resulting full object.
-- Start peer propagation immediately in the same response cycle, back-to-back
-  with initiating the client response; these are adjacent/concurrent effects,
-  not a serial wait chain. Prioritize the client response, and never wait for
-  peer receipt, application, or acknowledgment before returning it.
-- Ensure receiving nodes reconcile and apply the update without accidentally
-  re-originating it. Preserve enough metadata for the same decision downstream.
-- Define duplicate handling and recovery separately from transport success.
-- Cover create, update, delete, delayed delivery, missing bases, duplicate
-  delivery, and prompt client response handoff without waiting for acknowledgment.
+## 6. Schemaless indexes and query planning
 
-### 5. Root index, data layout, and storage naming
+Baseline: `specifications/indexes.md`. Preserve the independently usable indexing primitive and recursive ordered tree algorithm.
 
-Authoritative contracts: [root-index specification](specifications/README.md),
-[architecture.md](specifications/architecture.md), and
-[data.md](specifications/data.md).
+- One logical index per indexed key path; replace type-specific branches. Preserve supplied values; no schema coercion. Missing keys have no value entry; explicit undefined requires defined semantics.
+- Traverse deeply nested objects and arrays for query/index purposes. Define dot-path escaping, array membership, array-of-object traversal, duplicate membership and positional correlation. Terminal index references identify the complete object UUID, not a physical key artifact. Use logical identity/UUID as stable tie-breaker and deduplicate object candidates.
+- Define deterministic mixed-value tree ordering and count semantics (entries versus distinct objects), including NaN, undefined, composite values and binary indexing policy. Preserve true first/last boundaries and child counts. Keep shared operator semantics authoritative; use broad scans and final verification whenever pruning is unsafe. Do not silently omit unsupported values from candidate plans.
+- Reuse recursive split/prune/root-collapse logic and lazy forward/reverse traversal. Measure actual encoded bytes for split thresholds, retain one existing address on split and allocate the required sibling/root addresses. Handle an unsplittable large entry explicitly. Maintain ancestor metadata on inserts/deletes and do not infer ordering from filenames.
+- Preserve `_id` enumeration, sorting, pagination, candidate-length planning, AND/OR and fallback scans. Verify correlated array predicates against the complete object; independent index matches must not imply same-element matches. Confirm membership operator names against Utils (do not assume `$includes` exists).
+- Preserve query correctness during pending index work: merge relevant pending additions/changes into candidates, exclude deletions, then verify current object state. Verification alone cannot recover omitted candidates. Use generation/version checks so delayed index results do not overwrite newer state.
+- Tests: mixed types and bounds, duplicates, nested paths and arrays, correlated elements, null/missing/undefined, encoded-size splits, metadata, deletion/pruning, reverse scans, empty-cache restart, narrow acquisition, and randomized comparison against a reference scan.
 
-- Implement the specified `index.json` manifest with informational package
-  `version` and a generic `root` reference to the top index node. Do not add a
-  `format` field or reject a database because its recorded package version
-  differs from the running package.
-- Provide a static CoCreateDB version constant in source/built artifacts and a
-  build or release script that synchronizes and validates it against
-  `package.json`. Runtime manifest creation must not read `package.json`.
-- Ensure the top index node makes all scopes reachable from the organization
-  namespace; `storages` is the first scope catalog, not the namespace root.
-- Move index nodes under `indexes/`, distribution records under `distribution/`,
-  and stored scope artifacts under `data/` according to the target structure.
-- Define how the `data/` layout represents storage/database/array/object/key
-  scopes and document key-value data without confusing data objects with index
-  nodes or distribution metadata.
-- Align path construction, serializers, cache addresses, bootstrap checks,
-  fixtures, and peer artifact references with the same vocabulary.
-- Create and document a compatibility/migration path from existing `root.json`
-  and current record directories. Do not rewrite existing datasets implicitly.
+## 7. CRUD, scopes and shared operators
 
-### 6. Distribution and artifact discovery
+Baseline: `specifications/crud.md`, `scopes.md`, `mutations.md`.
 
-Authoritative contract: [distribution.md](specifications/distribution.md).
+- Retain `<scope>.<operation>` routing for storage, database, array, object and index with create/read/update/delete. No organization or key CRUD prefix. Preserve scope envelopes (including top-level `organizationId`), immutable identities, resulting target property and explicit `success: false` errors.
+- Preserve object creation with one or multiple objects, automatic logical IDs and audit fields; read by ID/filter with sort/search/pagination/projection; update with existing `$update` or generated operator patch; explicit upsert; deletion state. Preserve immutable creation metadata and original mutation timestamps.
+- Reuse shared `@cocreate/utils` query/update operators; audit JSON clones, stringification, update helpers, equality and projection for extended values. Do not create competing operator implementations. Review executable query operators such as `$where` against authorization and safe-value boundaries; serialization does not grant permission to execute code.
+- Resolve no-match update responses, non-object scope CRUD lifecycle, uniqueness, and authorization with existing contracts. Scope deletion must not orphan reachable artifacts or remove unrelated scopes. Public index operations remain distinct from application object mutations.
+- Test top-level organizationId routing, missing/unauthorized scope, isolation across organizations with identical logical names and UUIDs, method routing, query/update compatibility, batch operations, no-match/upsert, explicit errors, and read after pending mutations.
 
-- Define the distribution record shape and stable artifact/partition addressing.
-- Align holder updates, inventory exchange, peer lookup/acquisition, and stale
-  holder cleanup with the distinction between distribution metadata, indexes,
-  and data payloads.
-- Preserve the rule that an advertised but unavailable artifact is an acquisition
-  failure, not an empty index or silently missing document.
-- Decide how distribution state is rebuilt after restart and how large inventories
-  are batched. Do not persist peer inventories unless the distribution contract
-  requires it.
+## 8. Mutation processing and reconciliation
 
-### 7. Response-first execution and asynchronous persistence
+Baseline: `specifications/mutations.md`, `reconciliation.md`, `edge-cases.md`.
 
-Authoritative contracts: [crud.md](specifications/crud.md),
-[replication.md](specifications/replication.md), and
-[persistence.md](specifications/persistence.md).
+- Keep one authoritative accepted mutation path producing complete resulting object state and operation-tagged update object. Reuse incoming update intent; do not reapply operators during persistence.
+- Implement Newer Mutation Wins using original `updated.on`, stable mutation identity, deterministic equal-time ordering and sufficient per-change metadata to preserve independent key updates. Define parent/child path and array conflict semantics and clock assumptions. Timestamp alone is not proof of convergence.
+- Resolve relative operator ordering and deduplication (`$inc`, array updates) so duplicates/reordering do not silently change outcomes. Preserve intent and original identity through forwarding. Specify retention/replay requirements before claiming convergence.
+- Define create, update, upsert, delete and newer recreation ordering across missing objects and delayed mutations. Persist deletion-order metadata through the same data namespace/workflow; do not rely solely on expiring memory markers. Replace legacy creation-time guards only after tests prove replacement behavior. Define logical identity to physical UUID agreement for competing creates/recreation and replicas.
+- Test independent and same-key mutations, parent/child conflicts, ties, duplicate relative operations, out-of-order delivery, delete/upsert races, restart and delayed replay.
 
-- Make response-first execution an invariant, not a `writeBehind` option. Once
-  requested data is ready in memory and CRUD has produced the result, return it
-  without waiting for the persistence workflow, indexing follow-up, peer
-  delivery, or acknowledgments from any node.
-- Treat the client response as the top-priority immediate output. Dispatch peer
-  updates back-to-back with response initiation in the same processing cycle so
-  both proceed promptly; do not hold either behind disk persistence, and do not
-  hold the response behind peer work. Neither path waits for the other's
-  acknowledgment.
-- Trace the existing index queue, delivery queue, disk queue, holds, and
-  retry/error reporting. Remove the core-managed disk queue as a provider path;
-  invoke the persistence workflow at the persistence cycle without making
-  workflow completion a prerequisite for the CRUD response.
-- Remove `writeBehind` as a response or persistence-mode switch. The
-  response-first lifecycle is unconditional. `flush()` and orderly shutdown
-  signal/drain pending core work and workflow invocations without defining
-  provider order themselves.
-- Keep mutation acceptance/reconciliation and construction of the resulting
-  object/update object in the request path. Apply the mutation exactly once;
-  background persistence serializes the resulting state rather than reapplying
-  operators.
-- Keep index maintenance, peer propagation, and persistence as separately
-  observable background effects. Preserve read correctness while indexing is
-  pending by verifying candidate documents against the current in-memory values.
-- Ensure background failures do not retroactively change a completed response.
-  Expose errors/retry state independently and define restart recovery separately.
-- State clearly that the CRUD response acknowledges the in-memory result, not
-  crash-durable disk state or peer application. Client IndexedDB persistence and
-  recovery are an independent layer and do not delay the DB response. If the
-  client receives and persists the result, it retains its own copy; delivery or
-  client-side persistence guarantees are separate from the DB response contract.
-- Route every durable read/write/delete for documents, indexes, root/catalog
-  metadata, and other DB artifacts exclusively through the configured
-  persistence workflow. Remove direct filesystem persistence helpers from the
-  core and do not retain a local-filesystem fallback.
-- Remove independent disk/file persistence configuration and execution paths,
-  including `disk`, `file`, `memoryOnly`-as-a-persistence-bypass, and equivalent
-  settings. Keep any in-memory working-set policy separate from persistence
-  destination selection.
-- Move filesystem base-path configuration and `COCREATE_DB_DIRECTORY` handling
-  into the filesystem workflow. The core passes organization namespace and
-  artifact identity; workflow configuration resolves physical destinations.
-- Define and implement the workflow invocation envelope and behavior when no
-  persistence workflow is configured. Do not silently fall back to direct disk.
-- Let workflow configuration define provider combination, order, concurrency,
-  retries, encryption, and provider-specific behavior. The core must not impose a
-  sequential disk write order over workflow-controlled provider operations.
-- Ensure workflow failures are observable/recoverable independently of completed
-  CRUD responses; do not introduce peer or storage acknowledgments into that
-  response path. Preserve explicit durability boundaries and document crash and
-  multi-artifact recovery behavior.
+## 9. Response-first execution and workflow persistence
 
-### 8. Primary/worker workload offloading
+Baseline: `specifications/persistence.md`, `crud.md`, `replication.md`.
 
-Investigate whether CoCreateDB can move selected CPU or I/O work from the primary
-process to workers while keeping the primary responsive for database requests.
-This is an evaluation task; do not change the process or ownership model until
-the measurements and consistency constraints are understood.
+- After required data acquisition and accepted in-memory mutation/result construction, initiate the client response immediately. Return resulting object and `$update` (explicit deletion state for delete); reads have no update object. Initiate peer propagation back-to-back with response handoff, without awaiting either acknowledgment. Do not place serialization for persistence, index follow-up or provider work ahead of this boundary.
+- Keep pending index maintenance, peer dispatch and persistence independently observable. The client response confirms in-memory processing, not durable storage, delivery or peer application. Client-side IndexedDB is independent.
+- Use logical persistence operations `create(uuid, bytes)`, `read(uuid)`, `update(uuid, bytes)`, `delete(uuid)` in explicit organization context. Exact workflow envelope/result/error contract to be approved. Only UUID artifacts in `data/` may enter database cloud persistence; never send `index.json` or `distribution/` to those workflows. Core routes every durable data artifact operation through configured workflows; providers are responsible for paths, storage and execution. Bootstrap and operational inventory are explicit separate ownership boundaries, not permission for hidden core disk I/O.
+- Create must protect existing UUIDs from accidental overwrite. Define stale-write protection, mutation ordering and stable snapshots so delayed serialization or provider completion cannot replace newer state. Provider order/retries/parallelism/encryption policy belong to workflow. Define read integrity, unavailable vs absent vs corrupt results and retry reporting.
+- Remove `writeBehind` as a response switch; remove `disk`, `file`, `memoryOnly` persistence bypasses and implicit filesystem fallback. A cache retention policy is not a provider selection policy. Remove core-managed disk queue as independent provider path; retain necessary pending work coordination, backpressure and drain tracking.
+- Define explicit behavior without a workflow (no silent local fallback). `flush()` and shutdown drain pending core work and workflow invocations according to documented guarantees; neither implies crash-atomic multi-artifact commits. Define partial provider failure, interrupted publication, durable retry/replay and recovery semantics. Never retroactively change completed responses.
+- Test delayed and failing providers, response/peer dispatch timing, no workflow, write ordering, mutation snapshots, shutdown, partial failure, restart, encrypted round trip and all artifact types. Verify no direct durable I/O in the DB core.
 
-- Trace the current request path from a worker's `DB.send` call through IPC to
-  the primary-owned DB engine and back. Record which operations already run in
-  workers, which state is owned only by the primary, and the IPC payload and
-  response costs.
-- Profile representative read, create, update, and delete workloads to identify
-  primary CPU time, serialization and IPC overhead, index maintenance,
-  distribution work, and persistence work. Establish whether persistence or
-  mutation processing is a meaningful primary bottleneck before designing an
-  offload path.
-- Evaluate sending immutable, already-resolved persistence work from the primary
-  to a worker-side persistence executor. Keep the primary's mutation result and
-  response-first client path independent of persistence completion. Route all
-  durable I/O through the configured persistence workflow; do not reintroduce a
-  core-owned disk path.
-- Evaluate which preparation work can safely run outside the primary, such as
-  serialization, encoding, or constructing distribution/persistence envelopes.
-  Do not move authoritative index or in-memory document mutation without a
-  design for ownership, ordering, and concurrent access to that state.
-- Evaluate reconciliation and update-object construction separately. Preserve
-  the authoritative mutation order and reconciliation decision for each
-  document; a worker may assist only if requests for the same document remain
-  serialized and duplicate or delayed work cannot apply twice or overwrite a
-  newer result.
-- Define the worker execution contract: task identity, input snapshot/version,
-  completion or failure reporting, retry and duplicate behavior, queue limits,
-  shutdown/drain behavior, and handling of worker loss. Do not wait for worker
-  acknowledgments before returning CRUD results to clients or dispatching peer
-  updates.
-- Compare using existing request workers with a dedicated persistence/compute
-  worker pool. Account for contention with user workloads, IPC transfer costs,
-  memory copies, backpressure, and whether offloading increases total throughput
-  rather than only shifting load.
-- Retain primary ownership of in-memory DB state and distribution decisions
-  unless measurements and a separate ownership design justify changing it.
-  Document which operations remain primary-owned and which are eligible to move.
-- Add benchmarks and focused correctness tests only after choosing an offload
-  boundary. Compare latency and throughput with offloading disabled and enabled,
-  including worker saturation, persistence delay/failure, concurrent mutations,
-  and worker restart.
+## 10. Distribution, replication and acquisition
 
-This workstream depends on the response-first and workflow-owned persistence
-contracts in this section. Reconciliation behavior is defined by
-[`reconciliation.md`](specifications/reconciliation.md), and peer ownership and
-delivery by [`replication.md`](specifications/replication.md).
+Baseline: `specifications/distribution.md`, `replication.md`.
 
-## Remaining design decisions
+- Separate mutation replication from acquisition of complete artifacts. Peers receive operation-tagged updates, scope/identity/UUID mapping as needed, original timestamp and reconciliation metadata, not redundant resulting objects. A create operation must carry enough initial values to create an object. Missing base recovery may acquire a complete artifact; do not misapply a relative update to an absent base. Prevent re-originating accepted peer mutations.
+- Use demand-driven artifact acquisition: initial nodes need only bootstrap and required index paths; fetch objects/index segments when needed, retain working-set values in the organization Map. Do not mandate full database replication. Define subscription lifetime, holder promotion, eviction and missing-base recovery. Eviction is not deletion and must not remove the last required durable copy.
+- Keep local holder inventory distinct from remote-peer inventory learned in memory. Use exact organization/UUID addressing, availability and revision metadata. Define authoritative holder meaning (cached vs durable), discovery, session/reconnect, inventory batching, targeted timeouts and cleanup. Retain existing holder directory until replacement supports exact acquisition and metadata discovery.
+- `distribution/` contains local operational placement metadata only, managing distribution for locally held files; preserve the existing implementation where compatible and exclude this directory from cloud persistence; define its provider/owner and restart reconstruction explicitly. Do not persist remote inventories by default. Durable conflict/deletion records belong to `data/`, not placement state.
+- An advertised but unavailable artifact is an acquisition failure, not an empty index or absent object. Report incomplete paths, locked and corrupt artifacts distinctly. Moving an artifact without changing UUID preserves references, provided authorized discovery, integrity and encoding compatibility remain intact. Reconnect moved segments without rewriting logical paths; never regenerate lost content silently.
+- Test partial availability, targeted acquisition, moved artifacts, reconnect, stale holders, duplicate delivery, cache eviction, namespace isolation, restart and missing/deleted bases. CDN integration and advanced autoscaling/storage tiering remain future extensions, not prerequisites.
 
-These details are not settled by the higher-level conventions and should be
-resolved within the owning specification before implementation depends on them:
+## 11. Clean initialization
 
-- Total deterministic index ordering for mixed and non-finite values, and when
-  the planner must fall back to a full candidate scan.
-- Exact per-field version metadata and equal-timestamp tie-break representation.
-- Durable metadata needed to prevent deleted documents from reappearing after
-  marker loss or delayed replication.
-- Whether uniqueness constraints are needed, and their local/distributed scope.
-- Durable retry/replay, replica acknowledgments, multi-file atomicity, and
-  recovery guarantees.
-- Behavior when no persistence workflow is configured, and the workflow
-  invocation/result envelope.
-- Exact `data/` encoding and top-index-node schema.
+- No backward compatibility with existing persisted datasets is required. Do not implement migration, legacy readers, old-to-new UUID maps, dual-format writes, or conversion of terminal key artifacts. Reuse existing engine logic, not the obsolete storage representation.
+- Initialize a new organization namespace with an externally provisioned bootstrap, new root and empty data and distribution state. Build catalogs and indexes through normal CRUD operations. Keep explicit initialization distinct from reopening an existing new-format namespace.
+- Validate database behavior through its CRUD interface using test fixtures. Application dataset preparation, import tooling and application-specific setup are outside the DB module’s responsibilities. Do not embed secrets in fixtures or logs.
+- Use a clean target location or an explicitly authorized reset. Do not automatically delete previous datasets or silently reset an unavailable namespace. Deploy compatible new-format nodes together; isolate old nodes rather than implementing legacy peer support.
+- Reconcile legacy `test/write-behind.test.js` assumptions about rollback, sequential writes, markers and disabled external workflow acknowledgments. Preserve meaningful correctness tests; replace superseded storage fixtures with new-format fixtures. Test clean initialization, CRUD creation, index completeness, query-result correctness, restart and new-node acquisition.
 
-## Existing checks and compatibility notes
+## 12. Primary/worker evaluation and performance
 
-Known checks in `test/write-behind.test.js` still need reconciliation with the
-current contracts: failed-indexing rollback, sequential persistence assumptions,
-deletion-marker paths, and workflow acknowledgment while external writes remain
-disabled. These test expectations should be updated with the owning workstream;
-do not treat an old assertion as the specification.
+Retain primary ownership of authoritative decoded state, mutation order and distribution decisions. This workstream is evaluation first, not an authorization to change ownership.
 
-The entity-holder directory currently supports metadata and exact-object
-acquisition. Retain it until the distribution/index-trail work defines and
-implements a replacement. Existing deployments use `root.json` and current
-record paths until the layout migration is designed and performed.
+- Trace worker `DB.send`, IPC and primary request processing. Measure read/create/update/delete, codec CPU, copies, memory, latency/throughput, pending queues and provider delay. Compare existing baseline with refactor under identical workloads. Measure cold/warm acquisition, large objects and mixed index scans; no unvalidated superiority claims.
+- Evaluate offloading immutable/versioned persistence preparation, serialization or workflow execution to workers. Compare existing workers and dedicated pool; account for IPC format/value preservation, copy cost, contention and saturation.
+- Define task ID, snapshot/version, ordering, retries/deduplication, failure reporting, queue bounds, worker loss and shutdown/drain before moving work. Never wait for worker completion to acknowledge a completed in-memory mutation or initiate peer propagation.
+- Do not move authoritative mutation/index ownership without separate approved consistency design. Benchmark and test offload enabled/disabled only after choosing a boundary.
 
-## Constraints
+## 13. Open contracts to resolve before dependent implementation
 
-Read `AGENTS.md` and `ARCHITECTURE.md` before changing the engine. Preserve scoped
-identities, complete acquired documents, shared query/update semantics, reference
-ownership, and unrelated workspace changes. Use targeted peer reads with
-timeouts. Report changed paths, tests run, gaps, and compatibility effects.
+The architecture above is settled; the following are deliberately not silently selected:
+
+| Contract | Resolution required |
+| --- | --- |
+| Shared codec | Library, type matrix, normalization, stable bytes/versioning, compatibility and resource limits; benchmark before selection. |
+| Bootstrap | Provisioning/initialization API, external authority, root publication/recovery, top catalog schema. |
+| Address identity | UUID textual form, collision handling, concurrent creation mapping and recreation lifetime. |
+| Workflow | Invocation/result schema, missing-workflow behavior, encryption envelope, retries, stale-write protection, durability and flush guarantees. |
+| Distribution | Operational inventory owner, restart reconstruction, holder/revision schema, subscriptions and eviction policy. |
+| Index semantics | Mixed total order, count meanings, array path/correlation, composite/binary indexing, absent/undefined and safe pruning. |
+| Reconciliation | Tie-breaks, per-path metadata, relative operations, delete retention/replay, parent/child and array conflicts. |
+| CRUD | No-match response, non-object scopes, uniqueness and authorization; shared operator compatibility. |
+| Deployment | Clean namespace initialization and coordinated new-format peer deployment. |
+| Recovery | Multi-artifact publication, interrupted splits, orphan cleanup, replay, durable replica acknowledgments and explicit failure guarantees. |
+
+Propose concrete options with source evidence and test implications. Seek approval where a public contract, durability guarantee or incompatible semantic choice is needed. Continue unrelated workstreams that do not depend on an unresolved contract.
+
+## 14. Recommended implementation sequence and completion gates
+
+1. **Baseline:** inspect, run existing tests, map reusable logic and agree blocking contracts. Record current limitations without changing source behavior.
+2. **Foundation:** select codec and verify value preservation; define scoped UUID Map, persistence boundary, external bootstrap and top catalog. Test with controlled workflow fixtures; no hidden local fallback.
+3. **Data/index convergence:** persist complete objects, use direct object UUID references and flat index artifacts, implement deep query correctness and mixed-value ordering. Validate against reference scans and restart fixtures.
+4. **Mutation and lifecycle:** reconcile CRUD, pending indexes, timestamp/duplicate handling, response-first execution and async workflow durability boundaries.
+5. **Distribution and clean deployment:** validate targeted acquisition, patch replication, moved/missing artifacts, clean initialization and CRUD correctness. Integrate shared transport codec only where corresponding project changes are authorized; report remaining Socket/IPC gaps.
+6. **Verification:** run full regression/failure tests, benchmark, evaluate worker offloading; report documented limits. Align owning docs only after approval and root architecture only after validation.
+
+Completion checklist:
+
+- [ ] Existing reusable modules preserved and gaps mapped to actual source/tests.
+- [ ] Extensionless UUID data artifacts and organization-scoped decoded Map agree, with external bootstrap and separate distribution ownership.
+- [ ] Top-level `organizationId` selects the correct tenancy per operation; only `data/` reaches cloud persistence, and neither `index.json` nor `distribution/` is uploaded by the database.
+- [ ] Complete objects round-trip through one codec and optional encryption; no terminal key payload dependencies or type-specific file paths.
+- [ ] Deep nested and array indexes resolve to complete objects; mixed-value queries match reference semantics and pending work cannot omit candidates.
+- [ ] Index splits, pruning, restart, logical identity and independent primitive exports remain correct.
+- [ ] CRUD scopes, shared operators, mutation ordering, deletion and duplicate protection satisfy approved contracts.
+- [ ] Response-first timing and immediate peer dispatch verified; all durable data I/O uses workflows, with explicit failure/recovery guarantees.
+- [ ] On-demand distribution, holder lifecycle, incomplete-path behavior and namespace isolation verified.
+- [ ] Clean initialization and CRUD correctness verified; no legacy data migration or compatibility readers; transport limitations documented.
+- [ ] Report changed paths, commands/results, benchmarks, unresolved risks and separately authorized documentation changes.
+
+## Guiding principles
+
+**Index deeply. Persist objects whole. Segment indexes independently.**
+
+**Keys define the depth of discovery, not the boundaries of persistence.**
+
+**One value model. One serialization standard. One addressing convention.**
+
+The entry point discovers the data. The data defines the database. Distribution makes the data available.

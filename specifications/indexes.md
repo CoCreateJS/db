@@ -2,74 +2,36 @@
 
 ## Scope
 
-This specification defines how CoCreateDB indexes schemaless field values and
-uses those indexes to produce query candidates. It defines neither document
-mutation semantics nor the broader query API. Document mutations are covered by
-[mutations.md](mutations.md); query operators and their public contract should
-be documented alongside the query API when specified.
+The independently accessible indexing primitive maintains recursive ordered indexes and supports candidate selection without requiring CRUD, Mesh or a particular storage provider. Indexes and catalogs are independently addressable data artifacts as defined in [data.md](data.md).
 
-## Schemaless field indexing
+## Schemaless deep indexing
 
-- Each indexed field path has one logical index, independent of the values'
-  apparent types.
-- Store the value supplied in the document. Do not normalize or convert values
-  to fit a field schema or a type-specific index.
-- A field may contain mixed values. The index preserves those values as they
-  occur; applications may intentionally use mixed content.
-- Missing values have no index entry. Type predicates such as array, null, or
-  boolean checks belong to query operators, not to separate index layouts.
-- Nested fields are addressed by their field paths. Nested-object indexing
-  configuration, where supported, determines which paths are indexed.
+One logical index exists per indexed key path, independent of value type. Values are preserved without coercion, including mixed types within one index. Missing keys have no value entry; explicit undefined is distinct from absence and requires defined query/index semantics. Deep object and array traversal supports dot paths, array membership and nested array objects. Path escaping, duplicate membership and positional correlation follow the applicable path/operator contract. Binary values are atomic unless explicitly supported otherwise.
 
-## Ordered index structure
+Terminal entries reference complete object UUIDs, not key payload files. Equal values use a stable object identity or UUID tie-breaker; repeated candidate UUIDs are deduplicated before returning objects. Keys define discovery depth, not persistence boundaries.
 
-Entries are ordered by indexed value, with a stable tie-breaker such as object
-ID for equal values. Index nodes summarize their true first and last entries.
-Large indexes split into ordered chunks/nodes; chunk names and IDs do not imply
-value order. Parent boundaries describe the actual values in each child.
+## Recursive ordered structure
 
-The index stores values without coercion. Sorting, equality, and range behavior
-must match the query operator contract applied to the stored value and supplied
-query value. In particular, equality does not make a numeric value equal to the
-same digits stored as text unless the selected operator explicitly defines that
-behavior.
+An index root leads to ordered child segments. Each child records its actual first and last entries and length/count, with the count unit explicitly defined for the index contract. Parent summaries reflect the current children. Ordering is determined by entries, not filenames or UUID sequence. The tree uses a deterministic total order for supported mixed values, including explicit handling of incomparable values. That order is distinct from operator semantics and cannot justify unsafe pruning.
 
-## Query candidate planning
+Segments split according to actual encoded byte size. A split retains an existing address for one portion and allocates required sibling/root addresses; any changed parent references and summaries are updated coherently. Unsplittable large entries are handled explicitly rather than silently dropped. Deletion prunes empty branches and collapses roots where applicable. Forward and reverse traversal support lazy acquisition of only required segments.
 
-The index is a candidate-selection structure, not a source of normalized field
-values. Query operators determine whether candidates match. The planner may use
-ordered boundaries to narrow a candidate set only when doing so preserves the
-operator's results. When mixed values or JavaScript relational semantics make a
-range unsafe to prune, the planner must scan a broader candidate set and verify
-each candidate with the query operator.
+## Query planning
 
-Sorting the final query results must use the documented sort contract over the
-stored values. The index comparator and query comparator must not silently
-disagree in a way that omits valid matches or produces an invalid range plan.
-JavaScript relational comparison is not a total ordering for all mixed values;
-the implementation must explicitly handle incomparable values and coercion
-before using a comparator for tree ordering or range pruning.
+The planner uses counts, boundaries and available indexes to reduce work. For conjunctions it can start with the smallest relevant candidate set; disjunctions combine the required branches. It preserves `_id` enumeration and falls back to scans where an index cannot provide a complete candidate set. Final predicates are evaluated against complete current objects using shared Utils operators. Independent matches on array elements do not establish same-element correlation.
 
-## Date values
+Equality and relational behavior are those of the shared operator, not the tree comparator. Numeric strings, numbers, NaN, null, undefined, arrays, composites and binary values cannot be silently omitted because a range is difficult to order. When pruning cannot be proven safe, broaden the scan. Sorting uses the documented sort contract; pagination and projection operate on the correct matching result set. UTC ISO date strings retain their supplied form; only consistently formatted UTC strings have the expected lexical chronological ordering.
 
-The database does not infer a schema or convert arbitrary values into dates.
-Callers are responsible for supplying dates in the agreed sortable form. The
-current project convention is UTC ISO date strings. Indexing preserves the
-supplied string; it does not parse or rewrite it. Any guarantee that chronological
-order matches lexicographic order depends on the value following that UTC ISO
-format.
+## Pending maintenance
 
-## Invariants
+Index maintenance may follow the client response. Queries reconcile relevant pending additions and changes into candidate sets, exclude deleted objects and verify current values. Verifying only stale candidates is insufficient because it cannot recover omitted matches. Version/generation checks prevent delayed maintenance from overwriting newer state. Index acquisition failures propagate as incomplete results/errors rather than empty branches.
 
-- One logical index exists per indexed field path, not per field-and-type pair.
-- Index entries retain the original values and object identities.
-- Chunk boundaries reflect actual sorted entries.
-- Query planning may reduce work but must preserve the query operator's results.
-- Unsupported or incomparable values must not be silently dropped.
+## Conformance invariants
 
-## Open implementation details
+- Every index reference resolves within its organization to the appropriate complete object or child artifact.
+- Parent bounds and counts agree with child contents after maintenance.
+- Query results agree with a reference scan under shared operators, including mixed values and correlated arrays.
+- Split, prune, restart and reverse traversal preserve identity and ordering.
+- Pending maintenance and partial availability never silently produce false negatives.
 
-The exact total-order comparator for mixed values, behavior for `NaN`, infinities,
-undefined and composite values, and planner fallback thresholds need explicit
-decisions before mixed-value range pruning can be considered complete. See
-[`NEXT_TASK.md`](../NEXT_TASK.md) for current migration and implementation work.
+Exact comparator, count units, composite/binary indexing and path correlation representations are separate contract parameters; no alternative operator semantics are implied here.

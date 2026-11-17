@@ -14,7 +14,7 @@ routing are described in [crud.md](crud.md).
 - Every accepted mutation follows one processing path and produces the resulting
   document state and an operation-tagged update object.
 - Reuse an incoming update object when available; otherwise generate one using
-  the existing update utility.
+  the shared update utility.
 - Execute `$set`, `$unset`, `$inc`, and other supported operators against the
   state selected by reconciliation.
 - Preserve the mutation's original identity and timestamp. Reconciliation must
@@ -49,3 +49,7 @@ For a `$set` operation, reconciliation first determines the accepted field
 changes. Mutation processing then applies those changes to the selected current
 state and produces the resulting document and update object. Storage and peer
 delivery follow their respective specifications.
+
+## State and side effects
+
+The accepted operation is applied exactly once to the selected decoded object. The resulting complete object and operation-tagged update are the authoritative in-memory result. Stable snapshots or revisions protect asynchronous persistence against subsequent mutations; the persistence workflow never reapplies update operators. Index maintenance tracks pending changes so a read immediately following acceptance remains correct. A deletion changes active state and retains the ordering information required by reconciliation. The application path preserves supported value types and never converts them through a lossy JSON clone.

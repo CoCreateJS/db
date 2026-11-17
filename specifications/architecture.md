@@ -1,75 +1,60 @@
-# CoCreateDB Storage Architecture Specification
+# CoCreateDB Architecture Specification
 
 ## Scope
 
-This specification defines the names and relationships of CoCreateDB's logical
-scopes and physical storage roles. It describes the intended organization tree;
-the current implementation may use a different layout until the migration in
-[`NEXT_TASK.md`](../NEXT_TASK.md) is completed. Persistence behavior is defined
-in [persistence.md](persistence.md).
+CoCreateDB is a JavaScript-native, storage-agnostic document database engine centered on an independently accessible indexing primitive. It separates logical data and query processing from physical persistence and network placement.
 
-## Logical scope hierarchy
+## Organization boundary
 
-Each request supplies an immutable `organization_id` namespace scope in its
-payload. That ID selects the main namespace entry point. A persistence workflow
-chooses its physical destination; if it is a local filesystem workflow, the
-base path is configured there and no product-named directory is inserted
-implicitly. The organization ID is distinct from child CRUD targets such as
-storage, database, array, and object. See [scopes.md](scopes.md) for path rules.
-
-Within an organization namespace, CoCreateDB data is addressed through these
-scopes:
+Each operation supplies `organizationId`, which selects an isolated namespace. One engine can serve multiple organizations. Each namespace has an externally supplied root, a collection of UUID-addressed artifacts and local distribution state. [Scopes](scopes.md) owns the address contract.
 
 ```text
-storage → database → array → object → key
+<organizationId>/
+├── index.json
+├── data/
+│   ├── <uuid>
+│   └── <uuid>
+└── distribution/
+    └── <local operational metadata>
 ```
 
-Each level is resolved from the level above it. A lower-level scope or artifact
-is not an independent entry point into the organization tree.
+| Component | Role | Database cloud persistence |
+| --- | --- | --- |
+| `index.json` | External bootstrap manifest | Excluded |
+| `data/` | Complete objects, catalogs, index roots/segments, durable reconciliation metadata | Eligible through configured workflows |
+| `distribution/` | Local disk holder inventory and operational placement state | Excluded |
 
-## Physical roles and names
+Only `data/` participates in database-managed cloud persistence and portable artifact export. The canonical layout describes artifact roles; providers may map addresses to their own storage representation. The core does not infer a path from an artifact's type or logical scope.
 
-- **`index.json`** — the required top-level entry index. It is the root used to
-  discover and resolve the rest of the organization tree.
-- **`indexes/`** — contains index nodes reachable by following the entry index.
-  A logical index starts at one root and may split into multiple nodes as it
-  grows; the node files remain parts of that index, not separately named
-  indexes.
-- **`distribution/`** — maps data and index locations to their holders across
-  clusters. It describes placement and is separate from the data itself.
-- **`data/`** — contains persisted records and other data artifacts, organized
-  under the storage/database/array/object/key scopes as required by the chosen
-  physical encoding.
-- **Artifact** — a general term for a stored file or payload. It is not a scope
-  name and is not synonymous with an index node.
+## Logical model
 
-The intended per-organization logical layout, when represented by a filesystem
-workflow, is:
+The root catalog leads to storage, database, array and object scopes. Keys are paths within complete objects. Indexes project those paths into recursive ordered structures whose terminal references resolve complete object UUIDs. Catalogs and index segments have independent UUIDs. Logical `_id` and physical UUID are distinct. See [data.md](data.md) and [indexes.md](indexes.md).
 
-```text
-<workflow-base>/<organization_id>/
-  index.json
-  indexes/
-  distribution/
-  data/
-```
+## Runtime ownership
 
-## Reachability and ownership
+The primary process owns authoritative decoded state, mutation ordering and distribution decisions. Each organization has one decoded `data` Map keyed by UUID. A working set is acquired on demand rather than requiring complete namespace hydration. Workers submit requests to the primary through the runtime integration. Any delegated persistence or serialization work uses stable versioned inputs and cannot independently mutate authoritative state. Worker delegation is not a prerequisite for correctness.
 
-The entry index is required to resolve scope and index roots. Index nodes are
-reachable through the index tree. Distribution entries identify placement for
-index or data artifacts. Data artifacts store the actual values. Do not make
-each storage, database, array, or object directory a competing organization
-entry point.
+## Processing model
 
-The physical encoding may evolve while preserving these names and relationships.
-Changing the current on-disk format requires an explicit migration and peer
-compatibility plan; existing data must not be rewritten implicitly.
+1. Authorize the organization and resolve its bootstrap and requested scopes.
+2. Acquire necessary artifacts and resolve candidates through indexes where safe.
+3. Verify query predicates and apply accepted mutations in memory through shared operators.
+4. Initiate the client response when the requested result is complete; initiate peer propagation immediately alongside it for mutations.
+5. Coordinate pending index maintenance and workflow persistence as separate observable effects.
 
-## Relationship to other specifications
+Reads may wait for required artifacts. Pending index work must never omit a matching object. The response acknowledges in-memory processing, not crash durability or peer receipt.
 
-- [indexes.md](indexes.md) defines field-value indexes and candidate planning.
-- [mutations.md](mutations.md) defines document state changes.
-- [reconciliation.md](reconciliation.md) defines conflict precedence.
-- [replication.md](replication.md) defines peer and client propagation.
-- [persistence.md](persistence.md) defines durable data and local cache lifecycle.
+## Integration boundaries
+
+| Responsibility | Authority |
+| --- | --- |
+| Query/index structure | CoCreateDB indexing primitive |
+| Query/update operators | `@cocreate/utils` |
+| Conflict application | CoCreateDB reconciliation and mutations |
+| Physical provider selection, encryption, retries | Persistence workflow |
+| Bootstrap provisioning | External bootstrap authority |
+| Routing and message delivery | Mesh integration |
+| Local holder metadata | Distribution subsystem |
+| Client local durability | Client integration |
+
+Providers are independent of core algorithms. Application import, seeding and deployment tooling are outside the database contract; ordinary CRUD is sufficient to populate a provisioned namespace. No centralized distributed locking, full replication, multi-artifact crash atomicity or universal delivery guarantee is implied by this architecture.
