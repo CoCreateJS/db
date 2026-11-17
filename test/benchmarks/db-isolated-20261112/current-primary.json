@@ -1,0 +1,566 @@
+{
+  "mode": "current-primary",
+  "fixture": "/tmp/coc-db-isolated-jhYTGZ",
+  "externalPersistence": false,
+  "writeBehind": false,
+  "documents": 73,
+  "sourceChecks": [
+    {
+      "pathname": "/components/nav.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/hero.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/proof-strip.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/problem.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/architecture.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/features.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/application-as-data.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/orchestration.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/runtime-api.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/autonomous-operations.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/data.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/client.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/edge-delivery.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/efficiency.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/use-cases.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/open-source.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/documentation.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/faqs.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/contact.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/cta.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/footer.html",
+      "equal": true
+    },
+    {
+      "pathname": "/components/scroll-to-top.html",
+      "equal": true
+    },
+    {
+      "pathname": "/assets/svg/remix/arrow-right-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/git-repository-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/cpu-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/open-source-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/code-box-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/server-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/cloud-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/pulse-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/stack-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/file-settings-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/money-dollar-circle-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/shield-keyhole-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/tools-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/node-tree.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/computer-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/arrow-down-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/global-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/arrow-left-right-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/database-2-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/route-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/database-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/code-s-slash-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/settings-3-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/heart-pulse-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/edit-box-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/play-circle-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/send-plane-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/time-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/terminal-box-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/stop-circle-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/line-chart-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/layout-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/refresh-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/wifi-off-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/checkbox-circle-fill.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/box-3-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/links-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/recycle-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/shield-check-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/group-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/robot-2-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/building-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/layout-masonry-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/eye-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/git-merge-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/rocket-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/assets/svg/remix/mail-line.svg",
+      "equal": false
+    },
+    {
+      "pathname": "/components/cookies.html",
+      "equal": true
+    },
+    {
+      "pathname": "/assets/svg/remix/arrow-up-line.svg",
+      "equal": false
+    }
+  ],
+  "rootSourceMatches": true,
+  "seedMs": 10052.575523,
+  "summaries": {
+    "first-read": {
+      "n": 1,
+      "minMs": 38.145982000000004,
+      "medianMs": 38.145982000000004,
+      "maxMs": 38.145982000000004,
+      "hashes": [
+        "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      ],
+      "bytes": [],
+      "reads": []
+    },
+    "warm-read": {
+      "n": 20,
+      "minMs": 1.8191009999999892,
+      "medianMs": 2.381450000000001,
+      "maxMs": 3.429935999999998,
+      "hashes": [
+        "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      ],
+      "bytes": [
+        1791
+      ],
+      "reads": []
+    },
+    "first-render": {
+      "n": 1,
+      "minMs": 305.77369899999997,
+      "medianMs": 305.77369899999997,
+      "maxMs": 305.77369899999997,
+      "hashes": [
+        "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0"
+      ],
+      "bytes": [
+        120860
+      ],
+      "reads": [
+        114
+      ]
+    },
+    "warm-render": {
+      "n": 5,
+      "minMs": 209.30848600000002,
+      "medianMs": 218.486224,
+      "maxMs": 238.27924000000007,
+      "hashes": [
+        "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0"
+      ],
+      "bytes": [
+        120860
+      ],
+      "reads": [
+        114
+      ]
+    },
+    "write-and-render": {
+      "n": 5,
+      "minMs": 893.7241519999998,
+      "medianMs": 936.9835170000001,
+      "maxMs": 1125.7748129999998,
+      "hashes": [
+        "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0"
+      ],
+      "bytes": [
+        120860
+      ],
+      "reads": [
+        114
+      ]
+    }
+  },
+  "samples": {
+    "first-read": [
+      {
+        "ms": 38.145982000000004,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      }
+    ],
+    "warm-read": [
+      {
+        "ms": 2.758211999999986,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 3.1750260000000026,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 2.2148050000000126,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 2.8474160000000097,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 3.282430000000005,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 3.429935999999998,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 3.365183000000002,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 2.6563589999999806,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 2.381450000000001,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 2.0380189999999914,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 1.839821999999998,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 1.8441219999999987,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 2.3823500000000024,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 2.3173769999999934,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 2.5039950000000033,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 1.9428249999999991,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 1.8191009999999892,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 2.149263000000019,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 1.839522000000045,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      },
+      {
+        "ms": 2.2502850000000194,
+        "bytes": 1791,
+        "sha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9"
+      }
+    ],
+    "first-render": [
+      {
+        "ms": 305.77369899999997,
+        "bytes": 120860,
+        "sha256": "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0",
+        "reads": 114
+      }
+    ],
+    "warm-render": [
+      {
+        "ms": 238.27924000000007,
+        "bytes": 120860,
+        "sha256": "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0",
+        "reads": 114
+      },
+      {
+        "ms": 209.30848600000002,
+        "bytes": 120860,
+        "sha256": "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0",
+        "reads": 114
+      },
+      {
+        "ms": 224.82062699999994,
+        "bytes": 120860,
+        "sha256": "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0",
+        "reads": 114
+      },
+      {
+        "ms": 215.5074649999999,
+        "bytes": 120860,
+        "sha256": "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0",
+        "reads": 114
+      },
+      {
+        "ms": 218.486224,
+        "bytes": 120860,
+        "sha256": "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0",
+        "reads": 114
+      }
+    ],
+    "write-and-render": [
+      {
+        "ms": 1125.7748129999998,
+        "bytes": 120860,
+        "sha256": "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0",
+        "reads": 114,
+        "writeAckMs": 892.0622270000001,
+        "renderMs": 223.15353099999993
+      },
+      {
+        "ms": 936.9835170000001,
+        "bytes": 120860,
+        "sha256": "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0",
+        "reads": 114,
+        "writeAckMs": 707.6487579999998,
+        "renderMs": 219.07446500000015
+      },
+      {
+        "ms": 924.8601389999994,
+        "bytes": 120860,
+        "sha256": "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0",
+        "reads": 114,
+        "writeAckMs": 689.5858510000003,
+        "renderMs": 224.97749300000032
+      },
+      {
+        "ms": 949.513449,
+        "bytes": 120860,
+        "sha256": "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0",
+        "reads": 114,
+        "writeAckMs": 722.4790270000003,
+        "renderMs": 217.74169900000015
+      },
+      {
+        "ms": 893.7241519999998,
+        "bytes": 120860,
+        "sha256": "22275bc465d00f584291f5ec20f3d8ae599b6fb7c99a3b7136270e97f5d663c0",
+        "reads": 114,
+        "writeAckMs": 670.0112120000003,
+        "renderMs": 213.43612399999984
+      }
+    ]
+  },
+  "memory": {
+    "files": 212,
+    "serializedBytes": 244562
+  },
+  "meshCounts": {
+    "db.partition.availability": 119,
+    "db.distribution": 6
+  }
+}

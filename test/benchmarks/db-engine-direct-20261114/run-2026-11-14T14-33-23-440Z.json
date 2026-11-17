@@ -1,0 +1,130 @@
+{
+  "startedAt": "2026-11-14T14:31:00.927Z",
+  "documentCount": 1000,
+  "repeatCount": 3,
+  "backends": [
+    {
+      "backend": "cocreate-memory",
+      "seedMs": 7666.669908,
+      "results": [
+        {
+          "operation": "read-id",
+          "firstCallMs": 6.121968999999808,
+          "subsequentCallMs": [
+            0.9898719999991954,
+            1.2427200000001903,
+            0.8684280000006765
+          ],
+          "subsequentAverageMs": 1.033673333333354,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-equality",
+          "firstCallMs": 1.5151789999999892,
+          "subsequentCallMs": [
+            0.9225000000005821,
+            0.6467410000004747,
+            0.6981830000004265
+          ],
+          "subsequentAverageMs": 0.7558080000004944,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-range",
+          "firstCallMs": 5.079724999999598,
+          "subsequentCallMs": [
+            3.6331880000007004,
+            3.6676989999996295,
+            4.185555999999451
+          ],
+          "subsequentAverageMs": 3.8288143333332605,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "create",
+          "firstCallMs": 1.2768910000004325,
+          "subsequentCallMs": [
+            0.9074099999997998,
+            0.7057130000002871,
+            0.6556520000003729
+          ],
+          "subsequentAverageMs": 0.7562583333334866,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "update",
+          "firstCallMs": 3.42866099999992,
+          "subsequentCallMs": [
+            0.5610980000001291,
+            0.44825500000024476,
+            0.48542600000018865
+          ],
+          "subsequentAverageMs": 0.4982596666668542,
+          "subsequentCount": 3
+        }
+      ]
+    },
+    {
+      "backend": "cocreate-disk",
+      "seedMs": 133550.262575,
+      "results": [
+        {
+          "operation": "read-id",
+          "firstCallMs": 30.145996000006562,
+          "subsequentCallMs": [
+            0.8113369999919087,
+            0.5666480000072625,
+            0.49781599998823367
+          ],
+          "subsequentAverageMs": 0.6252669999958016,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-equality",
+          "firstCallMs": 12.348280000005616,
+          "subsequentCallMs": [
+            0.8057860000117216,
+            0.7723750000004657,
+            1.4861279999895487
+          ],
+          "subsequentAverageMs": 1.0214296666672453,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-range",
+          "firstCallMs": 27.06458599999314,
+          "subsequentCallMs": [
+            3.1920739999914076,
+            3.8090729999821633,
+            3.252306000009412
+          ],
+          "subsequentAverageMs": 3.4178176666609943,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "create",
+          "firstCallMs": 160.81521699999576,
+          "subsequentCallMs": [
+            132.93397400001413,
+            139.953932000004,
+            352.0432879999862
+          ],
+          "subsequentAverageMs": 208.31039800000144,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "update",
+          "firstCallMs": 90.90619300000253,
+          "subsequentCallMs": [
+            22.32620300000417,
+            18.728776999982074,
+            20.50538400001824
+          ],
+          "subsequentAverageMs": 20.520121333334828,
+          "subsequentCount": 3
+        }
+      ]
+    }
+  ],
+  "finishedAt": "2026-11-14T14:33:23.440Z"
+}

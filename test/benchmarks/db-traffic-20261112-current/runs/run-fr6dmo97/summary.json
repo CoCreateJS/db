@@ -1,0 +1,200 @@
+{
+  "currentRuns": 3,
+  "controlRuns": 1,
+  "before": {
+    "id-c1": {
+      "drainedOpsPerSecond": 1719.0771634843015,
+      "throughputRange": [
+        1719.0771634843015,
+        1719.0771634843015
+      ],
+      "p50Ms": 0.5084360000037123,
+      "p95Ms": 0.759303999999247,
+      "serializedMB": 0.0,
+      "mutationSizeMs": 0,
+      "duplicatePackets": 0
+    },
+    "equality-c1": {
+      "drainedOpsPerSecond": 1743.729072907984,
+      "throughputRange": [
+        1743.729072907984,
+        1743.729072907984
+      ],
+      "p50Ms": 0.5016459999969811,
+      "p95Ms": 0.7492150000034599,
+      "serializedMB": 0.0,
+      "mutationSizeMs": 0,
+      "duplicatePackets": 0
+    },
+    "range-c1": {
+      "drainedOpsPerSecond": 279.4618794951033,
+      "throughputRange": [
+        279.4618794951033,
+        279.4618794951033
+      ],
+      "p50Ms": 2.9651970000049914,
+      "p95Ms": 5.131258000001253,
+      "serializedMB": 0.0,
+      "mutationSizeMs": 0,
+      "duplicatePackets": 0
+    },
+    "create-c16": {
+      "drainedOpsPerSecond": 10.515019683136845,
+      "throughputRange": [
+        10.515019683136845,
+        10.515019683136845
+      ],
+      "p50Ms": 59.686649000002944,
+      "p95Ms": 614.9623639999991,
+      "serializedMB": 125.838643,
+      "mutationSizeMs": 960.1766230002177,
+      "duplicatePackets": 3400
+    },
+    "update-c16": {
+      "drainedOpsPerSecond": 87.10808048239267,
+      "throughputRange": [
+        87.10808048239267,
+        87.10808048239267
+      ],
+      "p50Ms": 0.5581279999969411,
+      "p95Ms": 4.034741000003123,
+      "serializedMB": 47.555674,
+      "mutationSizeMs": 233.70448799991573,
+      "duplicatePackets": 1000
+    },
+    "mixed-c16": {
+      "drainedOpsPerSecond": 74.58335223002003,
+      "throughputRange": [
+        74.58335223002003,
+        74.58335223002003
+      ],
+      "p50Ms": 0.5833190000048489,
+      "p95Ms": 65.32949399999052,
+      "serializedMB": 177.329269,
+      "mutationSizeMs": 1414.0961100008935,
+      "duplicatePackets": 5280
+    }
+  },
+  "after": {
+    "id-c1": {
+      "drainedOpsPerSecond": 1309.442073837788,
+      "throughputRange": [
+        1288.9013681465065,
+        1369.8028906103889
+      ],
+      "p50Ms": 0.6555009999974573,
+      "p95Ms": 0.9985229999983858,
+      "serializedMB": 0.0,
+      "mutationSizeMs": 0,
+      "duplicatePackets": 0
+    },
+    "equality-c1": {
+      "drainedOpsPerSecond": 1378.2017497555707,
+      "throughputRange": [
+        1334.478630935633,
+        1385.323767792779
+      ],
+      "p50Ms": 0.6434009999975387,
+      "p95Ms": 0.9611619999996037,
+      "serializedMB": 0.0,
+      "mutationSizeMs": 0,
+      "duplicatePackets": 0
+    },
+    "range-c1": {
+      "drainedOpsPerSecond": 298.8125449430871,
+      "throughputRange": [
+        296.5560987698831,
+        301.1286400802637
+      ],
+      "p50Ms": 3.020567999999912,
+      "p95Ms": 4.043871000001673,
+      "serializedMB": 0.0,
+      "mutationSizeMs": 0,
+      "duplicatePackets": 0
+    },
+    "create-c16": {
+      "drainedOpsPerSecond": 19.63610968676988,
+      "throughputRange": [
+        18.902853649264138,
+        19.754186512352938
+      ],
+      "p50Ms": 25.589514999999665,
+      "p95Ms": 271.9317200000005,
+      "serializedMB": 102.174868,
+      "mutationSizeMs": 0,
+      "duplicatePackets": 0
+    },
+    "update-c16": {
+      "drainedOpsPerSecond": 119.69469684338846,
+      "throughputRange": [
+        117.17910249236166,
+        120.18789085954678
+      ],
+      "p50Ms": 0.6046690000002855,
+      "p95Ms": 5.229700000003504,
+      "serializedMB": 22.596964,
+      "mutationSizeMs": 0,
+      "duplicatePackets": 0
+    },
+    "mixed-c16": {
+      "drainedOpsPerSecond": 122.69564979576198,
+      "throughputRange": [
+        120.16059046679611,
+        123.63781711984419
+      ],
+      "p50Ms": 0.7179239999968559,
+      "p95Ms": 27.325603000004776,
+      "serializedMB": 135.537413,
+      "mutationSizeMs": 0,
+      "duplicatePackets": 0
+    }
+  },
+  "disk": {
+    "documents": 250,
+    "updates": 50,
+    "memoryOnly": false,
+    "externalPersistence": false,
+    "seedAndFlushMs": 8463.644363000001,
+    "fileCount": 832,
+    "sidecarCount": 259,
+    "sidecarEntries": 573,
+    "totalBytes": 844559,
+    "runs": [
+      {
+        "coldFirstReadMs": 39.96643400000002,
+        "warmReadCount": 1000,
+        "warmOpsPerSecond": 1277.5996792468468,
+        "warm": {
+          "p50Ms": 0.6774419999999282,
+          "p95Ms": 1.188399000000004,
+          "maxMs": 3.878357000000051
+        },
+        "verified": true
+      },
+      {
+        "coldFirstReadMs": 39.26198100000002,
+        "warmReadCount": 1000,
+        "warmOpsPerSecond": 1286.6394002130749,
+        "warm": {
+          "p50Ms": 0.676531999999952,
+          "p95Ms": 1.17492900000002,
+          "maxMs": 4.969791999999984
+        },
+        "verified": true
+      },
+      {
+        "coldFirstReadMs": 39.326604,
+        "warmReadCount": 1000,
+        "warmOpsPerSecond": 1278.5051611284457,
+        "warm": {
+          "p50Ms": 0.6865720000000692,
+          "p95Ms": 1.148777999999993,
+          "maxMs": 4.884229000000005
+        },
+        "verified": true
+      }
+    ],
+    "verified": true
+  },
+  "sourceUnchanged": true
+}

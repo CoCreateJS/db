@@ -1,0 +1,520 @@
+{
+  "rootSha256": "c38550d5bdd091bb9db9dad46568b566c3d8901040b3838c710223c17bde0d3a",
+  "componentCount": 72,
+  "allEqual": true,
+  "components": [
+    {
+      "pathname": "/components/nav.html",
+      "mongodbSha256": "c391d1be31c8e883b8000b3054644c07b913817171626bd4701c3d11484f8aae",
+      "dbSha256": "c391d1be31c8e883b8000b3054644c07b913817171626bd4701c3d11484f8aae",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/hero.html",
+      "mongodbSha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9",
+      "dbSha256": "6c9da00b792af0ff93c70864546ab2a2db49a7ca61c08755eb3fcc77687c0ae9",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/proof-strip.html",
+      "mongodbSha256": "84a2428cda8250efa774fc3d8f078193fc3a85e26732a88433e78d480c5bfcde",
+      "dbSha256": "84a2428cda8250efa774fc3d8f078193fc3a85e26732a88433e78d480c5bfcde",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/problem.html",
+      "mongodbSha256": "36f968fbd27824c003f8963463ece7df853482e6d1b283c994d8a2b944c7f85b",
+      "dbSha256": "36f968fbd27824c003f8963463ece7df853482e6d1b283c994d8a2b944c7f85b",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/architecture.html",
+      "mongodbSha256": "5e89af027800337327c81affe2952bc35bf16b74f09b8272b9632f2fff187a96",
+      "dbSha256": "5e89af027800337327c81affe2952bc35bf16b74f09b8272b9632f2fff187a96",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/features.html",
+      "mongodbSha256": "9a58357c1c2ec4d2e17e3732ab314400095ed15c09e8a4e266684c7be8c73958",
+      "dbSha256": "9a58357c1c2ec4d2e17e3732ab314400095ed15c09e8a4e266684c7be8c73958",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/application-as-data.html",
+      "mongodbSha256": "2ea37021a888ee7be053182b81e9cc9deb68f2ab702020ed80e806d08246b605",
+      "dbSha256": "2ea37021a888ee7be053182b81e9cc9deb68f2ab702020ed80e806d08246b605",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/orchestration.html",
+      "mongodbSha256": "21aae7d9a0e453b776fc510b35ea39c4344447dc0d1721a2e8c343baac234f74",
+      "dbSha256": "21aae7d9a0e453b776fc510b35ea39c4344447dc0d1721a2e8c343baac234f74",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/runtime-api.html",
+      "mongodbSha256": "2e33702c27f9f7d9f980f65f762cc005914ed167a91fe91663ccb80065f95e93",
+      "dbSha256": "2e33702c27f9f7d9f980f65f762cc005914ed167a91fe91663ccb80065f95e93",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/autonomous-operations.html",
+      "mongodbSha256": "ca37371f3dda593545029385a0b088e77e0570f431e9d73fe21fcc7cf2d88411",
+      "dbSha256": "ca37371f3dda593545029385a0b088e77e0570f431e9d73fe21fcc7cf2d88411",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/data.html",
+      "mongodbSha256": "7baeb9604a563c039d0bd1cb9db4f68da65c6987bf48a2281d93fb99577b53e9",
+      "dbSha256": "7baeb9604a563c039d0bd1cb9db4f68da65c6987bf48a2281d93fb99577b53e9",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/client.html",
+      "mongodbSha256": "f2c69b3743ca994901c5603715acd1c9cc3c6adddadc0b8be4d6d41ecd7eb761",
+      "dbSha256": "f2c69b3743ca994901c5603715acd1c9cc3c6adddadc0b8be4d6d41ecd7eb761",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/edge-delivery.html",
+      "mongodbSha256": "7627d13fdf207356c4de94258d0927991b9a824dda9fd7b050eb6cd0f4d8921a",
+      "dbSha256": "7627d13fdf207356c4de94258d0927991b9a824dda9fd7b050eb6cd0f4d8921a",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/efficiency.html",
+      "mongodbSha256": "8109c4d76819796801334e5729c7d543f576cb9e9bc5a5a2252c912252a67c03",
+      "dbSha256": "8109c4d76819796801334e5729c7d543f576cb9e9bc5a5a2252c912252a67c03",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/use-cases.html",
+      "mongodbSha256": "edf8e9a2f68837e4996e2ce4d1eafe5227e54001908a856bea81dd8692f0058a",
+      "dbSha256": "edf8e9a2f68837e4996e2ce4d1eafe5227e54001908a856bea81dd8692f0058a",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/open-source.html",
+      "mongodbSha256": "9700a53de4098907e7d06ad479aa2233bd31727019939798a9175829f183036e",
+      "dbSha256": "9700a53de4098907e7d06ad479aa2233bd31727019939798a9175829f183036e",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/documentation.html",
+      "mongodbSha256": "2a08e00b38fc7749d1576f19a21b8bb12852309f1df32a655d0bdd527f920c05",
+      "dbSha256": "2a08e00b38fc7749d1576f19a21b8bb12852309f1df32a655d0bdd527f920c05",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/faqs.html",
+      "mongodbSha256": "397401950470f905a9b0b78a9d14ba82e30c9ae70312b79a731414acc0311fc3",
+      "dbSha256": "397401950470f905a9b0b78a9d14ba82e30c9ae70312b79a731414acc0311fc3",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/contact.html",
+      "mongodbSha256": "caf90eb9799737b34e484f3fdbb79af47fe64941aa998a72a0979765febcf177",
+      "dbSha256": "caf90eb9799737b34e484f3fdbb79af47fe64941aa998a72a0979765febcf177",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/cta.html",
+      "mongodbSha256": "c6bc3f41e36bbf210b8b4954469e1512a929c4075fa00ffec4418f6186a4d1c2",
+      "dbSha256": "c6bc3f41e36bbf210b8b4954469e1512a929c4075fa00ffec4418f6186a4d1c2",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/footer.html",
+      "mongodbSha256": "4223cd169f1378e2b3f2f3e76edafa94ca2515bb0f98063ba3d2f90d9a3e123e",
+      "dbSha256": "4223cd169f1378e2b3f2f3e76edafa94ca2515bb0f98063ba3d2f90d9a3e123e",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/scroll-to-top.html",
+      "mongodbSha256": "b469daf788fa48d5189888bf3d58d0f0da80ae2abfe4c5b234d8e51b4b3ab4c1",
+      "dbSha256": "b469daf788fa48d5189888bf3d58d0f0da80ae2abfe4c5b234d8e51b4b3ab4c1",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/arrow-right-line.svg",
+      "mongodbSha256": "147186da7713dca3282bd6da10fbcaaae0b8cd0ea1e4b2e67012b342a1d984a3",
+      "dbSha256": "147186da7713dca3282bd6da10fbcaaae0b8cd0ea1e4b2e67012b342a1d984a3",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/git-repository-line.svg",
+      "mongodbSha256": "262c0968e49438260469abcdb3a0f11bf3e8738391d2c7a6bd28275ccf48f787",
+      "dbSha256": "262c0968e49438260469abcdb3a0f11bf3e8738391d2c7a6bd28275ccf48f787",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/cpu-line.svg",
+      "mongodbSha256": "c5b8b4999d7442e00be9830f86da1f0975bdbd766fabfbdac98276b79dd91e93",
+      "dbSha256": "c5b8b4999d7442e00be9830f86da1f0975bdbd766fabfbdac98276b79dd91e93",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/open-source-line.svg",
+      "mongodbSha256": "41c0cab9af4d9e506d6bed69f46e352ae13837d1843a907e39bcd8a4ea3dd116",
+      "dbSha256": "41c0cab9af4d9e506d6bed69f46e352ae13837d1843a907e39bcd8a4ea3dd116",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/code-box-line.svg",
+      "mongodbSha256": "bf4ae19d7c44a955cab2b88ee4f9e720e8e7b4c4030351805ac9032c0732b1c1",
+      "dbSha256": "bf4ae19d7c44a955cab2b88ee4f9e720e8e7b4c4030351805ac9032c0732b1c1",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/server-line.svg",
+      "mongodbSha256": "c2f362e30e781940c6a21e75a2ef38818cc6045ce321f4e9b49815918ee2375c",
+      "dbSha256": "c2f362e30e781940c6a21e75a2ef38818cc6045ce321f4e9b49815918ee2375c",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/cloud-line.svg",
+      "mongodbSha256": "82f1f56bafea7656211f0db9bd21cbfc1b441cbe88741d5cf5c47947e2a56489",
+      "dbSha256": "82f1f56bafea7656211f0db9bd21cbfc1b441cbe88741d5cf5c47947e2a56489",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/pulse-line.svg",
+      "mongodbSha256": "da0a9fd8ac2088ea0df25abd7ca75f981b9e584dd77d035c0f0361a09c3d0e3b",
+      "dbSha256": "da0a9fd8ac2088ea0df25abd7ca75f981b9e584dd77d035c0f0361a09c3d0e3b",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/stack-line.svg",
+      "mongodbSha256": "756cf9080ebbe59bee7c0549b8330c3982626370be83524f72f5cfd1c6e66fba",
+      "dbSha256": "756cf9080ebbe59bee7c0549b8330c3982626370be83524f72f5cfd1c6e66fba",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/file-settings-line.svg",
+      "mongodbSha256": "e79e99461e41163010e126d3b95ab4474762f6669f9fe2f6fdd377c356d6974d",
+      "dbSha256": "e79e99461e41163010e126d3b95ab4474762f6669f9fe2f6fdd377c356d6974d",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/money-dollar-circle-line.svg",
+      "mongodbSha256": "487293aa632acd8bebe3b8e3d7769ae8bc1df54938219272af9d8312b373b004",
+      "dbSha256": "487293aa632acd8bebe3b8e3d7769ae8bc1df54938219272af9d8312b373b004",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/shield-keyhole-line.svg",
+      "mongodbSha256": "804b06e2fa6040b27312e9376fcf2e840a56b7fdf2b8028af164109a15aee595",
+      "dbSha256": "804b06e2fa6040b27312e9376fcf2e840a56b7fdf2b8028af164109a15aee595",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/tools-line.svg",
+      "mongodbSha256": "3ac60f163230013e5be7eb86e512fa008d4a81f597107335ac26918b592948cc",
+      "dbSha256": "3ac60f163230013e5be7eb86e512fa008d4a81f597107335ac26918b592948cc",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/node-tree.svg",
+      "mongodbSha256": "e2af47aabbd3ede36d6346562473787e7492eb652761d80ce63e3407801b4bd1",
+      "dbSha256": "e2af47aabbd3ede36d6346562473787e7492eb652761d80ce63e3407801b4bd1",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/computer-line.svg",
+      "mongodbSha256": "30f74c57bf337c78b4d1273edff5faff4164619819a5365b15ece1770a1dd182",
+      "dbSha256": "30f74c57bf337c78b4d1273edff5faff4164619819a5365b15ece1770a1dd182",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/arrow-down-line.svg",
+      "mongodbSha256": "460003063ff3e2f5f4d9642cb3c7fa6d4a4b3ee45e440f042b8dc660a3722a46",
+      "dbSha256": "460003063ff3e2f5f4d9642cb3c7fa6d4a4b3ee45e440f042b8dc660a3722a46",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/global-line.svg",
+      "mongodbSha256": "7d66dbd345a6de77b3062ce2a5c875fa1f2a8245d521ab6a347c2ba35202003e",
+      "dbSha256": "7d66dbd345a6de77b3062ce2a5c875fa1f2a8245d521ab6a347c2ba35202003e",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/arrow-left-right-line.svg",
+      "mongodbSha256": "ee2dd615539e6726517395d3fafdb97b94ee1d5575e926ca40f67e25d5d2db82",
+      "dbSha256": "ee2dd615539e6726517395d3fafdb97b94ee1d5575e926ca40f67e25d5d2db82",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/database-2-line.svg",
+      "mongodbSha256": "2762226e3d1a2c5621ddec7c86d9605888c34969c522d083edbaf6767098cefb",
+      "dbSha256": "2762226e3d1a2c5621ddec7c86d9605888c34969c522d083edbaf6767098cefb",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/route-line.svg",
+      "mongodbSha256": "34809e7e416ee1a72ecc4a3e49d5a9bef942a29e140fc4c9d6b49f4c39000796",
+      "dbSha256": "34809e7e416ee1a72ecc4a3e49d5a9bef942a29e140fc4c9d6b49f4c39000796",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/database-line.svg",
+      "mongodbSha256": "9506877af23866e509162c97b07d9fbf292ccb2b20f9f5f2011e95fcf860e004",
+      "dbSha256": "9506877af23866e509162c97b07d9fbf292ccb2b20f9f5f2011e95fcf860e004",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/code-s-slash-line.svg",
+      "mongodbSha256": "9616e55d47dcf47a526a909ce6d017c138c1da16fd69dbb757b243cf9dc29bb2",
+      "dbSha256": "9616e55d47dcf47a526a909ce6d017c138c1da16fd69dbb757b243cf9dc29bb2",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/settings-3-line.svg",
+      "mongodbSha256": "7c2d1734dc17589c260c459ce6b269fc83fdc814d8dd6778e32bb03ae7668b52",
+      "dbSha256": "7c2d1734dc17589c260c459ce6b269fc83fdc814d8dd6778e32bb03ae7668b52",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/heart-pulse-line.svg",
+      "mongodbSha256": "0ebae9967f33d90a1f0298c420f3b5c69438b07cd45b3ddb49130e9aadf2f839",
+      "dbSha256": "0ebae9967f33d90a1f0298c420f3b5c69438b07cd45b3ddb49130e9aadf2f839",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/edit-box-line.svg",
+      "mongodbSha256": "817b5706907c7d8490f574a48a41ab1f4be51f5fac33821ac7e99d72d721f456",
+      "dbSha256": "817b5706907c7d8490f574a48a41ab1f4be51f5fac33821ac7e99d72d721f456",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/play-circle-line.svg",
+      "mongodbSha256": "983b29b4a433871a657b13c104e075468b26b0f75e90b457b373e127c42030b2",
+      "dbSha256": "983b29b4a433871a657b13c104e075468b26b0f75e90b457b373e127c42030b2",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/send-plane-line.svg",
+      "mongodbSha256": "c7ad8dd93ff450d673cf814eb9f8c4a49b963fffa4feac014b209a386941ec7f",
+      "dbSha256": "c7ad8dd93ff450d673cf814eb9f8c4a49b963fffa4feac014b209a386941ec7f",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/time-line.svg",
+      "mongodbSha256": "f6b2df0051877262ac6200db49834b0320b7aa923d607f5f5e65a543bc126a90",
+      "dbSha256": "f6b2df0051877262ac6200db49834b0320b7aa923d607f5f5e65a543bc126a90",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/terminal-box-line.svg",
+      "mongodbSha256": "f4a395d14655565f43beb62607f34874ab6f005d00ce43de6792052a5bbbb0d0",
+      "dbSha256": "f4a395d14655565f43beb62607f34874ab6f005d00ce43de6792052a5bbbb0d0",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/stop-circle-line.svg",
+      "mongodbSha256": "a5d6a795ce05546c776c7a2e059bcc19c9128197b9c3d21370cd3315b8bf262e",
+      "dbSha256": "a5d6a795ce05546c776c7a2e059bcc19c9128197b9c3d21370cd3315b8bf262e",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/line-chart-line.svg",
+      "mongodbSha256": "9ada6ab463e79fcdd59a720fa532c111934d48554eef2b77a16559e547b59edb",
+      "dbSha256": "9ada6ab463e79fcdd59a720fa532c111934d48554eef2b77a16559e547b59edb",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/layout-line.svg",
+      "mongodbSha256": "ff7cbb471a9a96f5a434147d354283da450bdbb2c2e97856529d7874edf2f559",
+      "dbSha256": "ff7cbb471a9a96f5a434147d354283da450bdbb2c2e97856529d7874edf2f559",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/refresh-line.svg",
+      "mongodbSha256": "0a79b3cdab373ec7ec9970c0b01cf9e33e8d78046a49ee004e91423c33a7408e",
+      "dbSha256": "0a79b3cdab373ec7ec9970c0b01cf9e33e8d78046a49ee004e91423c33a7408e",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/wifi-off-line.svg",
+      "mongodbSha256": "24899731c16d0669b6a3ef3c41b8483d9ed6249379d588c1ebf495e9216ad81b",
+      "dbSha256": "24899731c16d0669b6a3ef3c41b8483d9ed6249379d588c1ebf495e9216ad81b",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/checkbox-circle-fill.svg",
+      "mongodbSha256": "88c7e6f2f7c654787174895a7a4561daf1e46b04376b96b3f368bfc881102e28",
+      "dbSha256": "88c7e6f2f7c654787174895a7a4561daf1e46b04376b96b3f368bfc881102e28",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/box-3-line.svg",
+      "mongodbSha256": "8659bee61586f1feaddec4ea4a58e4a817fea62e9f3d2cd78d0a349dff520526",
+      "dbSha256": "8659bee61586f1feaddec4ea4a58e4a817fea62e9f3d2cd78d0a349dff520526",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/links-line.svg",
+      "mongodbSha256": "77f46554dc12877456517a04342f32ed93491c2e516ad4583d49d0ee7eb427aa",
+      "dbSha256": "77f46554dc12877456517a04342f32ed93491c2e516ad4583d49d0ee7eb427aa",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/recycle-line.svg",
+      "mongodbSha256": "a2ae019d7f086b5552673e2fcac5af329ad96c836886d5eef72319d5588158df",
+      "dbSha256": "a2ae019d7f086b5552673e2fcac5af329ad96c836886d5eef72319d5588158df",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/shield-check-line.svg",
+      "mongodbSha256": "c53f8eef977aa423e89d4acf29a8133a2446670ee4cc8bd5a80f01e30c83411a",
+      "dbSha256": "c53f8eef977aa423e89d4acf29a8133a2446670ee4cc8bd5a80f01e30c83411a",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/group-line.svg",
+      "mongodbSha256": "76f8f39687e1267d98269e7d0f6aa3a2db9a6b1c4c6d18609df237779823430a",
+      "dbSha256": "76f8f39687e1267d98269e7d0f6aa3a2db9a6b1c4c6d18609df237779823430a",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/robot-2-line.svg",
+      "mongodbSha256": "3f6fca7d5fcac22f3ce3e3e5179a95e687f1101a37327c35007ac827347e4668",
+      "dbSha256": "3f6fca7d5fcac22f3ce3e3e5179a95e687f1101a37327c35007ac827347e4668",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/building-line.svg",
+      "mongodbSha256": "8646b592326a584d9ff41c8dfcdda1eb27a6b5b0a3ab30f699e7badfe58276f7",
+      "dbSha256": "8646b592326a584d9ff41c8dfcdda1eb27a6b5b0a3ab30f699e7badfe58276f7",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/layout-masonry-line.svg",
+      "mongodbSha256": "9357cea0f296449549152ead7c42e13bf31fd9c78c56c8d3bb93f3e7b0790085",
+      "dbSha256": "9357cea0f296449549152ead7c42e13bf31fd9c78c56c8d3bb93f3e7b0790085",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/eye-line.svg",
+      "mongodbSha256": "5f5c498e99e9bd56b521f6ee201db530a96af4304e0afe469119a4e63129bb8d",
+      "dbSha256": "5f5c498e99e9bd56b521f6ee201db530a96af4304e0afe469119a4e63129bb8d",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/git-merge-line.svg",
+      "mongodbSha256": "bb7fea45adb0a704b38c32ec2d5908b8b405c3f96ecfcaf6bff44e8f93a9ce96",
+      "dbSha256": "bb7fea45adb0a704b38c32ec2d5908b8b405c3f96ecfcaf6bff44e8f93a9ce96",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/rocket-line.svg",
+      "mongodbSha256": "7025dc74a48b228e126f307f98cc65e5f2820633c18efba3732dd3bc1d66abca",
+      "dbSha256": "7025dc74a48b228e126f307f98cc65e5f2820633c18efba3732dd3bc1d66abca",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/mail-line.svg",
+      "mongodbSha256": "687432c136fcefbbfd813d962b264d1652f598aa1b473232aec208a21a59fc02",
+      "dbSha256": "687432c136fcefbbfd813d962b264d1652f598aa1b473232aec208a21a59fc02",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/components/cookies.html",
+      "mongodbSha256": "72bf66cba575165442510a334a71f4599c1520ed958b340ceb4d9392200b8efd",
+      "dbSha256": "72bf66cba575165442510a334a71f4599c1520ed958b340ceb4d9392200b8efd",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/svg/remix/arrow-up-line.svg",
+      "mongodbSha256": "4001bc7bf5544c5d70ba3ed189ce7427d7301ac299b850715c44636eecb08c1d",
+      "dbSha256": "4001bc7bf5544c5d70ba3ed189ce7427d7301ac299b850715c44636eecb08c1d",
+      "equal": true,
+      "bothMissing": false
+    },
+    {
+      "pathname": "/assets/icons/gsqxdxog.json",
+      "mongodbSha256": null,
+      "dbSha256": null,
+      "equal": true,
+      "bothMissing": true
+    }
+  ],
+  "matchedSourceFiles": 72,
+  "missingInBoth": [
+    "/assets/icons/gsqxdxog.json"
+  ],
+  "root": {
+    "mongodbSha256": "c38550d5bdd091bb9db9dad46568b566c3d8901040b3838c710223c17bde0d3a",
+    "dbSha256": "c38550d5bdd091bb9db9dad46568b566c3d8901040b3838c710223c17bde0d3a",
+    "equal": true
+  }
+}

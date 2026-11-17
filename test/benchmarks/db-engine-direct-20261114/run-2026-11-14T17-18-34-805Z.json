@@ -1,0 +1,151 @@
+{
+  "startedAt": "2026-11-14T17:17:58.941Z",
+  "documentCount": 1000,
+  "repeatCount": 3,
+  "backends": [
+    {
+      "backend": "cocreate-memory",
+      "seedMs": 7397.992333,
+      "results": [
+        {
+          "operation": "read-id",
+          "firstCallMs": 6.350318000000698,
+          "subsequentCallMs": [
+            1.0814950000003591,
+            1.0645349999995233,
+            0.7037230000005366
+          ],
+          "subsequentAverageMs": 0.9499176666668063,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-equality",
+          "firstCallMs": 1.103055999999924,
+          "subsequentCallMs": [
+            0.747573999999986,
+            0.603530000000319,
+            0.5849090000001524
+          ],
+          "subsequentAverageMs": 0.6453376666668191,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-range",
+          "firstCallMs": 4.984903000000486,
+          "subsequentCallMs": [
+            3.650039999999535,
+            3.746212999999443,
+            4.39287400000012
+          ],
+          "subsequentAverageMs": 3.9297089999996992,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "create",
+          "firstCallMs": 1.2816320000001724,
+          "subsequentCallMs": [
+            0.8628090000001976,
+            0.9608710000002247,
+            0.5389270000005126
+          ],
+          "subsequentAverageMs": 0.7875356666669783,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "update",
+          "firstCallMs": 3.4677229999997508,
+          "subsequentCallMs": [
+            0.6284699999996519,
+            0.42950399999972433,
+            0.4863859999995839
+          ],
+          "subsequentAverageMs": 0.51478666666632,
+          "subsequentCount": 3
+        }
+      ]
+    },
+    {
+      "backend": "cocreate-deferred",
+      "seedMs": 13810.520542,
+      "results": [
+        {
+          "operation": "read-id",
+          "firstCallMs": 0.9472510000014154,
+          "subsequentCallMs": [
+            0.6398910000025353,
+            0.48617599999852246,
+            0.5330079999985173
+          ],
+          "subsequentAverageMs": 0.5530249999998583,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-equality",
+          "firstCallMs": 0.6187499999978172,
+          "subsequentCallMs": [
+            0.5134570000009262,
+            0.49127600000065286,
+            0.5023469999978261
+          ],
+          "subsequentAverageMs": 0.5023599999998017,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-range",
+          "firstCallMs": 3.7767429999985325,
+          "subsequentCallMs": [
+            3.2470350000003236,
+            3.552985999998782,
+            6.265384000002086
+          ],
+          "subsequentAverageMs": 4.355135000000398,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "create",
+          "firstCallMs": 3.7471819999991567,
+          "subsequentCallMs": [
+            14.46382199999789,
+            12.070513999999093,
+            11.724063000001479
+          ],
+          "subsequentAverageMs": 12.752799666666155,
+          "subsequentCount": 3,
+          "deferredFlushMs": 64.9297779999979
+        },
+        {
+          "operation": "update",
+          "firstCallMs": 1.0396140000011656,
+          "subsequentCallMs": [
+            0.5607380000001285,
+            0.34127100000114297,
+            0.31008099999962724
+          ],
+          "subsequentAverageMs": 0.4040300000002996,
+          "subsequentCount": 3,
+          "deferredFlushMs": 10.013676999999007
+        }
+      ]
+    },
+    {
+      "backend": "cocreate-os-page-cache-read",
+      "seedMs": 14259.832880999998,
+      "osPageCacheWarmMs": 0.46146500000031665,
+      "cacheState": "object absent from CoCreateDB memory before each measured read; file pre-read through native fs to warm OS page cache",
+      "results": [
+        {
+          "operation": "read-id-os-page-cache",
+          "firstCallMs": 3.281817000002775,
+          "subsequentCallMs": [
+            3.438672000003862,
+            3.0128980000008596,
+            2.836252000000968
+          ],
+          "subsequentAverageMs": 3.095940666668563,
+          "subsequentCount": 3
+        }
+      ]
+    }
+  ],
+  "finishedAt": "2026-11-14T17:18:34.805Z"
+}

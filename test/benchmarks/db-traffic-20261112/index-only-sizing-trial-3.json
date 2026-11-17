@@ -1,0 +1,189 @@
+[
+  {
+    "variant": "sizing",
+    "targetKiB": 300,
+    "n": 20000,
+    "leafEntryLimit": null,
+    "createMs": 3551.103395,
+    "createOpsPerSecond": 5632.052287793214,
+    "createMetrics": {
+      "indexReads": 91084,
+      "indexWrites": 51090,
+      "sizeCalls": 51085,
+      "sizeBytes": 3791887402,
+      "sizeMs": 503.65600600000846,
+      "splits": 3
+    },
+    "updateMs": 159.83392300000014,
+    "updatesPerSecond": 3128.2470617955087,
+    "updateMetrics": {
+      "indexReads": 5000,
+      "indexWrites": 3000,
+      "sizeCalls": 2000,
+      "sizeBytes": 91271818,
+      "sizeMs": 18.062322999999196
+    },
+    "rows": {
+      "equality": {
+        "count": 3000,
+        "p50Ms": 0.03955099999984668,
+        "p95Ms": 0.06299200000012206,
+        "opsPerSecond": 21216.464222347524,
+        "nodeReadsPerRequest": 3
+      },
+      "bounded-range": {
+        "count": 1000,
+        "p50Ms": 0.0904129999998986,
+        "p95Ms": 0.14052499999979773,
+        "opsPerSecond": 9590.685096971152,
+        "nodeReadsPerRequest": 3.002
+      }
+    },
+    "shape": {
+      "nodes": 5,
+      "leaves": 4,
+      "depth": 2
+    },
+    "verified": true
+  },
+  {
+    "variant": "sizing",
+    "targetKiB": 1024,
+    "n": 20000,
+    "leafEntryLimit": null,
+    "createMs": 2674.3622649999998,
+    "createOpsPerSecond": 7478.418410902908,
+    "createMetrics": {
+      "indexReads": 79998,
+      "indexWrites": 40000,
+      "sizeCalls": 39999,
+      "sizeBytes": 6899219673,
+      "sizeMs": 347.6658129999578
+    },
+    "updateMs": 141.07145000000037,
+    "updatesPerSecond": 3544.3032590931666,
+    "updateMetrics": {
+      "indexReads": 4000,
+      "indexWrites": 2000,
+      "sizeCalls": 1500,
+      "sizeBytes": 345152681,
+      "sizeMs": 12.644539000006262
+    },
+    "rows": {
+      "equality": {
+        "count": 3000,
+        "p50Ms": 0.028091000000131316,
+        "p95Ms": 0.04664200000024721,
+        "opsPerSecond": 30938.00887223724,
+        "nodeReadsPerRequest": 2
+      },
+      "bounded-range": {
+        "count": 1000,
+        "p50Ms": 0.07325199999922916,
+        "p95Ms": 0.1012430000000677,
+        "opsPerSecond": 12373.65309228676,
+        "nodeReadsPerRequest": 2
+      }
+    },
+    "shape": {
+      "nodes": 1,
+      "leaves": 1,
+      "depth": 1
+    },
+    "verified": true
+  },
+  {
+    "variant": "sizing",
+    "targetKiB": 128,
+    "n": 20000,
+    "leafEntryLimit": null,
+    "createMs": 3050.672573,
+    "createOpsPerSecond": 6555.9313631394425,
+    "createMetrics": {
+      "indexReads": 96198,
+      "indexWrites": 56208,
+      "sizeCalls": 56199,
+      "sizeBytes": 1758565531,
+      "sizeMs": 431.3048050000343,
+      "splits": 7
+    },
+    "updateMs": 151.84655300000122,
+    "updatesPerSecond": 3292.7978286079106,
+    "updateMetrics": {
+      "indexReads": 5000,
+      "indexWrites": 3000,
+      "sizeCalls": 2000,
+      "sizeBytes": 48612818,
+      "sizeMs": 15.919004999956087
+    },
+    "rows": {
+      "equality": {
+        "count": 3000,
+        "p50Ms": 0.04010200000084296,
+        "p95Ms": 0.06244200000037381,
+        "opsPerSecond": 21544.010546396385,
+        "nodeReadsPerRequest": 3
+      },
+      "bounded-range": {
+        "count": 1000,
+        "p50Ms": 0.09069300000010116,
+        "p95Ms": 0.12513399999988906,
+        "opsPerSecond": 10202.159046191151,
+        "nodeReadsPerRequest": 3.009
+      }
+    },
+    "shape": {
+      "nodes": 9,
+      "leaves": 8,
+      "depth": 2
+    },
+    "verified": true
+  },
+  {
+    "variant": "sizing",
+    "targetKiB": 512,
+    "n": 20000,
+    "leafEntryLimit": null,
+    "createMs": 2600.5833060000004,
+    "createOpsPerSecond": 7690.582321995416,
+    "createMetrics": {
+      "indexReads": 84782,
+      "indexWrites": 44786,
+      "sizeCalls": 44783,
+      "sizeBytes": 5451062947,
+      "sizeMs": 350.52541399989786,
+      "splits": 1
+    },
+    "updateMs": 169.23300000000017,
+    "updatesPerSecond": 2954.5065087778357,
+    "updateMetrics": {
+      "indexReads": 5000,
+      "indexWrites": 3000,
+      "sizeCalls": 2000,
+      "sizeBytes": 177282161,
+      "sizeMs": 16.39109300000382
+    },
+    "rows": {
+      "equality": {
+        "count": 3000,
+        "p50Ms": 0.03829100000075414,
+        "p95Ms": 0.058861999999862746,
+        "opsPerSecond": 23357.123393985774,
+        "nodeReadsPerRequest": 3
+      },
+      "bounded-range": {
+        "count": 1000,
+        "p50Ms": 0.09164299999974901,
+        "p95Ms": 0.14042499999959546,
+        "opsPerSecond": 9506.253826920754,
+        "nodeReadsPerRequest": 3.002
+      }
+    },
+    "shape": {
+      "nodes": 3,
+      "leaves": 2,
+      "depth": 2
+    },
+    "verified": true
+  }
+]

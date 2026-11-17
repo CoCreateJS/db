@@ -1,0 +1,1075 @@
+{
+  "harness": "per-client-yield-v2-with-split-acks",
+  "acknowledgeSplits": true,
+  "acknowledgedNewPartitions": 3,
+  "targetKiB": 128,
+  "seedCount": 1000,
+  "trial": "acked-current-2",
+  "variant": "base",
+  "distribution": "one-peer-serialization",
+  "memoryOnly": true,
+  "seedMs": 35998.935247999994,
+  "phases": [
+    {
+      "name": "id-c1",
+      "count": 1000,
+      "concurrency": 1,
+      "ackMs": 616.9336449999973,
+      "drainMs": 616.9524660000025,
+      "ackOpsPerSecond": 1620.9198640803652,
+      "drainedOpsPerSecond": 1620.870415647218,
+      "latency": {
+        "n": 1000,
+        "p50Ms": 0.5201070000039181,
+        "p95Ms": 0.8492679999981192,
+        "p99Ms": 1.155028000001039,
+        "maxMs": 1.6344839999946998
+      },
+      "byType": {
+        "read-id": {
+          "n": 1000,
+          "p50Ms": 0.5201070000039181,
+          "p95Ms": 0.8492679999981192,
+          "p99Ms": 1.155028000001039,
+          "maxMs": 1.6344839999946998
+        }
+      },
+      "maxBacklog": 0,
+      "cpuMs": 768.937,
+      "eventLoopP95Ms": 10.469375,
+      "metrics": {
+        "indexReads": 16000,
+        "indexWrites": 0,
+        "sizeCalls": 0,
+        "sizeBytes": 0,
+        "sizeMs": 0,
+        "splits": 0,
+        "catalogSplits": 0,
+        "queueWaitMs": 1.8801059999095742,
+        "maxQueueWaitMs": 0.05026200000429526,
+        "queueEvents": 1001,
+        "holderReads": 0,
+        "holderUpdates": 0,
+        "entityHolderReads": 0,
+        "referenceBuilds": 2000,
+        "storageLookups": 2000,
+        "packets": 0,
+        "wireBytes": 0,
+        "duplicatePackets": 0,
+        "duplicateBytes": 0
+      },
+      "messageKinds": {}
+    },
+    {
+      "name": "equality-c1",
+      "count": 1000,
+      "concurrency": 1,
+      "ackMs": 594.330879000001,
+      "drainMs": 594.3922010000024,
+      "ackOpsPerSecond": 1682.5644356264354,
+      "drainedOpsPerSecond": 1682.3908495394205,
+      "latency": {
+        "n": 1000,
+        "p50Ms": 0.5104869999995572,
+        "p95Ms": 0.7750860000014654,
+        "p99Ms": 0.8938689999995404,
+        "maxMs": 3.058840000005148
+      },
+      "byType": {
+        "read-equality": {
+          "n": 1000,
+          "p50Ms": 0.5104869999995572,
+          "p95Ms": 0.7750860000014654,
+          "p99Ms": 0.8938689999995404,
+          "maxMs": 3.058840000005148
+        }
+      },
+      "maxBacklog": 0,
+      "cpuMs": 720.621,
+      "eventLoopP95Ms": 10.436607,
+      "metrics": {
+        "indexReads": 17000,
+        "indexWrites": 0,
+        "sizeCalls": 0,
+        "sizeBytes": 0,
+        "sizeMs": 0,
+        "splits": 0,
+        "catalogSplits": 0,
+        "queueWaitMs": 2.0392010001523886,
+        "maxQueueWaitMs": 0.16524600000411738,
+        "queueEvents": 1001,
+        "holderReads": 0,
+        "holderUpdates": 0,
+        "entityHolderReads": 0,
+        "referenceBuilds": 2000,
+        "storageLookups": 2000,
+        "packets": 0,
+        "wireBytes": 0,
+        "duplicatePackets": 0,
+        "duplicateBytes": 0
+      },
+      "messageKinds": {}
+    },
+    {
+      "name": "range-c1",
+      "count": 100,
+      "concurrency": 1,
+      "ackMs": 328.74238100000366,
+      "drainMs": 328.7623820000008,
+      "ackOpsPerSecond": 304.18955930114436,
+      "drainedOpsPerSecond": 304.1710532441627,
+      "latency": {
+        "n": 100,
+        "p50Ms": 3.012320000001637,
+        "p95Ms": 3.9337499999965075,
+        "p99Ms": 4.106675999995787,
+        "maxMs": 6.478723000000173
+      },
+      "byType": {
+        "read-range": {
+          "n": 100,
+          "p50Ms": 3.012320000001637,
+          "p95Ms": 3.9337499999965075,
+          "p99Ms": 4.106675999995787,
+          "maxMs": 6.478723000000173
+        }
+      },
+      "maxBacklog": 0,
+      "cpuMs": 452.5,
+      "eventLoopP95Ms": 12.189695,
+      "metrics": {
+        "indexReads": 1800,
+        "indexWrites": 0,
+        "sizeCalls": 0,
+        "sizeBytes": 0,
+        "sizeMs": 0,
+        "splits": 0,
+        "catalogSplits": 0,
+        "queueWaitMs": 0.28908199995203177,
+        "maxQueueWaitMs": 0.01397999999608146,
+        "queueEvents": 101,
+        "holderReads": 0,
+        "holderUpdates": 0,
+        "entityHolderReads": 0,
+        "referenceBuilds": 200,
+        "storageLookups": 200,
+        "packets": 0,
+        "wireBytes": 0,
+        "duplicatePackets": 0,
+        "duplicateBytes": 0
+      },
+      "messageKinds": {}
+    },
+    {
+      "name": "create-c1",
+      "count": 100,
+      "concurrency": 1,
+      "ackMs": 7655.603544999998,
+      "drainMs": 7655.635796000002,
+      "ackOpsPerSecond": 13.062327406610764,
+      "drainedOpsPerSecond": 13.062272378768208,
+      "latency": {
+        "n": 100,
+        "p50Ms": 44.177887000005285,
+        "p95Ms": 51.0367830000032,
+        "p99Ms": 58.53563600000052,
+        "maxMs": 67.75059400000464
+      },
+      "byType": {
+        "create": {
+          "n": 100,
+          "p50Ms": 44.177887000005285,
+          "p95Ms": 51.0367830000032,
+          "p99Ms": 58.53563600000052,
+          "maxMs": 67.75059400000464
+        }
+      },
+      "maxBacklog": 2,
+      "cpuMs": 7843.09,
+      "eventLoopP95Ms": 106.299391,
+      "metrics": {
+        "indexReads": 102411,
+        "indexWrites": 22311,
+        "sizeCalls": 0,
+        "sizeBytes": 0,
+        "sizeMs": 0,
+        "splits": 1,
+        "catalogSplits": 0,
+        "queueWaitMs": 0.5669959999722778,
+        "maxQueueWaitMs": 0.05565200000273762,
+        "queueEvents": 190,
+        "holderReads": 24509,
+        "holderUpdates": 7403,
+        "entityHolderReads": 600,
+        "referenceBuilds": 300,
+        "storageLookups": 200,
+        "packets": 3810,
+        "wireBytes": 98546997,
+        "duplicatePackets": 0,
+        "duplicateBytes": 0
+      },
+      "messageKinds": {
+        "db.partition.availability": 1204,
+        "db.partition.update": 2406,
+        "db.distribution": 100,
+        "db.object.mutation": 100
+      }
+    },
+    {
+      "name": "update-c1",
+      "count": 200,
+      "concurrency": 1,
+      "ackMs": 2781.0748590000003,
+      "drainMs": 2806.9995139999955,
+      "ackOpsPerSecond": 71.91464097155394,
+      "drainedOpsPerSecond": 71.25045765148654,
+      "latency": {
+        "n": 200,
+        "p50Ms": 0.6494410000013886,
+        "p95Ms": 0.8091369999965536,
+        "p99Ms": 0.9406309999976656,
+        "maxMs": 1.7280770000070333
+      },
+      "byType": {
+        "update": {
+          "n": 200,
+          "p50Ms": 0.6494410000013886,
+          "p95Ms": 0.8091369999965536,
+          "p99Ms": 0.9406309999976656,
+          "maxMs": 1.7280770000070333
+        }
+      },
+      "maxBacklog": 3,
+      "cpuMs": 2955.761,
+      "eventLoopP95Ms": 42.991615,
+      "metrics": {
+        "indexReads": 72200,
+        "indexWrites": 10800,
+        "sizeCalls": 0,
+        "sizeBytes": 0,
+        "sizeMs": 0,
+        "splits": 0,
+        "catalogSplits": 0,
+        "queueWaitMs": 0.5510579999609035,
+        "maxQueueWaitMs": 0.014561000003595836,
+        "queueEvents": 289,
+        "holderReads": 19402,
+        "holderUpdates": 3600,
+        "entityHolderReads": 0,
+        "referenceBuilds": 600,
+        "storageLookups": 400,
+        "packets": 803,
+        "wireBytes": 20857032,
+        "duplicatePackets": 0,
+        "duplicateBytes": 0
+      },
+      "messageKinds": {
+        "db.partition.update": 600,
+        "db.partition.availability": 3,
+        "db.object.mutation": 200
+      }
+    },
+    {
+      "name": "id-c16",
+      "count": 1000,
+      "concurrency": 16,
+      "ackMs": 537.2499190000017,
+      "drainMs": 537.2664989999976,
+      "ackOpsPerSecond": 1861.3311321876567,
+      "drainedOpsPerSecond": 1861.2736916619187,
+      "latency": {
+        "n": 1000,
+        "p50Ms": 0.5005259999961709,
+        "p95Ms": 0.7258740000033868,
+        "p99Ms": 4.833419000002323,
+        "maxMs": 10.206025999999838
+      },
+      "byType": {
+        "read-id": {
+          "n": 1000,
+          "p50Ms": 0.5005259999961709,
+          "p95Ms": 0.7258740000033868,
+          "p99Ms": 4.833419000002323,
+          "maxMs": 10.206025999999838
+        }
+      },
+      "maxBacklog": 0,
+      "cpuMs": 580.001,
+      "eventLoopP95Ms": 18.923519,
+      "metrics": {
+        "indexReads": 16000,
+        "indexWrites": 0,
+        "sizeCalls": 0,
+        "sizeBytes": 0,
+        "sizeMs": 0,
+        "splits": 0,
+        "catalogSplits": 0,
+        "queueWaitMs": 86.59294599984423,
+        "maxQueueWaitMs": 9.717210000002524,
+        "queueEvents": 1001,
+        "holderReads": 0,
+        "holderUpdates": 0,
+        "entityHolderReads": 0,
+        "referenceBuilds": 2000,
+        "storageLookups": 2000,
+        "packets": 0,
+        "wireBytes": 0,
+        "duplicatePackets": 0,
+        "duplicateBytes": 0
+      },
+      "messageKinds": {}
+    },
+    {
+      "name": "equality-c16",
+      "count": 1000,
+      "concurrency": 16,
+      "ackMs": 537.8687389999977,
+      "drainMs": 537.8850999999995,
+      "ackOpsPerSecond": 1859.1896637443438,
+      "drainedOpsPerSecond": 1859.1331122576196,
+      "latency": {
+        "n": 1000,
+        "p50Ms": 0.5140370000008261,
+        "p95Ms": 0.6714520000023185,
+        "p99Ms": 4.102485000003071,
+        "maxMs": 9.218103999999585
+      },
+      "byType": {
+        "read-equality": {
+          "n": 1000,
+          "p50Ms": 0.5140370000008261,
+          "p95Ms": 0.6714520000023185,
+          "p99Ms": 4.102485000003071,
+          "maxMs": 9.218103999999585
+        }
+      },
+      "maxBacklog": 0,
+      "cpuMs": 553.779,
+      "eventLoopP95Ms": 17.956863,
+      "metrics": {
+        "indexReads": 18000,
+        "indexWrites": 0,
+        "sizeCalls": 0,
+        "sizeBytes": 0,
+        "sizeMs": 0,
+        "splits": 0,
+        "catalogSplits": 0,
+        "queueWaitMs": 77.71266099997592,
+        "maxQueueWaitMs": 8.71715700000641,
+        "queueEvents": 1001,
+        "holderReads": 0,
+        "holderUpdates": 0,
+        "entityHolderReads": 0,
+        "referenceBuilds": 2000,
+        "storageLookups": 2000,
+        "packets": 0,
+        "wireBytes": 0,
+        "duplicatePackets": 0,
+        "duplicateBytes": 0
+      },
+      "messageKinds": {}
+    },
+    {
+      "name": "range-c16",
+      "count": 100,
+      "concurrency": 16,
+      "ackMs": 310.3911270000026,
+      "drainMs": 310.40773700000136,
+      "ackOpsPerSecond": 322.17415802610606,
+      "drainedOpsPerSecond": 322.1569184018102,
+      "latency": {
+        "n": 100,
+        "p50Ms": 2.905116000001726,
+        "p95Ms": 35.84396199999901,
+        "p99Ms": 51.98968500000046,
+        "maxMs": 56.10100000000239
+      },
+      "byType": {
+        "read-range": {
+          "n": 100,
+          "p50Ms": 2.905116000001726,
+          "p95Ms": 35.84396199999901,
+          "p99Ms": 51.98968500000046,
+          "maxMs": 56.10100000000239
+        }
+      },
+      "maxBacklog": 0,
+      "cpuMs": 373.534,
+      "eventLoopP95Ms": 52.101119,
+      "metrics": {
+        "indexReads": 1800,
+        "indexWrites": 0,
+        "sizeCalls": 0,
+        "sizeBytes": 0,
+        "sizeMs": 0,
+        "splits": 0,
+        "catalogSplits": 0,
+        "queueWaitMs": 393.9276470000041,
+        "maxQueueWaitMs": 51.926823000001605,
+        "queueEvents": 101,
+        "holderReads": 0,
+        "holderUpdates": 0,
+        "entityHolderReads": 0,
+        "referenceBuilds": 200,
+        "storageLookups": 200,
+        "packets": 0,
+        "wireBytes": 0,
+        "duplicatePackets": 0,
+        "duplicateBytes": 0
+      },
+      "messageKinds": {}
+    },
+    {
+      "name": "create-c16",
+      "count": 100,
+      "concurrency": 16,
+      "ackMs": 8296.552036999994,
+      "drainMs": 8296.575617999995,
+      "ackOpsPerSecond": 12.053199877977223,
+      "drainedOpsPerSecond": 12.053165619685679,
+      "latency": {
+        "n": 100,
+        "p50Ms": 48.29775299999892,
+        "p95Ms": 508.5799229999975,
+        "p99Ms": 693.3416060000018,
+        "maxMs": 738.9398199999996
+      },
+      "byType": {
+        "create": {
+          "n": 100,
+          "p50Ms": 48.29775299999892,
+          "p95Ms": 508.5799229999975,
+          "p99Ms": 693.3416060000018,
+          "maxMs": 738.9398199999996
+        }
+      },
+      "maxBacklog": 16,
+      "cpuMs": 8194.022,
+      "eventLoopP95Ms": 1534.066687,
+      "metrics": {
+        "indexReads": 102442,
+        "indexWrites": 22312,
+        "sizeCalls": 0,
+        "sizeBytes": 0,
+        "sizeMs": 0,
+        "splits": 1,
+        "catalogSplits": 0,
+        "queueWaitMs": 5531.35310800001,
+        "maxQueueWaitMs": 693.2723839999962,
+        "queueEvents": 108,
+        "holderReads": 24512,
+        "holderUpdates": 7404,
+        "entityHolderReads": 600,
+        "referenceBuilds": 300,
+        "storageLookups": 200,
+        "packets": 3803,
+        "wireBytes": 102324418,
+        "duplicatePackets": 0,
+        "duplicateBytes": 0
+      },
+      "messageKinds": {
+        "db.partition.availability": 1201,
+        "db.partition.update": 2402,
+        "db.distribution": 100,
+        "db.object.mutation": 100
+      }
+    },
+    {
+      "name": "update-c16",
+      "count": 200,
+      "concurrency": 16,
+      "ackMs": 1954.6571239999976,
+      "drainMs": 1954.6773549999998,
+      "ackOpsPerSecond": 102.31973554048257,
+      "drainedOpsPerSecond": 102.31867652654114,
+      "latency": {
+        "n": 200,
+        "p50Ms": 0.5185370000035618,
+        "p95Ms": 4.500397999996494,
+        "p99Ms": 8.56387199999881,
+        "maxMs": 9.533103999994637
+      },
+      "byType": {
+        "update": {
+          "n": 200,
+          "p50Ms": 0.5185370000035618,
+          "p95Ms": 4.500397999996494,
+          "p99Ms": 8.56387199999881,
+          "maxMs": 9.533103999994637
+        }
+      },
+      "maxBacklog": 16,
+      "cpuMs": 1971.664,
+      "eventLoopP95Ms": 157.548543,
+      "metrics": {
+        "indexReads": 51200,
+        "indexWrites": 4800,
+        "sizeCalls": 0,
+        "sizeBytes": 0,
+        "sizeMs": 0,
+        "splits": 0,
+        "catalogSplits": 0,
+        "queueWaitMs": 81.70258300003479,
+        "maxQueueWaitMs": 9.045528000002378,
+        "queueEvents": 214,
+        "holderReads": 14400,
+        "holderUpdates": 1600,
+        "entityHolderReads": 0,
+        "referenceBuilds": 600,
+        "storageLookups": 400,
+        "packets": 800,
+        "wireBytes": 22596365,
+        "duplicatePackets": 0,
+        "duplicateBytes": 0
+      },
+      "messageKinds": {
+        "db.partition.update": 600,
+        "db.object.mutation": 200
+      }
+    },
+    {
+      "name": "mixed-c16",
+      "count": 1000,
+      "concurrency": 16,
+      "ackMs": 11871.377512000006,
+      "drainMs": 11871.39899300001,
+      "ackOpsPerSecond": 84.2362227120791,
+      "drainedOpsPerSecond": 84.2360702887378,
+      "latency": {
+        "n": 1000,
+        "p50Ms": 0.582829999999376,
+        "p95Ms": 53.22305600000254,
+        "p99Ms": 55.81513399999676,
+        "maxMs": 59.408225000006496
+      },
+      "byType": {
+        "read-equality": {
+          "n": 400,
+          "p50Ms": 0.5977110000021639,
+          "p95Ms": 0.7658059999957914,
+          "p99Ms": 2.88208499999746,
+          "maxMs": 57.397343000004184
+        },
+        "read-id": {
+          "n": 300,
+          "p50Ms": 0.5565280000009807,
+          "p95Ms": 0.7102240000021993,
+          "p99Ms": 3.3968820000009146,
+          "maxMs": 58.096645999998145
+        },
+        "update": {
+          "n": 200,
+          "p50Ms": 0.5769390000059502,
+          "p95Ms": 0.7525559999921825,
+          "p99Ms": 0.9725230000040028,
+          "maxMs": 4.9615929999999935
+        },
+        "create": {
+          "n": 100,
+          "p50Ms": 53.09172199999739,
+          "p95Ms": 56.71738400000322,
+          "p99Ms": 57.62953500000003,
+          "maxMs": 59.408225000006496
+        }
+      },
+      "maxBacklog": 6,
+      "cpuMs": 11972.578,
+      "eventLoopP95Ms": 224.526335,
+      "metrics": {
+        "indexReads": 184320,
+        "indexWrites": 32380,
+        "sizeCalls": 0,
+        "sizeBytes": 0,
+        "sizeMs": 0,
+        "splits": 0,
+        "catalogSplits": 0,
+        "queueWaitMs": 363.12423799980024,
+        "maxQueueWaitMs": 57.3545610000001,
+        "queueEvents": 1064,
+        "holderReads": 43380,
+        "holderUpdates": 10760,
+        "entityHolderReads": 600,
+        "referenceBuilds": 2300,
+        "storageLookups": 2000,
+        "packets": 4600,
+        "wireBytes": 135686669,
+        "duplicatePackets": 0,
+        "duplicateBytes": 0
+      },
+      "messageKinds": {
+        "db.partition.availability": 1200,
+        "db.partition.update": 3000,
+        "db.distribution": 100,
+        "db.object.mutation": 300
+      }
+    }
+  ],
+  "shape": {
+    "_id": {
+      "depth": 1,
+      "leafCount": 1,
+      "nodeCount": 1,
+      "minLeaf": 1300,
+      "maxLeaf": 1300
+    },
+    "pathname": {
+      "depth": 2,
+      "leafCount": 3,
+      "nodeCount": 4,
+      "minLeaf": 301,
+      "maxLeaf": 501
+    },
+    "rank": {
+      "depth": 1,
+      "leafCount": 1,
+      "nodeCount": 1,
+      "minLeaf": 1300,
+      "maxLeaf": 1300
+    },
+    "revision": {
+      "depth": 1,
+      "leafCount": 1,
+      "nodeCount": 1,
+      "minLeaf": 1300,
+      "maxLeaf": 1300
+    },
+    "profile.lastWrite": {
+      "depth": 1,
+      "leafCount": 1,
+      "nodeCount": 1,
+      "minLeaf": 360,
+      "maxLeaf": 360
+    }
+  },
+  "cache": {
+    "files": 7188,
+    "indexNodes": 82,
+    "maxNodeBytes": 125112,
+    "serializedNodeBytes": 1468935,
+    "distributionNodes": 4
+  },
+  "stableReference": "000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/objects/000000000000000000000001.json",
+  "recipientReferences": 1301,
+  "clientReferences": 1301,
+  "verifiedDocuments": 1300,
+  "verifiedHeldPartitions": 52,
+  "rootExists": false,
+  "nodeSizes": [
+    {
+      "path": "/000000000000000000000001/storages/index/e4a3dcf5842c45c882632052caa6e25a.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/distribution/partitions/index/914fbdb0ca9542508c1cc1985c788174.json",
+      "bytes": 1234,
+      "distribution": true
+    },
+    {
+      "path": "/000000000000000000000001/storages/distribution/partitions/index/index.json",
+      "bytes": 410,
+      "distribution": true
+    },
+    {
+      "path": "/000000000000000000000001/storages/index/index.json",
+      "bytes": 2262,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/index/2ba8c9d8275a4097a23f1fce101c399b.json",
+      "bytes": 285,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/index/3684f99261e84f2c8ad569774f71d172.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/index/83d3c66b6f1e450e86d0f7b107b9bdf8.json",
+      "bytes": 228,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/index/d239360ea9b84e4eae18d4791e280172.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/index/da7fb9e7348d496faf5555364cf28537.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/index/326af0d8c1f64468b1d030c0db70fb9a.json",
+      "bytes": 285,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/index/c0df02fd9420410d8a2d66d1a7c93eeb.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/index/818e9559e72d4bf08eee2f85e0d43fbc.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/index/881abaf5c2634b54a2ca7b949166fafd.json",
+      "bytes": 285,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/b4fd4e936edd491f92a0bfafb70a9c4a.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/distribution/partitions/index/6753dad3eb294f4992676395e1f12f4a.json",
+      "bytes": 11035,
+      "distribution": true
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/distribution/partitions/index/index.json",
+      "bytes": 537,
+      "distribution": true
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/index.json",
+      "bytes": 3673,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/491d1d172d2d4424abbd960207604754.json",
+      "bytes": 285,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/ae5b344f4ee34629bbc97e68037656a1.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/ba1fd400ce68436f80e6b4408614fbf0.json",
+      "bytes": 222,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/88f602ae2499447eafab5b3af7530c88.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/05c9c61c24094548b34ccee199dd099a.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/b5d9abd0f7374a06b39d35119188af48.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/8e792b29961b43d59c12937d54aa730f.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/d42897e7b26e4649adcc8f135dc868de.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/13bdffac8b584e18851ee3c2632fb7f3.json",
+      "bytes": 285,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/a71a1828883547778b147bd29be4ba0f.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/693ffa84a86c492c81b670b4925b9015.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/108f8ab24bd1458aa484643153b7f641.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/index.json",
+      "bytes": 3713,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/5363fc3f6d4c42daa0581bb76ebd8d95.json",
+      "bytes": 285,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/2509ec59fdab478a89093b12285c11b1.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/d47ed2add8e34157afd8e051ae06c3b3.json",
+      "bytes": 228,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/27a56d34571b45b6a93f58ac6bb924a8.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/629bc58d23494450972097eee1848a27.json",
+      "bytes": 285,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/785c51a310e34bb0b272886acd35f950.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/746635e38277457e876ca5f8677d648c.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/8a97f19480ac42fc89dac506f1651033.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/9c3dcea34ab34c29b75ca4e51f8f671e.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/e917bc6c5c994ece88396b7b61b9e040.json",
+      "bytes": 285,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/acdb839e6ef64732a9ea87ffb04d05fb.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/ecd910e90ac940e592e1301ff50c8257.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/a872b55c2fe94463b0606f1777ab79b1.json",
+      "bytes": 210,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/b4300f6c29e4496b9697857b9da06c7b.json",
+      "bytes": 44388,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/index.json",
+      "bytes": 6275,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/ae2debd340d04b80a04d7aaab073914c.json",
+      "bytes": 73032,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/b18eea262ac04ec5989b91189a7152df.json",
+      "bytes": 44388,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/1d6355d525ab412e9575f99785b58439.json",
+      "bytes": 109270,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/8ce8c86b309f4ff69e36d3126535bfed.json",
+      "bytes": 44388,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/51fa968e5bdd484393b2c93785008b78.json",
+      "bytes": 43275,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/269e1bc6660e4ab18f235960f66b7d86.json",
+      "bytes": 44388,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/d6f35dcaac4e43ffb5d84ca426f5bdf1.json",
+      "bytes": 45278,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/f02eba8673e84ef7a1ed65fd99161210.json",
+      "bytes": 44388,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/1a4d3e516fb148d6a15439271b9956b1.json",
+      "bytes": 40482,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/f4e9cfa2e6bb47b0b442dbd934e3eb6c.json",
+      "bytes": 44388,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/ca4955d2221b44a991030871940a9315.json",
+      "bytes": 125112,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/f9d2a2ef1eac4d75bdeb3204286ad04a.json",
+      "bytes": 44388,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/7f633526df8e4f03b414666ac179b51f.json",
+      "bytes": 73032,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/24582ccd43ec412eb8ca9342c14d855b.json",
+      "bytes": 44388,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/3c8c51c99de941c9af21bf3c787944b5.json",
+      "bytes": 44388,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/ca954e50672e4534a6d464822406116d.json",
+      "bytes": 73032,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/494f09a66c7f4a99823b56fd30043dcc.json",
+      "bytes": 44388,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/b2e7f71b6c0747929896b58dd712690b.json",
+      "bytes": 44388,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/ce74e4ab7e8d4d6f8790a2ee0925860b.json",
+      "bytes": 73032,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/28fa8d33048142e19b160084417e1c92.json",
+      "bytes": 22627,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/6c67490eda614ca6bf01aac399f862ae.json",
+      "bytes": 26841,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/3d994d2e3cf24741963f115680d7652c.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/7b37f62a1b0a4fa9bac99c3902690abd.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/d8e9cd3414784f8a84e7043c5b5692eb.json",
+      "bytes": 10387,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/4fcb8738f1d34fe8be951a0336a83d74.json",
+      "bytes": 12308,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/8f4bf420eb3749a681c382cb826a2d81.json",
+      "bytes": 65870,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/306289114c3d4ded954cd1282ff66e3c.json",
+      "bytes": 2180,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/0c79e2a5bd784fa59ba652dbc9e86191.json",
+      "bytes": 12427,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/72b6ed9df3d14e1b920c64d18bb86f1b.json",
+      "bytes": 12427,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/eef2a9b995b74f8eb52bbe344a29cff2.json",
+      "bytes": 11953,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/6af7d5e90525d1b8ee600b9b/index/15ae51bd09dd486e9b78d2ea7d88992b.json",
+      "bytes": 108619,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/508e11c53a224105aacf08e4e30c7e1e.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/67c873c636a74635bbef711ad15d7555.json",
+      "bytes": 285,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/6af7d5e9000ce1de9eb60b9a/arrays/index/aec6c3cd633c4512b6e40123339c184f.json",
+      "bytes": 237,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/8b5a9311e9244a8984ab28b95b3214b7.json",
+      "bytes": 219,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/db83e0c0672948748b354a59816b5687.json",
+      "bytes": 285,
+      "distribution": false
+    },
+    {
+      "path": "/000000000000000000000001/storages/6af7d5e9061db99a80c60b99/databases/index/3e7a20cbb7b449baae1ca39486f5c3ba.json",
+      "bytes": 237,
+      "distribution": false
+    }
+  ],
+  "environment": {
+    "node": "v24.18.0",
+    "cpu": "AMD EPYC 7571",
+    "cpuCount": 2
+  },
+  "source": "/tmp/coc-db-traffic-source-vs_ubngw"
+}

@@ -1,0 +1,47 @@
+{
+  "documents": 250,
+  "updates": 50,
+  "memoryOnly": false,
+  "externalPersistence": false,
+  "seedAndFlushMs": 7638.938746999999,
+  "fileCount": 591,
+  "sidecarCount": 11,
+  "sidecarEntries": 580,
+  "totalBytes": 897790,
+  "runs": [
+    {
+      "coldFirstReadMs": 30.194540999999987,
+      "warmReadCount": 1000,
+      "warmOpsPerSecond": 1644.4454317694815,
+      "warm": {
+        "p50Ms": 0.533286999999973,
+        "p95Ms": 0.9480310000000145,
+        "maxMs": 3.2159749999999576
+      },
+      "verified": true
+    },
+    {
+      "coldFirstReadMs": 29.815449,
+      "warmReadCount": 1000,
+      "warmOpsPerSecond": 1641.1274899026266,
+      "warm": {
+        "p50Ms": 0.5371780000000399,
+        "p95Ms": 0.9605809999999337,
+        "maxMs": 2.0870270000000346
+      },
+      "verified": true
+    },
+    {
+      "coldFirstReadMs": 29.76273599999999,
+      "warmReadCount": 1000,
+      "warmOpsPerSecond": 1648.5388825139157,
+      "warm": {
+        "p50Ms": 0.5365479999999252,
+        "p95Ms": 0.9451510000000098,
+        "maxMs": 1.7234760000000051
+      },
+      "verified": true
+    }
+  ],
+  "verified": true
+}

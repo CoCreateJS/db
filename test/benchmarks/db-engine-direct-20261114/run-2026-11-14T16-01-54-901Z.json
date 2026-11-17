@@ -1,0 +1,254 @@
+{
+  "startedAt": "2026-11-14T16:01:30.954Z",
+  "documentCount": 1000,
+  "repeatCount": 3,
+  "backends": [
+    {
+      "backend": "cocreate-memory",
+      "seedMs": 7902.523568999999,
+      "results": [
+        {
+          "operation": "read-id",
+          "firstCallMs": 6.166494999999486,
+          "subsequentCallMs": [
+            1.0034120000000257,
+            1.2398290000000998,
+            0.9321299999992334
+          ],
+          "subsequentAverageMs": 1.0584569999997864,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-equality",
+          "firstCallMs": 1.0679529999997612,
+          "subsequentCallMs": [
+            0.7222619999993185,
+            0.6508300000004965,
+            0.6182200000002922
+          ],
+          "subsequentAverageMs": 0.6637706666667024,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-range",
+          "firstCallMs": 4.971487000000707,
+          "subsequentCallMs": [
+            3.5250009999999747,
+            4.004226999999446,
+            4.3131760000014765
+          ],
+          "subsequentAverageMs": 3.947468000000299,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "create",
+          "firstCallMs": 1.05901300000005,
+          "subsequentCallMs": [
+            0.8427769999998418,
+            0.9045380000006844,
+            0.6278999999994994
+          ],
+          "subsequentAverageMs": 0.7917383333333419,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "update",
+          "firstCallMs": 3.5302709999996296,
+          "subsequentCallMs": [
+            0.6017589999992197,
+            0.48082500000055006,
+            0.4502539999994042
+          ],
+          "subsequentAverageMs": 0.5109459999997247,
+          "subsequentCount": 3
+        }
+      ]
+    },
+    {
+      "backend": "cocreate-deferred",
+      "seedMs": 13891.499451000001,
+      "results": [
+        {
+          "operation": "read-id",
+          "firstCallMs": 0.9112399999976333,
+          "subsequentCallMs": [
+            0.6535010000006878,
+            0.4903959999974177,
+            0.4900359999992361
+          ],
+          "subsequentAverageMs": 0.5446443333324472,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-equality",
+          "firstCallMs": 0.5557580000022426,
+          "subsequentCallMs": [
+            0.4898060000014084,
+            0.45444399999905727,
+            0.505446999999549
+          ],
+          "subsequentAverageMs": 0.4832323333333382,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-range",
+          "firstCallMs": 3.5468650000002526,
+          "subsequentCallMs": [
+            3.010388000002422,
+            3.489623000001302,
+            5.901100999999471
+          ],
+          "subsequentAverageMs": 4.133704000001065,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "create",
+          "firstCallMs": 3.9276169999975536,
+          "subsequentCallMs": [
+            14.13908900000024,
+            11.56269500000053,
+            11.553433999997651
+          ],
+          "subsequentAverageMs": 12.418405999999473,
+          "subsequentCount": 3,
+          "deferredFlushMs": 63.72768500000166
+        },
+        {
+          "operation": "update",
+          "firstCallMs": 1.01679299999887,
+          "subsequentCallMs": [
+            0.5240870000016002,
+            0.3379010000026028,
+            0.36924200000066776
+          ],
+          "subsequentAverageMs": 0.4104100000016236,
+          "subsequentCount": 3,
+          "deferredFlushMs": 8.941129999999248
+        }
+      ]
+    },
+    {
+      "backend": "mongodb-memory-ack",
+      "seedMs": 776.9356799999987,
+      "results": [
+        {
+          "operation": "read-id",
+          "firstCallMs": 5.375973999998678,
+          "subsequentCallMs": [
+            2.0981879999999364,
+            1.7162959999986924,
+            1.8839109999971697
+          ],
+          "subsequentAverageMs": 1.8994649999985995,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-equality",
+          "firstCallMs": 4.069731999999931,
+          "subsequentCallMs": [
+            1.8313889999990351,
+            1.7638069999993604,
+            1.6918440000008559
+          ],
+          "subsequentAverageMs": 1.7623466666664171,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-range",
+          "firstCallMs": 4.7435430000005,
+          "subsequentCallMs": [
+            3.4326509999991686,
+            3.3166979999987234,
+            3.567415000001347
+          ],
+          "subsequentAverageMs": 3.4389213333330795,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "create",
+          "firstCallMs": 7.9895289999985835,
+          "subsequentCallMs": [
+            1.8040280000022904,
+            1.8848820000021078,
+            1.5853310000020429
+          ],
+          "subsequentAverageMs": 1.7580803333354804,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "update",
+          "firstCallMs": 3.376509999998234,
+          "subsequentCallMs": [
+            2.246463000003132,
+            1.8946409999989555,
+            1.7876780000005965
+          ],
+          "subsequentAverageMs": 1.9762606666675613,
+          "subsequentCount": 3
+        }
+      ]
+    },
+    {
+      "backend": "mongodb-journal",
+      "seedMs": 755.6802730000018,
+      "results": [
+        {
+          "operation": "read-id",
+          "firstCallMs": 1.7810979999994743,
+          "subsequentCallMs": [
+            1.4700470000025234,
+            1.4254870000004303,
+            1.5602400000025227
+          ],
+          "subsequentAverageMs": 1.4852580000018254,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-equality",
+          "firstCallMs": 3.432691000001796,
+          "subsequentCallMs": [
+            1.7423359999993409,
+            1.7388360000004468,
+            1.5899409999983618
+          ],
+          "subsequentAverageMs": 1.6903709999993832,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "read-range",
+          "firstCallMs": 2.9513960000003863,
+          "subsequentCallMs": [
+            2.0008749999979045,
+            2.1858510000020033,
+            2.7978100000000268
+          ],
+          "subsequentAverageMs": 2.328178666666645,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "create",
+          "firstCallMs": 7.722351000000344,
+          "subsequentCallMs": [
+            2.7489189999978407,
+            2.7602289999995264,
+            2.8217120000008435
+          ],
+          "subsequentAverageMs": 2.7769533333327368,
+          "subsequentCount": 3
+        },
+        {
+          "operation": "update",
+          "firstCallMs": 3.8358840000000782,
+          "subsequentCallMs": [
+            2.6954979999973148,
+            2.8459619999994175,
+            2.9470059999985097
+          ],
+          "subsequentAverageMs": 2.8294886666650805,
+          "subsequentCount": 3
+        }
+      ]
+    }
+  ],
+  "finishedAt": "2026-11-14T16:01:54.901Z"
+}

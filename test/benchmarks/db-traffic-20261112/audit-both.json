@@ -1,0 +1,34 @@
+{
+  "variant": "both",
+  "passed": true,
+  "checks": [
+    "holder-add-remove-clear",
+    "in-place-recipient-sets",
+    "stable-reference-after-value-change",
+    "old-pathname-no-longer-matches",
+    "old-and-new-holders-targeted",
+    "queued-live-values",
+    "array-rename-stable-id",
+    "storage-rename-stable-id",
+    "delete-recreate-lifetime",
+    "no-files"
+  ],
+  "packets": 284,
+  "metrics": {
+    "holderUpdates": 655,
+    "holderReads": 1369,
+    "indexReads": 10952,
+    "indexWrites": 7272,
+    "sizeCalls": 5049,
+    "sizeBytes": 5375673,
+    "sizeMs": 46.5522159999978,
+    "queueWaitMs": 0.13524499999968498,
+    "maxQueueWaitMs": 0.043912000000005946,
+    "queueEvents": 23,
+    "storageLookups": 35,
+    "catalogSplits": 32,
+    "splits": 479,
+    "entityHolderReads": 9,
+    "referenceBuilds": 37
+  }
+}

@@ -1,0 +1,165 @@
+[
+  {
+    "variant": "counts",
+    "targetKiB": 300,
+    "n": 20000,
+    "leafEntryLimit": 8533,
+    "createMs": 1746.0350799999999,
+    "createOpsPerSecond": 11454.523582653335,
+    "createMetrics": {
+      "indexReads": 91464,
+      "indexWrites": 51470,
+      "splits": 3
+    },
+    "updateMs": 87.20802000000003,
+    "updatesPerSecond": 5733.417637506273,
+    "updateMetrics": {
+      "indexReads": 5000,
+      "indexWrites": 3000
+    },
+    "rows": {
+      "equality": {
+        "count": 3000,
+        "p50Ms": 0.032470999999986816,
+        "p95Ms": 0.05728199999998651,
+        "opsPerSecond": 24431.495190973685,
+        "nodeReadsPerRequest": 3
+      },
+      "bounded-range": {
+        "count": 1000,
+        "p50Ms": 0.08905299999992167,
+        "p95Ms": 0.14794499999993604,
+        "opsPerSecond": 9393.439321387877,
+        "nodeReadsPerRequest": 3.003
+      }
+    },
+    "shape": {
+      "nodes": 5,
+      "leaves": 4,
+      "depth": 2
+    },
+    "verified": true
+  },
+  {
+    "variant": "counts",
+    "targetKiB": 1024,
+    "n": 20000,
+    "leafEntryLimit": 29127,
+    "createMs": 1640.0229950000003,
+    "createOpsPerSecond": 12194.950961647948,
+    "createMetrics": {
+      "indexReads": 79998,
+      "indexWrites": 40000
+    },
+    "updateMs": 310.0623760000003,
+    "updatesPerSecond": 1612.5787541536465,
+    "updateMetrics": {
+      "indexReads": 4000,
+      "indexWrites": 2000
+    },
+    "rows": {
+      "equality": {
+        "count": 3000,
+        "p50Ms": 0.025161000000025524,
+        "p95Ms": 0.04348099999970145,
+        "opsPerSecond": 31886.31025360754,
+        "nodeReadsPerRequest": 2
+      },
+      "bounded-range": {
+        "count": 1000,
+        "p50Ms": 0.11435299999993731,
+        "p95Ms": 0.16726500000004307,
+        "opsPerSecond": 8031.741571197231,
+        "nodeReadsPerRequest": 2
+      }
+    },
+    "shape": {
+      "nodes": 1,
+      "leaves": 1,
+      "depth": 1
+    },
+    "verified": true
+  },
+  {
+    "variant": "counts",
+    "targetKiB": 128,
+    "n": 20000,
+    "leafEntryLimit": 3640,
+    "createMs": 1745.7785110000004,
+    "createOpsPerSecond": 11456.207001049514,
+    "createMetrics": {
+      "indexReads": 96357,
+      "indexWrites": 56367,
+      "splits": 7
+    },
+    "updateMs": 86.89020999999957,
+    "updatesPerSecond": 5754.388210133253,
+    "updateMetrics": {
+      "indexReads": 5000,
+      "indexWrites": 3000
+    },
+    "rows": {
+      "equality": {
+        "count": 3000,
+        "p50Ms": 0.033210999999937485,
+        "p95Ms": 0.0543920000000071,
+        "opsPerSecond": 25264.931439734555,
+        "nodeReadsPerRequest": 3
+      },
+      "bounded-range": {
+        "count": 1000,
+        "p50Ms": 0.09157300000060786,
+        "p95Ms": 0.12745400000039808,
+        "opsPerSecond": 10035.27700927068,
+        "nodeReadsPerRequest": 3.008
+      }
+    },
+    "shape": {
+      "nodes": 9,
+      "leaves": 8,
+      "depth": 2
+    },
+    "verified": true
+  },
+  {
+    "variant": "counts",
+    "targetKiB": 512,
+    "n": 20000,
+    "leafEntryLimit": 14563,
+    "createMs": 1631.7594959999997,
+    "createOpsPerSecond": 12256.708203032884,
+    "createMetrics": {
+      "indexReads": 85434,
+      "indexWrites": 45438,
+      "splits": 1
+    },
+    "updateMs": 99.50693499999943,
+    "updatesPerSecond": 5024.775408869772,
+    "updateMetrics": {
+      "indexReads": 5000,
+      "indexWrites": 3000
+    },
+    "rows": {
+      "equality": {
+        "count": 3000,
+        "p50Ms": 0.0354910000005475,
+        "p95Ms": 0.05618200000026263,
+        "opsPerSecond": 25152.058446140152,
+        "nodeReadsPerRequest": 3
+      },
+      "bounded-range": {
+        "count": 1000,
+        "p50Ms": 0.10155399999894144,
+        "p95Ms": 0.13700400000016089,
+        "opsPerSecond": 9266.28370289839,
+        "nodeReadsPerRequest": 3.002
+      }
+    },
+    "shape": {
+      "nodes": 3,
+      "leaves": 2,
+      "depth": 2
+    },
+    "verified": true
+  }
+]

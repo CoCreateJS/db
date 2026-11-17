@@ -1,0 +1,55 @@
+{
+  "organization_id": "5ff747727005da1c272740ab",
+  "host": "dev.cocreatejs.com",
+  "method": "object.read",
+  "array": "files",
+  "filter": {
+    "query": {
+      "pathname": "/index.html"
+    },
+    "key": {
+      "_id": 1,
+      "pathname": 1
+    },
+    "limit": 1,
+    "storages": [
+      {
+        "storage": "mongodb",
+        "database": "dev",
+        "array": "files",
+        "startingIndex": 0,
+        "count": 1,
+        "index": 1
+      }
+    ],
+    "isFilter": true,
+    "count": 1,
+    "startingIndex": 0,
+    "index": 1
+  },
+  "clientId": "6af5180b08d9770bd06705e4",
+  "frameId": "61c390ad",
+  "timeStamp": "2026-11-12T01:36:11.853Z",
+  "uuid": "fa76c382-cda4-4174-b563-229d1ce39b82",
+  "socketId": "11a0dd9e",
+  "database": "dev",
+  "object": [
+    {
+      "_id": "6aee1c9abb71ac08c5e66e1a",
+      "pathname": "/index.html",
+      "$storage": [
+        "mongodb"
+      ],
+      "$database": [
+        "dev"
+      ],
+      "$array": [
+        "files"
+      ]
+    }
+  ],
+  "serverId": "6a6152c3007efd2634580623",
+  "workerId": 2,
+  "status": "received",
+  "receiverFrameId": "61c390ad"
+}
