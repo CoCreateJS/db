@@ -96,7 +96,7 @@ test('queued indexing retains request references through later metadata changes'
     const created = await db.send({ ...scope, method: 'object.create', object: { counter: 1 } })
     assert.equal(created.success, true, created.error)
     assert.ok(originating)
-    const updated = await db.send({ ...scope, method: 'array.update', config: { changed: true } })
+    const updated = await db.send({ ...scope, method: 'array.update', array: { name: scope.array, config: { changed: true } } })
     assert.equal(updated.success, true, updated.error)
     await db.flush()
     assert.strictEqual(indexed, originating)

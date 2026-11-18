@@ -3,6 +3,7 @@ import { normalizeQuery } from './query.js'
 
 import { live } from './mutation.js'
 import { inheritIdentity } from './files.js'
+import { filterLimit } from './crud.js'
 
 function readFilter(request) {
     if (request.filter) return request.filter
@@ -106,19 +107,22 @@ function normalizeSort(sort) {
 }
 
 /** Apply the shared CoCreate read filter to one source's candidate records. */
-export function applyReadFilter(records, request, { database, array, query = {} }) {
+export function applyReadFilter(records, request, { database, array, query = {}, queryMatched = false }) {
     const filter = readFilter(request)
-    const filterQuery = normalizeQuery({ filter: { query: filter?.query } })
-    const matches = records.filter(record => queryData(record, query) && queryData(record, filterQuery))
+    const filtering = filter !== undefined && filter !== null && filter.isFilter !== false
+    const filterQuery = normalizeQuery({ filter: { query: filtering ? filter?.query : undefined } })
+    const matches = records.filter(record => (queryMatched || queryData(record, query)) && queryData(record, filterQuery))
     const count = matches.length
-    const storagePosition = readPosition(filter, database, array)
-    const sorted = normalizeSort(filter?.sort).length
+    const storagePosition = filtering ? readPosition(filter, database, array) : undefined
+    const sorted = filtering && normalizeSort(filter?.sort).length
         ? sortData(matches, normalizeSort(filter.sort))
         : matches
-    const searched = filter?.search ? sorted.filter(record => searchData(record, filter.search)) : sorted
+    const searched = filtering && filter?.search ? sorted.filter(record => searchData(record, filter.search)) : sorted
     const startingIndex = storagePosition?.startingIndex ?? filter?.startingIndex ?? filter?.index ?? 0
-    const limit = filter?.limit
-    const page = searched.slice(startingIndex, limit ? startingIndex + limit : undefined)
+    if (!Number.isSafeInteger(startingIndex) || startingIndex < 0)
+        throw new TypeError('filter index must be a non-negative safe integer')
+    const limit = filtering ? filterLimit(filter) : undefined
+    const page = filtering ? searched.slice(startingIndex, limit ? startingIndex + limit : undefined) : searched
 
     if (storagePosition) {
         storagePosition.count = count

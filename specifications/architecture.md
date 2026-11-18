@@ -4,31 +4,40 @@
 
 CoCreateDB is a JavaScript-native, storage-agnostic document database engine centered on an independently accessible indexing primitive. It separates logical data and query processing from physical persistence and network placement.
 
-## Organization boundary
+## Organization, scopes, indexes and artifacts
 
-Each operation supplies `organizationId`, which selects an isolated namespace. One engine can serve multiple organizations. Each namespace has an externally supplied root, a collection of UUID-addressed artifacts and local distribution state. [Scopes](scopes.md) owns the address contract.
+Each operation supplies `organization_id`; it identifies the organization
+boundary, which may represent a company, project, or another caller-defined
+grouping. There is no separate namespace tier above it. One in-memory DB engine
+can serve multiple organizations. Within each organization, scopes are resolved
+through indexes to UUID-addressed artifacts. `index.json` is bootstrap
+configuration whose `root` value points to the first index artifact; “root” is
+not a scope or a separate data layer. [Scopes](scopes.md) owns the hierarchy;
+[data.md](data.md) owns artifact identity and value semantics.
 
 ```text
-<organizationId>/
-├── index.json
-├── data/
-│   ├── <uuid>
-│   └── <uuid>
-└── distribution/
-    └── <local operational metadata>
+organization_id
+├── bootstrap object     # provided outside the DB core
+├── artifact values      # decoded values retained in memory
+└── distribution state   # runtime placement knowledge
 ```
 
-| Component | Role | Database cloud persistence |
-| --- | --- | --- |
-| `index.json` | External bootstrap manifest | Excluded |
-| `data/` | Complete objects, catalogs, index roots/segments, durable reconciliation metadata | Eligible through configured workflows |
-| `distribution/` | Local disk holder inventory and operational placement state | Excluded |
+These are logical/runtime roles, not directories. The DB core requests values
+from persistence and submits values to be saved; it does not select a provider,
+resolve a physical path, or own durable I/O. Persistence defines those details.
+An artifact contains the value for its addressed scope; indexes contain lookup
+structures and resolve to child indexes or scope-value artifacts.
 
-Only `data/` participates in database-managed cloud persistence and portable artifact export. The canonical layout describes artifact roles; providers may map addresses to their own storage representation. The core does not infer a path from an artifact's type or logical scope.
+## Bootstrap and logical model
 
-## Logical model
-
-The root catalog leads to storage, database, array and object scopes. Keys are paths within complete objects. Indexes project those paths into recursive ordered structures whose terminal references resolve complete object UUIDs. Catalogs and index segments have independent UUIDs. Logical `_id` and physical UUID are distinct. See [data.md](data.md) and [indexes.md](indexes.md).
+The bootstrap object is external input, not a data layer. Its
+`root` field points to the first index artifact. That index leads to the scope
+hierarchy `storage → database → array → object`. An index resolves to another
+index or to an artifact holding the addressed scope value. The `object` scope
+stores a complete document artifact. Its property paths live in the object
+index and resolve back to the complete document UUID. Logical `_id` and
+physical artifact UUID are distinct.
+See [data.md](data.md) and [indexes.md](indexes.md).
 
 ## Runtime ownership
 

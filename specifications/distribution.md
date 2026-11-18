@@ -5,7 +5,7 @@
 `distribution/` contains the local operational metadata used to manage and maintain distribution of files held on local disk. It is separate from `data/`, is not a portable database artifact, and is excluded from database cloud persistence and export. The local distribution subsystem owns its inventory lifecycle and location; it does not create a second durable database persistence path.
 
 ```text
-<organizationId>/distribution/
+<organization_id>/distribution/
     <local operational metadata>
 ```
 
@@ -17,7 +17,13 @@ Holder records identify artifacts using exact organization and UUID context, loc
 
 ## Demand-driven acquisition
 
-A node opens a namespace using its external bootstrap and acquires necessary root/catalog paths, index segments and objects on demand from authorized available sources. It retains decoded working-set values in the organization Map. Full replication and whole-index hydration are not required. Subscriptions and holder promotion track demand; eviction releases working-set copies without deleting the database or removing its last required durable copy.
+A node opens a namespace using its external bootstrap and acquires the first
+index artifact, scope indexes, index segments and scope-value artifacts on
+demand from authorized available sources. It retains decoded working-set values
+in the organization Map. Full replication and whole-index hydration are not
+required. Subscriptions and holder promotion track demand; eviction releases
+working-set copies without deleting the database or removing its last required
+durable copy.
 
 Artifact addresses remain stable when a file moves between holders. References resolve through authorized discovery rather than semantic file paths. An advertised but unavailable artifact is an acquisition failure, not an empty index or absent object. Locked, corrupt and incomplete artifacts are distinguishable from absence. Reconnection never regenerates lost content silently.
 

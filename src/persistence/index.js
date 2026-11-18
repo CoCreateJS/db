@@ -48,3 +48,4 @@ export async function sendPersistence(data, { organization, organizationId = dat
 }
 
 export { getPersistenceDriver, registerPersistenceDriver, persistenceDrivers } from './driver.js'
+export { createPersistence as createLocalPersistence } from '../persistence.js'

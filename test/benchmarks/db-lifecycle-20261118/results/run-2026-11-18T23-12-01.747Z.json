@@ -1,0 +1,51 @@
+{
+  "benchmark": "cocreatedb-scoped-lifecycle-memory",
+  "startedAt": "2026-11-18T23:12:01.747Z",
+  "node": "v24.18.0",
+  "platform": "linux-x64",
+  "cpuCount": 2,
+  "mode": "memoryOnly: true; one process; no peer or external persistence latency",
+  "samples": 40,
+  "sizes": [
+    {
+      "size": 1000,
+      "createBatchMs": 282.35232900000005,
+      "indexFlushMs": 4746.06163,
+      "readUuid": {
+        "p50Ms": 0.20118700000057288,
+        "p95Ms": 0.3205600000001141,
+        "p99Ms": 0.35163099999954284,
+        "meanMs": 0.22231407500003114
+      },
+      "readEquality": {
+        "p50Ms": 3.5322860000005676,
+        "p95Ms": 4.922402000000147,
+        "p99Ms": 5.528391000000738,
+        "meanMs": 3.6594255750000455
+      },
+      "readNestedPath": {
+        "p50Ms": 1.8756020000000717,
+        "p95Ms": 2.749920999999631,
+        "p99Ms": 3.4561030000004394,
+        "meanMs": 2.208867500000133
+      },
+      "readRange": {
+        "p50Ms": 7.802937000000384,
+        "p95Ms": 10.603627999999844,
+        "p99Ms": 12.899143999999978,
+        "meanMs": 8.444919774999994
+      },
+      "updateUuid": {
+        "p50Ms": 0.43785399999978836,
+        "p95Ms": 0.5899490000001606,
+        "p99Ms": 0.5940490000002683,
+        "meanMs": 0.4696196000001464
+      },
+      "deleteBatch": {
+        "count": 25,
+        "elapsedMs": 7.218946999999389
+      }
+    }
+  ],
+  "completedAt": "2026-11-18T23:12:07.911Z"
+}

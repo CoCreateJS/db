@@ -1,0 +1,211 @@
+{
+  "benchmark": "cocreatedb-sustained-read-write",
+  "startedAt": "2026-11-18T23:04:41.138Z",
+  "node": "v24.18.0",
+  "platform": "linux-x64",
+  "cpuCount": 2,
+  "size": 1000,
+  "durationMs": 60000,
+  "concurrencyLevels": [
+    1,
+    4,
+    16
+  ],
+  "configuration": "filesystem persistence enabled; writeBehind true; one process; no peer or external persistence latency",
+  "phases": [
+    {
+      "name": "read",
+      "concurrency": 1,
+      "targetDurationMs": 60000,
+      "actualDurationMs": 60016.312681999996,
+      "operations": 4521,
+      "operationsPerSecond": 75.32951955837052,
+      "latencyMs": {
+        "p50": 24.672946999999112,
+        "p95": 26.76547600000049,
+        "p99": 37.79025600000023,
+        "max": 68.452487999999
+      },
+      "cpuPercentOfOneCore": 100.57139851262949,
+      "cpuPercentOfMachine": 50.28569925631474,
+      "memory": {
+        "startRss": 114536448,
+        "endRss": 216596480,
+        "maxRss": 216596480,
+        "startHeapUsed": 19489912,
+        "endHeapUsed": 37252848,
+        "maxHeapUsed": 34211792
+      },
+      "pendingIndexWork": {
+        "peak": 0,
+        "end": 0
+      },
+      "indexTimingMs": {}
+    },
+    {
+      "name": "write",
+      "concurrency": 1,
+      "targetDurationMs": 60000,
+      "actualDurationMs": 60000.74711099999,
+      "operations": 150744,
+      "operationsPerSecond": 2512.3687163615996,
+      "latencyMs": {
+        "p50": 0.36452200000348967,
+        "p95": 0.48792699999467004,
+        "p99": 0.6022400000074413,
+        "max": 51.17266199999722
+      },
+      "cpuPercentOfOneCore": 105.27441747207816,
+      "cpuPercentOfMachine": 52.63720873603908,
+      "memory": {
+        "startRss": 216596480,
+        "endRss": 518037504,
+        "maxRss": 508882944,
+        "startHeapUsed": 38441928,
+        "endHeapUsed": 195932824,
+        "maxHeapUsed": 195960072
+      },
+      "pendingIndexWork": {
+        "peak": 1000,
+        "end": 1000
+      },
+      "indexTimingMs": {},
+      "pendingBeforeDrain": 1000,
+      "indexDrainMs": 1156.5368540000054,
+      "persistenceDrainMs": 953.6051569999981,
+      "pendingAfterDrain": 0
+    },
+    {
+      "name": "read",
+      "concurrency": 4,
+      "targetDurationMs": 60000,
+      "actualDurationMs": 60059.21916699999,
+      "operations": 4539,
+      "operationsPerSecond": 75.57540812142275,
+      "latencyMs": {
+        "p50": 52.410883000004105,
+        "p95": 78.93549400000484,
+        "p99": 82.94417599998997,
+        "max": 120.59988299998804
+      },
+      "cpuPercentOfOneCore": 100.09306120488279,
+      "cpuPercentOfMachine": 50.04653060244139,
+      "memory": {
+        "startRss": 521486336,
+        "endRss": 520392704,
+        "maxRss": 521486336,
+        "startHeapUsed": 170194232,
+        "endHeapUsed": 174387272,
+        "maxHeapUsed": 171317400
+      },
+      "pendingIndexWork": {
+        "peak": 0,
+        "end": 0
+      },
+      "indexTimingMs": {}
+    },
+    {
+      "name": "write",
+      "concurrency": 4,
+      "targetDurationMs": 60000,
+      "actualDurationMs": 60001.480783999985,
+      "operations": 136836,
+      "operationsPerSecond": 2280.543716789215,
+      "latencyMs": {
+        "p50": 1.5986630000115838,
+        "p95": 2.1172199999855366,
+        "p99": 8.354624999978114,
+        "max": 109.10957399997278
+      },
+      "cpuPercentOfOneCore": 102.55726891395183,
+      "cpuPercentOfMachine": 51.278634456975915,
+      "memory": {
+        "startRss": 520392704,
+        "endRss": 553357312,
+        "maxRss": 551075840,
+        "startHeapUsed": 175368304,
+        "endHeapUsed": 266975080,
+        "maxHeapUsed": 283889408
+      },
+      "pendingIndexWork": {
+        "peak": 1000,
+        "end": 1000
+      },
+      "indexTimingMs": {},
+      "pendingBeforeDrain": 1000,
+      "indexDrainMs": 1143.694342999981,
+      "persistenceDrainMs": 1032.5950959999755,
+      "pendingAfterDrain": 0
+    },
+    {
+      "name": "read",
+      "concurrency": 16,
+      "targetDurationMs": 60000,
+      "actualDurationMs": 60207.050894999964,
+      "operations": 4540,
+      "operationsPerSecond": 75.40645044909573,
+      "latencyMs": {
+        "p50": 209.91563999996288,
+        "p95": 239.58731799997622,
+        "p99": 273.65772999997716,
+        "max": 323.8234039999661
+      },
+      "cpuPercentOfOneCore": 100.30159774029907,
+      "cpuPercentOfMachine": 50.150798870149536,
+      "memory": {
+        "startRss": 554999808,
+        "endRss": 555294720,
+        "maxRss": 555294720,
+        "startHeapUsed": 91393008,
+        "endHeapUsed": 42610400,
+        "maxHeapUsed": 91393008
+      },
+      "pendingIndexWork": {
+        "peak": 0,
+        "end": 0
+      },
+      "indexTimingMs": {}
+    },
+    {
+      "name": "write",
+      "concurrency": 16,
+      "targetDurationMs": 60000,
+      "actualDurationMs": 60005.58850700001,
+      "operations": 152558,
+      "operationsPerSecond": 2542.3965299865895,
+      "latencyMs": {
+        "p50": 5.697868000017479,
+        "p95": 8.34656500001438,
+        "p99": 15.087217999971472,
+        "max": 186.52925799996592
+      },
+      "cpuPercentOfOneCore": 104.63537907419325,
+      "cpuPercentOfMachine": 52.317689537096626,
+      "memory": {
+        "startRss": 555294720,
+        "endRss": 565186560,
+        "maxRss": 555929600,
+        "startHeapUsed": 43589656,
+        "endHeapUsed": 355118904,
+        "maxHeapUsed": 341471968
+      },
+      "pendingIndexWork": {
+        "peak": 1000,
+        "end": 1000
+      },
+      "indexTimingMs": {},
+      "pendingBeforeDrain": 1000,
+      "indexDrainMs": 1150.386467000004,
+      "persistenceDrainMs": 1043.0219100000104,
+      "pendingAfterDrain": 0
+    }
+  ],
+  "setup": {
+    "initialObjectInsertAckMs": 777.9402150000001,
+    "initialIndexBuildAndPersistenceFlushMs": 5524.738584999999,
+    "pendingAfterInitialFlush": 0,
+    "coldFirstReadMs": 33.27951699999994,
+    "warmRepeatedReadMs": 2.746929999999338
+  },
+  "completedAt": "2026-11-18T23:10:55.848Z"
+}

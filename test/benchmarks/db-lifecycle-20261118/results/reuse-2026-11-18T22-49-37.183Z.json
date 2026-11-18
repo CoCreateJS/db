@@ -1,0 +1,26 @@
+{
+  "benchmark": "cocreatedb-same-index-fields-reuse",
+  "startedAt": "2026-11-18T22:49:37.183Z",
+  "node": "v24.18.0",
+  "platform": "linux-x64",
+  "cpuCount": 2,
+  "mode": "memoryOnly: true",
+  "sizePerBatch": 1000,
+  "rounds": [
+    {
+      "round": 1,
+      "documents": 1000,
+      "indexEntriesPerDocument": 18,
+      "acknowledgedMs": 334.83455000000004,
+      "indexFlushMs": 1468.600309
+    },
+    {
+      "round": 2,
+      "documents": 1000,
+      "indexEntriesPerDocument": 18,
+      "acknowledgedMs": 290.14377000000013,
+      "indexFlushMs": 1264.898729
+    }
+  ],
+  "completedAt": "2026-11-18T22:49:40.606Z"
+}

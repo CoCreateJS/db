@@ -6,6 +6,7 @@ import { createRecord, deleteRecord, findRecordByName, readRecordById, readRecor
 import { fileId, identify, newFileId } from '../files.js'
 import { ensureDatabase, adjustDatabaseLengths } from '../database/index.js'
 import { applyReadFilter } from '../read.js'
+import { normalizeEntities, entityUuid, hasExplicitFilter } from '../crud.js'
 
 const name = value => {
     if (typeof value !== 'string' || !value.trim()) throw new TypeError('array name must be a non-empty string')
@@ -13,7 +14,7 @@ const name = value => {
 }
 const find = (root, index, database, value) => findRecordByName(index, database._id, ARRAY_CATALOG, uuid => arrayMetadataPath(root, database._id, uuid), value)
 
-export async function ensureArray(root, index, database, value, config = {}, request = {}) {
+export async function ensureArray(root, index, database, value, config = {}, request = {}, uuid = newFileId()) {
     name(value)
     const existing = await find(root, index, database, value)
     if (existing) return existing
@@ -21,7 +22,7 @@ export async function ensureArray(root, index, database, value, config = {}, req
     const record = { _id: id, name: value, databaseId: database._id, index: index.catalogId(database._id, id), length: 0,
         config, created: auditMetadata(request), updated: auditMetadata(request) }
     await index.ensureCatalog(database._id, id)
-    await createRecord(index, database._id, ARRAY_CATALOG, arrayMetadataPath(root, database._id, newFileId()), record)
+    await createRecord(index, database._id, ARRAY_CATALOG, arrayMetadataPath(root, database._id, uuid), record)
     await adjustDatabaseLengths(root, index, database._id, { arrays: 1 }, request)
     return record
 }
@@ -53,25 +54,60 @@ export async function sendArray(root, index, method, data) {
         throw new Error(`Database not found: ${data.database}`)
     }
     const view = record => identify({ ...record, $storage: ['db'], $database: [database.name] }, fileId(record))
-    if (method === 'read') return data.array = applyReadFilter((await readRecords(index, database._id, ARRAY_CATALOG,
-        uuid => arrayMetadataPath(root, database._id, uuid))).map(view), data, { database: data.database, array: ARRAY_CATALOG })
-    const names = data.array === undefined ? [] : Array.isArray(data.array) ? data.array : [data.array]
-    if (method === 'create' && !names.length) throw new TypeError('array.create requires an array name')
+    const inputs = normalizeEntities(data.array, 'array')
+    const resolve = async input => {
+        const uuid = entityUuid(input, 'array')
+        const byUuid = uuid ? await readRecordById(index, database._id, ARRAY_CATALOG, id => arrayMetadataPath(root, database._id, id), uuid) : undefined
+        const byName = input.name === undefined ? undefined : await find(root, index, database, name(input.name))
+        if (uuid && input.name !== undefined && (!byUuid || !byName || fileId(byUuid) !== fileId(byName)))
+            throw new Error('array.uuid and array.name must resolve to the same array')
+        return byUuid ?? byName
+    }
+    const selected = []
+    for (const input of inputs) {
+        if (input.uuid === undefined && input.name === undefined) continue
+        const record = await resolve(input)
+        if (record && !selected.some(item => fileId(item) === fileId(record))) selected.push(record)
+    }
+    if (method === 'create') {
+        if (!inputs.length) return data.array = []
+        const results = []
+        for (const input of inputs) {
+            const arrayName = name(input.name)
+            if (await find(root, index, database, arrayName)) throw new Error(`Array already exists: ${arrayName}`)
+            const uuid = entityUuid(input, 'array') ?? newFileId()
+            if (await readRecordById(index, database._id, ARRAY_CATALOG, id => arrayMetadataPath(root, database._id, id), uuid))
+                throw new Error(`Array UUID already exists: ${uuid}`)
+            results.push(await ensureArray(root, index, database, arrayName, input.config ?? data.config, data, uuid))
+        }
+        return data.array = results.map(view)
+    }
+    if (hasExplicitFilter(data)) {
+        const records = await readRecords(index, database._id, ARRAY_CATALOG, uuid => arrayMetadataPath(root, database._id, uuid))
+        for (const result of applyReadFilter(records, data, { database: data.database, array: ARRAY_CATALOG })) {
+            const record = await readRecordById(index, database._id, ARRAY_CATALOG, uuid => arrayMetadataPath(root, database._id, uuid), fileId(result))
+            if (record && !selected.some(item => fileId(item) === fileId(record))) selected.push(record)
+        }
+    }
+    if (method === 'read') return data.array = selected.map(view)
     const results = []
-    for (const value of names) {
-        const record = method === 'create' ? await ensureArray(root, index, database, value, data.config, data) : await find(root, index, database, name(value))
+    const updatePayload = inputs.find(input => input.uuid === undefined && input.name === undefined)
+    if (method === 'update' && hasExplicitFilter(data) && !updatePayload && data.name === undefined && data.newName === undefined && data.config === undefined)
+        throw new Error('Filtered array.update requires one unambiguous update payload')
+    for (const record of selected) {
         if (!record) {
             if (method === 'delete') continue
-            throw new Error(`Array not found: ${value}`)
         }
+        const input = inputs.find(item => item.uuid && item.uuid.toLowerCase() === fileId(record) || item.name && item.name === record.name) ?? updatePayload ?? {}
         if (method === 'update') {
-            const renamed = name(data.name ?? data.newName ?? record.name)
-            if (data.config === undefined && renamed === record.name) throw new Error('array.update requires a new name or config')
+            const renamed = name(input.newName ?? data.name ?? data.newName ?? record.name)
+            const config = input.config ?? data.config
+            if (config === undefined && renamed === record.name) throw new Error('array.update requires a new name or config')
             const collision = await find(root, index, database, renamed)
             if (collision && collision._id !== record._id) throw new Error(`Array already exists: ${renamed}`)
             await updateRecord(index, database._id, ARRAY_CATALOG, arrayMetadataPath(root, database._id, fileId(record)), record, current => {
                 current.name = renamed
-                if (data.config) Object.assign(current.config, data.config)
+                if (config) Object.assign(current.config, config)
                 current.updated = auditMetadata(data)
             })
         }

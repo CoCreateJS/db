@@ -35,6 +35,7 @@
   "main": "./src/index.js",
   "homepage": "https://CoCreateJS.com/docs/db",
   "dependencies": {
+    "@cocreate/coson": "^1.0.0",
     "@cocreate/config": "^2.0.2",
     "@cocreate/utils": "^2.0.2"
   }

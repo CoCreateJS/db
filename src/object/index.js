@@ -1,5 +1,5 @@
 import { join, resolve } from 'node:path'
-import { fileId, identify, newFileId, recordPath, fileIdFromPath } from '../files.js'
+import { fileId, identify, newFileId, recordPath } from '../files.js'
 import { ensureRoot } from '../root.js'
 import { rm } from '../io.js'
 import { createUpdate, ObjectId, queryData } from '@cocreate/utils'
@@ -12,16 +12,17 @@ import { createDistributionIndex } from '../distribution.js'
 import {
     ARRAY_CATALOG, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
     arrayDirectory, arrayMetadataPath, auditMetadata, databaseDirectory, databaseMetadataPath,
-    normalizeObject, objectPath, objectDeletionPath, readJSON, replaceJSON, writeExclusiveJSON, setPath, flattenIndexValues
+    normalizeObject, normalizeArrayContinuity, objectPath, objectDeletionPath, readJSON, replaceJSON, writeExclusiveJSON, setPath, getPath, flattenIndexValues
 } from '../storage.js'
-import { hasQueryConditions, normalizeQuery, queryIndexCandidates } from '../query.js'
+import { normalizeQuery, queryIndexCandidates } from '../query.js'
 import { applyReadFilter } from '../read.js'
 import { createRecord, deleteRecord, findRecordByName, readRecordById, readRecords, recordReference, reconcileEntrySets } from '../records.js'
-import { indexEntries, entryKey, arrayDigest } from '../entries.js'
+import { indexEntries, entryKey } from '../entries.js'
 import { prepareMutation, live } from '../mutation.js'
 import { createPersistence } from '../persistence.js'
 import { enableMemoryCache, memoryStats, removeMemoryPath } from '../memory.js'
 import { withResolution, currentResolution, resolvedCatalog, afterResponse } from '../resolution.js'
+import { normalizeEntities, entityUuid, entityId } from '../crud.js'
 
 function errorHandler(data, error) {
     if (!Array.isArray(data.error)) data.error = data.error === undefined ? [] : [data.error]
@@ -32,6 +33,22 @@ function errorHandler(data, error) {
 }
 
 const isObjectId = value => typeof value === 'string' && /^[0-9a-f]{24}$/i.test(value)
+const isLogicalId = value => typeof value === 'string' && value.length > 0
+function objectUuid(value) {
+    if (typeof value === 'string') throw new TypeError('object must be an object, not a string identity')
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+    return entityUuid(value, 'object')
+}
+function requestFilter(request) {
+    return request.filter ?? (Array.isArray(request.object)
+        ? request.object.find(object => object?.filter)?.filter
+        : request.object?.filter)
+}
+function hasExplicitFilter(request) {
+    const filter = requestFilter(request)
+    return filter !== undefined && filter !== null && filter.isFilter !== false
+}
+const filterQuery = request => normalizeQuery({ ...request, filter: requestFilter(request), object: undefined })
 
 function tagRecord(record, request) {
     record = live(record)
@@ -51,7 +68,7 @@ function createUpdatePatch(input, request) {
         for (const [path, value] of Object.entries(values)) patch[`${operator}.${path}`] = value
     }
     for (const [key, value] of Object.entries(input)) {
-        if (['_id', 'filter', '$storage', '$database', '$array', '$bytes'].includes(key)) continue
+        if (['_id', 'uuid', 'filter', '$storage', '$database', '$array', '$bytes'].includes(key)) continue
         if (value === undefined && !key.startsWith('$')) removed[key] = true
         else patch[key] = value
     }
@@ -64,7 +81,9 @@ function applyObjectUpdate(current, patch, audit) {
     const updated = plan.value
     if (createUpdate(updated, patch) === false)
         throw new Error('Shared update utility could not apply the requested update')
+    normalizeArrayContinuity(updated)
     if (updated._id !== current._id) throw new Error('object._id cannot be changed')
+    if (updated.uuid !== current.uuid) throw new Error('object.uuid cannot be changed')
     if (updated.created?.on !== current.created?.on)
         throw new Error('object.created.on cannot be changed')
     if (audit) setPath(updated, 'updated', audit)
@@ -75,7 +94,7 @@ function applyObjectUpdate(current, patch, audit) {
 function updateReply(record, patch) {
     return identify({ ...record, $update: patch }, fileId(record))
 }
-const peerUpdate = (record, patch) => identify({ _id: record._id, $update: patch, updated: record.updated }, fileId(record))
+const peerUpdate = (record, patch) => identify({ uuid: fileId(record), _id: record._id, $update: patch, updated: record.updated }, fileId(record))
 
 /**
  * Create a filesystem-backed CoCreateDB instance.
@@ -100,7 +119,7 @@ export function createDB({
         if (!deletedObjects.has(path)) deletedObjects.set(path, await readJSON(path))
         return deletedObjects.get(path)
     }
-    const deletionMarker = object => ({ _id: object._id, fileId: fileId(object), created: { on: object.created?.on }, deleted: { on: new Date().toISOString() } })
+const deletionMarker = object => ({ uuid: fileId(object), _id: object._id, created: { on: object.created?.on }, deleted: { on: new Date().toISOString() } })
     const markDeleted = async (database, array, object) => {
         const path = objectDeletionPath(root, database, array, object._id)
         const marker = deletionMarker(object)
@@ -117,14 +136,18 @@ export function createDB({
     const pendingIndexes = new Map()
     const documentRevisions = new Map()
     let indexTimer, indexScheduled = false, indexError, closing = false
+    let indexScheduledAt, indexSchedulingWaitMs = 0, indexProcessingMs = 0, indexFlushWaitMs = 0
     const persistence = memoryOnly || disk === false ? undefined : sharedPersistence ?? (writeBehind ? createPersistence({
         ...persistenceOptions, directory: resolve(indexRoot), canFlush: () => pendingIndexes.size === 0
     }) : undefined)
     const requestIndexing = (delay = 0) => {
         if (indexScheduled || closing || !pendingIndexes.size) return
         indexScheduled = true
+        indexScheduledAt = performance.now()
         indexTimer = setTimeout(() => {
             indexTimer = undefined
+            indexSchedulingWaitMs += performance.now() - indexScheduledAt
+            indexScheduledAt = undefined
             Promise.resolve().then(() => scheduleIndexing(processPendingIndexes)).catch(error => {
                 indexError = error
             }).finally(() => {
@@ -150,68 +173,77 @@ export function createDB({
         entry.actions.push(...actions)
         if (update) entry.updates.push(update)
         requestIndexing()
+        return entry
     }
     const processPendingIndexes = async () => {
+        const processingStartedAt = performance.now()
         const release = persistence?.hold()
         try {
-            for (const [path, entry] of pendingIndexes) {
-                const processing = currentResolution()
-                const resolved = entry.resolved && processing && processing !== entry.resolved
-                    ? { ...processing, catalogs: entry.resolved.catalogs, files: entry.resolved.files } : entry.resolved
-                await withResolution(async () => {
-                    const revision = entry.revision
-                    const indexedBefore = entry.indexed
-                    try {
-                        if (typeof entry.indexed === 'function') entry.indexed = entry.indexed()
-                        // Read acquisition notices precede the indexes built from it.
-                        // Both stages publish through this backend transaction's outbox.
-                        while (entry.resolved?.background?.length) {
-                            await entry.resolved.background[0]()
-                            entry.resolved.background.shift()
-                        }
-                        while (entry.actions.length) {
-                            await entry.actions[0]()
-                            entry.actions.shift()
-                        }
-                        const latest = await readJSON(path)
-                        const after = indexEntries(latest)
-                        for (const holder of await captureEntryHolders(entry.database, entry.array, entry.indexed, entry.fileId)) entry.holders.add(holder)
-                        await reconcileEntrySets(storageIndex, entry.database, entry.array, entry.fileId, entry.indexed, after)
-                        entry.indexed = after
-                        if (latest)
-                            for (const holder of await captureObjectHolders(entry.database, entry.array, latest)) entry.holders.add(holder)
-                        const operation = !latest ? 'remove' : entry.createdOn && entry.createdOn === latest.created?.on ? 'update' : 'set'
-                        const updates = entry.updates.slice()
-                        if (operation === 'update') {
-                            // Index reconciliation can coalesce; incremental operations cannot.
-                            for (const update of updates) {
-                                if (entry.publish) await publishObjectMutation(operation, entry.database, entry.array, update, entry.holders, latest.created?.on)
-                                await onIndexed?.({ ...await resolveDistributionIds({ databaseId: entry.database, arrayId: entry.array }), objectId: entry.fileId,
-                                    revision, operation, object: updateReply(latest, update.$update) })
+            await storageIndex.batch(async () => {
+                for (const [path, entry] of pendingIndexes) {
+                    const processing = currentResolution()
+                    const resolved = entry.resolved && processing && processing !== entry.resolved
+                        ? { ...processing, catalogs: entry.resolved.catalogs, files: entry.resolved.files } : entry.resolved
+                    await withResolution(async () => {
+                        const revision = entry.revision
+                        const indexedBefore = entry.indexed
+                        try {
+                            if (typeof entry.indexed === 'function') entry.indexed = entry.indexed()
+                            // Read acquisition notices precede the indexes built from it.
+                            // Both stages publish through this backend transaction's outbox.
+                            while (entry.resolved?.background?.length) {
+                                await entry.resolved.background[0]()
+                                entry.resolved.background.shift()
                             }
-                        } else {
-                            const object = latest ?? entry.removed
-                            if (entry.publish && object)
-                                await publishObjectMutation(operation, entry.database, entry.array, object, entry.holders, latest?.created?.on)
-                            await onIndexed?.({ ...await resolveDistributionIds({ databaseId: entry.database, arrayId: entry.array }), objectId: entry.fileId, revision, operation, object: live(object) })
+                            while (entry.actions.length) {
+                                await entry.actions[0]()
+                                entry.actions.shift()
+                            }
+                            const latest = await readJSON(path)
+                            const after = indexEntries(latest)
+                            for (const holder of await captureEntryHolders(entry.database, entry.array, entry.indexed, entry.fileId)) entry.holders.add(holder)
+                            await reconcileEntrySets(storageIndex, entry.database, entry.array, entry.fileId, entry.indexed, after)
+                            entry.indexed = after
+                            if (latest)
+                                for (const holder of await captureObjectHolders(entry.database, entry.array, latest)) entry.holders.add(holder)
+                            const operation = !latest ? 'remove' : entry.createdOn && entry.createdOn === latest.created?.on ? 'update' : 'set'
+                            const updates = entry.updates.slice()
+                            if (operation === 'update') {
+                                // Index reconciliation can coalesce; incremental operations cannot.
+                                for (const update of updates) {
+                                    if (entry.publish) await publishObjectMutation(operation, entry.database, entry.array, update, entry.holders, latest.created?.on)
+                                    await onIndexed?.({ ...await resolveDistributionIds({ databaseId: entry.database, arrayId: entry.array }), objectId: entry.fileId,
+                                        revision, operation, object: updateReply(latest, update.$update) })
+                                }
+                            } else {
+                                const object = latest ?? entry.removed
+                                if (entry.publish && object)
+                                    await publishObjectMutation(operation, entry.database, entry.array, object, entry.holders, latest?.created?.on)
+                                await onIndexed?.({ ...await resolveDistributionIds({ databaseId: entry.database, arrayId: entry.array }), objectId: entry.fileId, revision, operation, object: live(object) })
+                            }
+                            entry.updates.splice(0, updates.length)
+                            if (entry.revision === revision) pendingIndexes.delete(path)
+                        } catch (error) {
+                            indexError = error
+                            storageIndex.clearCache()
+                            distributionIndex.clearCache()
+                            entry.indexed = indexedBefore
+                            throw error
                         }
-                        entry.updates.splice(0, updates.length)
-                        if (entry.revision === revision) pendingIndexes.delete(path)
-                    } catch (error) {
-                        indexError = error
-                        storageIndex.clearCache()
-                        distributionIndex.clearCache()
-                        entry.indexed = indexedBefore
-                        throw error
-                    }
-                }, resolved)
-            }
+                    }, resolved)
+                }
+            })
             indexError = undefined
-        } finally { release?.() }
+        } finally {
+            indexProcessingMs += performance.now() - processingStartedAt
+            release?.()
+        }
     }
     const flushIndexes = async () => {
+        const flushStartedAt = performance.now()
         if (indexTimer) { clearTimeout(indexTimer); indexTimer = undefined; indexScheduled = false }
-        await processPendingIndexes()
+        try { await processPendingIndexes() }
+        finally { indexFlushWaitMs += performance.now() - flushStartedAt }
     }
     const flush = async () => { await flushIndexes(); await persistence?.flush() }
     let ready
@@ -228,17 +260,13 @@ export function createDB({
             return arrayDirectory(namespace, database, array)
         },
         readPartition: path => partitionAdapter?.read?.(path),
-        readKey: async ({ path, catalog, objectId, key, digest }) => {
-            for (const type of ['objects', 'arrays', 'databases', 'storages']) {
-                const record = await readJSON(recordPath(root, type, objectId))
-                const value = key.split('.').reduce((value, part) => value?.[part], record)
-                if (Array.isArray(value) && arrayDigest(value) === digest) return { catalog, objectId, name: key, value }
+        readIndexedValue: async ({ database: databaseId, array: arrayId, objectId, key }) => {
+            let record = await readJSON(recordPath(root, 'objects', objectId))
+            if (!record && peerReader) for (const nodeId of (peerDistribution ?? peers).findFile(objectId)) {
+                record = await peerReader({ nodeId, type: 'object', databaseId, arrayId, fileId: objectId, objectId })
+                if (record) break
             }
-            if (peerReader) for (const nodeId of (peerDistribution ?? peers).findFile(objectId)) {
-                const record = await peerReader({ nodeId, type: 'key', fileId: fileIdFromPath(path) })
-                if (record?.catalog === catalog && record.objectId === objectId && record.name === key &&
-                    Array.isArray(record.value) && arrayDigest(record.value) === digest) return record
-            }
+            if (record && fileId(record) === objectId) return getPath(record, key)
         },
         onPartitionChange: change => {
             if (!nodeId) return
@@ -413,27 +441,41 @@ export function createDB({
     }
 
     const createObjects = async (request, database, array, { publishMutation = true, acquired = false } = {}) => {
-        const values = request.object === undefined
-            ? []
-            : Array.isArray(request.object) ? request.object : [request.object]
+        const values = normalizeEntities(request.object, 'object')
         const created = []
+        let queuedCount = 0, firstQueuedEntry
+        const queueBatchMetadata = () => {
+            if (!deferred || !queuedCount || !firstQueuedEntry) return
+            if (!acquired) {
+                firstQueuedEntry.actions.push(
+                    () => adjustArrayLength(root, storageIndex, database, array, queuedCount, request),
+                    () => adjustDatabaseLengths(root, storageIndex, database, { objects: queuedCount }, request)
+                )
+            }
+            firstQueuedEntry.actions.push(
+                () => markLocalAvailability({ databaseId: database }, 'add'),
+                () => markLocalAvailability({ databaseId: database, arrayId: array }, 'add')
+            )
+        }
 
-        for (const input of values) {
+        try { for (const input of values) {
             if (!input || typeof input !== 'object' || Array.isArray(input))
                 throw new TypeError('object.create expects an object or an array of objects')
 
             const object = normalizeObject(input)
             const objectId = object._id ?? ObjectId().toString()
 
-            if (typeof objectId !== 'string' || !/^[0-9a-fA-F]{24}$/.test(objectId))
-                throw new TypeError('object._id must be a 24-character hexadecimal ObjectId')
+            if (!isLogicalId(objectId))
+                throw new TypeError('object._id must be a non-empty string')
 
-            object._id = objectId.toLowerCase()
+            object._id = objectId
             if (request.organization_id && !Object.hasOwn(object, 'organization_id'))
                 object.organization_id = request.organization_id
 
             if (await readLocalObject(database, array, object._id)) throw new Error(`Object already exists: ${object._id}`)
-            if (!fileId(object)) identify(object, newFileId())
+            const uuid = entityUuid(object, 'object') ?? newFileId()
+            if (await readLocalObject(database, array, uuid)) throw new Error(`Object UUID already exists: ${uuid}`)
+            identify(object, uuid)
             const audit = auditMetadata(request)
             const deletion = await getDeletion(database, array, object._id)
             if (deletion) {
@@ -447,16 +489,12 @@ export function createDB({
             if (deferred) {
                 await writeExclusiveJSON(file, object)
                 deletedObjects.set(objectDeletionPath(root, database, array, object._id), undefined)
-                queueIndex(database, array, undefined, object, publishMutation, undefined, undefined, [
+                const queuedEntry = queueIndex(database, array, undefined, object, publishMutation, undefined, undefined, [
                     ...(deletion ? [() => rm(objectDeletionPath(root, database, array, object._id), { force: true })] : []),
-                    ...(!acquired ? [
-                        () => adjustArrayLength(root, storageIndex, database, array, 1, request),
-                        () => adjustDatabaseLengths(root, storageIndex, database, { objects: 1 }, request)
-                    ] : []),
-                    () => markLocalAvailability({ databaseId: database }, 'add'),
-                    () => markLocalAvailability({ databaseId: database, arrayId: array }, 'add'),
                     () => markLocalAvailability({ databaseId: database, arrayId: array, objectId: fileId(object) }, 'add')
                 ])
+                firstQueuedEntry ??= queuedEntry
+                queuedCount++
                 created.push(tagRecord(object, request))
                 continue
             }
@@ -491,7 +529,11 @@ export function createDB({
                 const holders = await captureObjectHolders(database, array, object)
                 await publishObjectMutation('set', database, array, object, holders)
             }
+        } } catch (error) {
+            queueBatchMetadata()
+            throw error
         }
+        queueBatchMetadata()
 
         return created
     }
@@ -508,7 +550,7 @@ export function createDB({
     const hydrateObjects = async (request, records) => {
         if (!Array.isArray(records)) throw new TypeError('Persistence hydration requires complete objects')
         for (const record of records) {
-            if (!record || !isObjectId(record._id)) throw new TypeError('Hydrated objects require an ObjectId')
+            if (!record || !isLogicalId(record._id)) throw new TypeError('Hydrated objects require a non-empty _id')
             if (record.organization_id && String(record.organization_id) !== request.organization_id)
                 throw new Error('Hydrated object belongs to a different organization')
         }
@@ -535,19 +577,15 @@ export function createDB({
         if (!deferred) await flushIndexes()
     }
 
-    const readLocalEntity = async ({ type, databaseId, arrayId, objectId, fileId: uuid }) => {
-        if (type === 'key') {
-            const value = await readJSON(recordPath(root, 'keys', uuid))
-            return value && identify(value, uuid)
-        }
+    const readLocalEntity = async ({ type, databaseId, arrayId, objectId, fileId: uuid, key, digest, catalog }) => {
         if (type === 'database') return readDatabase(uuid ?? databaseId)
         if (type === 'array') return readArray(databaseId, uuid ?? arrayId)
         if (type === 'object') return readLocalObject(databaseId, arrayId, uuid ?? objectId)
-        throw new TypeError('Peer fetch type must be key, database, array, or object')
+        throw new TypeError('Peer fetch type must be database, array, or object')
     }
 
     const applyReplicatedObjectMutation = async ({ operation, database, array, object, fileId: uuid, databaseFileId, arrayFileId, createdOn, serverId, upsert = false }) => {
-        if (!['set', 'update', 'remove'].includes(operation) || !object || !isObjectId(object._id))
+        if (!['set', 'update', 'remove'].includes(operation) || !object || !isLogicalId(object._id))
             throw new TypeError('Invalid replicated object mutation')
         const databaseId = database?._id
         const arrayId = array?._id
@@ -753,87 +791,148 @@ export function createDB({
         const objects = []
 
         const candidates = new Set(ids)
-        for (const entry of pendingIndexes.values())
-            if (entry.database === database && entry.array === array) candidates.add(entry.fileId)
+        let hasPendingArrayWork = false
+        for (const entry of pendingIndexes.values()) if (entry.database === database && entry.array === array) {
+            candidates.add(entry.fileId)
+            hasPendingArrayWork = true
+        }
+        const filter = requestFilter(request)
+        const requestedLimit = filter?.limit ?? 50
+        const startingIndex = filter?.startingIndex ?? filter?.index ?? 0
+        const canStopAtLimit = !hasPendingArrayWork && filter && filter.search === undefined &&
+            (!Array.isArray(filter.sort) || filter.sort.length === 0) && Number.isSafeInteger(requestedLimit) &&
+            requestedLimit > 0 && Number.isSafeInteger(startingIndex) && startingIndex >= 0
+        const selectionLimit = canStopAtLimit ? startingIndex + requestedLimit : Infinity
         for (const objectId of candidates) {
             const path = objectPath(root, database, array, objectId)
             const pending = pendingIndexes.has(path)
             if (pending && !(await readJSON(path))) continue
             const object = pending ? await readJSON(path) : hydrated.get(objectId) ?? await loadObject(database, array, objectId, request)
-            if (queryData(object, query)) objects.push(object)
+            if (queryData(object, query)) {
+                objects.push(object)
+                if (objects.length >= selectionLimit) break
+            }
         }
 
         return objects
     }
 
     const readObjects = async (request, database, array) => {
-        const query = normalizeQuery(request)
-        const requestedId = query._id
-        const requestedIds = typeof requestedId === 'string'
-            ? [requestedId]
-            : requestedId && typeof requestedId === 'object' && !Array.isArray(requestedId)
-                ? requestedId.$eq ? [requestedId.$eq]
-                    : Array.isArray(requestedId.$in) ? requestedId.$in : []
-                : []
-        for (const objectId of requestedIds)
-            if (typeof objectId === 'string' && /^[0-9a-f]{24}$/i.test(objectId))
-                if (!(/^[a-f0-9]{32}$/i.test(objectId) && pendingIndexes.has(objectPath(root, database, array, objectId.toLowerCase()))))
-                    await materializeObjectFromPeer(database, array, objectId.toLowerCase(), request)
-
-        const objects = await selectObjects(database, array, query, request)
-        return applyReadFilter(objects, request, {
+        const inputs = normalizeEntities(request.object, 'object')
+        const hasFilter = hasExplicitFilter(request)
+        const directReferences = inputs.map(objectUuid)
+        const explicit = []
+        const explicitIds = new Set()
+        for (const [index, input] of inputs.entries()) {
+            const uuid = directReferences[index]
+            const logicalId = entityId(input, '_id', 'object')
+            if (!uuid && !logicalId) continue
+            const byUuid = uuid ? await readLocalObject(database, array, uuid) ?? await materializeObjectFromPeer(database, array, uuid, request) : undefined
+            const byId = logicalId ? await readLocalObject(database, array, logicalId) ?? await materializeObjectFromPeer(database, array, logicalId, request) : undefined
+            if ((uuid && !byUuid) || (logicalId && !byId)) continue
+            if (byUuid && byId && fileId(byUuid) !== fileId(byId)) throw new Error('object.uuid and object._id resolve to different objects')
+            const record = byUuid ?? byId
+            if (!explicitIds.has(fileId(record))) {
+                explicitIds.add(fileId(record))
+                explicit.push(record)
+            }
+        }
+        if (!hasFilter) return explicit.map(object => tagRecord(object, request))
+        const query = filterQuery(request)
+        const filtered = await selectObjects(database, array, query, request)
+        const selected = applyReadFilter(filtered, request, {
             database: request.database ?? request.organization_id,
             array: request.array,
-            query
-        }).map(object => tagRecord(object, request))
+            query,
+            queryMatched: true
+        })
+        const combined = new Map(explicit.map(object => [fileId(object), object]))
+        for (const object of selected) if (!combined.has(fileId(object))) combined.set(fileId(object), object)
+        return [...combined.values()].map(object => tagRecord(object, request))
     }
 
     const updateObjects = async (request, database, array) => {
-        const inputs = request.object === undefined
+        const supplied = request.object === undefined
             ? Object.hasOwn(request, '$update') ? [{}] : []
-            : Array.isArray(request.object) ? request.object : [request.object]
+            : normalizeEntities(request.object, 'object')
+        const inputs = supplied
+        for (const input of inputs) {
+            entityUuid(input, 'object')
+            entityId(input, '_id', 'object')
+        }
 
-        if (!inputs.length)
-            throw new Error('object.update requires object data')
+        if (!inputs.length) return []
 
         const createFromUpdate = async input => {
             const patch = createUpdatePatch(input, request)
-            const record = input._id === undefined ? {} : { _id: input._id }
+            const record = {
+                ...(input.uuid === undefined ? {} : { uuid: input.uuid }),
+                ...(input._id === undefined ? {} : { _id: input._id })
+            }
             if (createUpdate(record, patch) === false)
                 throw new Error('Shared update utility could not apply the requested update')
             const records = await createObjects({ ...request, method: 'object.create', object: record }, database, array)
             return records.map(record => updateReply(record, patch))
         }
-        const identified = inputs.filter(input => input && typeof input === 'object' && input._id)
+        const identified = inputs.filter(input => input && typeof input === 'object' && (input.uuid || input._id))
+        const unaddressed = inputs.filter(input => input && typeof input === 'object' && !input.uuid && !input._id)
         const targets = []
 
         if (identified.length) {
-            if (identified.length !== inputs.length)
-                throw new Error('Each object in a multi-object update must include _id')
-
             for (const input of identified) {
-                const objectId = String(input._id).toLowerCase()
-                const deletion = await getDeletion(database, array, objectId)
-                const current = deletion ? undefined : await readLocalObject(database, array, objectId) ??
-                    await materializeObjectFromPeer(database, array, objectId, request)
+                const uuid = objectUuid(input)
+                const objectId = entityId(input, '_id', 'object') ?? ''
+                const deletion = objectId ? await getDeletion(database, array, objectId) : undefined
+                let current = deletion ? undefined : uuid
+                    ? await loadObject(database, array, uuid, request)
+                    : await readLocalObject(database, array, objectId) ??
+                        await materializeObjectFromPeer(database, array, objectId, request)
 
                 if (!current) {
                     if (request.upsert && inputs.length === 1)
                         return createFromUpdate(input)
 
-                    throw new Error(`Object file not found: ${objectId}`)
+                    throw new Error(`Object file not found: ${uuid ?? objectId}`)
                 }
-
+                if (uuid && fileId(current) !== uuid) throw new Error(`Object UUID mismatch: ${uuid}`)
+                if (uuid && objectId && current._id !== objectId)
+                    throw new Error('object.uuid and object._id resolve to different objects')
                 targets.push({ current, input })
             }
+            if (hasExplicitFilter(request)) {
+                if (unaddressed.length > 1 || (unaddressed.length && inputs.length > 2))
+                    throw new Error('A filtered update accepts only one update payload')
+                const filterInput = unaddressed[0] ?? (inputs.length === 1 ? inputs[0] :
+                    Object.hasOwn(request, '$update') ? {} : undefined)
+                if (!filterInput)
+                    throw new Error('A filter combined with explicit updates requires one unambiguous update payload')
+                const query = filterQuery(request)
+                const candidates = await selectObjects(database, array, query, request)
+                const filtered = applyReadFilter(candidates, request, {
+                    database: request.database ?? request.organization_id,
+                    array: request.array,
+                    query,
+                    queryMatched: true
+                })
+                for (const current of filtered)
+                    targets.push({ current, input: filterInput })
+            }
         } else {
-            if (!request.filter?.query)
-                throw new Error('object.update requires object._id or filter.query')
+            if (!hasExplicitFilter(request)) {
+                if (request.upsert && inputs.length === 1) return createFromUpdate(inputs[0])
+                throw new Error('object.update requires object.uuid, object._id, or filter')
+            }
             if (inputs.length !== 1)
                 throw new Error('A filtered update accepts one update object')
 
-            const query = normalizeQuery(request)
-            const currentObjects = await selectObjects(database, array, query, request)
+            const query = filterQuery(request)
+            const candidates = await selectObjects(database, array, query, request)
+            const currentObjects = applyReadFilter(candidates, request, {
+                database: request.database ?? request.organization_id,
+                array: request.array,
+                query,
+                queryMatched: true
+            })
             for (const current of currentObjects)
                 targets.push({ current, input: inputs[0] })
         }
@@ -845,18 +944,26 @@ export function createDB({
         }
 
         const updatedObjects = []
+        const uniqueTargets = new Map()
+        for (const target of targets) if (!uniqueTargets.has(fileId(target.current)))
+            uniqueTargets.set(fileId(target.current), target)
 
-        for (const { current, input } of targets) {
-            const before = indexEntries(current)
+        for (const { current, input } of uniqueTargets.values()) {
             const createdOn = current.created?.on
             const patch = createUpdatePatch(input, request)
+            const path = objectPath(root, database, array, fileId(current))
+            const queued = deferred && pendingIndexes.get(path)
+            // Keep the first indexed state for a queued document. Re-hashing
+            // every nested value on each acknowledged update does no useful
+            // work: the queue reconciles once against the latest document.
+            const before = queued ? queued.indexed : indexEntries(current)
             const mutation = applyObjectUpdate(current, patch, auditMetadata(request))
             const changed = mutation.changed
             mutation.commit()
             const updated = live(current)
             if (deferred) {
                 if (changed) {
-                    await replaceJSON(objectPath(root, database, array, fileId(current)), updated)
+                    await replaceJSON(path, updated)
                     queueIndex(database, array, before, current, true, createdOn, peerUpdate(updated, patch))
                 }
                 updatedObjects.push(updateReply(tagRecord(updated, request), patch))
@@ -867,9 +974,12 @@ export function createDB({
             const changedKeys = new Set()
             for (const entry of before) if (!afterKeys.has(entryKey(entry))) changedKeys.add(entry.key)
             for (const entry of after) if (!beforeKeys.has(entryKey(entry))) changedKeys.add(entry.key)
-            if (changedKeys.size) {
-                const holders = await captureEntryHolders(database, array, before, fileId(current))
-                await reconcileEntrySets(storageIndex, database, array, fileId(current), before, after)
+            if (changed) {
+                const holders = changedKeys.size
+                    ? await captureEntryHolders(database, array, before, fileId(current))
+                    : new Set()
+                if (changedKeys.size)
+                    await reconcileEntrySets(storageIndex, database, array, fileId(current), before, after)
                 await replaceJSON(objectPath(root, database, array, fileId(current)), updated)
                 for (const holder of await captureObjectHolders(database, array, updated)) holders.add(holder)
                 await publishObjectMutation('update', database, array, peerUpdate(updated, patch), holders, updated.created?.on)
@@ -881,24 +991,31 @@ export function createDB({
     }
 
     const deleteObjects = async (request, database, array) => {
-        const inputs = request.object === undefined
-            ? []
-            : Array.isArray(request.object) ? request.object : [request.object]
-        const identified = inputs
-            .filter(input => input && typeof input === 'object' && input._id)
-            .map(input => String(input._id).toLowerCase())
-        let objects
-
-        if (identified.length) {
-            objects = []
-            for (const objectId of new Set(identified))
-                objects.push(await loadObject(database, array, objectId))
-        } else {
-            const query = normalizeQuery(request)
-            if (!hasQueryConditions(query))
-                throw new Error('object.delete requires object._id or a query filter')
-                objects = await selectObjects(database, array, query, request)
+        const inputs = normalizeEntities(request.object, 'object')
+        const selected = new Map()
+        for (const input of inputs) {
+            const uuid = objectUuid(input)
+            const objectId = entityId(input, '_id', 'object')
+            if (!uuid && !objectId) continue
+            const byUuid = uuid ? await readLocalObject(database, array, uuid) ?? await materializeObjectFromPeer(database, array, uuid, request) : undefined
+            const byId = objectId ? await readLocalObject(database, array, objectId) ?? await materializeObjectFromPeer(database, array, objectId, request) : undefined
+            if ((uuid && !byUuid) || (objectId && !byId)) continue
+            if (byUuid && byId && fileId(byUuid) !== fileId(byId)) throw new Error('object.uuid and object._id resolve to different objects')
+            const object = byUuid ?? byId
+            selected.set(fileId(object), object)
         }
+        if (hasExplicitFilter(request)) {
+            const query = filterQuery(request)
+            const candidates = await selectObjects(database, array, query, request)
+            for (const object of applyReadFilter(candidates, request, {
+                database: request.database ?? request.organization_id,
+                array: request.array,
+                query,
+                queryMatched: true
+            }))
+                selected.set(fileId(object), object)
+        }
+        const objects = [...selected.values()]
 
         const deleted = []
 
@@ -1072,7 +1189,8 @@ export function createDB({
         clearDistributionCache: () => distributionIndex.clearCache(),
         ready,
         memoryStats: () => memoryStats(root),
-        persistenceStats: () => ({ ...persistence?.stats(), pendingIndexes: pendingIndexes.size, indexError: indexError?.message }),
+        persistenceStats: () => ({ ...persistence?.stats(), pendingIndexes: pendingIndexes.size,
+            indexSchedulingWaitMs, indexProcessingMs, indexFlushWaitMs, indexError: indexError?.message }),
         flushIndexes,
         holdPersistence: () => persistence?.hold(),
         flushPersistence: () => persistence?.flush(),
@@ -1099,6 +1217,8 @@ export function createDB({
 
                 if (!['create', 'read', 'update', 'delete'].includes(method))
                     throw new Error(`Unsupported CRUD method: ${request.method}`)
+                if (method === 'create' && hasExplicitFilter(request))
+                    throw new TypeError('Filters are not supported for create')
 
                 if (type === 'index') {
                     await indexCRUD(method, response, index)

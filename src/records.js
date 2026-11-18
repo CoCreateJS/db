@@ -1,5 +1,5 @@
 import { rm } from './io.js'
-import { flattenIndexValues, readJSON, replaceJSON, writeExclusiveJSON } from './storage.js'
+import { flattenIndexValues, normalizeArrayContinuity, readJSON, replaceJSON, writeExclusiveJSON } from './storage.js'
 import { removeMemoryPath } from './memory.js'
 import { queryData } from '@cocreate/utils'
 import { indexEntries, entryKey } from './entries.js'
@@ -8,10 +8,15 @@ import { fileId, fileIdFromPath, identify } from './files.js'
 import { currentResolution, resolvedCatalog, retainRecord, forgetResolvedPath } from './resolution.js'
 
 export async function createRecord(index, database, array, file, record) {
+    normalizeArrayContinuity(record)
     identify(record, fileIdFromPath(file))
     await writeExclusiveJSON(file, record)
-    for (const [key, value] of flattenIndexValues(record))
-        await index.create(database, array, key, value, fileId(record))
+    const createIndexes = async () => {
+        for (const [key, value] of flattenIndexValues(record))
+            await index.create(database, array, key, value, fileId(record))
+    }
+    if (index.batch) await index.batch(createIndexes)
+    else await createIndexes()
     return retainRecord(index, database, array, file, record)
 }
 
@@ -20,23 +25,32 @@ export async function updateRecord(index, database, array, file, current, update
     forgetResolvedPath(file)
     if (typeof updated === 'function') updated(current)
     else replaceLive(current, updated)
+    normalizeArrayContinuity(current)
     await reconcileEntrySets(index, database, array, fileId(current), before, indexEntries(current))
     await replaceJSON(file, current)
     return retainRecord(index, database, array, file, live(current))
 }
 
 export async function reconcileEntrySets(index, database, array, objectId, before, after) {
-    const afterKeys = new Set(after.map(entryKey))
-    const beforeKeys = new Set(before.map(entryKey))
-    for (const entry of before) if (!afterKeys.has(entryKey(entry)))
-        await index.removeIndexed(database, array, entry, objectId)
-    for (const entry of after) if (!beforeKeys.has(entryKey(entry)))
-        await index.create(database, array, entry.key, entry.value, objectId)
+    const reconcile = async () => {
+        const afterKeys = new Set(after.map(entryKey))
+        const beforeKeys = new Set(before.map(entryKey))
+        for (const entry of before) if (!afterKeys.has(entryKey(entry)))
+            await index.removeIndexed(database, array, entry, objectId)
+        for (const entry of after) if (!beforeKeys.has(entryKey(entry)))
+            await index.create(database, array, entry.key, entry.value, objectId)
+    }
+    if (index.batch) await index.batch(reconcile)
+    else await reconcile()
 }
 
 export async function deleteRecord(index, database, array, file, record) {
-    for (const entry of indexEntries(record))
-        await index.removeIndexed(database, array, entry, fileId(record))
+    const removeIndexes = async () => {
+        for (const entry of indexEntries(record))
+            await index.removeIndexed(database, array, entry, fileId(record))
+    }
+    if (index.batch) await index.batch(removeIndexes)
+    else await removeIndexes()
     removeMemoryPath(file)
     await rm(file)
     return record

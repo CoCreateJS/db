@@ -5,6 +5,7 @@ import { DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, ARRAY_CATALOG, arrayMetadataP
 import { createRecord, deleteRecord, findRecordByName, readRecordById, readRecords, updateRecord } from '../records.js'
 import { fileId, identify, newFileId } from '../files.js'
 import { applyReadFilter } from '../read.js'
+import { normalizeEntities, entityUuid, hasExplicitFilter } from '../crud.js'
 
 const name = value => {
     if (typeof value !== 'string' || !value.trim()) throw new TypeError('database name must be a non-empty string')
@@ -13,7 +14,7 @@ const name = value => {
 const load = (root, index, id) => readRecordById(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, uuid => databaseMetadataPath(root, uuid), id)
 const find = (root, index, value) => findRecordByName(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, uuid => databaseMetadataPath(root, uuid), value)
 
-export async function ensureDatabase(root, index, value, config = {}, request = {}) {
+export async function ensureDatabase(root, index, value, config = {}, request = {}, uuid = newFileId()) {
     name(value)
     const existing = await find(root, index, value)
     if (existing) return existing
@@ -21,7 +22,7 @@ export async function ensureDatabase(root, index, value, config = {}, request = 
     const record = { _id: id, name: value, index: index.catalogId(id, ARRAY_CATALOG), arrayLength: 0, objectLength: 0,
         config, created: auditMetadata(request), updated: auditMetadata(request) }
     await index.ensureCatalog(id, ARRAY_CATALOG)
-    return createRecord(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, databaseMetadataPath(root, newFileId()), record)
+    return createRecord(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, databaseMetadataPath(root, uuid), record)
 }
 
 export async function materializeDatabase(root, index, source) {
@@ -50,29 +51,62 @@ async function view(root, index, record) {
 }
 
 export async function sendDatabase(root, index, method, data) {
-    if (method === 'read') {
-        const records = await readRecords(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, uuid => databaseMetadataPath(root, uuid))
-        const values = []
-        for (const record of records) values.push(await view(root, index, record))
-        return data.database = applyReadFilter(values, data, { database: DATABASE_CATALOG, array: DATABASE_CATALOG_ARRAY })
+    const inputs = normalizeEntities(data.database, 'database')
+    const resolve = async input => {
+        const uuid = entityUuid(input, 'database')
+        const byUuid = uuid ? await readRecordById(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY,
+            id => databaseMetadataPath(root, id), uuid) : undefined
+        const byName = input.name === undefined ? undefined : await find(root, index, name(input.name))
+        if (uuid && input.name !== undefined && (!byUuid || !byName || fileId(byUuid) !== fileId(byName)))
+            throw new Error('database.uuid and database.name must resolve to the same database')
+        return byUuid ?? byName
     }
-    const names = data.database === undefined ? [] : Array.isArray(data.database) ? data.database : [data.database]
-    if (method === 'create' && !names.length) throw new TypeError('database.create requires a database name')
-    const results = []
-    for (const value of names) {
-        const current = method === 'create' ? await ensureDatabase(root, index, value, data.config, data) : await find(root, index, name(value))
-        if (!current) {
-            if (method === 'delete') continue
-            throw new Error(`Database not found: ${value}`)
+    const explicit = []
+    for (const input of inputs) {
+        if (input.uuid === undefined && input.name === undefined) continue
+        const record = await resolve(input)
+        if (record && !explicit.some(item => fileId(item) === fileId(record))) explicit.push(record)
+    }
+    if (method === 'create') {
+        if (!inputs.length) return data.database = []
+        const results = []
+        for (const input of inputs) {
+            const databaseName = name(input.name)
+            if (await find(root, index, databaseName)) throw new Error(`Database already exists: ${databaseName}`)
+            const uuid = entityUuid(input, 'database') ?? newFileId()
+            if (await readRecordById(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, id => databaseMetadataPath(root, id), uuid))
+                throw new Error(`Database UUID already exists: ${uuid}`)
+            results.push(await ensureDatabase(root, index, databaseName, input.config ?? data.config, data, uuid))
         }
+        return data.database = await Promise.all(results.map(record => view(root, index, record)))
+    }
+    let selected = explicit
+    if (hasExplicitFilter(data)) {
+        const all = await readRecords(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, uuid => databaseMetadataPath(root, uuid))
+        const filtered = applyReadFilter(all, data,
+            { database: DATABASE_CATALOG, array: DATABASE_CATALOG_ARRAY })
+        for (const result of filtered) {
+            const record = await readRecordById(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, uuid => databaseMetadataPath(root, uuid), fileId(result))
+            if (record && !selected.some(item => fileId(item) === fileId(record))) selected.push(record)
+        }
+    }
+    if (method === 'read') return data.database = await Promise.all(selected.map(record => view(root, index, record)))
+    const updatePayload = inputs.find(input => input.name === undefined && input.uuid === undefined)
+    if (method === 'update' && hasExplicitFilter(data) && !updatePayload && !data.config && data.name === undefined && data.newName === undefined)
+        throw new Error('Filtered database.update requires one unambiguous update payload')
+    const results = []
+    for (const current of selected) {
+        const input = inputs.find(item => (item.uuid && item.uuid.toLowerCase() === fileId(current)) || (item.name && item.name === current.name)) ?? updatePayload ?? {}
         if (method === 'update') {
-            const renamed = name(data.name ?? data.newName ?? current.name)
-            if (data.config === undefined && renamed === current.name) throw new Error('database.update requires a new name or config')
+            const renamed = input.newName === undefined && data.name === undefined && data.newName === undefined
+                ? current.name : name(input.newName ?? data.name ?? data.newName)
+            const config = input.config ?? data.config
+            if (renamed === current.name && config === undefined) throw new Error('database.update requires name or config')
             const collision = await find(root, index, renamed)
-            if (collision && collision !== current && collision._id !== current._id) throw new Error(`Database already exists: ${renamed}`)
+            if (collision && fileId(collision) !== fileId(current)) throw new Error(`Database already exists: ${renamed}`)
             await updateRecord(index, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, databaseMetadataPath(root, fileId(current)), current, record => {
                 record.name = renamed
-                if (data.config) Object.assign(record.config, data.config)
+                if (config) Object.assign(record.config, config)
                 record.updated = auditMetadata(data)
             })
         }

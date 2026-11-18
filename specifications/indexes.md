@@ -8,11 +8,31 @@ The independently accessible indexing primitive maintains recursive ordered inde
 
 One logical index exists per indexed key path, independent of value type. Values are preserved without coercion, including mixed types within one index. Missing keys have no value entry; explicit undefined is distinct from absence and requires defined query/index semantics. Deep object and array traversal supports dot paths, array membership and nested array objects. Path escaping, duplicate membership and positional correlation follow the applicable path/operator contract. Binary values are atomic unless explicitly supported otherwise.
 
-Terminal entries reference complete object UUIDs, not key payload files. Equal values use a stable object identity or UUID tie-breaker; repeated candidate UUIDs are deduplicated before returning objects. Keys define discovery depth, not persistence boundaries.
+Object property paths are entries in the owning array's object index. Every
+entry points to the UUID of its complete owning document; property values do
+not receive independent artifacts. Equal values use a stable logical identity
+or artifact UUID tie-breaker; repeated artifact UUIDs are deduplicated before
+returning values. Paths use JavaScript dot properties and zero-based numeric
+bracket positions, such as `products[0].price`.
+
+The index records container paths (`object`, `array`, and empty containers) as
+well as their children. Every existing array position has an entry, including
+explicit `undefined`, `null`, and nested containers. Missing positions end
+positional traversal. Sparse arrays are made continuous before indexing.
+Container index entries store a digest and recover their value from the owning
+document UUID; they do not create sidecar key artifacts.
 
 ## Recursive ordered structure
 
-An index root leads to ordered child segments. Each child records its actual first and last entries and length/count, with the count unit explicitly defined for the index contract. Parent summaries reflect the current children. Ordering is determined by entries, not filenames or UUID sequence. The tree uses a deterministic total order for supported mixed values, including explicit handling of incomparable values. That order is distinct from operator semantics and cannot justify unsafe pruning.
+An index-tree root node leads to ordered child segments. This term refers to the
+top node within one ordered index and is unrelated to the external bootstrap
+configuration's `root` pointer. Each child records its actual first and last
+entries and length/count, with the count unit explicitly defined for the index
+contract. Parent summaries reflect the current children. Ordering is determined
+by entries, not filenames or UUID sequence. The tree uses a deterministic total
+order for supported mixed values, including explicit handling of incomparable
+values. That order is distinct from operator semantics and cannot justify unsafe
+pruning.
 
 Segments split according to actual encoded byte size. A split retains an existing address for one portion and allocates required sibling/root addresses; any changed parent references and summaries are updated coherently. Unsplittable large entries are handled explicitly rather than silently dropped. Deletion prunes empty branches and collapses roots where applicable. Forward and reverse traversal support lazy acquisition of only required segments.
 

@@ -1,23 +1,34 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtemp, rm, readFile } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { createDB } from '../src/object/index.js'
+import { randomBytes } from 'node:crypto'
+import { createDB } from '../src/index.js'
 import { fileId, identify } from '../src/files.js'
-import { objectPath } from '../src/storage.js'
+import { removeMemoryPath } from '../src/memory.js'
 
-const scope = { database: 'changes', array: 'items' }
+const scope = { organization_id: '000000000000000000000001', storage: 'primary', database: 'changes', array: 'items' }
 async function fixture(t, options = {}) {
+    scope.organization_id = randomBytes(12).toString('hex')
     const directory = await mkdtemp(join(tmpdir(), 'coc-update-changes-'))
     const db = createDB({ directory, memoryCache: true, ...options })
-    t.after(async () => { await db.close(); await rm(directory, { recursive: true, force: true }) })
-    return { db, directory }
+    t.after(async () => { await db.close(); removeMemoryPath(directory); await rm(directory, { recursive: true, force: true }) })
+    const storageResponse = await db.send({ ...scope, method: 'storage.create', storage: { name: scope.storage } })
+    assert.equal(storageResponse.success, true, storageResponse.error?.join('; '))
+    for (const request of [
+        { method: 'database.create', database: { name: scope.database } },
+        { method: 'array.create', array: { name: scope.array } }
+    ]) {
+        const response = await db.send({ ...scope, ...request })
+        assert.equal(response.success, true, response.error?.join('; '))
+    }
+    return { db, directory, storageRecord: storageResponse.storage[0] }
 }
 const send = (db, method, object, extra = {}) => db.send({ ...scope, method: `object.${method}`, object, ...extra })
 const metadata = async db => ({
-    database: (await db.send({ ...scope, method: 'database.read' })).database[0],
-    array: (await db.send({ ...scope, method: 'array.read' })).array[0]
+    database: (await db.send({ ...scope, method: 'database.read', database: { name: scope.database } })).database[0],
+    array: (await db.send({ ...scope, method: 'array.read', array: { name: scope.array } })).array[0]
 })
 
 for (const writeBehind of [false, true]) {
@@ -46,18 +57,17 @@ for (const writeBehind of [false, true]) {
         assert.equal(published.length, 1)
         assert.equal(published[0].operation, 'update')
         assert.strictEqual(published[0].object.$update, patch)
-        assert.deepEqual(Object.keys(published[0].object).sort(), ['$update', '_id', 'updated'])
+        assert.deepEqual(Object.keys(published[0].object).sort(), ['$update', '_id', 'updated', 'uuid'])
         if (writeBehind) {
             assert.strictEqual(indexed[0].object.$update, patch)
             assert.equal(indexed[0].object.name, 'Ana')
         }
-        const { database, array } = await metadata(db)
-        const stored = JSON.parse(await readFile(objectPath(directory, database._id, array._id, fileId(original)), 'utf8'))
+        const stored = (await send(db, 'read', { uuid: original.uuid })).object[0]
         assert.equal(stored.score, 12)
         assert.equal(stored.name, 'Ana')
         assert.equal('old' in stored, false)
         assert.equal('$update' in stored, false)
-        assert.equal((await db.index.read('changes', 'items', 'score')).indexes.number.length, 1)
+        assert.equal((await db.index.read(scope, 'changes', 'items', 'score')).indexes.number.length, 1)
         assert.equal((await send(db, 'read', undefined, { filter: { query: { score: 12 } } })).object.length, 1)
     })
 }
@@ -124,20 +134,21 @@ test('deferred indexing keeps every increment and append patch rather than repla
 
 test('peers apply deltas to their own document, preserve unrelated state and persist the full result', async t => {
     const published = []
-    const { db, directory } = await fixture(t, { documentMutationAdapter: { publish: value => published.push(value) } })
+    const { db, directory, storageRecord } = await fixture(t, { documentMutationAdapter: { publish: value => published.push(value) } })
     const original = (await send(db, 'create', { score: 20, local: 'keep', old: true })).object[0]
-    const envelope = { operation: 'update', ...await metadata(db), fileId: fileId(original), createdOn: original.created.on }
+    const envelope = { operation: 'update', organization_id: scope.organization_id, storageId: storageRecord._id,
+        ...await metadata(db), fileId: fileId(original), createdOn: original.created.on }
     published.length = 0
     const patch = { $inc: { score: 2 }, $unset: { old: true } }
     assert.equal(await db.applyReplicatedObjectMutation({ ...envelope, object: { _id: original._id, $update: patch } }), true)
-    const current = await db.readLocalEntity({ type: 'object', databaseId: envelope.database._id, arrayId: envelope.array._id, objectId: original._id })
+    const current = (await send(db, 'read', { uuid: original.uuid })).object[0]
     assert.strictEqual(current, original)
     assert.equal(current.score, 22)
     assert.equal(current.local, 'keep')
     assert.equal('old' in current, false)
     assert.equal('$update' in current, false)
     assert.equal(published.length, 0, 'replica application must not originate the patch again')
-    const stored = JSON.parse(await readFile(objectPath(directory, envelope.database._id, envelope.array._id, fileId(original)), 'utf8'))
+    const stored = (await send(db, 'read', { uuid: original.uuid })).object[0]
     assert.equal(stored.score, 22)
     assert.equal(stored.local, 'keep')
     assert.equal('old' in stored, false)
@@ -146,15 +157,17 @@ test('peers apply deltas to their own document, preserve unrelated state and per
 
 test('a missing-base peer acquires current state without applying the included increment twice', async t => {
     let reads = 0
-    const { db } = await fixture(t, { peerReader: async request => { reads++; return identify({ _id: '000000000000000000000003',
+    const { db, storageRecord } = await fixture(t, { peerReader: async request => { reads++; return identify({ _id: '000000000000000000000003',
         created: { on: '2026-01-01T00:00:00.000Z' }, score: 12, local: 'snapshot' }, request.fileId) } })
-    const database = { _id: '000000000000000000000001', name: scope.database }
-    const array = { _id: '000000000000000000000002', databaseId: database._id, name: scope.array }
+    const { database, array } = await metadata(db)
     const id = '000000000000000000000003'
-    assert.equal(await db.applyReplicatedObjectMutation({ operation: 'update', database, array, serverId: 'peer', fileId: '00000000000000000000000000000003',
-        databaseFileId: '00000000000000000000000000000001', arrayFileId: '00000000000000000000000000000002',
+    const uuid = '00000000000000000000000000000003'
+    assert.equal(await db.applyReplicatedObjectMutation({ operation: 'update', organization_id: scope.organization_id, storageId: storageRecord._id,
+        storageFileId: fileId(storageRecord), database, array, serverId: 'peer', fileId: uuid,
+        databaseFileId: fileId(database), arrayFileId: fileId(array),
         createdOn: '2026-01-01T00:00:00.000Z', object: { _id: id, $update: { $inc: { score: 2 } } } }), true)
-    const object = await db.readLocalEntity({ type: 'object', databaseId: database._id, arrayId: array._id, fileId: '00000000000000000000000000000003' })
+    const object = await db.readLocalEntity({ type: 'object', organization_id: scope.organization_id, storageId: storageRecord._id,
+        databaseId: database._id, arrayId: array._id, fileId: uuid })
     assert.equal(reads, 1)
     assert.equal(object.score, 12)
     assert.equal(object.local, 'snapshot')

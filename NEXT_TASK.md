@@ -22,7 +22,7 @@ Read `AGENTS.md`, root `ARCHITECTURE.md`, this task and every file in `specifica
 ## 2. Target architecture and addressing
 
 ```text
-<organizationId>/
+<organization_id>/
   index.json
   data/
     <uuid>
@@ -32,13 +32,14 @@ Read `AGENTS.md`, root `ARCHITECTURE.md`, this task and every file in `specifica
     <local operational metadata>
 ```
 
-- `organizationId` is an immutable, caller-supplied top-level operation payload property, alongside `storage`, `database`, `array`, and `object`. It selects the tenancy namespace per operation; it is not a CRUD target, nested object property, or instance-wide configuration. Validate the authorized organization context before resolving its bootstrap or accessing artifacts. Scope isolation applies to memory, persistence, discovery and peer messages.
-- Example payload (method-specific fields omitted): `{"organizationId":"<id>","storage":"<storage>","database":"<database>","array":"<array>","object":{}}`.
+- `organization_id` is an immutable, caller-supplied top-level operation payload property, alongside `storage`, `database`, `array`, and `object`. It selects the tenancy namespace per operation; it is not a CRUD target, nested object property, or instance-wide configuration. Validate the authorized organization context before resolving its bootstrap or accessing artifacts. Scope isolation applies to memory, persistence, discovery and peer messages.
+- Example payload (method-specific fields omitted): `{"organization_id":"<id>","storage":"<storage>","database":"<database>","array":"<array>","object":{}}`.
 - `index.json` is the externally provisioned bootstrap entry point. `data/` contains all database-owned durable artifacts: scope catalogs, index roots and segments, complete objects, and durable reconciliation metadata. No separate `indexes/`, `objects/`, `keys/`, or `deleted/` trees in the target namespace.
 - `distribution/` retains the existing local distribution implementation and manages distribution state for files held on the local disk. It is never persisted to cloud storage by the DB. Its lifecycle and ownership must be explicit (section 10).
 - Only `data/` is eligible for database-managed cloud persistence. Every database-managed UUID artifact resides under `data/`; `distribution/` and the required external `index.json` are excluded from database cloud persistence and artifact export.
 - Each data artifact has an opaque randomly generated UUID, with no extension or semantic path. Preserve its address across ordinary updates; allocate a new address only for a new artifact, including index splits. Never reuse a deleted identity for unrelated data. Handle collisions without overwrite. Logical object IDs (`_id`) remain distinct from artifact UUIDs.
-- Index/catalog references establish logical structure. The logical hierarchy is organizationId → storage → database → array → object → key; key paths do not determine physical file locations.
+- Canonical terms are **organization, scope, index, artifact**. `index.json` is only bootstrap configuration: its `root` field points to the first index artifact; root is not a scope or data layer. An index resolves to a child index or the artifact holding the addressed scope value. Index artifacts hold lookup structures; scope-value artifacts hold the actual values. A complete application object is a document at the `object` scope.
+- The `organization_id` value is the namespace identity; there is no namespace node above it. Scopes within it follow `storage → database → array → object`. Storage is the first scope and groups databases. Object property paths are maintained by the object index and point to the owning complete object artifact; there is no key scope or key artifact.
 - Use one organization-scoped `data` Map keyed by the exact artifact UUID, holding decoded values. A stored `undefined` must not be confused with absence (`Map.has`). A registry or equivalent namespace boundary may hold multiple organization Maps. Reuse existing metadata/ownership mechanisms where needed; do not maintain duplicate authoritative object representations.
 - Provider implementations may map addresses internally, but core addresses are UUIDs; no core filename extension, path inference, type-dependent directory or implicit product-named directory.
 
@@ -51,9 +52,9 @@ Preserve the existing target manifest shape:
 ```
 
 - `version` is informational package provenance, embedded at build time and checked against `package.json` during release, not runtime. No `format` field; no package-version equality gate. Codec compatibility is separate.
-- `root` addresses the first independently persisted index/catalog in `data/`. The top index makes every scope reachable; the storages catalog is the first scope catalog, not a competing namespace root.
-- The required manifest is resolved for the payload organizationId and is not a database-owned artifact or cloud-persisted by the DB. It is external bootstrap configuration, outside ordinary data CRUD, artifact transfer/export and persistence lifecycle. Accept a provisioned entry point through an explicit integration contract; do not require direct core filesystem access. Provisioning may use files, startup configuration or another external authority.
-- Replace implicit organization first-use initialization with an explicit new-namespace provisioning handshake. Reopening an existing namespace must not silently generate a new root when the manifest or a referenced artifact is unavailable. Define root publication and independent recovery before enabling creation.
+- `root` addresses the first independently persisted index artifact in `data/`. That index makes scopes reachable. Scope indexes, including the storage scope index, are distinct from the bootstrap configuration and first index artifact.
+- The required manifest is resolved for the payload organization_id and is not a database-owned artifact or cloud-persisted by the DB. It is external bootstrap configuration, outside ordinary data CRUD, artifact transfer/export and persistence lifecycle. Accept a provisioned entry point through an explicit integration contract; do not require direct core filesystem access. Provisioning may use files, startup configuration or another external authority.
+- Replace implicit organization first-use initialization with an explicit new-namespace provisioning handshake. Reopening an existing namespace must not silently generate a new first index when the bootstrap config or a referenced artifact is unavailable. Define config publication and independent recovery before enabling creation.
 - Keep filesystem workflow base configuration relative to CWD, default CWD; test `.`, `../`, `../CoCreateDB`, `../organizations`, `../clusterdb`. Move `COCREATE_DB_DIRECTORY` handling to the workflow. The bootstrap authority must separately know how to resolve its manifest.
 - Test existing/new namespace, incorrect organization, unavailable root, malformed manifest, version mismatch, and reopening from a provisioned root with an empty cache.
 
@@ -68,22 +69,22 @@ Implement one portable codec contract (`serialize(value)` / `deserialize(bytes)`
 - Keep transport security independent of at-rest encryption. Existing Socket JSON behavior is an integration gap for extended values; coordinate deployment of the new codec and explicitly report unsupported paths until shared codec integration works end to end. No Base64 as the default transport of binary fields, no separate attachment protocol for ordinary values.
 - Large object streaming/chunk transport is a separate evaluated task; do not mistake index segmentation for binary streaming. Measure and bound memory and message sizes. A small update to a large complete object may rewrite the full artifact; do not introduce implicit data fragmentation to hide that limitation.
 
-## 5. Complete objects and logical keys
+## 5. Complete objects and property paths
 
 - Persist one complete application object per object UUID, including nested objects, arrays and supported binary values. An object's `_id` identifies it logically; indexes resolve to its physical UUID. The UUID remains stable throughout ordinary mutations.
-- Keys represent paths within objects, not separately persisted application data. Remove terminal key payload artifacts and reconstruction dependencies once complete-object storage is verified. Retain key-index catalogs, nested path extraction and query logic. Index entries and segments remain independent artifacts.
-- For example, `settings.appearance.theme = "dark"` and individual members of `permissions` may each be indexed; both lead to the same complete object UUID. Binary views are atomic values for traversal unless an explicit operator contract says otherwise; never enumerate bytes as nested keys by accident.
+- Property paths describe values within objects and live in the object index. Do not create key scopes, UUIDs, or per-key artifacts. Retain nested path extraction and query logic. Index entries and segments are independent artifacts.
+- For example, `settings.appearance.theme = "dark"` and individual members of `permissions` can be indexed. Every path entry points to the whole owning object artifact. Binary views are atomic values for traversal unless an explicit operator contract says otherwise; never enumerate bytes as nested keys by accident.
 - Reads acquire the complete object, apply filters and projection in memory, and preserve supported value types. Updates apply to logical paths using shared operators and persist the resulting whole object. Deletes remove the object and relevant index entries and retain necessary reconciliation state through the workflow.
-- Test nested objects, arrays of objects, binary-containing objects, missing/undefined, projections, nested updates and deletion with no separate key payload artifacts. Verify same UUID through updates and all matching indexes.
+- Test nested objects, arrays of objects, binary-containing objects, missing/undefined, projections and nested updates. Verify property lookup and index reconciliation against the complete object artifact and preserve UUIDs through ordinary mutations.
 
 ## 6. Schemaless indexes and query planning
 
 Baseline: `specifications/indexes.md`. Preserve the independently usable indexing primitive and recursive ordered tree algorithm.
 
 - One logical index per indexed key path; replace type-specific branches. Preserve supplied values; no schema coercion. Missing keys have no value entry; explicit undefined requires defined semantics.
-- Traverse deeply nested objects and arrays for query/index purposes. Define dot-path escaping, array membership, array-of-object traversal, duplicate membership and positional correlation. Terminal index references identify the complete object UUID, not a physical key artifact. Use logical identity/UUID as stable tie-breaker and deduplicate object candidates.
+- Traverse deeply nested objects and arrays for query/index purposes. Define dot-path escaping, array membership, array-of-object traversal, duplicate membership and positional correlation. Index references identify the artifact for the addressed scope; object-scope references identify complete document artifacts. Use logical identity/UUID as stable tie-breaker and deduplicate artifact candidates.
 - Define deterministic mixed-value tree ordering and count semantics (entries versus distinct objects), including NaN, undefined, composite values and binary indexing policy. Preserve true first/last boundaries and child counts. Keep shared operator semantics authoritative; use broad scans and final verification whenever pruning is unsafe. Do not silently omit unsupported values from candidate plans.
-- Reuse recursive split/prune/root-collapse logic and lazy forward/reverse traversal. Measure actual encoded bytes for split thresholds, retain one existing address on split and allocate the required sibling/root addresses. Handle an unsplittable large entry explicitly. Maintain ancestor metadata on inserts/deletes and do not infer ordering from filenames.
+- Reuse recursive split/prune/index-tree-root-collapse logic and lazy forward/reverse traversal. Measure actual encoded bytes for split thresholds, retain one existing address on split and allocate the required sibling/index-tree-root addresses. Handle an unsplittable large entry explicitly. Maintain ancestor metadata on inserts/deletes and do not infer ordering from filenames.
 - Preserve `_id` enumeration, sorting, pagination, candidate-length planning, AND/OR and fallback scans. Verify correlated array predicates against the complete object; independent index matches must not imply same-element matches. Confirm membership operator names against Utils (do not assume `$includes` exists).
 - Preserve query correctness during pending index work: merge relevant pending additions/changes into candidates, exclude deletions, then verify current object state. Verification alone cannot recover omitted candidates. Use generation/version checks so delayed index results do not overwrite newer state.
 - Tests: mixed types and bounds, duplicates, nested paths and arrays, correlated elements, null/missing/undefined, encoded-size splits, metadata, deletion/pruning, reverse scans, empty-cache restart, narrow acquisition, and randomized comparison against a reference scan.
@@ -92,11 +93,11 @@ Baseline: `specifications/indexes.md`. Preserve the independently usable indexin
 
 Baseline: `specifications/crud.md`, `scopes.md`, `mutations.md`.
 
-- Retain `<scope>.<operation>` routing for storage, database, array, object and index with create/read/update/delete. No organization or key CRUD prefix. Preserve scope envelopes (including top-level `organizationId`), immutable identities, resulting target property and explicit `success: false` errors.
+- Retain `<scope>.<operation>` routing for storage, database, array, object and index with create/read/update/delete. No organization or key CRUD prefix. Preserve scope envelopes (including top-level `organization_id`), immutable identities, resulting target property and explicit `success: false` errors.
 - Preserve object creation with one or multiple objects, automatic logical IDs and audit fields; read by ID/filter with sort/search/pagination/projection; update with existing `$update` or generated operator patch; explicit upsert; deletion state. Preserve immutable creation metadata and original mutation timestamps.
 - Reuse shared `@cocreate/utils` query/update operators; audit JSON clones, stringification, update helpers, equality and projection for extended values. Do not create competing operator implementations. Review executable query operators such as `$where` against authorization and safe-value boundaries; serialization does not grant permission to execute code.
 - Resolve no-match update responses, non-object scope CRUD lifecycle, uniqueness, and authorization with existing contracts. Scope deletion must not orphan reachable artifacts or remove unrelated scopes. Public index operations remain distinct from application object mutations.
-- Test top-level organizationId routing, missing/unauthorized scope, isolation across organizations with identical logical names and UUIDs, method routing, query/update compatibility, batch operations, no-match/upsert, explicit errors, and read after pending mutations.
+- Test top-level organization_id routing, missing/unauthorized scope, isolation across organizations with identical logical names and UUIDs, method routing, query/update compatibility, batch operations, no-match/upsert, explicit errors, and read after pending mutations.
 
 ## 8. Mutation processing and reconciliation
 
@@ -134,7 +135,7 @@ Baseline: `specifications/distribution.md`, `replication.md`.
 ## 11. Clean initialization
 
 - No backward compatibility with existing persisted datasets is required. Do not implement migration, legacy readers, old-to-new UUID maps, dual-format writes, or conversion of terminal key artifacts. Reuse existing engine logic, not the obsolete storage representation.
-- Initialize a new organization namespace with an externally provisioned bootstrap, new root and empty data and distribution state. Build catalogs and indexes through normal CRUD operations. Keep explicit initialization distinct from reopening an existing new-format namespace.
+- Initialize a new organization namespace with externally provisioned bootstrap configuration, its first index artifact, and empty data and distribution state. Build scope indexes through normal CRUD operations. Keep explicit initialization distinct from reopening an existing new-format namespace.
 - Validate database behavior through its CRUD interface using test fixtures. Application dataset preparation, import tooling and application-specific setup are outside the DB module’s responsibilities. Do not embed secrets in fixtures or logs.
 - Use a clean target location or an explicitly authorized reset. Do not automatically delete previous datasets or silently reset an unavailable namespace. Deploy compatible new-format nodes together; isolate old nodes rather than implementing legacy peer support.
 - Reconcile legacy `test/write-behind.test.js` assumptions about rollback, sequential writes, markers and disabled external workflow acknowledgments. Preserve meaningful correctness tests; replace superseded storage fixtures with new-format fixtures. Test clean initialization, CRUD creation, index completeness, query-result correctness, restart and new-node acquisition.
@@ -155,8 +156,9 @@ The architecture above is settled; the following are deliberately not silently s
 | Contract | Resolution required |
 | --- | --- |
 | Shared codec | Library, type matrix, normalization, stable bytes/versioning, compatibility and resource limits; benchmark before selection. |
-| Bootstrap | Provisioning/initialization API, external authority, root publication/recovery, top catalog schema. |
+| Bootstrap | Provisioning/initialization API, external authority, bootstrap-config publication/recovery, first-index schema. |
 | Address identity | UUID textual form, collision handling, concurrent creation mapping and recreation lifetime. |
+| Key artifacts | Whether key-scope values share document artifacts or receive independently addressed artifacts; read/update/delete ownership. |
 | Workflow | Invocation/result schema, missing-workflow behavior, encryption envelope, retries, stale-write protection, durability and flush guarantees. |
 | Distribution | Operational inventory owner, restart reconstruction, holder/revision schema, subscriptions and eviction policy. |
 | Index semantics | Mixed total order, count meanings, array path/correlation, composite/binary indexing, absent/undefined and safe pruning. |
@@ -180,8 +182,8 @@ Completion checklist:
 
 - [ ] Existing reusable modules preserved and gaps mapped to actual source/tests.
 - [ ] Extensionless UUID data artifacts and organization-scoped decoded Map agree, with external bootstrap and separate distribution ownership.
-- [ ] Top-level `organizationId` selects the correct tenancy per operation; only `data/` reaches cloud persistence, and neither `index.json` nor `distribution/` is uploaded by the database.
-- [ ] Complete objects round-trip through one codec and optional encryption; no terminal key payload dependencies or type-specific file paths.
+- [ ] Top-level `organization_id` selects the correct tenancy per operation; only `data/` reaches cloud persistence, and neither `index.json` nor `distribution/` is uploaded by the database.
+- [ ] Complete objects round-trip through one codec and optional encryption; property paths have no independent artifacts or type-specific paths.
 - [ ] Deep nested and array indexes resolve to complete objects; mixed-value queries match reference semantics and pending work cannot omit candidates.
 - [ ] Index splits, pruning, restart, logical identity and independent primitive exports remain correct.
 - [ ] CRUD scopes, shared operators, mutation ordering, deletion and duplicate protection satisfy approved contracts.

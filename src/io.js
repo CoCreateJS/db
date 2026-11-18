@@ -1,6 +1,6 @@
 import * as fs from 'node:fs/promises'
 import { join, resolve, relative, sep } from 'node:path'
-import { persistenceFor } from './persistence.js'
+import { persistenceFor, sendArtifactPath } from './persistence.js'
 import { memoryEntries, memoryRemoved, removeMemoryPath, memoryOnly, markMemoryRemoval } from './memory.js'
 
 import { removeFileBytes, flushFileBytes } from './bytes.js'
@@ -11,6 +11,8 @@ export async function mkdir(path, options) {
 }
 export async function rm(path, options = {}) {
     forgetResolvedPath(resolve(path), options.recursive)
+    const artifact = await sendArtifactPath(path, 'delete')
+    if (artifact.handled) return
     const store = persistenceFor(path)
     if (memoryOnly(path)) return markMemoryRemoval(path)
     if (store) return store.remove(path, options)

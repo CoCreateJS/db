@@ -1,3 +1,5 @@
+import { parseValue } from '../codec.js'
+
 function errorHandler(data) {
     if (!Array.isArray(data.error)) data.error = data.error === undefined ? [] : [data.error]
     // JSON parser messages can expose fragments of credential-bearing files.
@@ -8,7 +10,7 @@ function errorHandler(data) {
 
 /** Decode only serialized file values; parsed objects retain their identity. */
 function readPersistenceValue(value) {
-    const parsed = JSON.parse(value)
+    const parsed = parseValue(value)
     if (parsed && typeof parsed === 'object') parsed.$bytes = Buffer.byteLength(value, 'utf8')
     return parsed
 }

@@ -855,7 +855,7 @@ test('query planning narrows candidates before checking a broad array membership
     assert.equal(hostArrayScans, 0)
 })
 
-test('arrays are indexed as complete terminal values and query semantics remain shared', async () => {
+test('array containers and positional paths are indexed while query semantics remain shared', async () => {
     await withIndex(async (_index, directory) => {
         const db = createDB({ directory, maxIndexBytes: 512 })
         const created = await db.send({
@@ -935,11 +935,12 @@ test('arrays are indexed as complete terminal values and query semantics remain 
             filter: { query: { tags: 'javascript' }, key: { 'user.profile.country': 1 } }
         })
         assert.deepEqual(updatedArray.object[0].user, { profile: { country: 'Panama' } })
-        assert.equal((await db.index.read('array-values', 'items', 'tags[0]')).indexes.string, undefined)
+        assert.ok((await db.index.read('array-values', 'items', 'tags[0]')).indexes.string)
+        assert.ok((await db.index.read('array-values', 'items', 'projects[0].name')).indexes.string)
     })
 })
 
-test('large terminal arrays remain whole outside index nodes and survive scans', async () => {
+test('large indexed arrays remain whole in their owning artifact and segment only index nodes', async () => {
     await withIndex(async (_index, directory) => {
         const index = createIndex({ directory, maxBytes: 512 })
         const array = Array.from({ length: 2000 }, (_, position) => `value-${position}-${'x'.repeat(32)}`)
@@ -948,7 +949,7 @@ test('large terminal arrays remain whole outside index nodes and survive scans',
         const [entry] = await collect(index.scan('large-arrays', 'items', 'values', { type: 'array' }))
         assert.deepEqual(entry.value, array)
 
-        const indexDirectory = join(directory, 'keys')
+        const indexDirectory = join(directory, 'indexes')
         const inspect = async path => {
             const files = await readdir(path, { withFileTypes: true })
             const sizes = []
@@ -959,14 +960,11 @@ test('large terminal arrays remain whole outside index nodes and survive scans',
             }
             return sizes
         }
-        const nodeSizes = [...await inspect(indexDirectory), ...await inspect(join(directory, 'indexes'))]
-        const indexNodes = nodeSizes.filter(file => !file.path.includes(`${join('keys', '')}`))
-        const storedValues = nodeSizes.filter(file => file.path.includes(`${join('keys', '')}`))
+        const nodeSizes = await inspect(indexDirectory)
+        const indexNodes = nodeSizes
         assert.ok(indexNodes.length > 0)
         assert.ok(indexNodes.every(file => file.size <= 512))
-        assert.equal(storedValues.length, 1)
-        assert.match(storedValues[0].path, /keys\/[a-f0-9]{32}\.json$/)
-        assert.ok(storedValues[0].size > 512)
+        await assert.rejects(readdir(join(directory, 'keys')), { code: 'ENOENT' })
     })
 })
 

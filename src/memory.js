@@ -1,6 +1,9 @@
 import { readFile } from 'node:fs/promises'
-import { resolve, sep } from 'node:path'
+import { sep } from 'node:path'
 import { live, replaceLive } from './mutation.js'
+import { parseValue, stringifyValue } from './codec.js'
+import { decode } from '@cocreate/coson'
+import { resolvePath } from './path.js'
 
 const roots = new Set()
 const volatileRoots = new Set()
@@ -12,30 +15,32 @@ const inside = (root, file) => file === root || file.startsWith(root + sep)
 
 /** Enable read-through caching without enumerating or reading stored files. */
 export function enableMemoryCache(directory, { memoryOnly = false } = {}) {
-    roots.add(resolve(directory))
-    if (memoryOnly) volatileRoots.add(resolve(directory))
+    roots.add(resolvePath(directory))
+    if (memoryOnly) volatileRoots.add(resolvePath(directory))
 }
 
 export function memoryOnly(file) {
-    file = resolve(file)
+    file = resolvePath(file)
     for (const root of volatileRoots) if (inside(root, file)) return true
     return false
 }
 
 export function memoryEnabled(file) {
-    file = resolve(file)
+    file = resolvePath(file)
     for (const root of roots) if (inside(root, file)) return true
     return false
 }
 
 export async function readMemoryJSON(file) {
-    file = resolve(file)
+    file = resolvePath(file)
     if (files.has(file)) return live(files.get(file))
     if (memoryRemoved(file)) return undefined
     if (memoryOnly(file)) return undefined
     const observedGeneration = generation
     try {
-        const value = JSON.parse(await readFile(file, 'utf8'))
+        const value = file.endsWith('.coson')
+            ? decode(new Uint8Array(await readFile(file)), { operators: false })
+            : parseValue(await readFile(file, 'utf8'))
         if (memoryEnabled(file) && observedGeneration === generation) {
             files.set(file, value)
             return live(value)
@@ -46,7 +51,7 @@ export async function readMemoryJSON(file) {
 
 export function writeMemoryJSON(file, value) {
     generation++
-    file = resolve(file)
+    file = resolvePath(file)
     if (memoryEnabled(file)) {
         const previous = files.get(file)
         value = live(value)
@@ -60,35 +65,35 @@ export function writeMemoryJSON(file, value) {
 
 export function removeMemoryPath(path) {
     generation++
-    path = resolve(path)
+    path = resolvePath(path)
     for (const file of files.keys()) if (inside(path, file) && !pinned.has(file)) {
         files.delete(file)
     }
 }
 
 export function memoryStats(directory) {
-    const root = resolve(directory)
+    const root = resolvePath(directory)
     const entries = [...files].filter(([file, value]) => value !== undefined && inside(root, file))
-    return { files: entries.length, serializedBytes: entries.reduce((sum, [, value]) => sum + Buffer.byteLength(JSON.stringify(value)), 0) }
+    return { files: entries.length, serializedBytes: entries.reduce((sum, [, value]) => sum + Buffer.byteLength(stringifyValue(value)), 0) }
 }
 
 // Cache reads and queued work share the owned value.
-export const peekMemoryJSON = file => files.get(resolve(file))
-export const pinMemoryPath = file => pinned.add(resolve(file))
-export const unpinMemoryPath = file => pinned.delete(resolve(file))
+export const peekMemoryJSON = file => files.get(resolvePath(file))
+export const pinMemoryPath = file => pinned.add(resolvePath(file))
+export const unpinMemoryPath = file => pinned.delete(resolvePath(file))
 export function memoryEntries(directory) {
-    const root = resolve(directory)
+    const root = resolvePath(directory)
     return [...files].filter(([file]) => inside(root, file))
 }
 export function memoryRemoved(file) {
-    file = resolve(file)
+    file = resolvePath(file)
     if (files.has(file)) return files.get(file) === undefined
     for (const path of removed) if (inside(path, file)) return true
     return false
 }
 export function markMemoryRemoval(path) {
     generation++
-    path = resolve(path)
+    path = resolvePath(path)
     for (const file of files.keys()) if (inside(path, file)) {
         files.delete(file)
     }

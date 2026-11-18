@@ -5,7 +5,7 @@ This catalog defines cross-layer required outcomes. Owning specifications establ
 | Scenario | Required outcome | Authority |
 | --- | --- | --- |
 | Same UUID or logical names in two organizations | No cross-tenant cache, discovery, provider or peer access; authorization precedes resolution. | [Scopes](scopes.md) |
-| Missing or malformed bootstrap; unavailable root | Explicit failure; no implicit new namespace or replacement root. | [Bootstrap](README.md) |
+| Missing or malformed bootstrap; unavailable first index | Explicit failure; no implicit new namespace or replacement index. | [Bootstrap](README.md) |
 | UUID collision or competing create | No unrelated overwrite; logical-to-physical identity follows agreed creation contract. | [Data](data.md), [Reconciliation](reconciliation.md) |
 | Mixed types, NaN or incomparable values | Preserve original values; widen candidate scan if bounds are unsafe. | [Indexes](indexes.md) |
 | Missing vs explicit undefined | Distinguish existence; do not conflate decoded Map absence or query semantics. | [Data](data.md), [Indexes](indexes.md) |
@@ -21,7 +21,7 @@ This catalog defines cross-layer required outcomes. Owning specifications establ
 | Last subscriber leaves | Eviction is not deletion and preserves required durable copies. | [Distribution](distribution.md) |
 | Process fails after response | In-memory acknowledgment is not durability; client copy and workflow replay are independent recovery paths. | [Persistence](persistence.md) |
 | Partial provider failure or no workflow | Report independently; no hidden core filesystem fallback. | [Persistence](persistence.md) |
-| Interrupted split or root publication | Recovery respects reachable identities and never silently substitutes lost content. | [Indexes](indexes.md), [Persistence](persistence.md) |
+| Interrupted split or bootstrap publication | Recovery respects reachable identities and never silently substitutes lost content. | [Indexes](indexes.md), [Persistence](persistence.md) |
 | Encryption key rotation | Versioned references and retained decryption capability protect readable data across rotation. | [Persistence](persistence.md) |
 | Unsupported serialized value or hostile bytes | Explicit rejection, bounded decoding and no arbitrary execution. | [Persistence](persistence.md) |
 | Scope deletion with shared/reachable artifacts | No orphaned owned resources or deletion of unrelated scopes. | [CRUD](crud.md) |

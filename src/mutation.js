@@ -8,8 +8,10 @@ export function replaceLive(target, source) {
     target = live(target)
     source = live(source)
     if (target === source) return target
-    for (const key of Object.keys(target)) if (!Object.hasOwn(source, key)) delete target[key]
-    for (const key of Object.keys(source)) target[key] = live(source[key])
+    if (target.uuid !== undefined && source.uuid !== undefined && target.uuid !== source.uuid)
+        throw new Error('object.uuid cannot be changed')
+    for (const key of Object.keys(target)) if (key !== 'uuid' && !Object.hasOwn(source, key)) delete target[key]
+    for (const key of Object.keys(source)) if (key !== 'uuid') target[key] = live(source[key])
     if (Array.isArray(target)) target.length = source.length
     return target
 }

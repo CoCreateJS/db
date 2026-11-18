@@ -399,43 +399,49 @@ Each target supports create/read/update/delete. Database and array updates renam
 metadata or merge configuration. Storage updates currently rename the storage.
 Logical names resolve through catalogs to stable IDs, so renames do not move data.
 
-The logical hierarchy is organization namespace → storages → databases → arrays → objects.
-Nested storages/databases are not implemented. Metadata, objects, field indexes,
-and terminal array values have their own files. Organization and entity IDs are
-24-character ObjectIds. Records have separate immutable UUID file addresses;
-`_id` stays inside the record as an indexed public value.
+## Organization, scopes, indexes and artifacts
 
-The following tree documents the current prototype's local filesystem layout.
-It is not the target storage execution model: the persistence specification
-routes all durable operations through a workflow, and the workflow owns provider
-paths and I/O.
+The `organization_id` value identifies the organization boundary. Organization
+may represent a company, project, or other caller-defined grouping; there is no
+additional namespace tier above it. Within the organization, scopes follow
+`storage → database → array → object`. Storage is the first scope and
+groups databases. An **index** resolves a scope name or object property path to a child
+index or an **artifact**.
+An artifact holds the actual value for its addressed scope; an index artifact
+holds lookup data. A complete application object is a **document** at the
+`object` scope. Each document exposes its immutable artifact `uuid`; logical
+`_id` remains a separate compatibility field.
+
+`index.json` is bootstrap configuration, not a scope or storage layer. Its
+`root` field points to the first index artifact. That index leads into the scope
+indexes and their value artifacts. Object property paths are entries in the
+object index and point to their owning complete document UUID; they have no
+separate artifacts.
+
+This is the target logical organization model, not a filesystem layout. The DB
+core keeps decoded values in memory; persistence decides how and where durable
+values are read and written. The current implementation is still transitional
+and does not yet match every part of this model.
 
 ```text
-<directory>/<organization_id>/
-  root.json                       # permanent storage-catalog entry point
-  indexes/<indexId>.json           # catalog and field-index partitions
-  storages/<fileUUID>.json
-  databases/<fileUUID>.json
-  arrays/<fileUUID>.json
-  objects/<fileUUID>.json
-  keys/<keyId>.json            # named terminal-array key records
-  deleted/<deletionId>.json
-  distribution/...                # local inventory only
+organization_id
+├── bootstrap object              # supplied through an external boundary
+├── in-memory artifact values     # addressed by UUID
+└── in-memory distribution state  # local and remote placement knowledge
 ```
 
-The root points to the storage catalog. Storage, database, and array metadata
-carry an `index` reference to their child catalog. Index leaves map field values
-to file UUIDs. Catalogs use the same recursive index engine and split during peer
-serialization. Empty root/catalog entry points remain available. Rename and update
-keep file UUIDs unchanged; the same public `_id` may appear in different arrays.
+Each scope index resolves to either a child index or an artifact containing the
+scope value. Scope-value artifacts and index artifacts share the flat UUID
+address space. Ordinary updates preserve an artifact UUID; index splits may
+allocate new index artifacts. Persistence receives logical organization and
+artifact identity; its physical representation is outside the DB core.
 
 ### File roles and naming direction
 
-The intended names and relationships for the entry index, index nodes,
-distribution map, data artifacts, and logical scopes are defined in
-[`specifications/architecture.md`](specifications/architecture.md). The current format
-still uses `root.json` and its existing directories; migration to the specified
-layout requires a separate, explicit compatibility plan.
+The canonical terminology and hierarchy are defined in
+[`specifications/README.md`](specifications/README.md). Detailed contracts live
+in the linked specification documents. Existing persisted layouts are not the
+target format and require a separate path or explicit migration plan.
 
 ## Configuration and lifetime
 
@@ -448,17 +454,15 @@ to the primary; they do not own database engines or filesystem caches.
     db: {
         directory: './data',
         disk: true,
-        memoryCache: true,
-        writeBehind: true
+        memoryCache: true
     }
 }
 ```
 
-The options shown above describe the current prototype. Its `disk`,
-`memoryOnly`, `memoryCache`, `writeBehind`, and `COCREATE_DB_DIRECTORY` behavior
-is being aligned with the persistence workflow specification. In the target
-design, provider and filesystem path configuration belong to the workflow; the
-core has no direct-disk bypass or storage destination flag.
+With `disk` enabled, scoped CRUD writes are owned by the local persistence
+sender and use write-behind internally. `disk: false` keeps records in memory.
+The legacy `writeBehind` option no longer controls scoped object lifecycle.
+Provider and external filesystem workflow configuration remain separate work.
 
 In the current prototype, files are loaded on demand, not eagerly at startup.
 DB-owned values remain live
@@ -553,24 +557,24 @@ server ID cannot be inferred safely and is not silently adopted.
 ## Automatic index and index CRUD
 
 The same recursive engine indexes namespace catalogs and object fields. Supported
-values have separate number/string/boolean/null/array branches, ordered by value
-and then object ID. Ordinary object leaves use dot paths. Terminal arrays are
-stored whole in flat `keys/` records outside index nodes, with the field name,
-owning record UUID, catalog ID, and live array value. Query
+values have type-specific branches, ordered by value and then object UUID.
+Object paths use dot properties and zero-based numeric bracket positions.
+Containers and every array position are indexed; arrays and objects are resolved
+from their owning complete document UUID. There are no per-key sidecar files. Query
 matching uses shared utilities; nested array-member queries can require scans.
 Custom index definitions and uniqueness constraints are not implemented.
 
-Automatic index nodes are sibling files under `<organization_id>/indexes/`.
-Their logical tree still follows node IDs. Catalog roots have stable 32-character
-IDs derived from their organization-relative namespace address, so they can be
-resolved from `root.json` and parent metadata without a directory scan. Each node references
-its catalog; the catalog retains its logical namespace path for cold traversal.
-Peer partition addresses are `<organization_id>/indexes/<indexId>.json` and do not
-require storage/database/array routing. Deletion walks the affected catalog tree;
-it never removes another scope's indexes. Local distribution retains its layout.
+Automatic index nodes are UUID-addressed artifacts. The organization bootstrap
+object points to the first index artifact; scope indexes then resolve scope
+values to artifact UUIDs. Persistence chooses their physical representation.
+An index-tree root node is the top node of one ordered index and is unrelated to
+the bootstrap `root` pointer. Peer partition messages may use transport
+addresses, but those are not additional database scopes or artifact directories.
+Local distribution remains separate.
 
 This is an on-disk and peer-wire format change. Existing datasets require
-migration; DB rejects unversioned data before writing new roots. This
+migration; DB rejects unversioned data before accepting the new bootstrap
+configuration. This
 change does not migrate or modify an existing live data directory. `flat: false`
 is reserved for the existing local distribution indexes, not automatic indexes.
 

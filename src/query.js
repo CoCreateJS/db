@@ -1,10 +1,37 @@
-import { queryData } from '@cocreate/utils'
+import { queryData as sharedQueryData } from '@cocreate/utils'
+import { EXISTS_INDEX_PREFIX } from './storage.js'
 
 const typeOf = value => value === null ? 'null' :
+    value === undefined ? 'undefined' :
     Array.isArray(value) ? 'array' :
+    value && typeof value === 'object' ? 'object' :
     typeof value === 'boolean' ? 'boolean' :
         typeof value === 'string' ? 'string' :
             typeof value === 'number' && Number.isFinite(value) ? 'number' : null
+
+function expandIncludes(query) {
+    if (Array.isArray(query)) return query.map(expandIncludes)
+    if (!query || typeof query !== 'object') return query
+    const result = {}
+    for (const [key, condition] of Object.entries(query)) {
+        if (['$and', '$or', '$nor'].includes(key) && Array.isArray(condition)) {
+            result[key] = condition.map(expandIncludes)
+            continue
+        }
+        if (key.startsWith('$') || !condition || typeof condition !== 'object' || Array.isArray(condition)) {
+            result[key] = condition
+            continue
+        }
+        const operators = Object.entries(condition)
+        if (operators.some(([operator]) => operator.startsWith('$')))
+            result[key] = Object.fromEntries(operators.map(([operator, value]) =>
+                operator === '$includes' ? ['$in', [value]] : [operator, value]))
+        else result[key] = expandIncludes(condition)
+    }
+    return result
+}
+
+const queryData = (data, query) => sharedQueryData(data, expandIncludes(query))
 
 export function normalizeQuery(request) {
     const query = request.filter?.query ?? request.object?.filter?.query
@@ -53,12 +80,6 @@ export async function queryIndexCandidates(index, database, array, query, { read
         if (!metadata.has(key)) metadata.set(key, (index.getMetadata ?? index.read).call(index, database, array, key))
         return metadata.get(key)
     }
-    const hasArrayAncestor = async key => {
-        const parts = key.replace(/\[(\d+)\]/g, '.$1').split('.')
-        for (let i = 1; i < parts.length; i++)
-            if ((await getMetadata(parts.slice(0, i).join('.'))).indexes.array) return true
-        return false
-    }
     let allIdsPromise
     const allIds = () => {
         if (!allIdsPromise) allIdsPromise = (async () => {
@@ -74,6 +95,16 @@ export async function queryIndexCandidates(index, database, array, query, { read
     const empty = exact => ({ ids: new Set(), exact })
 
     const scan = async (key, type, predicate, range) => {
+        // A dotted read path also traverses array elements (for example,
+        // profile.name matches profile: [{ name }]). Direct dotted indexes do
+        // not cover those positional paths, so retain the full candidate set.
+        if (key.includes('.') && !key.startsWith(EXISTS_INDEX_PREFIX)) {
+            const parts = key.split('.')
+            for (let end = 1; end < parts.length; end++) {
+                const ancestor = await getMetadata(parts.slice(0, end).join('.'))
+                if (ancestor.indexes.array) return all(false)
+            }
+        }
         const root = await getMetadata(key)
         if (!Object.keys(root.indexes).length) return all(false)
         if (!root.indexes[type]) return empty(true)
@@ -85,7 +116,9 @@ export async function queryIndexCandidates(index, database, array, query, { read
                 range.upperOpen && branch.first.value === range.upper)
         )) return empty(true)
         const ids = new Set()
-        for await (const entry of index.scan(database, array, key, { type, ...range }))
+        // Metadata already resolved this field/type to its value-tree root.
+        // Passing it through avoids walking the catalog a second time.
+        for await (const entry of index.scan(database, array, key, { type, ...range, rootId: branch.id }))
             if (predicate(entry.value)) ids.add(entry.objectId)
         return { ids, exact: true }
     }
@@ -93,11 +126,24 @@ export async function queryIndexCandidates(index, database, array, query, { read
     const scanArrays = async (key, predicate = () => true, range) =>
         scan(key, 'array', predicate, range)
 
-    const equality = async (key, value, condition = { $eq: value }) => {
+    const scanArrayPositions = async (key, predicate) => {
+        const ids = new Set()
+        for (let position = 0; ; position++) {
+            const path = `${key}[${position}]`
+            const pathMetadata = await getMetadata(path)
+            const types = Object.keys(pathMetadata.indexes)
+            if (!types.length) break
+            for (const type of types)
+                for await (const entry of index.scan(database, array, path, { type, rootId: pathMetadata.indexes[type].id }))
+                    if (predicate(entry.value)) ids.add(entry.objectId)
+        }
+        return { ids, exact: true }
+    }
+
+    const equality = async (key, value) => {
         const type = typeOf(value)
         if (!type) return all(false)
-        if (type === 'array')
-            return scanArrays(key, candidate => queryData({ value: candidate }, { value: condition }))
+        if (type === 'array' || type === 'object') return all(false)
 
         const scalar = await scan(key, type, candidate => Object.is(candidate, value), { lower: value, upper: value })
         const arrays = await scanArrays(key, candidate => queryData({ value: candidate }, { value }))
@@ -166,7 +212,7 @@ export async function queryIndexCandidates(index, database, array, query, { read
             if (key === '$and' && Array.isArray(condition)) costs.push(await estimate(condition))
             else if (key === '$or' && Array.isArray(condition))
                 costs.push((await Promise.all(condition.map(estimate))).reduce((sum, cost) => sum + cost, 0))
-            else if (key.startsWith('$') || await hasArrayAncestor(key)) costs.push(Infinity)
+            else if (key.startsWith('$')) costs.push(Infinity)
             else {
                 const root = await getMetadata(key)
                 const branches = Object.values(root.indexes)
@@ -180,7 +226,7 @@ export async function queryIndexCandidates(index, database, array, query, { read
                 const equalityValue = Object.hasOwn(operator, '$eq') ? operator.$eq : undefined
                 const type = typeOf(equalityValue)
                 const branch = root.indexes[type]
-                if (type && type !== 'array' && !root.indexes.array && branch?.first && branch?.last &&
+                if (['number', 'string', 'boolean', 'null'].includes(type) && !root.indexes.array && branch?.first && branch?.last &&
                     (equalityValue < branch.first.value || equalityValue > branch.last.value)) {
                     costs.push(0)
                     continue
@@ -215,12 +261,9 @@ export async function queryIndexCandidates(index, database, array, query, { read
     }
 
     const compileField = async (key, condition) => {
-        // Dotted indexes cover object leaves but not members of terminal arrays.
-        // A present dotted index must not hide matching array-backed documents.
-        if (await hasArrayAncestor(key)) return all(false)
         if (condition === null || condition === undefined || ['string', 'number', 'boolean'].includes(typeof condition))
             return equality(key, condition)
-        if (Array.isArray(condition)) return equality(key, condition, condition)
+        if (Array.isArray(condition)) return equality(key, condition)
         if (!condition || typeof condition !== 'object') return all(false)
 
         const operators = Object.keys(condition).filter(operator => operator.startsWith('$'))
@@ -267,9 +310,11 @@ export async function queryIndexCandidates(index, database, array, query, { read
                     { value: candidate },
                     { value: { $in: choices } }
                 ))
+                const positionalMatch = await scanArrayPositions(key, candidate => choices.some(choice =>
+                    queryData({ value: candidate }, { value: { $eq: choice } })))
                 match = {
-                    ids: union(match.ids, arrayMatch.ids),
-                    exact: match.exact && arrayMatch.exact
+                    ids: union(union(match.ids, arrayMatch.ids), positionalMatch.ids),
+                    exact: match.exact && arrayMatch.exact && positionalMatch.exact
                 }
                 results.push(operator === '$in'
                     ? match
@@ -277,9 +322,21 @@ export async function queryIndexCandidates(index, database, array, query, { read
                         ? { ids: new Set([...await allIds()].filter(id => !match.ids.has(id))), exact: true }
                         : await all(false))
             } else if (operator === '$all' && Array.isArray(value)) {
-                results.push(await scanArrays(key, candidate => queryData(
+                const wholeArrays = await scanArrays(key, candidate => queryData(
                     { value: candidate },
                     { value: { $all: value } }
+                ))
+                const positions = []
+                for (const expected of value)
+                    positions.push(await scanArrayPositions(key, candidate => queryData({ value: candidate }, { value: { $eq: expected } })))
+                results.push({ ids: union(wholeArrays.ids,
+                    positions.length ? positions.map(item => item.ids).reduce(intersect) : new Set()),
+                    // Whole-array and positional matches can be false positives
+                    // for nested arrays; the hydrated document check is required.
+                    exact: false })
+            } else if (operator === '$includes') {
+                results.push(await scanArrayPositions(key, candidate => queryData(
+                    { value: candidate }, { value: { $eq: value } }
                 )))
             } else if (operator === '$elemMatch' || operator === '$size') {
                 results.push(await scanArrays(key, candidate => queryData(
@@ -287,9 +344,13 @@ export async function queryIndexCandidates(index, database, array, query, { read
                     { value: { [operator]: value } }
                 )))
             } else if (operator === '$exists') {
-                // Existing roots may predate presence indexes. Until an index
-                // format marker and rebuild path exists, verify against all IDs.
-                results.push(await all(false))
+                const existsKey = `${EXISTS_INDEX_PREFIX}${key}`
+                const metadata = await getMetadata(existsKey)
+                if (!metadata.indexes.boolean) results.push(value ? empty(true) : all(true))
+                else {
+                    const present = await scan(existsKey, 'boolean', candidate => candidate === true)
+                    results.push(value ? present : { ids: new Set([...await allIds()].filter(id => !present.ids.has(id))), exact: true })
+                }
             } else if (operator === '$regex') {
                 const expression = value instanceof RegExp
                     ? new RegExp(value.source, value.flags)
@@ -312,7 +373,9 @@ export async function queryIndexCandidates(index, database, array, query, { read
                 results.push({ ids: union(scalar.ids, arrays.ids), exact: scalar.exact && arrays.exact })
             } else if (operator === '$type' && value === 'array') {
                 results.push(await scanArrays(key))
-            } else if (operator === '$type' && ['string', 'number', 'boolean', 'null', 'bool', 'int', 'long', 'double', 'decimal'].includes(value)) {
+            } else if (operator === '$type' && value === 'object') {
+                results.push(await scan(key, 'object', () => true))
+            } else if (operator === '$type' && ['string', 'number', 'boolean', 'null', 'undefined', 'bool', 'int', 'long', 'double', 'decimal'].includes(value)) {
                 const type = value === 'bool' ? 'boolean' : ['int', 'long', 'double', 'decimal'].includes(value) ? 'number' : value
                 results.push(await scan(key, type, () => true))
             } else {

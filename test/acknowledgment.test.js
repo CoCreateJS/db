@@ -65,7 +65,7 @@ test('create acknowledges memory before metadata work; blocked backend does not 
             return apply({ partitionId: payload.path, nodeId: 'self', operation: payload.operation === 'remove' ? 'remove' : 'add' })
         } } })
     t.after(async () => { blocked = false; release.resolve(); await db.close(); removeMemoryPath(directory); await rm(directory, { recursive: true, force: true }) })
-    await db.send({ ...scope, method: 'array.create' })
+    await db.send({ ...scope, method: 'array.create', array: { name: scope.array } })
     blocked = true
     const value = { counter: 1 }
     const created = await soon(db.send({ ...scope, method: 'object.create', object: value }))
@@ -104,7 +104,7 @@ for (const phase of ['peers', 'registration', 'disk']) test(`blocked ${phase} ne
         diskWrites++
     } } })
     t.after(async () => { blocked = false; release.resolve(); await db.close(); removeMemoryPath(directory); await rm(directory, { recursive: true, force: true }) })
-    await db.send({ ...scope, method: 'array.create' })
+    await db.send({ ...scope, method: 'array.create', array: { name: scope.array } })
     await db.flush()
     const before = diskWrites
     blocked = true
@@ -146,7 +146,7 @@ test('an internal metadata failure remains background state and cannot change co
             return apply({ partitionId: payload.path, nodeId: 'self', operation: 'add' })
         } } })
     t.after(async () => { fail = false; await db.close(); removeMemoryPath(directory); await rm(directory, { recursive: true, force: true }) })
-    await db.send({ ...scope, method: 'array.create' })
+    await db.send({ ...scope, method: 'array.create', array: { name: scope.array } })
     fail = true
     const response = await soon(db.send({ ...scope, method: 'object.create', object: { counter: 1 } }))
     assert.equal(response.success, true)

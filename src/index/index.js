@@ -27,11 +27,11 @@
  *
  * Prototype limitations: single-writer only; no transactional multi-file commit,
  * locking, crash recovery, snapshots, or cross-process cache invalidation.
- * Index values: finite numbers, strings, booleans, explicit nulls, and terminal arrays.
+ * Index values: property paths and type-specific values reference their object artifacts.
  */
 import { rm } from '../io.js'
 import { replaceJSON } from '../storage.js'
-import { isAbsolute, join, relative, resolve } from 'node:path'
+import { basename, isAbsolute, join, relative, resolve } from 'node:path'
 import { uuid } from '@cocreate/utils'
 import { arrayDigest } from '../entries.js'
 import { live } from '../mutation.js'
@@ -48,7 +48,9 @@ const compareEntry = (a, b) => compare(a[0], b[0]) || compare(a[1], b[1])
 const boundary = entry => ({ value: entry[0], objectId: entry[1] })
 const tuple = item => [item.value, item.objectId]
 const typeOf = value => value === null ? 'null' :
+    value === undefined ? 'undefined' :
     Array.isArray(value) ? 'array' :
+    typeof value === 'object' ? 'object' :
     typeof value === 'boolean' ? 'boolean' :
         typeof value === 'string' ? 'string' :
             typeof value === 'number' && Number.isFinite(value) ? 'number' : null
@@ -61,8 +63,12 @@ export function createIndex({
     indexDirectoryName = 'index',
     indexRoot = directory,
     flat = true,
+    catalogIdForDirectory,
+    readArtifact,
+    writeArtifact,
+    deleteArtifact,
     onPartitionChange: partitionChange,
-    readKey,
+    readIndexedValue,
     readPartition
 } = {}) {
     if (maxBytes < 512) throw new Error('maxBytes must be at least 512')
@@ -70,8 +76,17 @@ export function createIndex({
         throw new TypeError('indexDirectoryName must be a safe directory name')
     const base = resolve(directory)
     const origin = flat ? resolve(indexRoot) : base
+    // Index operations repeatedly address the same arrays and UUID files. Keep
+    // their immutable filesystem paths so hot inserts/scans do not redo path
+    // normalization and relative-path work for every leaf.
+    const arrayDirectories = new Map()
+    const indexRootDirectory = flat ? join(origin, 'indexes') : undefined
+    const indexDirectories = new Map()
+    const catalogIds = new Map()
+    const nodeFiles = new Map()
+    const partitionPaths = new Map()
     const cache = cacheEnabled ? new Map() : null
-    const keyRecords = Object.create(null)
+    const indexedValues = new Map()
     const reportedPartitions = new Set()
     const onPartitionChange = partitionChange && (change => {
         const notify = async () => {
@@ -83,6 +98,8 @@ export function createIndex({
     const parents = new Map()
     let remembered = new WeakSet()
     let changedPartitions
+    let catalogBatch
+    const catalogBatchKey = (dir, key, type) => JSON.stringify([dir, key, type])
     const remember = (file, node, changed = false) => {
         if (!node || (!changed && remembered.has(node))) return node
         remembered.add(node)
@@ -99,8 +116,13 @@ export function createIndex({
             if (typeof part !== 'string' || !part || part === '.' || part === '..' || /[\\/\0]/.test(part))
                 throw new Error('Invalid database or array name')
         }
-        if (!resolveArrayDirectory)
-            return join(base, encodeURIComponent(database), encodeURIComponent(array))
+        const addressKey = JSON.stringify([database, array])
+        if (arrayDirectories.has(addressKey)) return arrayDirectories.get(addressKey)
+        if (!resolveArrayDirectory) {
+            const dir = join(base, encodeURIComponent(database), encodeURIComponent(array))
+            arrayDirectories.set(addressKey, dir)
+            return dir
+        }
 
         const customDirectory = resolve(resolveArrayDirectory({
             directory: base,
@@ -112,37 +134,43 @@ export function createIndex({
         if (isAbsolute(relativeDirectory) || relativeDirectory === '..' || relativeDirectory.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`))
             throw new Error('Resolved array directory must stay inside the configured directory')
 
+        arrayDirectories.set(addressKey, customDirectory)
         return customDirectory
     }
 
-    const indexDirectory = dir => join(dir, indexDirectoryName)
-    const catalogRootId = dir => flat ? indexId(relative(origin, dir)) : 'root'
+    const indexDirectory = dir => {
+        if (!indexDirectories.has(dir)) indexDirectories.set(dir, join(dir, indexDirectoryName))
+        return indexDirectories.get(dir)
+    }
+    const catalogRootId = dir => {
+        if (!flat) return 'root'
+        if (!catalogIds.has(dir)) catalogIds.set(dir, catalogIdForDirectory?.(dir) ?? indexId(relative(origin, dir)))
+        return catalogIds.get(dir)
+    }
+    const artifactId = file => basename(file, '.json')
     const nodeFile = (dir, id) => {
         if (flat && !/^[a-f0-9]{32}$/i.test(id)) throw new TypeError('Invalid index node ID')
-        return join(flat ? join(origin, 'indexes') : indexDirectory(dir), `${id === 'root' ? 'index' : id}.json`)
+        let files = nodeFiles.get(dir)
+        if (!files) nodeFiles.set(dir, files = new Map())
+        if (!files.has(id)) files.set(id, join(flat ? indexRootDirectory : indexDirectory(dir), `${id === 'root' ? 'index' : id}.json`))
+        return files.get(id)
     }
-    const keyFile = (dir, key, objectId, digest) => join(origin, 'keys', `${indexId(JSON.stringify([catalogRootId(dir), key, objectId, digest]))}.json`)
-    const normalizedValue = (value, type = typeOf(value)) => type === 'array' ? arrayDigest(value) : value
-    const writeKey = async (dir, key, value, objectId, digest) => {
-        const file = keyFile(dir, key, objectId, digest)
-        const record = { catalog: catalogRootId(dir), objectId, name: key, value: live(value) }
-        if (cacheEnabled || memoryEnabled(file)) keyRecords[file] = record
-        await replaceJSON(file, record)
-    }
-    const readKeyValue = async (dir, key, objectId, digest) => {
-        const file = keyFile(dir, key, objectId, digest)
-        let record = keyRecords[file] ?? await readMemoryJSON(file)
-        if (record === undefined && readKey) {
-            record = await readKey({ path: relative(origin, file), catalog: catalogRootId(dir), objectId, key, digest })
-            if (record !== undefined) await replaceJSON(file, record)
-        }
-        if (record?.catalog !== catalogRootId(dir) || record.objectId !== objectId || record.name !== key || !Array.isArray(record.value))
-            throw new Error(`Missing indexed key value for ${key}/${objectId}`)
-        if (cacheEnabled || memoryEnabled(file)) keyRecords[file] = record
-        return live(record.value)
+    const normalizedValue = (value, type = typeOf(value)) =>
+        type === 'array' || type === 'object' ? arrayDigest(value) : type === 'undefined' ? '\0cocreate:undefined' : value
+    const indexedValueId = (dir, key, objectId, type, digest) =>
+        JSON.stringify([catalogRootId(dir), key, objectId, type, digest])
+    const readIndexed = async (dir, database, array, key, objectId, type, digest) => {
+        const id = indexedValueId(dir, key, objectId, type, digest)
+        if (indexedValues.has(id)) return live(indexedValues.get(id))
+        const value = await readIndexedValue?.({ catalog: catalogRootId(dir), database, array, objectId, key, type, digest })
+        if (value !== undefined && !readIndexedValue) indexedValues.set(id, value)
+        return live(value)
     }
 
-    const partitionPath = file => relative(origin, file).split(/[\\/]/).join('/')
+    const partitionPath = file => {
+        if (!partitionPaths.has(file)) partitionPaths.set(file, relative(origin, file).split(/[\\/]/).join('/'))
+        return partitionPaths.get(file)
+    }
 
     const reportLocalPartition = async (file, value) => {
         if (!onPartitionChange || reportedPartitions.has(file)) return
@@ -164,7 +192,7 @@ export function createIndex({
 
         let value
 
-        value = await readMemoryJSON(file)
+        value = readArtifact ? await readArtifact(artifactId(file)) : await readMemoryJSON(file)
         if (value === undefined) {
             if (!readPartition) return undefined
             value = await readPartition(partitionPath(file))
@@ -180,7 +208,9 @@ export function createIndex({
     }
 
     const writeJSON = async (file, value, { acquired = false, notify = true } = {}) => {
-        value = await replaceJSON(file, value)
+        value = writeArtifact
+            ? await writeArtifact(artifactId(file), value)
+            : await replaceJSON(file, value)
         cache?.set(file, live(value))
         remember(file, value, true)
         changedPartitions?.set(partitionPath(file), value)
@@ -247,7 +277,8 @@ export function createIndex({
         removeMemoryPath(file)
         reportedPartitions.delete(file)
         parents.delete(file)
-        await rm(file, { force: true })
+        if (deleteArtifact) await deleteArtifact(artifactId(file))
+        else await rm(file, { force: true })
         if (onPartitionChange)
             await onPartitionChange({ path: partitionPath(file), operation: 'remove' })
     }
@@ -536,6 +567,10 @@ export function createIndex({
     }
 
     const setCatalogRoot = async (dir, key, type, rootId, rootNode) => {
+        if (catalogBatch) {
+            catalogBatch.roots[catalogBatchKey(dir, key, type)] = { dir, key, type, rootId, rootNode }
+            return
+        }
         const entryKey = [key, type]
         if (rootId) {
             const node = rootNode ?? await getNode(dir, rootId)
@@ -596,8 +631,11 @@ export function createIndex({
         }
     }
 
-    const getCatalogRoot = async (dir, key, type) =>
-        (await getCatalogEntry(dir, key, type))?.[2]
+    const getCatalogRoot = async (dir, key, type) => {
+        const keyId = catalogBatchKey(dir, key, type)
+        if (catalogBatch && Object.hasOwn(catalogBatch.roots, keyId)) return catalogBatch.roots[keyId].rootId
+        return (await getCatalogEntry(dir, key, type))?.[2]
+    }
 
     // Resolve statistics without loading value roots for current catalog entries.
     // Legacy mappings are read lazily and upgraded by the next mutation.
@@ -636,6 +674,10 @@ export function createIndex({
     }
 
     const adjustLength = async (dir, delta) => {
+        if (catalogBatch) {
+            catalogBatch.lengths[dir] = (catalogBatch.lengths[dir] ?? 0) + delta
+            return
+        }
         const root = await getCatalogNode(dir, catalogRootId(dir))
         const currentLength = Number.isSafeInteger(root.length) && root.length >= 0
             ? root.length
@@ -758,7 +800,7 @@ export function createIndex({
 
         if (!type)
             throw new TypeError(
-                'Only finite numbers, strings, booleans, null, and arrays are indexed in this prototype'
+                'Only finite numbers, strings, booleans, null, undefined, objects, and arrays can be indexed'
             )
 
         if (typeof objectId !== 'string')
@@ -766,7 +808,8 @@ export function createIndex({
 
         const dir = address(database, array)
         const indexedValue = normalizedValue(value, type)
-        if (type === 'array') await writeKey(dir, key, value, objectId, indexedValue)
+        if ((type === 'array' || type === 'object') && !readIndexedValue)
+            indexedValues.set(indexedValueId(dir, key, objectId, type, indexedValue), live(value))
         const existing = await root(dir, key, type)
 
         const entry = [indexedValue, objectId]
@@ -848,10 +891,7 @@ export function createIndex({
 
         await setRoot(dir, key, type, node?.id, node)
 
-        if (type === 'array') {
-            delete keyRecords[keyFile(dir, key, objectId, indexedValue)]
-            await rm(keyFile(dir, key, objectId, indexedValue), { force: true }).catch(() => {})
-        }
+        indexedValues.delete(indexedValueId(dir, key, objectId, type, indexedValue))
 
         if (key === '_id') await adjustLength(dir, -1)
 
@@ -925,14 +965,15 @@ export function createIndex({
             lower,
             upper,
             lowerOpen = false,
-            upperOpen = false
+            upperOpen = false,
+            rootId
         } = {}
     ) {
         const dir = address(database, array)
 
         const types = type
             ? [type]
-            : ['array', 'boolean', 'null', 'number', 'string']
+            : ['array', 'boolean', 'null', 'number', 'object', 'string', 'undefined']
 
         if (reverse)
             types.reverse()
@@ -947,7 +988,7 @@ export function createIndex({
         })
 
         for (const currentType of types) {
-            const id = await getCatalogRoot(dir, key, currentType)
+            const id = rootId ?? await getCatalogRoot(dir, key, currentType)
 
             if (!id) continue
 
@@ -959,9 +1000,9 @@ export function createIndex({
                 if (emitted++ >= limit) return
 
                 yield {
-                    value: currentType === 'array'
-                        ? await readKeyValue(dir, key, entry[1], entry[0])
-                        : entry[0],
+                    value: currentType === 'array' || currentType === 'object'
+                        ? await readIndexed(dir, database, array, key, entry[1], currentType, entry[0])
+                        : currentType === 'undefined' ? undefined : entry[0],
                     objectId: entry[1]
                 }
             }
@@ -992,7 +1033,25 @@ export function createIndex({
         return undefined
     }
 
+    const batch = async operation => {
+        if (catalogBatch) return operation()
+        const current = catalogBatch = { roots: Object.create(null), lengths: Object.create(null) }
+        let result, failure
+        try { result = await operation() }
+        catch (error) { failure = error }
+        catalogBatch = undefined
+        try {
+            for (const update of Object.values(current.roots))
+                await setCatalogRoot(update.dir, update.key, update.type, update.rootId, update.rootNode)
+            for (const [dir, delta] of Object.entries(current.lengths))
+                if (delta) await adjustLength(dir, delta)
+        } catch (error) { failure ??= error }
+        if (failure) throw failure
+        return result
+    }
+
     return {
+        batch,
         catalogId: (database, array) => catalogRootId(address(database, array)),
         async ensureCatalog(database, array) {
             const dir = address(database, array)
@@ -1006,14 +1065,13 @@ export function createIndex({
                 if (visited.has(id)) return
                 visited.add(id)
                 const file = nodeFile(dir, id)
-                const node = normalizeLengths(cache?.get(file) ?? await readMemoryJSON(file))
+                const node = id === catalogRootId(dir)
+                    ? await getCatalogNode(dir, id)
+                    : await getNode(dir, id)
                 for (const child of node?.indexes ?? []) await remove(child.id, key, type)
                 if (node?.kind === 'catalog') for (const entry of node.entries ?? []) await remove(entry[2], entry[0], entry[1])
-                else if (type === 'array') for (const [digest, uuid] of node?.entries ?? []) {
-                    const file = keyFile(dir, key, uuid, digest)
-                    delete keyRecords[file]
-                    await rm(file, { force: true })
-                }
+                else if (type === 'array' || type === 'object') for (const [digest, uuid] of node?.entries ?? [])
+                    indexedValues.delete(indexedValueId(dir, key, uuid, type, digest))
                 await deleteNode(dir, id)
             }
             await remove(catalogRootId(dir))
@@ -1029,7 +1087,7 @@ export function createIndex({
             const dir = address(database, array)
             const indexes = {}
 
-            for (const type of ['array', 'boolean', 'null', 'number', 'string']) {
+            for (const type of ['array', 'boolean', 'null', 'number', 'object', 'string', 'undefined']) {
                 const id = await getCatalogRoot(dir, key, type)
                 if (id) indexes[type] = await getNode(dir, id)
             }
@@ -1077,12 +1135,7 @@ export function createIndex({
 
         readPartition: async path => {
             const file = resolvePartitionFile(path)
-            try {
-                return remember(file, await readMemoryJSON(file))
-            } catch (error) {
-                if (error.code === 'ENOENT') return undefined
-                throw error
-            }
+            return readJSON(file)
         },
 
         applyPartition: async (path, value) => {
@@ -1099,13 +1152,14 @@ export function createIndex({
             const file = resolvePartitionFile(path)
             cache?.delete(file)
             removeMemoryPath(file)
-            await rm(file, { force: true })
+            if (deleteArtifact) await deleteArtifact(artifactId(file))
+            else await rm(file, { force: true })
         },
 
         // Lower-level node access stays internal
         // to the implementation.
 
-        clearCache: () => { cache?.clear(); for (const file of Object.keys(keyRecords)) delete keyRecords[file]; parents.clear(); remembered = new WeakSet() }
+        clearCache: () => { cache?.clear(); parents.clear(); remembered = new WeakSet() }
     }
 }
 

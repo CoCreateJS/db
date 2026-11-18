@@ -2,15 +2,30 @@
 
 ## Workflow ownership
 
-CoCreateDB manages data; configured persistence workflows manage durable data I/O. Every durable create, read, update and delete of a UUID artifact passes through that boundary. Only `data/` is eligible for database cloud persistence. Neither `index.json` nor `distribution/` is a database-managed persisted artifact or export member. Bootstrap and local operational inventory have separate explicit owners.
+The DB core keeps decoded state in memory and delegates durable reads and writes
+to persistence. It supplies organization context, UUID addresses, values and
+operations; persistence decides how and where to represent them. The DB core
+does not choose filenames, paths or providers. Bootstrap and distribution
+state have their own explicit integration boundaries.
 
 Local filesystem, S3, Google Cloud Storage, Azure Blob Storage and other providers are workflow destinations, not core storage modes. The workflow defines provider combination, execution order, parallelism, retries, encryption and paths. The core has no direct durable filesystem fallback, independent disk queue/provider path, `disk`, `file`, `memoryOnly` persistence bypass or configurable `writeBehind` response switch. Cache retention does not select durability destinations.
 
 ## Artifact operations
 
-The logical workflow contract includes create(UUID, bytes), read(UUID), update(UUID, bytes) and delete(UUID) in explicit authorized organization context. These describe semantics, not finalized function signatures. Create cannot silently overwrite an existing identity. Reads distinguish absent, unavailable, locked, corrupt and valid artifacts. Updates use stable snapshots and stale-write protection so late serialization or completion cannot replace newer state. Deletion removes relevant UUID content and persists required reconciliation metadata through the same workflow.
+The logical workflow contract includes create(UUID, value), read(UUID),
+update(UUID, value) and delete(UUID) in explicit authorized organization
+context. A mutation sends the changed value and every changed index artifact
+needed to preserve the path from the organization root to that value. Unchanged
+ancestors need not be resent. The call can batch those UUID/value/operation
+entries; exact envelope and partial-failure behavior remain integration
+details. Create cannot silently overwrite an existing identity. Reads return
+decoded JavaScript values. Updates use stable inputs and stale-write protection
+so late completion cannot replace newer state. Deletion includes changed index
+artifacts and required reconciliation metadata in the same persistence work.
 
-The invocation/result envelope, absence of a configured workflow, retry and failure semantics are explicit integration parameters; no hidden disk fallback is permitted. Provider mapping cannot escape the organization or treat logical keys as filenames.
+The invocation/result envelope, absence of a configured workflow, retry and
+failure semantics are explicit integration parameters; no hidden storage
+fallback is permitted. UUID is a logical address, not a required filename.
 
 ## Unified serialization
 
@@ -19,6 +34,17 @@ All data artifacts use one portable lossless codec contract for supported JavaSc
 Required round trips preserve nested objects/arrays, strings, booleans, null, explicit undefined versus missing, finite numbers, NaN, positive/negative infinity and native binary bytes. The codec contract defines BigInt, typed arrays, Buffer/Uint8Array/ArrayBuffer normalization, Date, sparse arrays, Map/Set and cyclic/shared references explicitly; no unsupported type or cross-process reference identity is promised. Unsupported values fail explicitly. UTC ISO date strings remain strings. Decoding is bounded and does not evaluate executable content, invoke arbitrary constructors or infer schemas.
 
 Codec identity/version compatibility is defined independently of the bootstrap package version. The same value model applies to supported Socket, Mesh and IPC paths; a transport unable to preserve a value must not silently lose it. Index segmentation does not imply large binary streaming or object fragmentation. Message and memory limits are explicit.
+
+### CoSON object artifacts
+
+Object document artifacts use the `.coson` suffix and CoSON frame format.
+Their stored values may be operator-preserving prepared objects received from a
+transport. CoSON `decode(..., { operators: false })` restores the prepared form,
+including object-local `binary[n]` references and raw-byte descriptor arrays.
+Those bytes belong to each document object, not to the CRUD request envelope.
+The DB excludes descriptor metadata from property indexing while indexing an
+ordinary application property named `binary` normally. Reads return the prepared
+object so it can be cached or transported again without evaluating operators.
 
 ## Encryption and integrity
 

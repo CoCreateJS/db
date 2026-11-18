@@ -1,6 +1,6 @@
 import { join, resolve } from 'node:path'
 import { fileId, identify, newFileId, recordPath, stableId } from './files.js'
-import { ensureRoot, readRoot, FORMAT } from './root.js'
+import { readRoot } from './root.js'
 import { indexId } from './index/index.js'
 import { readdir, rm } from './io.js'
 import { ObjectId } from '@cocreate/utils'
@@ -14,6 +14,8 @@ import { auditMetadata, readJSON, replaceJSON } from './storage.js'
 import { createRecord, updateRecord, deleteRecord, readRecordById } from './records.js'
 import { applyReadFilter } from './read.js'
 import { withResolution, resolvedCatalog } from './resolution.js'
+import { deleteArtifact, deleteOrganization, getArtifact, getOrganization, setArtifact, setOrganization } from './organization.js'
+import { normalizeEntities, entityUuid, hasExplicitFilter } from './crud.js'
 
 function errorHandler(data, error) {
     if (!Array.isArray(data.error)) data.error = data.error === undefined ? [] : [data.error]
@@ -51,7 +53,7 @@ export function createDB(options = {}) {
     const organizations = new Map()
     const namespaces = new Map()
     if (options.memoryCache || options.memoryOnly || options.disk === false) enableMemoryCache(root, { memoryOnly: options.memoryOnly || options.disk === false })
-    const persistence = !options.memoryOnly && options.disk !== false && options.writeBehind ? createPersistence({ ...options.persistenceOptions, directory: root,
+    const persistence = !options.memoryOnly && options.disk !== false ? createPersistence({ ...options.persistenceOptions, directory: root,
         canFlush: () => [...namespaces.values()].every(state => !state.engine.persistenceStats().pendingIndexes) }) : undefined
     const storageFile = (organization, uuid) => recordPath(join(root, organization), 'storages', uuid)
     const context = (organization, record) => ({ organization_id: organization, storageId: record._id, storage: record.name, storageFileId: fileId(record) })
@@ -73,27 +75,60 @@ export function createDB(options = {}) {
                     : holders.updatePartition({ partitionId: value.path, nodeId: options.nodeId, operation: value.operation === 'remove' ? 'remove' : 'add' })
             }
         }
-        const index = createIndex({ directory: join(root, organization), indexRoot: join(root, organization),
+        const organizationDirectory = join(root, organization)
+        const rootCatalogDirectory = join(organizationDirectory, 'catalogs', 'storages')
+        const index = createIndex({ directory: organizationDirectory, indexRoot: organizationDirectory,
             maxBytes: options.maxIndexBytes, cache: options.cache,
             resolveArrayDirectory: () => join(root, organization, 'catalogs', 'storages'),
+            catalogIdForDirectory: directory => directory === rootCatalogDirectory
+                ? getOrganization(organization).root : undefined,
+            readArtifact: async artifactId => {
+                if (getArtifact(organization, artifactId) !== undefined) return getArtifact(organization, artifactId)
+                return persistence?.send({ method: 'persistence.read', organization_id: organization, artifactId })
+            },
+            writeArtifact: (artifactId, value) => {
+                setArtifact(organization, artifactId, value)
+                return persistence?.send({ method: 'persistence.update', organization_id: organization, artifactId, value }) ?? value
+            },
+            deleteArtifact: artifactId => {
+                deleteArtifact(organization, artifactId)
+                return persistence?.send({ method: 'persistence.delete', organization_id: organization, artifactId })
+            },
             readPartition: partitions.read,
             onPartitionChange: payload => options.nodeId && partitions.onLocalChange(payload)
         })
         const state = { organization, index, holders, partitions }
-        state.ready = incomingRoot ? (async () => {
-            await readRoot(join(root, organization))
-            await replaceJSON(join(root, organization, 'root.json'), incomingRoot)
-            return incomingRoot
-        })() : ensureRoot(join(root, organization), index, CATALOG, STORAGES, 'storages', value => options.onRootChange?.({ organization_id: organization, value }))
+        state.ready = (async () => {
+            const restored = incomingRoot ?? await persistence?.send({ method: 'organization.read', organization_id: organization })
+            state.root = restored ? setOrganization(organization, restored) : getOrganization(organization)
+            if (state.root.version !== '1.0.0' || !/^[a-f0-9]{32}$/i.test(state.root.root))
+                throw new Error('Invalid organization root')
+            if (!restored) {
+                const legacyRoot = await readRoot(organizationDirectory)
+                if (legacyRoot) throw new Error('Legacy root.json data requires a separate path or explicit migration')
+            }
+            await index.ensureCatalog(CATALOG, STORAGES)
+            if (!restored) await persistence?.send({ method: 'organization.write', organization_id: organization, root: state.root })
+            if (!restored) await options.onRootChange?.({ organization_id: organization, value: state.root })
+            return state.root
+        })()
         state.ready.catch(() => {})
         organizations.set(organization, state)
         return state
     }
     const findStorage = async (organization, storage) => {
-        name(storage, 'storage')
         const state = organizationState(organization)
         await state.ready
         const { index } = state
+        if (storage && typeof storage === 'object') {
+            const uuid = entityUuid(storage, 'storage')
+            const byUuid = uuid ? await readRecordById(index, CATALOG, STORAGES, id => storageFile(organization, id), uuid) : undefined
+            const byName = storage.name === undefined ? undefined : await findStorage(organization, name(storage.name, 'storage.name'))
+            if (uuid && storage.name !== undefined && (!byUuid || !byName || fileId(byUuid) !== fileId(byName)))
+                throw new Error('storage.uuid and storage.name must resolve to the same storage')
+            return byUuid ?? byName
+        }
+        name(storage, 'storage')
         const existing = resolvedCatalog(index, CATALOG, STORAGES)?.names[storage]
         if (existing) return existing
         for await (const entry of index.scan(CATALOG, STORAGES, 'name', { type: 'string', lower: storage, upper: storage })) {
@@ -132,6 +167,7 @@ export function createDB(options = {}) {
         const scope = () => context(organization, state.record)
         const distribution = options.distributionAdapter
         const engine = createEngine({ ...options, directory: join(root, organization), indexScope: record._id, managedRoot: true,
+            writeBehind: true,
             indexRoot: join(root, organization),
             sharedPersistence: persistence,
             scheduleIndexing: options.scheduleIndexing ?? serialize,
@@ -184,20 +220,31 @@ export function createDB(options = {}) {
     const flushIndexes = async () => { for (const state of namespaces.values()) await state.engine.flushIndexes() }
     const api = {
         ready: Promise.resolve({ files: 0 }),
+        organization: {
+            get: organization => getOrganization(id(organization, 'organization_id')),
+            set: (organization, value) => setOrganization(id(organization, 'organization_id'), value),
+            delete: organization => deleteOrganization(id(organization, 'organization_id'))
+        },
+        persistence: {
+            send(request) {
+                if (!persistence) throw new Error('Local persistence is not enabled for this DB instance')
+                return persistence.send(request)
+            }
+        },
         async applyRoots(roots = []) {
             for (const item of roots) {
                 const organization = id(item.organization_id, 'organization_id')
-                if (item.value?.format !== FORMAT || item.value.storages !== indexId('catalogs/storages'))
+                if (item.value?.version !== '1.0.0' || !/^[a-f0-9]{32}$/i.test(item.value.root))
                     throw new Error('Invalid organization root')
                 const state = organizationState(organization, item.value)
                 await state.ready
-                const path = `indexes/${item.value.storages}.json`
+                const path = `indexes/${item.value.root}.json`
                 const local = await state.index.readPartition(path)
                 if (local && !local.catalogLength) {
                     await state.index.removePartition(path)
                     if (options.nodeId) await state.partitions.onLocalChange({ path, operation: 'remove', acquired: true })
                 }
-                await replaceJSON(join(root, organization, 'root.json'), item.value)
+                await persistence?.send({ method: 'organization.write', organization_id: organization, root: item.value })
             }
         },
         distribution: {
@@ -254,7 +301,13 @@ export function createDB(options = {}) {
             for (const state of namespaces.values()) state.engine.clearDistributionCache()
         },
         holdPersistence: () => persistence?.hold(),
-        persistenceStats: () => ({ ...persistence?.stats(), pendingIndexes: [...namespaces.values()].reduce((sum, state) => sum + state.engine.persistenceStats().pendingIndexes, 0) }),
+        persistenceStats: () => {
+            const indexStats = [...namespaces.values()].map(state => state.engine.persistenceStats())
+            const total = key => indexStats.reduce((sum, stats) => sum + (stats[key] ?? 0), 0)
+            return { ...persistence?.stats(), pendingIndexes: total('pendingIndexes'),
+                indexSchedulingWaitMs: total('indexSchedulingWaitMs'), indexProcessingMs: total('indexProcessingMs'),
+                indexFlushWaitMs: total('indexFlushWaitMs'), indexError: indexStats.find(stats => stats.indexError)?.indexError }
+        },
         flushIndexes: () => serialize(flushIndexes),
         flushPersistence: () => persistence?.flush(),
         async flush() { await api.flushIndexes(); await persistence?.flush() },
@@ -266,28 +319,53 @@ export function createDB(options = {}) {
             const release = persistence?.hold()
             try {
                 const organization = id(request.organization_id, 'organization_id')
-                const storage = name(request.storage, 'storage')
-                name(request.database, 'database')
                 const [type, method] = String(request.method).split('.')
                 if (!['storage', 'database', 'array', 'index', 'object'].includes(type) || !['create', 'read', 'update', 'delete'].includes(method))
                     throw new Error(`Unsupported CRUD method: ${request.method}`)
+                if (method === 'create' && hasExplicitFilter(request))
+                    throw new TypeError('Filters are not supported for create')
+                const storage = type === 'storage' ? undefined : name(request.storage, 'storage')
+                if (type === 'database') name(request.storage, 'storage')
+                if (['array', 'object', 'index'].includes(type)) name(request.database, 'database')
                 if (type === 'object') name(request.array, 'array')
                 if (type === 'storage') {
                     const state = organizationState(organization)
-                    let record = await findStorage(organization, storage)
-                    if (method === 'create') record = await createStorage(organization, storage, request, request.storageId)
-                    else if (method === 'update') {
-                        if (!record) throw new Error('Storage not found')
-                        const renamed = name(request.name ?? request.newName, 'storage name')
-                        const conflict = await findStorage(organization, renamed)
-                        if (conflict && conflict._id !== record._id) throw new Error('Storage name already exists')
-                        record = await updateRecord(state.index, CATALOG, STORAGES, storageFile(organization, fileId(record)), record,
-                            value => { value.name = renamed; value.updated = auditMetadata(request) })
-                        const loaded = namespaces.get(`${organization}/storages/${record._id}/`)
-                        if (loaded) loaded.record = record
-                        await options.onStorageChange?.({ ...context(organization, record), operation: 'set', record })
+                    await state.ready
+                    const inputs = normalizeEntities(request.storage, 'storage')
+                    const records = []
+                    for (const input of inputs) {
+                        if (input.uuid === undefined && input.name === undefined) continue
+                        const record = await findStorage(organization, input)
+                        if (record && !records.some(item => fileId(item) === fileId(record))) records.push(record)
+                    }
+                    if (method === 'create') {
+                        for (const input of inputs) {
+                            const storageName = name(input.name, 'storage.name')
+                            if (await findStorage(organization, storageName)) throw new Error(`Storage already exists: ${storageName}`)
+                            const uuid = entityUuid(input, 'storage') ?? newFileId()
+                            if (await readRecordById(state.index, CATALOG, STORAGES, id => storageFile(organization, id), uuid))
+                                throw new Error(`Storage UUID already exists: ${uuid}`)
+                            records.push(await createStorage(organization, storageName, request, undefined, true, uuid))
+                        }
+                    } else if (hasExplicitFilter(request)) {
+                        const all = await readRecords(state.index, CATALOG, STORAGES, id => storageFile(organization, id))
+                        for (const record of applyReadFilter(all, request, { database: request.database, array: STORAGES }))
+                            if (!records.some(item => fileId(item) === fileId(record))) records.push(record)
+                    }
+                    if (method === 'update') {
+                        for (const record of records) {
+                            const input = inputs.find(item => item.uuid && item.uuid.toLowerCase() === fileId(record) || item.name && item.name === record.name) ?? {}
+                            const renamed = name(input.newName ?? request.name ?? request.newName ?? record.name, 'storage name')
+                            const conflict = await findStorage(organization, renamed)
+                            if (conflict && fileId(conflict) !== fileId(record)) throw new Error('Storage name already exists')
+                            await updateRecord(state.index, CATALOG, STORAGES, storageFile(organization, fileId(record)), record,
+                                value => { value.name = renamed; value.updated = auditMetadata(request) })
+                            const loaded = namespaces.get(`${organization}/storages/${record._id}/`)
+                            if (loaded) loaded.record = record
+                            await options.onStorageChange?.({ ...context(organization, record), operation: 'set', record })
+                        }
                     } else if (method === 'delete') {
-                        if (record) {
+                        for (const record of records) {
                             const loaded = engineFor(organization, record)
                             await loaded.engine.flushIndexes()
                             await loaded.engine.dropIndexes()
@@ -297,8 +375,9 @@ export function createDB(options = {}) {
                             namespaces.delete(loaded.prefix)
                             await options.onStorageChange?.({ ...context(organization, record), operation: 'remove', record })
                         }
-                    } else if (method !== 'read') throw new Error('Unsupported storage method')
-                    response.storage = applyReadFilter(record ? [record] : [], request, { database: request.database, array: STORAGES, query: request.filter?.query ?? {} })
+                    }
+                    if (!['create', 'read', 'update', 'delete'].includes(method)) throw new Error('Unsupported storage method')
+                    response.storage = records
                     for (const item of response.storage) item.$storage = [item.name]
                     response.success = true
                     return response
@@ -352,10 +431,6 @@ export function createDB(options = {}) {
         async getDistribution(payload) { return (await byId(payload)).engine.getDistribution(payload) },
         async listDistribution(payload) { return (await byId(payload)).engine.listDistribution(payload) },
         async readLocalEntity(payload) {
-            if (payload.type === 'key') {
-                const value = await readJSON(recordPath(join(root, id(payload.organization_id, 'organization_id')), 'keys', payload.fileId))
-                return value && identify(value, payload.fileId)
-            }
             if (payload.type === 'storage') {
                 const state = organizationState(id(payload.organization_id, 'organization_id'))
                 await state.ready
@@ -400,7 +475,7 @@ export function createDB(options = {}) {
     const send = api.send.bind(api)
     api.send = request => serialize(() => withResolution(async () => {
         const [type, method] = String(request.method).split('.')
-        const fast = (options.writeBehind || options.memoryOnly || options.disk === false) && type === 'object'
+        const fast = type === 'object'
         // Resolve before deletion/rename, and after creation, using the same entity IDs as node distribution.
         let state, ids
         try {

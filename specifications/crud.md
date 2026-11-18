@@ -24,9 +24,11 @@ A CRUD method has the form `<scope>.<operation>`:
 
 The method prefix identifies which child data-scope handler receives the
 request; the suffix selects the CRUD operation applied there. Every request also
-carries `organizationId` as its immutable top-level namespace scope. That
-namespace is part of the address but is not a CRUD method prefix. Scope routing
-and hierarchy are defined in [scopes.md](scopes.md). Object CRUD resolves one storage, database and array scope per request. A `key` is addressed as data within an object, not as a separate CRUD method prefix.
+carries `organization_id` as its immutable top-level organization identity.
+Scope routing
+and hierarchy are defined in [scopes.md](scopes.md). Object CRUD resolves one
+storage, database and array scope per request. Object property paths are
+handled by the object index and do not have separate CRUD methods or artifacts.
 
 ## Common request and response conventions
 
@@ -38,6 +40,10 @@ and hierarchy are defined in [scopes.md](scopes.md). Object CRUD resolves one st
 - Failed validation or execution returns `success: false` with error details.
 - The scope handler owns scope-specific validation and behavior; the database
   does not reinterpret a request as a different scope operation.
+- For storage, database, array, and object CRUD, the target property accepts one
+  non-null object or an array of such objects. A missing property and an empty
+  array select nothing. Strings, primitive values, nested arrays, and arrays of
+  strings are invalid; the engine does not convert them to identity objects.
 - Once the required data is ready in memory and the CRUD operation has produced
   its result, return immediately. Do not wait for disk persistence, background
   indexing/cleanup, or peer acknowledgments.
@@ -51,8 +57,9 @@ and hierarchy are defined in [scopes.md](scopes.md). Object CRUD resolves one st
 ### Object create
 
 Create accepts one object or an array of objects. It preserves supplied field
-values, assigns an object ID when absent, and establishes creation/update audit
-metadata. The resulting document is indexed and persisted according to the
+values, assigns an immutable artifact `uuid`, retains a separate logical
+`_id` as the object's secondary identity, and establishes creation/update audit metadata. The
+resulting document is indexed and persisted according to the
 configured persistence policy after the response boundary. Return the created
 document and update information as soon as the result is ready in memory.
 Conflict acceptance and ID reuse follow
@@ -68,28 +75,30 @@ create document mutations unless they target an object document.
 
 ### Object read
 
-Read resolves a document identity or query filter, uses indexes to obtain
-candidates when possible, loads candidate objects, and verifies predicates using
-the shared query operators. It then applies requested sorting, search,
-pagination, and projection and returns the resulting documents as soon as the
-requested values are available. Index planning
-must preserve the operator results described in [indexes.md](indexes.md).
+`object.uuid` and `object._id` are independent explicit selectors. If both are
+provided, they must resolve to the same document. Explicit selection does not
+use filter conditions, sorting, pagination, or limits. A filter independently
+selects additional documents; the combined result is deduplicated by UUID, with
+explicit results first. Ordinary filter reads use indexes to obtain candidates
+when possible and verify predicates using shared query operators. Index
+planning must preserve the operator results described in [indexes.md](indexes.md).
 
 ### Scope and index read
 
 Scope reads resolve records at the requested scope and may apply read filters.
-Index reads return entries for the requested field key. Reads do not mutate state
+Index reads return entries for the requested property path. Reads do not mutate state
 and produce no mutation update object.
 
 ## Update
 
 ### Object update and upsert
 
-Update applies only to an existing matching document. With `upsert: true`, it
-creates a missing document or updates an existing one. A supplied `$update`
-object is reused; otherwise the update object is generated from the request
-fields/operators while preserving operation intent. Operators apply to the
-state selected by reconciliation. Object identity and creation metadata remain
+Update applies a supplied `$update` to explicit UUID/`_id` selections and,
+independently, to documents selected by a filter. Explicit selections are never
+excluded by the filter. A filter-selected update requires one unambiguous update
+payload; multiple distinct payloads with a filter are rejected. With
+`upsert: true`, a missing explicit target may be created, subject to object
+creation rules. The document UUID, logical `_id`, and creation metadata remain
 immutable; `updated.on` carries update audit time and the original mutation
 timestamp must be preserved when propagated.
 
@@ -108,8 +117,9 @@ them.
 
 ## Delete
 
-Object delete removes matching documents when reconciliation accepts the
-deletion. Scope delete removes the named scope record and its owned resources
+Object delete combines explicit UUID/`_id` selections with filter-selected
+documents independently, deduplicated by UUID. Without either selection, it
+deletes nothing. Scope delete removes the selected scope record and its owned resources
 according to that scope's lifecycle. Index delete removes matching index
 entries. Object deletion returns explicit deletion state and the mutation
 update object to the client and propagates the deletion mutation to peers; peer
@@ -137,7 +147,25 @@ CoCreate modules repository for the shared operator reference.
 
 ## Tenancy and identity
 
-Every operation selects an authorized tenancy through top-level `organizationId` alongside the child scope properties. The value is never derived from the application object. Object `_id` and artifact UUID are distinct; ordinary updates preserve both. Requests cannot alter ownership or immutable creation metadata. Scope deletion respects reachability and must not leave orphaned owned resources or delete unrelated scopes.
+Every operation selects an authorized organization through top-level `organization_id` alongside the child scope properties. The value is never derived from the application object. Every entity has an immutable UUID. Storage, database, and array also have a unique `name` within their parent scope; object `_id` is unique within its array. UUID is the primary identity, while name and `_id` are secondary identities. Either can select an entity independently; when both are supplied they must resolve to the same entity. Ordinary updates preserve UUIDs and object `_id`. Requests cannot alter ownership or immutable creation metadata. Scope deletion respects reachability and must not leave orphaned owned resources or delete unrelated scopes.
+
+Storage, database, and array creation require `name`; object creation accepts an
+empty object and generates its UUID. Empty creation is not supported for the
+other scopes. Duplicate identities fail. Upsert follows the same requirements
+as create. Deleting every object leaves its array in place; deleting the array
+removes its contents.
+
+## Filter selection
+
+An absent filter selects no additional entities. An empty filter matches all,
+subject to the default limit of 50. A positive integer `filter.limit` caps only
+filter-selected results; `0` means unlimited and negative or non-integer limits
+are invalid. Sorting, search, projection, and pagination apply only to filter
+selection. Explicit selections do not consume the filter limit. Results are
+deduplicated by UUID without refilling a filter page when it overlaps an
+explicit selection. Filters apply to read, update, and delete; create does not
+use filters. `deletedOn` remains ordinary application data and does not trigger
+deletion.
 
 ## Operator and response boundaries
 

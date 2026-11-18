@@ -1,0 +1,236 @@
+{
+  "benchmark": "cocreatedb-sustained-read-write",
+  "startedAt": "2026-11-18T23:20:38.640Z",
+  "node": "v24.18.0",
+  "platform": "linux-x64",
+  "cpuCount": 2,
+  "size": 1000,
+  "durationMs": 60000,
+  "concurrencyLevels": [
+    1,
+    4,
+    16
+  ],
+  "configuration": "filesystem persistence enabled; writeBehind true; one process; no peer or external persistence latency",
+  "phases": [
+    {
+      "name": "read",
+      "concurrency": 1,
+      "targetDurationMs": 60000,
+      "actualDurationMs": 60000.58233199999,
+      "operations": 27849,
+      "operationsPerSecond": 464.14549522042466,
+      "latencyMs": {
+        "p50": 3.8187089999992168,
+        "p95": 4.43106500000431,
+        "p99": 5.441943000001629,
+        "max": 25.831751000000622
+      },
+      "cpuPercentOfOneCore": 102.44608237279935,
+      "cpuPercentOfMachine": 51.223041186399676,
+      "memory": {
+        "startRss": 114315264,
+        "endRss": 221601792,
+        "maxRss": 220291072,
+        "startHeapUsed": 19744600,
+        "endHeapUsed": 77409224,
+        "maxHeapUsed": 55453528
+      },
+      "pendingIndexWork": {
+        "peak": 0,
+        "end": 0
+      },
+      "indexTimingMs": {
+        "schedulingWait": 0,
+        "actualProcessing": 0,
+        "explicitFlushWait": 0
+      }
+    },
+    {
+      "name": "write",
+      "concurrency": 1,
+      "targetDurationMs": 60000,
+      "actualDurationMs": 60000.588256999996,
+      "operations": 156486,
+      "operationsPerSecond": 2608.074429699337,
+      "latencyMs": {
+        "p50": 0.35134199999447446,
+        "p95": 0.4336239999975078,
+        "p99": 0.5881090000038967,
+        "max": 52.50610899999447
+      },
+      "cpuPercentOfOneCore": 105.75893144280444,
+      "cpuPercentOfMachine": 52.87946572140222,
+      "memory": {
+        "startRss": 219893760,
+        "endRss": 521224192,
+        "maxRss": 513966080,
+        "startHeapUsed": 12167600,
+        "endHeapUsed": 236185752,
+        "maxHeapUsed": 172726608
+      },
+      "pendingIndexWork": {
+        "peak": 1000,
+        "end": 1000
+      },
+      "indexTimingMs": {
+        "schedulingWait": 0,
+        "actualProcessing": 0,
+        "explicitFlushWait": 0
+      },
+      "pendingBeforeDrain": 1000,
+      "indexDrainMs": 1236.0907299999963,
+      "persistenceDrainMs": 1023.3532819999964,
+      "pendingAfterDrain": 0
+    },
+    {
+      "name": "read",
+      "concurrency": 4,
+      "targetDurationMs": 60000,
+      "actualDurationMs": 60011.781686,
+      "operations": 28113,
+      "operationsPerSecond": 468.4580129131279,
+      "latencyMs": {
+        "p50": 8.339631999988342,
+        "p95": 12.758331999997608,
+        "p99": 13.491691000002902,
+        "max": 59.629266000003554
+      },
+      "cpuPercentOfOneCore": 100.34734565137671,
+      "cpuPercentOfMachine": 50.17367282568836,
+      "memory": {
+        "startRss": 524337152,
+        "endRss": 523448320,
+        "maxRss": 524337152,
+        "startHeapUsed": 215284600,
+        "endHeapUsed": 194095408,
+        "maxHeapUsed": 237949904
+      },
+      "pendingIndexWork": {
+        "peak": 0,
+        "end": 0
+      },
+      "indexTimingMs": {
+        "schedulingWait": 0,
+        "actualProcessing": 0,
+        "explicitFlushWait": 0
+      }
+    },
+    {
+      "name": "write",
+      "concurrency": 4,
+      "targetDurationMs": 60000,
+      "actualDurationMs": 60001.356085999985,
+      "operations": 141805,
+      "operationsPerSecond": 2363.3632512697013,
+      "latencyMs": {
+        "p50": 1.5859510000154842,
+        "p95": 1.7149160000262782,
+        "p99": 2.8863730000157375,
+        "max": 111.39956999997958
+      },
+      "cpuPercentOfOneCore": 103.96928347850411,
+      "cpuPercentOfMachine": 51.984641739252055,
+      "memory": {
+        "startRss": 523972608,
+        "endRss": 566042624,
+        "maxRss": 560500736,
+        "startHeapUsed": 201285872,
+        "endHeapUsed": 124217880,
+        "maxHeapUsed": 201285872
+      },
+      "pendingIndexWork": {
+        "peak": 1000,
+        "end": 1000
+      },
+      "indexTimingMs": {
+        "schedulingWait": 0,
+        "actualProcessing": 0,
+        "explicitFlushWait": 0
+      },
+      "pendingBeforeDrain": 1000,
+      "indexDrainMs": 1151.6615630000015,
+      "persistenceDrainMs": 933.4971730000107,
+      "pendingAfterDrain": 0
+    },
+    {
+      "name": "read",
+      "concurrency": 16,
+      "targetDurationMs": 60000,
+      "actualDurationMs": 60033.32777100001,
+      "operations": 28335,
+      "operationsPerSecond": 471.98782829572946,
+      "latencyMs": {
+        "p50": 33.66809400002239,
+        "p95": 38.27642500004731,
+        "p99": 42.10137799999211,
+        "max": 83.31347399999504
+      },
+      "cpuPercentOfOneCore": 100.47725694982779,
+      "cpuPercentOfMachine": 50.238628474913895,
+      "memory": {
+        "startRss": 568782848,
+        "endRss": 568975360,
+        "maxRss": 568782848,
+        "startHeapUsed": 154433688,
+        "endHeapUsed": 130113960,
+        "maxHeapUsed": 174254520
+      },
+      "pendingIndexWork": {
+        "peak": 0,
+        "end": 0
+      },
+      "indexTimingMs": {
+        "schedulingWait": 0,
+        "actualProcessing": 0,
+        "explicitFlushWait": 0
+      }
+    },
+    {
+      "name": "write",
+      "concurrency": 16,
+      "targetDurationMs": 60000,
+      "actualDurationMs": 60005.445689999964,
+      "operations": 155388,
+      "operationsPerSecond": 2589.564967199231,
+      "latencyMs": {
+        "p50": 5.761258999991696,
+        "p95": 7.19831599999452,
+        "p99": 13.197120999975596,
+        "max": 254.0607880000025
+      },
+      "cpuPercentOfOneCore": 104.0241769429978,
+      "cpuPercentOfMachine": 52.0120884714989,
+      "memory": {
+        "startRss": 569368576,
+        "endRss": 561905664,
+        "maxRss": 569368576,
+        "startHeapUsed": 137485048,
+        "endHeapUsed": 91311016,
+        "maxHeapUsed": 137485048
+      },
+      "pendingIndexWork": {
+        "peak": 1000,
+        "end": 1000
+      },
+      "indexTimingMs": {
+        "schedulingWait": 0,
+        "actualProcessing": 0,
+        "explicitFlushWait": 0
+      },
+      "pendingBeforeDrain": 1000,
+      "indexDrainMs": 1148.6051699999953,
+      "persistenceDrainMs": 929.8175460000057,
+      "pendingAfterDrain": 0
+    }
+  ],
+  "setup": {
+    "initialObjectInsertAckMs": 788.3449459999999,
+    "initialIndexBuildMs": 4461.357641,
+    "initialPersistenceFlushMs": 1080.3633310000005,
+    "pendingAfterInitialFlush": 0,
+    "coldFirstReadMs": 12.447955999999976,
+    "warmRepeatedReadMs": 0.5662290000000212
+  },
+  "completedAt": "2026-11-18T23:26:53.201Z"
+}

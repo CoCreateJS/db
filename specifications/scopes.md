@@ -2,18 +2,27 @@
 
 ## Scope hierarchy
 
-Every operation carries a required, caller-supplied `organizationId` as a top-level payload property. It is immutable for the operation, selects tenancy per request, and is separate from application object content and instance configuration.
+Every operation carries a required, caller-supplied `organization_id` as a
+top-level payload property. It identifies the organization boundary for that
+operation and may represent a company, project, or other grouping. There is no
+additional namespace tier above it. It is separate from application object
+content and instance configuration.
 
 ```text
-organizationId → storage → database → array → object → key
+storage → database → array → object
 ```
+
+`storage` is the first scope within an organization and groups databases. A
+database groups arrays, and an array contains object documents. Property names
+and paths belong to the object index; they are not scopes. The organization is identified directly by
+`organization_id`; it is not another scope in this chain.
 
 Illustrative object creation payload:
 
 ```js
 {
     method: "object.create",
-    organizationId: "organization-a",
+    organization_id: "organization-a",
     storage: "production",
     database: "application",
     array: "users",
@@ -21,30 +30,40 @@ Illustrative object creation payload:
 }
 ```
 
-The method selects a child scope and operation; organization is not a CRUD method prefix. A key is a logical path within an object, not a separate CRUD target. Each child scope is resolved through its parent using catalog/index references. Identical logical names in different parent scopes do not identify the same record.
+The method selects a child scope and operation; `organization_id` is not a
+CRUD method prefix. Each scope is resolved through its parent using indexes.
+An index resolves to another index or to the UUID artifact holding the
+addressed scope value. The `object` scope value is a complete document. Each
+object property path is indexed directly against that document artifact; paths
+have no independent UUID or artifact. Identical logical
+names in different parent scopes do not identify the same record.
 
 ## Tenancy isolation
 
-The authorized organization context is validated before bootstrap resolution or artifact acquisition. A payload ID is an address, not proof of authorization. All cache entries, pending work, subscriptions, provider operations and peer messages preserve organization context. UUID lookup alone cannot cross a tenancy boundary, even if two namespaces contain the same UUID. The organization ID is not generated from a filesystem path or rewritten by ordinary CRUD.
+The authorized organization context is validated before bootstrap resolution or artifact acquisition. A payload ID is an address, not proof of authorization. All cache entries, pending work, subscriptions, persistence calls and peer messages preserve organization context. UUID lookup alone cannot cross an organization boundary, even if two organizations contain the same UUID. The organization ID is not generated from a persistence path or rewritten by ordinary CRUD.
 
 ## Namespace provisioning
 
-The external bootstrap authority supplies the required `index.json` for the selected organization. New namespace creation is explicit; reopening does not silently initialize a missing namespace. See [README.md](README.md).
+A CRUD request can initialize an organization in memory when it is first used.
+Persistence may supply an existing root before normal operations, or receive
+the generated root for later recovery. Root creation and installation are
+separate from locating a persistence provider; the DB core does not own that
+provider choice. See [README.md](README.md).
 
-## Filesystem workflow
+## Persistence boundary
 
-A filesystem workflow resolves its base path relative to the process working directory (CWD), defaulting to CWD when unspecified. `COCREATE_DB_DIRECTORY` belongs to workflow configuration. The workflow does not append an implicit product-name directory.
-
-| Configured base | Organization location |
-| --- | --- |
-| Unset or `.` | `<cwd>/<organizationId>/` |
-| `../` | `<cwd>/../<organizationId>/` |
-| `../CoCreateDB` | `<cwd>/../CoCreateDB/<organizationId>/` |
-| `../organizations` | `<cwd>/../organizations/<organizationId>/` |
-| `../clusterdb` | `<cwd>/../clusterdb/<organizationId>/` |
-
-The canonical data artifact path is `<base>/<organizationId>/data/<uuid>`. The workflow validates path components and prevents traversal or namespace escape. Bootstrap and distribution ownership are separate from durable data persistence; the corresponding integration must know its local location.
+The DB core is in-memory and does not own a filesystem path or choose where
+data comes from or is stored. It requests a value from persistence and uses the
+result, or submits a value and expects persistence to save it. The persistence
+integration owns provider selection, physical addressing, serialization and
+durability. Organization context and artifact UUIDs identify the logical
+request; they do not prescribe a path or provider.
 
 ## Addressing invariants
 
-Physical addresses use organization context plus opaque UUID. Storage, database, array, object and key names express logical relationships, not physical paths. Provider remapping and artifact relocation do not alter these relationships. See [data.md](data.md) for identity and [crud.md](crud.md) for method routing.
+Logical addresses use organization context plus opaque UUID. Storage,
+database, array and object names express relationships, not persistence
+locations. Object property paths are index selectors into their owning object.
+Provider remapping and artifact relocation do not alter these
+relationships. See [data.md](data.md) for identity and [crud.md](crud.md) for
+method routing.

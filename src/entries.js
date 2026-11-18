@@ -5,22 +5,35 @@ import { flattenIndexValues } from './storage.js'
 export function arrayDigest(value) {
     const hash = createHash('sha256')
     const visit = item => {
+        if (item === undefined) { hash.update('undefined'); return }
+        if (item === null) { hash.update('null'); return }
+        if (ArrayBuffer.isView(item) || item instanceof ArrayBuffer) {
+            const bytes = item instanceof ArrayBuffer
+                ? Buffer.from(item)
+                : Buffer.from(item.buffer, item.byteOffset, item.byteLength)
+            hash.update(`binary:${item.constructor.name}:${bytes.length}:`)
+            hash.update(bytes)
+            return
+        }
         if (Array.isArray(item)) {
             hash.update('[')
-            for (let i = 0; i < item.length; i++) { if (i) hash.update(','); visit(item[i] ?? null) }
+            for (let i = 0; i < item.length; i++) {
+                if (i) hash.update(',')
+                hash.update(Object.hasOwn(item, i) ? 'value:' : 'hole:')
+                visit(item[i])
+            }
             hash.update(']')
         } else if (item && typeof item === 'object') {
             hash.update('{')
             let first = true
             for (const key of Object.keys(item).sort()) {
-                if (item[key] === undefined) continue
                 if (!first) hash.update(',')
                 first = false
                 hash.update(JSON.stringify(key) + ':')
                 visit(item[key])
             }
             hash.update('}')
-        } else hash.update(JSON.stringify(item) ?? 'null')
+        } else hash.update(`${typeof item}:${JSON.stringify(item)}`)
     }
     visit(value)
     return hash.digest('hex')

@@ -11,14 +11,14 @@ export async function readRoot(directory) {
         if (root.format !== FORMAT) throw new Error('Unsupported database format; use a separate path or migrate the existing dataset')
         return root
     }
-    for (const folder of ['storages', 'databases', 'arrays', 'objects', 'indexes', 'keys', 'values', 'deleted', 'distribution']) {
+    for (const folder of ['storages', 'databases', 'arrays', 'objects', 'indexes', 'deleted', 'distribution']) {
         try {
             if ((await readdir(join(directory, folder))).length)
                 throw new Error('Existing database files have no UUID root.json; use a separate path or migrate the existing dataset')
         } catch (error) { if (error.code !== 'ENOENT') throw error }
     }
 }
-
+/** Standalone object engines retain their existing local root manifest. */
 export async function ensureRoot(directory, index, database, array, field, onChange) {
     let root = await readRoot(directory)
     const id = index.catalogId(database, array)
