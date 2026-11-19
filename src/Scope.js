@@ -10,16 +10,7 @@ export function defaultConfiguration() {
     return {
         version: '1.0.0',
         scopes: {
-            $organization_id: {
-                storage: {
-                    database: {
-                        array: {
-                            object: {},
-                            index: {}
-                        }
-                    }
-                }
-            }
+            $organization_id: { storage: { database: { array: { object: {}, index: {} } } } }
         }
     }
 }
@@ -39,8 +30,7 @@ function scopePaths(scopes, target) {
         if (parents.has(node)) throw new Error('Cyclic scope configuration')
         parents.add(node)
         for (const [name, child] of Object.entries(node)) {
-            if (name.startsWith('$') && name !== '$organization_id')
-                throw new Error(`Unsupported dynamic scope: ${name}`)
+            if (name.startsWith('$') && name !== '$organization_id') throw new Error(`Unsupported dynamic scope: ${name}`)
             const next = [...path, name]
             if (name === target) result.push(next)
             if (isRecord(child)) visit(child, next, parents)
@@ -76,25 +66,29 @@ function insertEntry(tree, size, entry) {
 export function createScopeManager({ db, size = 64 }) {
     const context = { artifacts: db.artifacts, tree: db.tree }
 
-    function select(parent, typeName, query = {}, limit = Infinity) {
-        const criteria = { ...query, scopeType: typeName }
-        if (parent) criteria.scope = parent.uuid
-        else delete criteria.scope
+    function select(parent, scope, query = {}, limit = Infinity) {
+        const criteria = { ...query, scope }
+        if (parent) criteria.parent = parent.uuid
+        else delete criteria.parent
         return queryTree(context, criteria, limit)
     }
 
-    function find(parent, typeName, ref) {
+    function find(parent, scope, ref) {
         if (!ref) return []
-        return select(parent, typeName, ref.uuid ? { uuid: ref.uuid } : { name: ref.name }, 2)
+        if (ref.uuid) {
+            const artifact = db.artifacts.get(ref.uuid)
+            return artifact && artifact.scope === scope && artifact.parent === parent?.uuid ? [artifact] : []
+        }
+        return select(parent, scope, { name: ref.name }, 2)
     }
 
-    function create(value, parent, typeName) {
-        if (!isRecord(value)) throw new TypeError(`${typeName} must contain an object`)
-        value.scopeType = typeName
-        if (parent) value.scope = parent.uuid
-        else delete value.scope
+    function create(value, parent, scope) {
+        if (!isRecord(value)) throw new TypeError(`${scope} must contain an object`)
+        value.scope = scope
+        if (parent) value.parent = parent.uuid
+        else delete value.parent
         value.uuid ??= uuidValue()
-        if (typeName === 'object') value._id ??= uuidValue().slice(0, 24)
+        if (scope === 'object') value._id ??= uuidValue().slice(0, 24)
         if (db.artifacts.has(value.uuid)) throw new Error(`Artifact UUID already exists: ${value.uuid}`)
         const artifact = createArtifact(value)
         attach(artifact, entry => insertEntry(db.tree, size, entry))
@@ -103,25 +97,59 @@ export function createScopeManager({ db, size = 64 }) {
     }
 
     function remove(artifact) {
-        const children = queryTree(context, { scope: artifact.uuid }, 1)
+        const children = queryTree(context, { parent: artifact.uuid }, 1)
         if (children.length) throw new Error('Cannot delete a scope that still has child artifacts')
         for (const entry of Object.values(artifact.getIndex()))
             if (entry.partition) entry.tree.remove(entry)
         db.artifacts.delete(artifact.uuid)
     }
 
-    function resolve(envelope, target, { createMissing = false } = {}) {
+    function validateTarget(target) {
         const paths = scopePaths(db.scopes, target)
         if (!paths.length) throw new Error(`Scope is not configured: ${target}`)
+        return paths
+    }
+
+    function direct(envelope, target, id) {
+        const artifact = db.artifacts.get(id)
+        if (!artifact || artifact.scope !== target) return
+        // Validate existing ancestry rather than resolving names through indexes.
+        // Explicit references remain constraints, including organization_id.
+        const ancestors = []
+        const seen = new Set([id])
+        let current = artifact
+        while (current.parent !== undefined) {
+            if (seen.has(current.parent)) throw Error('Cyclic artifact ancestry')
+            seen.add(current.parent)
+            current = db.artifacts.get(current.parent)
+            if (!current) return
+            const key = current.scope === '$organization_id' ? 'organization_id' : current.scope
+            if (Object.hasOwn(envelope, key)) {
+                const ref = reference(envelope, current.scope)
+                if (!ref || (ref.uuid ? ref.uuid !== current.uuid : ref.name !== current.name)) return
+            }
+            ancestors.push(current)
+        }
+        if (Object.hasOwn(envelope, 'organization_id') && !ancestors.some(a => a.scope === '$organization_id') && artifact.scope !== '$organization_id') return
+        let node = db.scopes
+        for (let i = ancestors.length - 1; i >= 0; i--) {
+            const key = ancestors[i].scope
+            if (!isRecord(node) || !Object.hasOwn(node, key)) return
+            node = node[key]
+        }
+        if (!isRecord(node) || !Object.hasOwn(node, target) || !isRecord(node[target])) return
+        return artifact
+    }
+
+    function resolve(envelope, target, { createMissing = false } = {}) {
+        const paths = validateTarget(target)
         const eligible = paths.filter(path => path.slice(0, -1).every(name => reference(envelope, name)))
         if (!eligible.length) {
             const name = paths[0].slice(0, -1).find(part => !reference(envelope, part))
             throw new Error(`Missing scope reference${name ? `: ${name}` : ''}`)
         }
         if (eligible.length > 1) throw new Error(`Ambiguous scope path for ${target}`)
-
-        const path = eligible[0]
-        const created = []
+        const path = eligible[0], created = []
         let parent
         for (const name of path.slice(0, -1)) {
             const ref = reference(envelope, name)
@@ -139,5 +167,5 @@ export function createScopeManager({ db, size = 64 }) {
         return { target, parent, created, missing: false, path }
     }
 
-    return { create, resolve, select, remove }
+    return { create, resolve, select, remove, direct, validateTarget }
 }

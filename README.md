@@ -33,17 +33,17 @@ contracts to be integrated; this scope change does not invent a second one.
 
 The deterministic 1,000-object lifecycle run before and after scope resolution
 used fixture v2 and Node 24.18. Create plus index rose from 174.93 ms to an
-average 208.65 ms (5,717 to 4,793 records/s). Across two after runs, UUID read
-p50 averaged 0.124 ms (baseline 0.009 ms); equality 0.335 ms (0.183 ms); nested
-0.215 ms (0.136 ms); range 0.555 ms (0.280 ms); update 0.199 ms (0.127 ms).
-The 25-item delete batch averaged 2.57 ms versus 1.94 ms. Post-run heap used
-averaged 19.18 MB versus 10.86 MB; RSS averaged 85.99 MB versus 78.49 MB. CPU
-time rose from 337 ms to an average 473 ms. The additional scope and parent
+average 210.88 ms (5,717 to 4,743 records/s). Across three after runs, UUID
+read p50 averaged 0.123 ms (baseline 0.009 ms); equality 0.325 ms (0.183 ms);
+nested 0.198 ms (0.136 ms); range 0.567 ms (0.280 ms); update 0.200 ms
+(0.127 ms). The 25-item delete batch averaged 2.61 ms versus 1.94 ms. Post-run
+heap used averaged 18.37 MiB versus 10.36 MiB; RSS averaged 82.77 MiB versus
+74.86 MiB. CPU time rose from 337 ms to an average 474 ms. The additional scope and parent
 indexes have a measurable cost, and each operation resolves its configured
 ancestors. UUID reads are the largest relative regression and merit a follow-up
-optimization before treating this performance profile as settled. Raw runs are
-in `/tmp/db-scopes-before`, `/tmp/db-scopes-after-final`, and
-`/tmp/db-scopes-after-repeat` for this environment.
+optimization before treating this performance profile as settled. The
+reviewable table and raw JSON for the pre-scope baseline and three scoped runs
+are in [the scope benchmark report](test/benchmarks/scope-resolution/report.md).
 
 ## Structure
 
