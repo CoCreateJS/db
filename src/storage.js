@@ -147,49 +147,57 @@ export function normalizeArrayContinuity(value, seen = new WeakSet()) {
     return value
 }
 
-export function flattenIndexValues(object, prefix = '', entries = []) {
-    normalizeArrayContinuity(object)
+export function* indexValues(object, prefix = '') {
     const flattened = objectToDotNotation(object ?? {})
-    const values = new Map()
-    const seen = new Set()
-    const add = (path, value) => {
-        if (!path || seen.has(path) || path.split(/[.\[\]]/).some(key => key.startsWith('$')) ||
-            !prefix && path === 'uuid' || isBinaryMetadata(value)) return
-        let parts
-        try { parts = pathParts(path) }
-        catch { parts = [path] }
-        const parentPath = parts.length > 1
-            ? path.slice(0, path.lastIndexOf(typeof parts.at(-1) === 'number' ? '[' : '.'))
-            : ''
-        const parent = parentPath ? getPath(object, parentPath) : object
-        if (typeof value === 'string' && /^binary\[(0|[1-9]\d*)\]$/.test(value) && isBinaryMetadata(parent?.binary)) return
-        if (parts.length > 1) {
-            const boundary = /(?:^|\.)([^.[\]]+)|\[(\d+)\]/g
-            let match
-            while ((match = boundary.exec(path))) {
-                const ancestorPath = path.slice(0, boundary.lastIndex)
-                if (ancestorPath === path) break
-                const ancestor = getPath(object, ancestorPath)
-                if (ancestor && typeof ancestor === 'object' &&
-                    (ArrayBuffer.isView(ancestor) || ancestor instanceof ArrayBuffer)) return
-                if (!seen.has(ancestorPath) && !ancestorPath.split(/[.\[\]]/).some(key => key.startsWith('$')) &&
-                    !(ancestorPath === 'uuid' && !prefix) && !isBinaryMetadata(ancestor)) {
-                    seen.add(ancestorPath)
-                    values.set(ancestorPath, ancestor)
-                }
+    let binaryPaths
+    let binaryReferences
+    const excludedPath = path => !path || /(?:^|\.)\$|\[\$/.test(path)
+    const append = function* (path, value) {
+        if (excludedPath(path) || !prefix && path === 'uuid' || isBinaryMetadata(value)) return
+        const key = prefix ? `${prefix}.${path}` : path
+        yield [`${EXISTS_INDEX_PREFIX}${prefix}${path}`, true]
+        yield [key, value]
+    }
+    function* containers(value, path) {
+        if (!value || typeof value !== 'object' || isBinaryMetadata(value)) return
+        const binaryValue = ArrayBuffer.isView(value) || value instanceof ArrayBuffer
+        if (path) {
+            if (binaryValue) (binaryPaths ??= []).push(path)
+            if (!excludedPath(path) && (prefix || path !== 'uuid')) {
+                yield* append(path, value)
+            }
+            if (binaryValue) return
+        }
+
+        if (Array.isArray(value)) {
+            for (let index = 0; index < value.length; index++)
+                if (value[index] && typeof value[index] === 'object')
+                    yield* containers(value[index], `${path}[${index}]`)
+        } else {
+            const binary = isBinaryMetadata(value.binary)
+            for (const key of Object.keys(value)) {
+                if (key.startsWith('$')) continue
+                const child = value[key]
+                const childPath = path ? `${path}.${key}` : key
+                if (binary && typeof child === 'string' && /^binary\[(0|[1-9]\d*)\]$/.test(child))
+                    (binaryReferences ??= []).push(childPath)
+                if (child && typeof child === 'object') yield* containers(child, childPath)
             }
         }
-        seen.add(path)
-        values.set(path, value)
     }
 
-    // CoCreateDB retains container values for its own operators and indexes;
-    // Utils remains responsible only for producing the flattened leaf map.
-    for (const [key, value] of Object.entries(object ?? {})) add(key, value)
-    for (const [path, value] of Object.entries(flattened)) add(path, value)
+    yield* containers(object, '')
+    for (const path in flattened) {
+        const value = flattened[path]
+        if (binaryReferences?.includes(path) || binaryPaths?.some(binaryPath =>
+            path.startsWith(`${binaryPath}.`) || path.startsWith(`${binaryPath}[`))) continue
+        yield* append(path, value)
+    }
+}
 
-    for (const [path, value] of values)
-        entries.push([`${EXISTS_INDEX_PREFIX}${prefix}${path}`, true], [prefix ? `${prefix}.${path}` : path, value])
+export function flattenIndexValues(object, prefix = '', entries = []) {
+    normalizeArrayContinuity(object)
+    for (const entry of indexValues(object, prefix)) entries.push(entry)
     return entries
 }
 

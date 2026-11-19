@@ -1,5 +1,5 @@
 import { rm } from './io.js'
-import { flattenIndexValues, normalizeArrayContinuity, readJSON, replaceJSON, writeExclusiveJSON } from './storage.js'
+import { indexValues, normalizeArrayContinuity, readJSON, replaceJSON, writeExclusiveJSON } from './storage.js'
 import { removeMemoryPath } from './memory.js'
 import { queryData } from '@cocreate/utils'
 import { indexEntries, entryKey } from './entries.js'
@@ -12,7 +12,7 @@ export async function createRecord(index, database, array, file, record) {
     identify(record, fileIdFromPath(file))
     await writeExclusiveJSON(file, record)
     const createIndexes = async () => {
-        for (const [key, value] of flattenIndexValues(record))
+        for (const [key, value] of indexValues(record))
             await index.create(database, array, key, value, fileId(record))
     }
     if (index.batch) await index.batch(createIndexes)
