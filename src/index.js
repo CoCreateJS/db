@@ -1,25 +1,28 @@
-/********************************************************************************
- * Copyright (C) 2023-2026 CoCreate and Contributors.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- ********************************************************************************/
+import { createDistribution } from './distribution/index.js'
+import { crud } from './crud/index.js'
+import { persistence as defaults } from './persistence.js'
+import { createConfiguration, createScopeManager } from './Scope.js'
 
-// Commercial Licensing Information:
-// For commercial use of this software without the copyleft provisions of the AGPLv3,
-// you must obtain a commercial license from CoCreate LLC.
-// For details, visit <https://CoCreateJS.com/licenses/> or contact us at sales@CoCreateJS.com.
-
-import createIndex from './index/index.js'
-export { resolveDirectory } from './directory.js'
-export { fileId } from './files.js'
-export { getOrganization, setOrganization, deleteOrganization, getArtifact, setArtifact, deleteArtifact, hasArtifact } from './organization.js'
-import { createDistributionIndex } from './distribution.js'
-import { createDB } from './scoped.js'
-import { CoCreateDB, DB_PROVIDER, init, initLocal, initializeServerDB } from './server.js'
-export { getPersistence, sendPersistence, getPersistenceDriver, registerPersistenceDriver, persistenceDrivers } from './persistence/index.js'
-
-export { createIndex, createDistributionIndex, createDB, CoCreateDB, init, initLocal, initializeServerDB, DB_PROVIDER }
-export default CoCreateDB
+export default function createDB(server = { isPrimary: true }, options = {}) {
+    const { persistence = defaults, forward, size = 64 } = options
+    const configuration = createConfiguration(options)
+    const primary = !!server.isPrimary
+    const artifacts = primary ? new Map() : null
+    const tree = primary ? new Map() : null
+    const db = {
+        config: configuration,
+        scopes: configuration.scopes,
+        artifacts,
+        tree,
+        distribution: createDistribution(server),
+        async send(request) {
+            if (!primary) {
+                if (!forward) throw Error('worker IPC adapter required')
+                return forward(request)
+            }
+            return crud({ db, scopes: manager, persistence, size }, request)
+        }
+    }
+    const manager = primary ? createScopeManager({ db, size }) : null
+    return db
+}

@@ -1,5 +1,11 @@
 # CoCreateDB lifecycle benchmark
 
+This runner targets the previous implementation and is retained for
+cross-version comparison. On branch `Next`, use
+`test/benchmarks/compare-lifecycle.sh`; it copies this runner into a temporary
+`dev` worktree and runs it against the old source with the shared v2 fixture.
+The historical runs and reports below are preserved as reference data.
+
 Run from the DB repository root:
 
 ```sh
