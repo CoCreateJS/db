@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { indexId } from '../src/index/index.js'
 import { test } from 'node:test'
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { queryData } from '@cocreate/utils'
@@ -29,8 +29,8 @@ test('catalog statistics stay current through splits, duplicate insertion, delet
             await index.create('dev', 'items', 'rank', value, String(value))
             const { indexes } = await index.getMetadata('dev', 'items', 'rank')
             assert.equal(indexes.number.length, value + 1)
-            assert.deepEqual(indexes.number.first, { value: 0, objectId: '0' })
-            assert.deepEqual(indexes.number.last, { value, objectId: String(value) })
+            assert.deepEqual([indexes.number.firstValue, indexes.number.firstUuid], [0, '0'])
+            assert.deepEqual([indexes.number.lastValue, indexes.number.lastUuid], [value, String(value)])
         }
         await index.create('dev', 'items', 'rank', 39, '39')
         assert.equal((await index.getMetadata('dev', 'items', 'rank')).indexes.number.length, 40)
@@ -40,8 +40,8 @@ test('catalog statistics stay current through splits, duplicate insertion, delet
             if (value === 39) assert.deepEqual(indexes, {})
             else {
                 assert.equal(indexes.number.length, 39 - value)
-                assert.equal(indexes.number.first.value, value + 1)
-                assert.equal(indexes.number.last.value, 39)
+                assert.equal(indexes.number.firstValue, value + 1)
+                assert.equal(indexes.number.lastValue, 39)
             }
         }
         await index.create('dev', 'items', 'rank', 7, '7')
@@ -50,7 +50,7 @@ test('catalog statistics stay current through splits, duplicate insertion, delet
         assert.equal(metadata.indexes.number.length, 1)
         const catalog = JSON.parse(await readFile(join(directory, 'indexes', `${indexId('dev/items')}.json`)))
         assert.deepEqual(catalog.entries[0][3], {
-            length: 1, first: { value: 7, objectId: '7' }, last: { value: 7, objectId: '7' }
+            length: 1, firstValue: 7, firstUuid: '7', lastValue: 7, lastUuid: '7'
         })
         for (const file of await readdir(join(directory, 'indexes'))) {
             const node = JSON.parse(await readFile(join(directory, 'indexes', file)))
@@ -59,36 +59,13 @@ test('catalog statistics stay current through splits, duplicate insertion, delet
             for (const child of node.indexes ?? []) assert.equal('count' in child, false)
         }
         // Metadata is served from the catalog, without a value-root read.
-        await rm(join(directory, 'indexes', `${metadata.indexes.number.id}.json`))
+        await rm(join(directory, 'indexes', `${metadata.indexes.number.uuid}.json`))
         assert.deepEqual(await index.getMetadata('dev', 'items', 'rank'), metadata)
         for (const condition of [8, { $gt: 7 }, { $lt: 7 }]) {
             const result = await queryIndexCandidates(index, 'dev', 'items', { rank: condition })
             assert.equal(result.ids.size, 0)
             assert.equal(result.exact, true)
         }
-    })
-})
-
-test('legacy recursive lengths and mappings remain readable and are upgraded on mutation', async () => {
-    await fixture(async directory => {
-        const index = createIndex({ directory, maxBytes: 512 })
-        for (let value = 0; value < 30; value++) await index.create('dev', 'items', 'rank', value, String(value))
-        const path = join(directory, 'indexes')
-        for (const file of await readdir(path)) {
-            const node = JSON.parse(await readFile(join(path, file)))
-            if (node.length !== undefined) { node.count = node.length; delete node.length }
-            if (node.catalogLength !== undefined) { node.catalogCount = node.catalogLength; delete node.catalogLength }
-            for (const child of node.indexes ?? []) { child.count = child.length; delete child.length }
-            if (node.kind === 'catalog' && node.entries) node.entries = node.entries.map(entry => entry.slice(0, 3))
-            await writeFile(join(path, file), JSON.stringify(node))
-        }
-        const reopened = createIndex({ directory, maxBytes: 512 })
-        assert.equal((await reopened.getMetadata('dev', 'items', 'rank')).indexes.number.length, 30)
-        await reopened.create('dev', 'items', 'rank', 30, '30')
-        assert.equal((await reopened.getMetadata('dev', 'items', 'rank')).indexes.number.length, 31)
-        const root = JSON.parse(await readFile(join(path, `${indexId('dev/items')}.json`)))
-        assert.equal(root.entries[0][3].length, 31)
-        assert.equal('count' in root, false)
     })
 })
 
@@ -160,8 +137,8 @@ test('_id is cataloged automatically and ID ranges reach bounded index scans', a
         assert.equal(created.success, true, created.error)
         const root = (await db.index.getMetadata('dev', 'items', '_id')).indexes.string
         assert.equal(root.length, 3)
-        assert.equal(root.first.value, ids[0])
-        assert.equal(root.last.value, ids[2])
+        assert.equal(root.firstValue, ids[0])
+        assert.equal(root.lastValue, ids[2])
         const response = await db.send({ method: 'object.read', database: 'dev', array: 'items', filter: {
             query: { _id: { $gt: ids[0], $lte: ids[1] } }
         } })

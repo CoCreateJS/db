@@ -127,11 +127,11 @@ test('partition delivery updates the cached node in place with either index-cach
         const database = (await db.send({ ...base, method: 'database.read' })).database[0]
         const array = (await db.send({ ...base, method: 'array.read' })).array[0]
         const node = (await db.index.read('app', 'files', 'value')).indexes.number
-        const path = `indexes/${node.id}.json`
+        const path = `indexes/${node.uuid}.json`
         // Deserialization is the transport boundary; receiving does not clone it again.
         const incoming = JSON.parse(JSON.stringify(node))
         incoming.entries[0][0] = 2
-        incoming.first.value = incoming.last.value = 2
+        incoming.firstValue = incoming.lastValue = 2
         const result = await db.applyIndexPartition(path, incoming)
         assert.strictEqual(result, node)
         assert.strictEqual((await db.index.read('app', 'files', 'value')).indexes.number, node)
@@ -156,7 +156,7 @@ test('index nodes split in place, retain identity, and accept indivisible large 
     const arrayRead = await db.send({ ...base, method: 'array.read' })
     assert.equal(arrayRead.success, true, arrayRead.error)
     const array = arrayRead.array[0]
-    const path = `${root}/indexes/${valueRoot.id}.json`
+    const path = `${root}/indexes/${valueRoot.uuid}.json`
     assert.strictEqual(await readMemoryJSON(path), valueRoot, 'the original leaf is mutated rather than replaced')
     assert.equal((await send(db, 'read', undefined, { filter: { query: { rank: { $gte: 0 } } } })).object.length, 35)
     assert.equal(db.persistenceStats().pendingIndexes, 0)

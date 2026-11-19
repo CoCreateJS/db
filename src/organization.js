@@ -34,6 +34,11 @@ export function getArtifact(organization_id, artifactId) {
     return state(validOrganization(organization_id)).data.get(artifactId)
 }
 
+/** Return the organization's shared UUID-to-artifact Map. */
+export function getArtifactMap(organization_id) {
+    return state(validOrganization(organization_id)).data
+}
+
 export function setArtifact(organization_id, artifactId, value) {
     if (!/^[a-f0-9]{32}$/i.test(artifactId)) throw new TypeError('Artifact ID must be a UUID')
     state(validOrganization(organization_id)).data.set(artifactId, value)

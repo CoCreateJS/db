@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createDB } from '../src/index.js'
 import { removeMemoryPath } from '../src/memory.js'
-import { deleteOrganization } from '../src/organization.js'
+import { deleteOrganization, getArtifactMap } from '../src/organization.js'
 
 test('scoped CRUD lifecycle indexes nested paths and keeps UUID selection direct', async t => {
     const directory = await mkdtemp(join(tmpdir(), 'coc-lifecycle-'))
@@ -37,8 +37,18 @@ test('scoped CRUD lifecycle indexes nested paths and keeps UUID selection direct
     assert.equal(created.success, true, created.error?.join('; '))
     assert.deepEqual(created.object.map(item => item.uuid), documents.map(item => item.uuid))
     await db.flush()
-    assert.equal((await send('array.read', { array: { name: scope.array } })).array[0].length, documents.length)
-    assert.equal((await send('database.read', { database: { name: scope.database } })).database[0].objectLength, documents.length)
+    const arrayRecord = (await send('array.read', { array: { name: scope.array } })).array[0]
+    const databaseRecord = (await send('database.read', { database: { name: scope.database } })).database[0]
+    const storageRecord = (await send('storage.read', { storage: { name: scope.storage } })).storage[0]
+    assert.equal(arrayRecord.length, documents.length)
+    assert.equal(databaseRecord.objectLength, documents.length)
+    const artifacts = getArtifactMap(organization_id)
+    assert.strictEqual(artifacts.get(documents[0].uuid), documents[0])
+    assert.equal(artifacts.get(storageRecord.uuid)?._id, storageRecord._id)
+    assert.equal(artifacts.get(arrayRecord.uuid)?._id, arrayRecord._id)
+    assert.equal(artifacts.get(databaseRecord.uuid)?._id, databaseRecord._id)
+    assert.ok([...artifacts.values()].some(value => Array.isArray(value.entries) || Array.isArray(value.indexes)),
+        'catalogs, index nodes, scope records, and documents share the organization UUID Map')
 
     const byUuid = await send('object.read', { object: { uuid: documents[1].uuid } })
     assert.deepEqual(byUuid.object.map(item => item._id), ['item-b'])
@@ -60,6 +70,7 @@ test('scoped CRUD lifecycle indexes nested paths and keeps UUID selection direct
     const deleted = await send('object.delete', { filter: { query: { group: 'red' }, limit: 0 } })
     assert.equal(deleted.success, true, deleted.error?.join('; '))
     assert.deepEqual(deleted.object.map(item => item._id), ['item-c'])
+    assert.equal(artifacts.has(documents[2].uuid), false)
     await db.flush()
     assert.equal((await send('array.read', { array: { name: scope.array } })).array[0].length, 2)
     assert.equal((await send('database.read', { database: { name: scope.database } })).database[0].objectLength, 2)

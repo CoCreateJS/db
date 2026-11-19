@@ -57,7 +57,7 @@ test('all records use UUID filenames and metadata breadcrumbs reach every catalo
         assert.notEqual(record.id, record.value._id)
         if (type !== 'objects') {
             const catalog = JSON.parse(await readFile(join(root, 'indexes', `${record.value.index}.json`), 'utf8'))
-            assert.equal(catalog.id, record.value.index)
+            assert.equal(catalog.uuid, record.value.index)
         }
     }
     assert.notEqual(fileId(body), body._id)
@@ -148,7 +148,7 @@ test('storage name catalogs split through the same engine while root stays uncha
     } while (changed)
     assert.ok(nameRoot.entries.length < 40, 'serialization splits the original live name node')
     assert.strictEqual(await readMemoryJSON(join(root, 'root.json')), manifest)
-    assert.equal(catalog.id, manifest.storages)
+    assert.equal(catalog.uuid, manifest.storages)
     for (let i = 0; i < 40; i++) {
         const name = `storage-${String(i).padStart(3, '0')}-${'x'.repeat(40)}`
         const result = await send(db, 'storage.read', { storage: name })

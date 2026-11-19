@@ -17,7 +17,9 @@ export async function createRecord(index, database, array, file, record) {
     }
     if (index.batch) await index.batch(createIndexes)
     else await createIndexes()
-    return retainRecord(index, database, array, file, record)
+    const retained = retainRecord(index, database, array, file, record)
+    index.artifacts?.set(fileId(record), retained)
+    return retained
 }
 
 export async function updateRecord(index, database, array, file, current, updated) {
@@ -28,7 +30,9 @@ export async function updateRecord(index, database, array, file, current, update
     normalizeArrayContinuity(current)
     await reconcileEntrySets(index, database, array, fileId(current), before, indexEntries(current))
     await replaceJSON(file, current)
-    return retainRecord(index, database, array, file, live(current))
+    const retained = retainRecord(index, database, array, file, live(current))
+    index.artifacts?.set(fileId(current), retained)
+    return retained
 }
 
 export async function reconcileEntrySets(index, database, array, objectId, before, after) {
@@ -51,6 +55,7 @@ export async function deleteRecord(index, database, array, file, record) {
     }
     if (index.batch) await index.batch(removeIndexes)
     else await removeIndexes()
+    index.artifacts?.delete(fileId(record))
     removeMemoryPath(file)
     await rm(file)
     return record
@@ -71,11 +76,17 @@ export async function recordReference(index, database, array, id) {
 export async function readRecordById(index, database, array, fileForId, id) {
     const uuid = await recordReference(index, database, array, id)
     if (!uuid) return undefined
+    const artifact = index.artifacts?.get(uuid)
+    if (artifact) return artifact
     const file = fileForId(uuid)
     const cached = currentResolution()?.files[file]
     if (cached) return cached
     const record = await readJSON(file)
-    return record && retainRecord(index, database, array, file, identify(record, uuid))
+    if (!record) return undefined
+    identify(record, uuid)
+    const retained = retainRecord(index, database, array, file, record)
+    index.artifacts?.set(uuid, retained)
+    return retained
 }
 
 export async function findRecordByName(index, database, array, fileForId, name) {

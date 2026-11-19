@@ -102,10 +102,12 @@ const peerUpdate = (record, patch) => identify({ uuid: fileId(record), _id: reco
  */
 export function createDB({
     directory = './storage', indexRoot = directory, indexScope = 'standalone', managedRoot = false, maxIndexBytes = 128 * 1024, cache = false, memoryCache = false,
+    artifacts: sharedArtifacts,
     nodeId, distributionAdapter, peerReader, peerDistribution, partitionAdapter, documentMutationAdapter,
     writeBehind = false, memoryOnly = false, disk = true, sharedPersistence, scheduleIndexing = operation => operation(), onIndexed, persistenceOptions = {}
 } = {}) {
     const root = resolve(directory)
+    const artifacts = sharedArtifacts ?? new Map()
     const namespace = join(root, 'catalogs', indexScope)
     const peers = createPeerDistribution(nodeId)
     const adapters = createDistributionAdapters(nodeId, peers)
@@ -259,14 +261,18 @@ const deletionMarker = object => ({ uuid: fileId(object), _id: object._id, creat
                 return join(databaseDirectory(namespace, database), 'arrays')
             return arrayDirectory(namespace, database, array)
         },
+        artifacts,
         readPartition: path => partitionAdapter?.read?.(path),
         readIndexedValue: async ({ database: databaseId, array: arrayId, objectId, key }) => {
-            let record = await readJSON(recordPath(root, 'objects', objectId))
+            let record = artifacts.get(objectId) ?? await readJSON(recordPath(root, 'objects', objectId))
             if (!record && peerReader) for (const nodeId of (peerDistribution ?? peers).findFile(objectId)) {
                 record = await peerReader({ nodeId, type: 'object', databaseId, arrayId, fileId: objectId, objectId })
                 if (record) break
             }
-            if (record && fileId(record) === objectId) return getPath(record, key)
+            if (record && fileId(record) === objectId) {
+                artifacts.set(objectId, record)
+                return getPath(record, key)
+            }
         },
         onPartitionChange: change => {
             if (!nodeId) return
@@ -290,8 +296,18 @@ const deletionMarker = object => ({ uuid: fileId(object), _id: object._id, creat
         cache
     })
 
-    const readDatabase = id => readRecordById(storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, uuid => databaseMetadataPath(root, uuid), id)
-    const readArray = (database, id) => readRecordById(storageIndex, database, ARRAY_CATALOG, uuid => arrayMetadataPath(root, database, uuid), id)
+    const readDatabase = async id => {
+        if (/^[a-f0-9]{32}$/i.test(id) && artifacts.has(id)) return artifacts.get(id)
+        const record = await readRecordById(storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY, uuid => databaseMetadataPath(root, uuid), id)
+        if (record) artifacts.set(fileId(record), record)
+        return record
+    }
+    const readArray = async (database, id) => {
+        if (/^[a-f0-9]{32}$/i.test(id) && artifacts.has(id)) return artifacts.get(id)
+        const record = await readRecordById(storageIndex, database, ARRAY_CATALOG, uuid => arrayMetadataPath(root, database, uuid), id)
+        if (record) artifacts.set(fileId(record), record)
+        return record
+    }
     const resolvedScope = ({ database, array }) => {
         const db = resolvedCatalog(storageIndex, DATABASE_CATALOG, DATABASE_CATALOG_ARRAY)?.names[database]
         const dataset = db && resolvedCatalog(storageIndex, db._id, ARRAY_CATALOG)?.names[array]
@@ -488,6 +504,7 @@ const deletionMarker = object => ({ uuid: fileId(object), _id: object._id, creat
             const file = objectPath(root, database, array, fileId(object))
             if (deferred) {
                 await writeExclusiveJSON(file, object)
+                artifacts.set(fileId(object), object)
                 deletedObjects.set(objectDeletionPath(root, database, array, object._id), undefined)
                 const queuedEntry = queueIndex(database, array, undefined, object, publishMutation, undefined, undefined, [
                     ...(deletion ? [() => rm(objectDeletionPath(root, database, array, object._id), { force: true })] : []),
@@ -504,6 +521,7 @@ const deletionMarker = object => ({ uuid: fileId(object), _id: object._id, creat
 
             try {
                 await createRecord(storageIndex, database, array, file, object)
+                artifacts.set(fileId(object), object)
                 wroteObject = true
                 await clearDeletion(database, array, object._id)
                 if (!acquired) await adjustArrayLength(root, storageIndex, database, array, 1, request)
@@ -517,6 +535,7 @@ const deletionMarker = object => ({ uuid: fileId(object), _id: object._id, creat
                     await adjustArrayLength(root, storageIndex, database, array, -1, request).catch(() => {})
                 if (wroteObject)
                     await deleteRecord(storageIndex, database, array, file, object).catch(() => {})
+                artifacts.delete(fileId(object))
                 if (deletion) {
                     await replaceJSON(objectDeletionPath(root, database, array, object._id), deletion)
                     deletedObjects.set(objectDeletionPath(root, database, array, object._id), deletion)
@@ -539,12 +558,15 @@ const deletionMarker = object => ({ uuid: fileId(object), _id: object._id, creat
     }
 
     const readLocalObject = async (database, array, id) => {
+        if (/^[a-f0-9]{32}$/i.test(id) && artifacts.has(id)) return artifacts.get(id)
         for (const pending of pendingIndexes.values())
             if (pending.database === database && pending.array === array && pending.objectId === id) {
                 const record = await readJSON(objectPath(root, database, array, pending.fileId))
-                if (record) return record
+                if (record) { artifacts.set(fileId(record), record); return record }
             }
-        return readRecordById(storageIndex, database, array, uuid => objectPath(root, database, array, uuid), id)
+        const record = await readRecordById(storageIndex, database, array, uuid => objectPath(root, database, array, uuid), id)
+        if (record) artifacts.set(fileId(record), record)
+        return record
     }
 
     const hydrateObjects = async (request, records) => {
@@ -621,9 +643,12 @@ const deletionMarker = object => ({ uuid: fileId(object), _id: object._id, creat
             await markDeleted(databaseId, arrayId, object)
             removeMemoryPath(file)
             await rm(file, { force: true })
+            artifacts.delete(fileId(object))
         }
         else {
-            await replaceJSON(file, operation === 'update' ? current : object)
+            const record = operation === 'update' ? current : object
+            await replaceJSON(file, record)
+            artifacts.set(fileId(record), record)
             await clearDeletion(databaseId, arrayId, object._id)
         }
 
@@ -1026,6 +1051,7 @@ const deletionMarker = object => ({ uuid: fileId(object), _id: object._id, creat
                 const marker = deletionMarker(object)
                 const markerPath = objectDeletionPath(root, database, array, object._id)
                 await rm(file, { force: true })
+                artifacts.delete(fileId(object))
                 deletedObjects.set(markerPath, marker)
                 queueIndex(database, array, () => indexEntries(object), object, true, object.created?.on, undefined, [
                     () => replaceJSON(markerPath, marker),
@@ -1042,6 +1068,7 @@ const deletionMarker = object => ({ uuid: fileId(object), _id: object._id, creat
 
             try {
                 await deleteRecord(storageIndex, database, array, file, object)
+                artifacts.delete(fileId(object))
                 await markDeleted(database, array, object)
                 await adjustArrayLength(root, storageIndex, database, array, -1, request)
                 arrayLengthUpdated = true
@@ -1054,6 +1081,7 @@ const deletionMarker = object => ({ uuid: fileId(object), _id: object._id, creat
                     await adjustArrayLength(root, storageIndex, database, array, 1, request).catch(() => {})
                 if (!(await readJSON(file)))
                     await createRecord(storageIndex, database, array, file, object).catch(() => {})
+                artifacts.set(fileId(object), object)
                 await clearDeletion(database, array, object._id)
                 throw error
             }

@@ -33,13 +33,29 @@ test('organization indexes are sibling ID files, isolated across scopes and usab
     for (let i = 0; i < scopes.length; i++)
         assert.equal((await db.send({ ...scopes[i], method: 'object.create', object: { _id: objectId, value: i } })).success, true)
     const nodes = await files(directory)
-    const ids = new Set(nodes.map(node => node.id))
+    const ids = new Set(nodes.map(node => node.uuid))
     assert.equal(ids.size, nodes.length)
     for (const node of nodes) {
         assert.match(node.name, /^[a-f0-9]{32}\.json$/)
-        assert.equal(node.name, `${node.id}.json`)
+        assert.equal(node.name, `${node.uuid}.json`)
         assert.ok(ids.has(node.catalog), 'each node references an existing catalog root')
-        if (node.id === node.catalog) assert.equal(typeof node.path, 'string')
+        assert.equal(node.first, undefined, 'boundary metadata is not nested')
+        assert.equal(node.last, undefined, 'boundary metadata is not nested')
+        if (node.entries?.length) {
+            const first = node.kind === 'catalog'
+                ? [node.entries[0].slice(0, 2), node.entries[0][2]]
+                : [node.entries[0][0], node.entries[0][1][0]]
+            const lastEntry = node.entries.at(-1)
+            const last = node.kind === 'catalog'
+                ? [lastEntry.slice(0, 2), lastEntry[2]]
+                : [lastEntry[0], lastEntry[1].at(-1)]
+            assert.deepEqual([node.firstValue, node.firstUuid], first)
+            assert.deepEqual([node.lastValue, node.lastUuid], last)
+        }
+        for (const child of node.indexes ?? []) {
+            assert.deepEqual(Object.keys(child).sort(), ['firstUuid', 'firstValue', 'lastUuid', 'lastValue', 'length', 'uuid'])
+        }
+        if (node.uuid === node.catalog) assert.equal(typeof node.path, 'string')
     }
     await db.close()
     removeMemoryPath(directory)
@@ -50,7 +66,7 @@ test('organization indexes are sibling ID files, isolated across scopes and usab
         assert.equal(result.success, true, result.error?.join('; '))
         assert.equal(result.object[0].value, i)
     }
-    assert.deepEqual(new Set((await files(directory)).map(node => node.id)), ids)
+    assert.deepEqual(new Set((await files(directory)).map(node => node.uuid)), ids)
 })
 
 for (const type of ['array', 'database', 'storage']) test(`${type}.delete removes its flat index trees and preserves sibling data`, async t => {
@@ -65,7 +81,7 @@ for (const type of ['array', 'database', 'storage']) test(`${type}.delete remove
     if (type !== 'storage') prefix += `/databases/${database._id}`
     if (type === 'array') prefix += `/arrays/${array._id}`
     const before = await files(directory)
-    const roots = new Set(before.filter(node => node.path === prefix || node.path?.startsWith(prefix + '/')).map(node => node.id))
+    const roots = new Set(before.filter(node => node.path === prefix || node.path?.startsWith(prefix + '/')).map(node => node.uuid))
     assert.ok(roots.size)
     const result = await db.send({ ...scope, method: `${type}.delete` })
     assert.equal(result.success, true, result.error?.join('; '))
@@ -76,7 +92,7 @@ for (const type of ['array', 'database', 'storage']) test(`${type}.delete remove
     assert.notEqual(created.object[0]._id, held.object[0]._id)
 })
 
-test('legacy nested index files require migration instead of appearing empty', async t => {
+test('old nested files are not interpreted as current index artifacts', async t => {
     const directory = await mkdtemp(join(tmpdir(), 'coc-nested-indexes-'))
     t.after(() => rm(directory, { recursive: true, force: true }))
     const folder = join(directory, 'db', 'items', 'index')
@@ -84,7 +100,9 @@ test('legacy nested index files require migration instead of appearing empty', a
     const original = JSON.stringify({ id: 'root', kind: 'catalog', length: 0, entries: [] })
     await writeFile(join(folder, 'index.json'), original)
     const index = createIndex({ directory })
-    await assert.rejects(index.read('db', 'items'), /require migration/)
+    const entries = []
+    for await (const entry of index.scan('db', 'items')) entries.push(entry)
+    assert.deepEqual(entries, [])
     assert.equal(await readFile(join(folder, 'index.json'), 'utf8'), original)
     assert.equal((await readdir(directory)).includes('indexes'), false)
 })
@@ -98,7 +116,7 @@ test('dropping a partial local index does not acquire missing partitions from pe
     } })
     await index.create('db', 'items', 'score', 1, 'one')
     const node = (await index.read('db', 'items', 'score')).indexes.number
-    await rm(join(directory, 'indexes', `${node.id}.json`))
+    await rm(join(directory, 'indexes', `${node.uuid}.json`))
     dropping = true
     await index.drop('db', 'items')
     assert.deepEqual((await readdir(join(directory, 'indexes'))).filter(name => name.endsWith('.json')), [])

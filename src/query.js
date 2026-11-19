@@ -109,16 +109,16 @@ export async function queryIndexCandidates(index, database, array, query, { read
         if (!Object.keys(root.indexes).length) return all(false)
         if (!root.indexes[type]) return empty(true)
         const branch = root.indexes[type]
-        if (type !== 'array' && branch.first && branch.last && (
-            range?.lower !== undefined && (branch.last.value < range.lower ||
-                range.lowerOpen && branch.last.value === range.lower) ||
-            range?.upper !== undefined && (branch.first.value > range.upper ||
-                range.upperOpen && branch.first.value === range.upper)
+        if (type !== 'array' && branch.firstValue !== undefined && branch.lastValue !== undefined && (
+            range?.lower !== undefined && (branch.lastValue < range.lower ||
+                range.lowerOpen && branch.lastValue === range.lower) ||
+            range?.upper !== undefined && (branch.firstValue > range.upper ||
+                range.upperOpen && branch.firstValue === range.upper)
         )) return empty(true)
         const ids = new Set()
         // Metadata already resolved this field/type to its value-tree root.
         // Passing it through avoids walking the catalog a second time.
-        for await (const entry of index.scan(database, array, key, { type, ...range, rootId: branch.id }))
+        for await (const entry of index.scan(database, array, key, { type, ...range, rootId: branch.uuid }))
             if (predicate(entry.value)) ids.add(entry.objectId)
         return { ids, exact: true }
     }
@@ -134,7 +134,7 @@ export async function queryIndexCandidates(index, database, array, query, { read
             const types = Object.keys(pathMetadata.indexes)
             if (!types.length) break
             for (const type of types)
-                for await (const entry of index.scan(database, array, path, { type, rootId: pathMetadata.indexes[type].id }))
+                for await (const entry of index.scan(database, array, path, { type, rootId: pathMetadata.indexes[type].uuid }))
                     if (predicate(entry.value)) ids.add(entry.objectId)
         }
         return { ids, exact: true }
@@ -226,8 +226,8 @@ export async function queryIndexCandidates(index, database, array, query, { read
                 const equalityValue = Object.hasOwn(operator, '$eq') ? operator.$eq : undefined
                 const type = typeOf(equalityValue)
                 const branch = root.indexes[type]
-                if (['number', 'string', 'boolean', 'null'].includes(type) && !root.indexes.array && branch?.first && branch?.last &&
-                    (equalityValue < branch.first.value || equalityValue > branch.last.value)) {
+                if (['number', 'string', 'boolean', 'null'].includes(type) && !root.indexes.array && branch?.firstValue !== undefined && branch?.lastValue !== undefined &&
+                    (equalityValue < branch.firstValue || equalityValue > branch.lastValue)) {
                     costs.push(0)
                     continue
                 }

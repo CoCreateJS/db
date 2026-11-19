@@ -44,9 +44,26 @@ import { afterResponse } from '../resolution.js'
 const newId = () => uuid().replaceAll('-', '')
 export const indexId = stableId
 const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0
-const compareEntry = (a, b) => compare(a[0], b[0]) || compare(a[1], b[1])
-const boundary = entry => ({ value: entry[0], objectId: entry[1] })
-const tuple = item => [item.value, item.objectId]
+const lowerBound = (items, value, afterEquals, field = 0) => {
+    let lo = 0, hi = items.length
+    while (lo < hi) {
+        const mid = (lo + hi) >>> 1
+        const boundary = items[mid][field]
+        if (boundary < value || afterEquals && boundary === value) lo = mid + 1
+        else hi = mid
+    }
+    return lo
+}
+const lowerBoundUuid = (uuids, value) => {
+    let lo = 0, hi = uuids.length
+    while (lo < hi) {
+        const mid = (lo + hi) >>> 1
+        if (uuids[mid] < value) lo = mid + 1
+        else hi = mid
+    }
+    return lo
+}
+const uuidCount = entries => entries.reduce((count, [, uuids]) => count + uuids.length, 0)
 const typeOf = value => value === null ? 'null' :
     value === undefined ? 'undefined' :
     Array.isArray(value) ? 'array' :
@@ -64,6 +81,7 @@ export function createIndex({
     indexRoot = directory,
     flat = true,
     catalogIdForDirectory,
+    artifacts,
     readArtifact,
     writeArtifact,
     deleteArtifact,
@@ -99,12 +117,19 @@ export function createIndex({
     let remembered = new WeakSet()
     let changedPartitions
     let catalogBatch
-    const catalogBatchKey = (dir, key, type) => JSON.stringify([dir, key, type])
+    const catalogBatchRoot = (dir, key, type, value) => {
+        let keys = catalogBatch?.roots.get(dir)
+        if (!keys && value !== undefined) catalogBatch.roots.set(dir, keys = new Map())
+        let types = keys?.get(key)
+        if (!types && value !== undefined) keys.set(key, types = new Map())
+        if (value !== undefined) types.set(type, value)
+        return types?.get(type)
+    }
     const remember = (file, node, changed = false) => {
         if (!node || (!changed && remembered.has(node))) return node
         remembered.add(node)
         const dir = flat ? undefined : join(file, '..', '..')
-        for (const child of node.indexes ?? []) parents.set(nodeFile(dir, child.id), file)
+        for (const child of node.indexes ?? []) parents.set(nodeFile(dir, child.uuid), file)
         if (node.kind === 'catalog')
             for (const entry of node.entries ?? []) parents.set(nodeFile(dir, entry[2]), file)
         registerPartition(node, bytes => bytes > maxBytes ? splitForSend(file, node) : undefined)
@@ -116,11 +141,12 @@ export function createIndex({
             if (typeof part !== 'string' || !part || part === '.' || part === '..' || /[\\/\0]/.test(part))
                 throw new Error('Invalid database or array name')
         }
-        const addressKey = JSON.stringify([database, array])
-        if (arrayDirectories.has(addressKey)) return arrayDirectories.get(addressKey)
+        let arrays = arrayDirectories.get(database)
+        if (arrays?.has(array)) return arrays.get(array)
+        if (!arrays) arrayDirectories.set(database, arrays = new Map())
         if (!resolveArrayDirectory) {
             const dir = join(base, encodeURIComponent(database), encodeURIComponent(array))
-            arrayDirectories.set(addressKey, dir)
+            arrays.set(array, dir)
             return dir
         }
 
@@ -134,7 +160,7 @@ export function createIndex({
         if (isAbsolute(relativeDirectory) || relativeDirectory === '..' || relativeDirectory.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`))
             throw new Error('Resolved array directory must stay inside the configured directory')
 
-        arrayDirectories.set(addressKey, customDirectory)
+        arrays.set(array, customDirectory)
         return customDirectory
     }
 
@@ -183,8 +209,8 @@ export function createIndex({
         reportedPartitions.add(file)
     }
 
-    const readJSON = async file => {
-        if (cache?.has(file)) {
+    const readJSON = async (file, uuid = artifactId(file)) => {
+        if (!artifacts && !readArtifact && cache?.has(file)) {
             const value = live(cache.get(file))
             await reportLocalPartition(file, value)
             return remember(file, live(value))
@@ -192,7 +218,8 @@ export function createIndex({
 
         let value
 
-        value = readArtifact ? await readArtifact(artifactId(file)) : await readMemoryJSON(file)
+        value = artifacts?.has(uuid) ? artifacts.get(uuid)
+            : readArtifact ? await readArtifact(uuid) : await readMemoryJSON(file)
         if (value === undefined) {
             if (!readPartition) return undefined
             value = await readPartition(partitionPath(file))
@@ -201,17 +228,18 @@ export function createIndex({
             return live(value)
         }
 
-        // Both cache layers retain the same live node.
-        cache?.set(file, live(value))
+        if (artifacts && value && typeof value === 'object') artifacts.set(uuid, value)
+        else if (!readArtifact) cache?.set(file, live(value))
         await reportLocalPartition(file, value)
         return remember(file, value)
     }
 
     const writeJSON = async (file, value, { acquired = false, notify = true } = {}) => {
         value = writeArtifact
-            ? await writeArtifact(artifactId(file), value)
+            ? await writeArtifact(value.uuid ?? artifactId(file), value)
             : await replaceJSON(file, value)
-        cache?.set(file, live(value))
+        if (artifacts && value?.uuid) artifacts.set(value.uuid, value)
+        else if (!writeArtifact) cache?.set(file, live(value))
         remember(file, value, true)
         changedPartitions?.set(partitionPath(file), value)
         if (notify && onPartitionChange) {
@@ -226,43 +254,21 @@ export function createIndex({
         return value
     }
 
-    const normalizeLengths = node => {
-        if (!node) return node
-        if (node.length === undefined && node.count !== undefined) node.length = node.count
-        if (node.catalogLength === undefined && node.catalogCount !== undefined)
-            node.catalogLength = node.catalogCount
-        delete node.count
-        delete node.catalogCount
-        for (const child of node.indexes ?? []) normalizeLengths(child)
-        return node
-    }
-    const getNode = async (dir, id) => normalizeLengths(await readJSON(nodeFile(dir, id)))
+    const getNode = async (dir, id) => readJSON(nodeFile(dir, id), id)
     const setNode = (dir, node) => {
         if (flat) {
             node.catalog = catalogRootId(dir)
-            if (node.id === node.catalog) node.path = relative(origin, dir).split(/[\\/]/).join('/')
+            if (node.uuid === node.catalog) node.path = relative(origin, dir).split(/[\\/]/).join('/')
         }
-        return writeJSON(nodeFile(dir, node.id), node)
+        return writeJSON(nodeFile(dir, node.uuid), node)
     }
 
     const getCatalogNode = async (dir, id) => {
-        let node = normalizeLengths(await readJSON(nodeFile(dir, id)))
+        let node = await readJSON(nodeFile(dir, id), id)
 
         if (!node && id === catalogRootId(dir)) {
-            if (flat && await readMemoryJSON(join(dir, indexDirectoryName, 'index.json')))
-                throw new Error('Nested index files require migration to the flat indexes directory')
-            return { id, kind: 'catalog', length: 0, catalogLength: 0, entries: [] }
+            return updateCatalogNode({ uuid: id, kind: 'catalog', length: 0, entries: [] })
         }
-
-        if (id === catalogRootId(dir) && node.keys) {
-            const entries = []
-            for (const [key, branches] of Object.entries(node.keys))
-                for (const [type, rootId] of Object.entries(branches))
-                    entries.push([key, type, rootId])
-            entries.sort((a, b) => compare(a[0], b[0]) || compare(a[1], b[1]))
-            node = updateCatalogNode({ id, kind: 'catalog', length: node.length ?? 0, entries })
-        }
-
         return node
     }
     const setCatalogNode = setNode
@@ -274,10 +280,11 @@ export function createIndex({
         const file = nodeFile(dir, id)
 
         cache?.delete(file)
+        artifacts?.delete(id)
         removeMemoryPath(file)
         reportedPartitions.delete(file)
         parents.delete(file)
-        if (deleteArtifact) await deleteArtifact(artifactId(file))
+        if (deleteArtifact) await deleteArtifact(id)
         else await rm(file, { force: true })
         if (onPartitionChange)
             await onPartitionChange({ path: partitionPath(file), operation: 'remove' })
@@ -291,30 +298,27 @@ export function createIndex({
 
 
     const ref = node => ({
-        id: node.id,
+        uuid: node.uuid,
         length: node.length,
-        first: live(node.first),
-        last: live(node.last)
+        firstValue: node.firstValue,
+        firstUuid: node.firstUuid,
+        lastValue: node.lastValue,
+        lastUuid: node.lastUuid
     })
 
-    const update = node => {
+    const update = (node, lengthDelta) => {
         const items = node.entries ?? node.indexes
 
         node.length = node.entries
-            ? items.length
+            ? lengthDelta === undefined ? uuidCount(items) : node.length + lengthDelta
             : items.reduce((n, item) => n + item.length, 0)
 
-        node.first = items.length
-            ? node.entries
-                ? boundary(items[0])
-                : items[0].first
-            : null
-
-        node.last = items.length
-            ? node.entries
-                ? boundary(items.at(-1))
-                : items.at(-1).last
-            : null
+        const first = items[0]
+        const last = items.at(-1)
+        node.firstValue = first ? (node.entries ? first[0] : first.firstValue) : null
+        node.firstUuid = first ? (node.entries ? first[1][0] : first.firstUuid) : null
+        node.lastValue = last ? (node.entries ? last[0] : last.lastValue) : null
+        node.lastUuid = last ? (node.entries ? last[1].at(-1) : last.lastUuid) : null
 
         return node
     }
@@ -322,22 +326,24 @@ export function createIndex({
     const compareCatalogKey = (a, b) => compare(a[0], b[0]) || compare(a[1], b[1])
     const catalogBoundary = entry => [entry[0], entry[1]]
     const catalogRef = node => ({
-        id: node.id,
+        uuid: node.uuid,
         length: node.catalogLength,
-        first: live(node.first),
-        last: live(node.last)
+        firstValue: node.firstValue,
+        firstUuid: node.firstUuid,
+        lastValue: node.lastValue,
+        lastUuid: node.lastUuid
     })
     const updateCatalogNode = node => {
         const items = node.entries ?? node.indexes
         node.catalogLength = node.entries
             ? items.length
             : items.reduce((length, item) => length + item.length, 0)
-        node.first = items.length
-            ? node.entries ? catalogBoundary(items[0]) : items[0].first
-            : null
-        node.last = items.length
-            ? node.entries ? catalogBoundary(items.at(-1)) : items.at(-1).last
-            : null
+        const first = items[0]
+        const last = items.at(-1)
+        node.firstValue = first ? (node.entries ? catalogBoundary(first) : first.firstValue) : null
+        node.firstUuid = first ? (node.entries ? first[2] : first.firstUuid) : null
+        node.lastValue = last ? (node.entries ? catalogBoundary(last) : last.lastValue) : null
+        node.lastUuid = last ? (node.entries ? last[2] : last.lastUuid) : null
         return node
     }
 
@@ -348,7 +354,7 @@ export function createIndex({
 
         const moved = items.splice(at)
         for (let i = 0; i < moved.length; i++) moved[i] = live(moved[i])
-        const sibling = { id: newId(), kind: 'catalog', [property]: moved }
+        const sibling = { uuid: newId(), kind: 'catalog', [property]: moved }
         updateCatalogNode(node)
         updateCatalogNode(sibling)
         return sibling
@@ -380,7 +386,7 @@ export function createIndex({
         while (lo < hi) {
             const mid = (lo + hi) >>> 1
 
-            if (compareEntry(tuple(children[mid].last), entry) < 0)
+            if ((compare(children[mid].lastValue, entry[0]) || compare(children[mid].lastUuid, entry[1])) < 0)
                 lo = mid + 1
             else
                 hi = mid
@@ -393,12 +399,17 @@ export function createIndex({
         const property = node.entries ? 'entries' : 'indexes'
         const items = node[property]
 
-        const at = Math.ceil(items.length / 2);
-
-        const moved = items.splice(at)
+        let moved
+        if (node.entries && items.length === 1 && items[0][1].length > 1) {
+            const [value, uuids] = items[0]
+            moved = [[value, uuids.splice(Math.ceil(uuids.length / 2))]]
+        } else {
+            const at = Math.ceil(items.length / 2)
+            moved = items.splice(at)
+        }
         for (let i = 0; i < moved.length; i++) moved[i] = live(moved[i])
         const sibling = {
-            id: newId(),
+            uuid: newId(),
             [property]: moved
         }
 
@@ -415,20 +426,19 @@ export function createIndex({
             throw new Error(`Missing index node ${id}`)
 
         if (node.entries) {
-            const at = findPosition(node.entries, entry, compareEntry)
-
-            if (
-                at === node.entries.length ||
-                compareEntry(node.entries[at], entry) !== 0
-            ) {
-                node.entries.splice(at, 0, entry)
-            }
+            const at = lowerBound(node.entries, entry[0], false)
+            const group = node.entries[at]
+            if (group && compare(group[0], entry[0]) === 0) {
+                const uuidAt = lowerBoundUuid(group[1], entry[1])
+                if (group[1][uuidAt] === entry[1]) return [node]
+                group[1].splice(uuidAt, 0, entry[1])
+            } else node.entries.splice(at, 0, [entry[0], [entry[1]]])
         } else {
             const at = chooseChild(node.indexes, entry)
 
             const children = await insertNode(
                 dir,
-                node.indexes[at].id,
+                node.indexes[at].uuid,
                 entry
             )
 
@@ -439,7 +449,7 @@ export function createIndex({
             )
         }
 
-        update(node)
+        update(node, node.entries ? 1 : undefined)
 
         await setNode(dir, node)
         return [node]
@@ -452,22 +462,20 @@ export function createIndex({
             throw new Error(`Missing index node ${id}`)
 
         if (node.entries) {
-            const at = findPosition(node.entries, entry, compareEntry)
-
-            if (
-                at >= node.entries.length ||
-                compareEntry(node.entries[at], entry)
-            ) {
-                return { node, removed: false }
-            }
-
-            node.entries.splice(at, 1)
+            const at = lowerBound(node.entries, entry[0], false)
+            const group = node.entries[at]
+            if (!group || compare(group[0], entry[0]) !== 0) return { node, removed: false }
+            const uuidAt = lowerBoundUuid(group[1], entry[1])
+            if (group[1][uuidAt] !== entry[1]) return { node, removed: false }
+            group[1].splice(uuidAt, 1)
+            if (!group[1].length) node.entries.splice(at, 1)
+            update(node, -1)
         } else {
             const at = chooseChild(node.indexes, entry)
 
             const result = await removeNode(
                 dir,
-                node.indexes[at].id,
+                node.indexes[at].uuid,
                 entry
             )
 
@@ -480,7 +488,7 @@ export function createIndex({
                 node.indexes.splice(at, 1)
         }
 
-        update(node)
+        if (!node.entries) update(node)
 
         if (!node.length) {
             await deleteNode(dir, id)
@@ -505,7 +513,7 @@ export function createIndex({
 
         while (lo < hi) {
             const mid = (lo + hi) >>> 1
-            if (compareCatalogKey(children[mid].last, entry) < 0) lo = mid + 1
+            if (compareCatalogKey(children[mid].lastValue, entry) < 0) lo = mid + 1
             else hi = mid
         }
 
@@ -527,7 +535,7 @@ export function createIndex({
                 node.entries.splice(at, 0, entry)
         } else {
             const at = chooseCatalogChild(node.indexes, catalogBoundary(entry))
-            const children = await insertCatalogNode(dir, node.indexes[at].id, entry)
+            const children = await insertCatalogNode(dir, node.indexes[at].uuid, entry)
             node.indexes.splice(at, 1, ...children.map(catalogRef))
         }
 
@@ -549,7 +557,7 @@ export function createIndex({
             node.entries.splice(at, 1)
         } else {
             const at = chooseCatalogChild(node.indexes, key)
-            const result = await removeCatalogNode(dir, node.indexes[at].id, key)
+            const result = await removeCatalogNode(dir, node.indexes[at].uuid, key)
             if (!result.removed) return { node, removed: false }
             if (result.node) node.indexes[at] = catalogRef(result.node)
             else node.indexes.splice(at, 1)
@@ -568,14 +576,15 @@ export function createIndex({
 
     const setCatalogRoot = async (dir, key, type, rootId, rootNode) => {
         if (catalogBatch) {
-            catalogBatch.roots[catalogBatchKey(dir, key, type)] = { dir, key, type, rootId, rootNode }
+            catalogBatchRoot(dir, key, type, { dir, key, type, rootId, rootNode })
             return
         }
         const entryKey = [key, type]
         if (rootId) {
             const node = rootNode ?? await getNode(dir, rootId)
             await insertCatalogNode(dir, catalogRootId(dir), [key, type, rootId, {
-                length: node.length, first: live(node.first), last: live(node.last)
+                length: node.length, firstValue: node.firstValue, firstUuid: node.firstUuid,
+                lastValue: node.lastValue, lastUuid: node.lastUuid
             }])
             return
         }
@@ -585,9 +594,9 @@ export function createIndex({
 
         let current = await getCatalogNode(dir, catalogRootId(dir))
         while (current.indexes?.length === 1) {
-            const child = await getCatalogNode(dir, current.indexes[0].id)
+            const child = await getCatalogNode(dir, current.indexes[0].uuid)
             const objectLength = current.length ?? 0
-            await deleteCatalogNode(dir, child.id)
+            await deleteCatalogNode(dir, child.uuid)
             const property = child.entries ? 'entries' : 'indexes'
             delete current.entries
             delete current.indexes
@@ -601,7 +610,7 @@ export function createIndex({
         // Keep a stable empty root after the last catalog entry is removed.
         if (!current.catalogLength && !current.entries)
             await setCatalogNode(dir, updateCatalogNode({
-                id: catalogRootId(dir),
+                uuid: catalogRootId(dir),
                 kind: 'catalog',
                 length: current.length ?? 0,
                 entries: []
@@ -627,18 +636,17 @@ export function createIndex({
                     ? node.entries[at]
                     : undefined
             }
-            node = await read(node.indexes[chooseCatalogChild(node.indexes, entry)].id)
+            node = await read(node.indexes[chooseCatalogChild(node.indexes, entry)].uuid)
         }
     }
 
     const getCatalogRoot = async (dir, key, type) => {
-        const keyId = catalogBatchKey(dir, key, type)
-        if (catalogBatch && Object.hasOwn(catalogBatch.roots, keyId)) return catalogBatch.roots[keyId].rootId
+        const batched = catalogBatchRoot(dir, key, type)
+        if (batched) return batched.rootId
         return (await getCatalogEntry(dir, key, type))?.[2]
     }
 
-    // Resolve statistics without loading value roots for current catalog entries.
-    // Legacy mappings are read lazily and upgraded by the next mutation.
+    // Resolve statistics from catalog boundaries without loading value roots.
     const getMetadata = async (database, array, key = '_id') => {
         const dir = address(database, array)
         const indexes = {}
@@ -648,13 +656,14 @@ export function createIndex({
                     if (entry[0] !== key) continue
                     const metadata = entry[3] ?? await getNode(dir, entry[2])
                     if (!metadata) throw new Error(`Missing index node ${entry[2]}`)
-                    indexes[entry[1]] = { id: entry[2], length: metadata.length,
-                        first: metadata.first, last: metadata.last }
+                    indexes[entry[1]] = { uuid: entry[2], length: metadata.length,
+                        firstValue: metadata.firstValue, firstUuid: metadata.firstUuid,
+                        lastValue: metadata.lastValue, lastUuid: metadata.lastUuid }
                 }
             } else {
                 for (const child of node.indexes)
-                    if (child.first[0] <= key && child.last[0] >= key)
-                        await visit(await getCatalogNode(dir, child.id))
+                    if (child.firstValue[0] <= key && child.lastValue[0] >= key)
+                        await visit(await getCatalogNode(dir, child.uuid))
             }
         }
         await visit(await getCatalogNode(dir, catalogRootId(dir)))
@@ -663,7 +672,7 @@ export function createIndex({
 
     const liftCatalogRoot = async (dir, root, sibling) => {
         const property = root.entries ? 'entries' : 'indexes'
-        const left = updateCatalogNode({ id: newId(), kind: 'catalog', [property]: live(root[property]) })
+        const left = updateCatalogNode({ uuid: newId(), kind: 'catalog', [property]: live(root[property]) })
         await setCatalogNode(dir, left)
         await setCatalogNode(dir, sibling)
         delete root.entries
@@ -690,21 +699,21 @@ export function createIndex({
     // Register ancestry after a cold direct partition read. Catalogs identify
     // field roots; only a candidate root's ordered path is followed below it.
     const findParent = async (dir, target) => {
-        const targetFile = nodeFile(dir, target.id)
+        const targetFile = nodeFile(dir, target.uuid)
         const visitCatalog = async node => {
             if (node.indexes) {
                 for (const child of node.indexes) {
-                    const found = await visitCatalog(await getCatalogNode(dir, child.id))
+                    const found = await visitCatalog(await getCatalogNode(dir, child.uuid))
                     if (found) return true
                 }
             } else if (target.kind !== 'catalog') {
                 for (const entry of node.entries) {
                     let current = await getNode(dir, entry[2])
                     while (current) {
-                        if (current.id === target.id) return true
-                        if (!current.indexes || !target.first) break
-                        if (typeof current.first?.value !== typeof target.first.value) break
-                        current = await getNode(dir, current.indexes[chooseChild(current.indexes, tuple(target.first))].id)
+                        if (current.uuid === target.uuid) return true
+                        if (!current.indexes || target.firstValue === undefined) break
+                        if (typeof current.firstValue !== typeof target.firstValue) break
+                        current = await getNode(dir, current.indexes[chooseChild(current.indexes, [target.firstValue, target.firstUuid])].uuid)
                     }
                 }
             }
@@ -715,16 +724,18 @@ export function createIndex({
 
     const splitForSend = async (file, node) => {
         // Oversized indivisible values and minimum-fanout nodes are valid.
-        if (node.entries ? node.entries.length < 2 : !node.indexes || node.indexes.length < 4) return
+        if (node.entries
+            ? node.entries.length < 2 && !(node.kind !== 'catalog' && node.entries.length === 1 && node.entries[0][1].length > 1)
+            : !node.indexes || node.indexes.length < 4) return
         const catalog = flat ? await readJSON(nodeFile(undefined, node.catalog)) : undefined
         const dir = flat ? resolve(origin, catalog.path) : join(file, '..', '..')
         if (flat && (relative(origin, dir).startsWith('..') || isAbsolute(relative(origin, dir)))) throw new Error('Invalid index catalog path')
-        if (node.id !== catalogRootId(dir) && !parents.has(file)) await findParent(dir, node)
-        if (node.id !== catalogRootId(dir) && !parents.has(file)) return
+        if (node.uuid !== catalogRootId(dir) && !parents.has(file)) await findParent(dir, node)
+        if (node.uuid !== catalogRootId(dir) && !parents.has(file)) return
         const changes = new Map()
         changedPartitions = changes
         try {
-            if (node.kind === 'catalog' && node.id === catalogRootId(dir)) {
+            if (node.kind === 'catalog' && node.uuid === catalogRootId(dir)) {
                 await liftCatalogRoot(dir, node, splitCatalogNode(node))
             } else {
                 const sibling = node.kind === 'catalog' ? splitCatalogNode(node) : split(node)
@@ -743,13 +754,13 @@ export function createIndex({
                         if (!entry) throw new Error('Missing field root in index catalog')
                         let root = children[0]
                         if (children.length > 1) {
-                            root = update({ id: newId(), indexes: children.map(ref) })
+                            root = update({ uuid: newId(), indexes: children.map(ref) })
                             await setNode(dir, root)
                         }
-                        entry[2] = root.id
-                        entry[3] = { length: root.length, first: live(root.first), last: live(root.last) }
+                        entry[2] = root.uuid
+                        entry[3] = { length: root.length, firstValue: root.firstValue, firstUuid: root.firstUuid, lastValue: root.lastValue, lastUuid: root.lastUuid }
                     } else {
-                        const at = parent.indexes.findIndex(child => nodeFile(dir, child.id) === childFile)
+                        const at = parent.indexes.findIndex(child => nodeFile(dir, child.uuid) === childFile)
                         if (at < 0) throw new Error('Missing child in index parent')
                         parent.indexes.splice(at, 1, ...children.map(parent.kind === 'catalog' ? catalogRef : ref))
                     }
@@ -771,12 +782,15 @@ export function createIndex({
             throw new Error(`Missing index node ${id}`)
 
         if (node.entries) {
-            const at = findPosition(node.entries, entry, compareEntry)
-            return at < node.entries.length && compareEntry(node.entries[at], entry) === 0
+            const at = lowerBound(node.entries, entry[0], false)
+            const group = node.entries[at]
+            if (!group || compare(group[0], entry[0]) !== 0) return false
+            const uuidAt = lowerBoundUuid(group[1], entry[1])
+            return group[1][uuidAt] === entry[1]
         }
 
         const at = chooseChild(node.indexes, entry)
-        return containsNode(dir, node.indexes[at].id, entry)
+        return containsNode(dir, node.indexes[at].uuid, entry)
     }
 
     const root = async (dir, key, type) => {
@@ -813,16 +827,16 @@ export function createIndex({
         const existing = await root(dir, key, type)
 
         const entry = [indexedValue, objectId]
-        const isNewObjectId = key === '_id' && (!existing || !await containsNode(dir, existing.id, entry))
+        const isNewObjectId = key === '_id' && (!existing || !await containsNode(dir, existing.uuid, entry))
 
         if (!existing) {
             const node = update({
-                id: newId(),
-                entries: [entry]
+                uuid: newId(),
+                entries: [[indexedValue, [objectId]]]
             })
 
             await setNode(dir, node)
-            await setRoot(dir, key, type, node.id, node)
+            await setRoot(dir, key, type, node.uuid, node)
 
             if (isNewObjectId) await adjustLength(dir, 1)
 
@@ -831,20 +845,20 @@ export function createIndex({
 
         const nodes = await insertNode(
             dir,
-            existing.id,
+            existing.uuid,
             entry
         )
 
         if (nodes.length === 2) {
             const parent = update({
-                id: newId(),
+                uuid: newId(),
                 indexes: nodes.map(ref)
             })
 
             await setNode(dir, parent)
-            await setRoot(dir, key, type, parent.id, parent)
+            await setRoot(dir, key, type, parent.uuid, parent)
         } else {
-            await setRoot(dir, key, type, nodes[0].id, nodes[0])
+            await setRoot(dir, key, type, nodes[0].uuid, nodes[0])
         }
 
         if (isNewObjectId) await adjustLength(dir, 1)
@@ -870,7 +884,7 @@ export function createIndex({
 
         const result = await removeNode(
             dir,
-            existing.id,
+            existing.uuid,
             [indexedValue, objectId]
         )
 
@@ -883,13 +897,13 @@ export function createIndex({
 
             node = await getNode(
                 dir,
-                node.indexes[0].id
+                node.indexes[0].uuid
             )
 
-            await deleteNode(dir, old.id)
+            await deleteNode(dir, old.uuid)
         }
 
-        await setRoot(dir, key, type, node?.id, node)
+        await setRoot(dir, key, type, node?.uuid, node)
 
         indexedValues.delete(indexedValueId(dir, key, objectId, type, indexedValue))
 
@@ -906,23 +920,12 @@ export function createIndex({
     ) {
         if (node.entries) {
             const entries = node.entries
-            const position = (value, afterEquals) => {
-                let lo = 0
-                let hi = entries.length
-                while (lo < hi) {
-                    const mid = (lo + hi) >>> 1
-                    if (entries[mid][0] < value || afterEquals && entries[mid][0] === value) lo = mid + 1
-                    else hi = mid
-                }
-                return lo
-            }
             // Binary seeking is valid within a homogeneous ordered branch.
             // Retain filtering below for callers supplying cross-type bounds.
-            const sameType = value => entries.length && typeof value === typeof entries[0][0]
-            const start = range.lower !== undefined && sameType(range.lower)
-                ? position(range.lower, range.lowerOpen) : 0
-            const end = range.upper !== undefined && sameType(range.upper)
-                ? position(range.upper, !range.upperOpen) : entries.length
+            const start = range.lower !== undefined && entries.length && typeof range.lower === typeof entries[0][0]
+                ? lowerBound(entries, range.lower, range.lowerOpen) : 0
+            const end = range.upper !== undefined && entries.length && typeof range.upper === typeof entries[0][0]
+                ? lowerBound(entries, range.upper, !range.upperOpen) : entries.length
             for (let i = reverse ? end - 1 : start; reverse ? i >= start : i < end; i += reverse ? -1 : 1) {
                 const entry = entries[i]
                 const value = entry[0]
@@ -936,17 +939,21 @@ export function createIndex({
             }
         } else {
             const children = node.indexes
-            for (let i = reverse ? children.length - 1 : 0; reverse ? i >= 0 : i < children.length; i += reverse ? -1 : 1) {
+            const start = range.lower !== undefined && children.length && typeof range.lower === typeof children[0].firstValue
+                ? lowerBound(children, range.lower, range.lowerOpen, 'lastValue') : 0
+            const end = range.upper !== undefined && children.length && typeof range.upper === typeof children[0].firstValue
+                ? lowerBound(children, range.upper, !range.upperOpen, 'firstValue') : children.length
+            for (let i = reverse ? end - 1 : start; reverse ? i >= start : i < end; i += reverse ? -1 : 1) {
                 const child = children[i]
                 if (range.lower !== undefined && (
-                    child.last.value < range.lower || (range.lowerOpen && child.last.value === range.lower)
+                    child.lastValue < range.lower || (range.lowerOpen && child.lastValue === range.lower)
                 )) continue
                 if (range.upper !== undefined && (
-                    child.first.value > range.upper || (range.upperOpen && child.first.value === range.upper)
+                    child.firstValue > range.upper || (range.upperOpen && child.firstValue === range.upper)
                 )) continue
                 yield* scanNode(
                     dir,
-                    await getNode(dir, child.id),
+                    await getNode(dir, child.uuid),
                     reverse,
                     range
                 )
@@ -994,16 +1001,17 @@ export function createIndex({
 
             const node = await getNode(dir, id)
 
-            for await (
-                const entry of scanNode(dir, node, reverse, scanRange(currentType))
-            ) {
-                if (emitted++ >= limit) return
-
-                yield {
-                    value: currentType === 'array' || currentType === 'object'
-                        ? await readIndexed(dir, database, array, key, entry[1], currentType, entry[0])
-                        : currentType === 'undefined' ? undefined : entry[0],
-                    objectId: entry[1]
+            for await (const group of scanNode(dir, node, reverse, scanRange(currentType))) {
+                const ids = group[1]
+                for (let i = reverse ? ids.length - 1 : 0; reverse ? i >= 0 : i < ids.length; i += reverse ? -1 : 1) {
+                    if (emitted++ >= limit) return
+                    const objectId = ids[i]
+                    yield {
+                        value: currentType === 'array' || currentType === 'object'
+                            ? await readIndexed(dir, database, array, key, objectId, currentType, group[0])
+                            : currentType === 'undefined' ? undefined : group[0],
+                        objectId
+                    }
                 }
             }
         }
@@ -1023,26 +1031,30 @@ export function createIndex({
         const entry = [indexedValue, objectId]
         while (node) {
             if (node.entries) {
-                const at = findPosition(node.entries, entry, compareEntry)
-                if (at >= node.entries.length || compareEntry(node.entries[at], entry) !== 0)
-                    return undefined
-                return partitionPath(nodeFile(dir, node.id))
+                const at = lowerBound(node.entries, entry[0], false)
+                const group = node.entries[at]
+                if (!group || compare(group[0], entry[0]) !== 0) return undefined
+                const uuidAt = lowerBoundUuid(group[1], objectId)
+                if (group[1][uuidAt] !== objectId) return undefined
+                return partitionPath(nodeFile(dir, node.uuid))
             }
-            node = await read(node.indexes[chooseChild(node.indexes, entry)].id)
+            node = await read(node.indexes[chooseChild(node.indexes, entry)].uuid)
         }
         return undefined
     }
 
     const batch = async operation => {
         if (catalogBatch) return operation()
-        const current = catalogBatch = { roots: Object.create(null), lengths: Object.create(null) }
+        const current = catalogBatch = { roots: new Map(), lengths: Object.create(null) }
         let result, failure
         try { result = await operation() }
         catch (error) { failure = error }
         catalogBatch = undefined
         try {
-            for (const update of Object.values(current.roots))
-                await setCatalogRoot(update.dir, update.key, update.type, update.rootId, update.rootNode)
+            for (const keys of current.roots.values())
+                for (const types of keys.values())
+                    for (const update of types.values())
+                        await setCatalogRoot(update.dir, update.key, update.type, update.rootId, update.rootNode)
             for (const [dir, delta] of Object.entries(current.lengths))
                 if (delta) await adjustLength(dir, delta)
         } catch (error) { failure ??= error }
@@ -1051,6 +1063,7 @@ export function createIndex({
     }
 
     return {
+        artifacts,
         batch,
         catalogId: (database, array) => catalogRootId(address(database, array)),
         async ensureCatalog(database, array) {
@@ -1068,10 +1081,10 @@ export function createIndex({
                 const node = id === catalogRootId(dir)
                     ? await getCatalogNode(dir, id)
                     : await getNode(dir, id)
-                for (const child of node?.indexes ?? []) await remove(child.id, key, type)
+                for (const child of node?.indexes ?? []) await remove(child.uuid, key, type)
                 if (node?.kind === 'catalog') for (const entry of node.entries ?? []) await remove(entry[2], entry[0], entry[1])
-                else if (type === 'array' || type === 'object') for (const [digest, uuid] of node?.entries ?? [])
-                    indexedValues.delete(indexedValueId(dir, key, uuid, type, digest))
+                else if (type === 'array' || type === 'object') for (const [digest, uuids] of node?.entries ?? [])
+                    for (const uuid of uuids) indexedValues.delete(indexedValueId(dir, key, uuid, type, digest))
                 await deleteNode(dir, id)
             }
             await remove(catalogRootId(dir))
@@ -1140,10 +1153,10 @@ export function createIndex({
 
         applyPartition: async (path, value) => {
             const file = resolvePartitionFile(path)
-            if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.id !== 'string')
+            if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.uuid !== 'string')
                 throw new TypeError('Index partition must be a JSON index node')
             const expectedId = !flat && path.split('/').at(-1) === 'index.json' ? 'root' : path.split('/').at(-1).slice(0, -5)
-            if (value.id !== expectedId)
+            if (value.uuid !== expectedId)
                 throw new Error('Index partition ID does not match its path')
             return writeJSON(file, value, { notify: false })
         },
@@ -1152,6 +1165,7 @@ export function createIndex({
             const file = resolvePartitionFile(path)
             cache?.delete(file)
             removeMemoryPath(file)
+            artifacts?.delete(artifactId(file))
             if (deleteArtifact) await deleteArtifact(artifactId(file))
             else await rm(file, { force: true })
         },

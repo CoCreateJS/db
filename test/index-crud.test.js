@@ -20,14 +20,14 @@ for (const [label, create] of [['scoped DB', createDB], ['engine', createEngine]
         assert.equal((await send('create', entry)).success, true)
         const first = await send('read', { key: 'score' })
         assert.equal(first.success, true)
-        assert.deepEqual(first.index[0].indexes.number.entries, [[1, entry.objectId]])
+        assert.deepEqual(first.index[0].indexes.number.entries, [[1, [entry.objectId]]])
 
         // Update retains the previous insertion semantics; replacement is deferred.
         assert.equal((await send('update', [{ ...entry, value: 2 }])).success, true)
         assert.equal((await send('read', { key: 'score' })).index[0].indexes.number.length, 2)
         assert.deepEqual((await send('delete', entry)).index, [entry])
         const result = await send('read', { key: 'score' })
-        assert.deepEqual(result.index[0].indexes.number.entries, [[2, entry.objectId]])
+        assert.deepEqual(result.index[0].indexes.number.entries, [[2, [entry.objectId]]])
 
         for (const method of ['create', 'read', 'update', 'delete']) assert.equal(typeof db.index[method], 'function')
         for (const method of ['get', 'set', 'remove']) assert.equal(db.index[method], undefined)

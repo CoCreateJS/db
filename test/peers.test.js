@@ -175,7 +175,7 @@ test('connecting peers exchange local inventories once, then apply changes and f
     assert.equal(second.db.persistenceStats().backgroundError, undefined)
     assert.equal(second.db.persistenceStats().indexError, undefined)
     const tags = (await first.db.index.read(scope, 'app', 'items', 'tags')).indexes.array
-    assert.ok((await first.db.getPartitionHolders(`${scope.organization_id}/indexes/${tags.id}.json`)).includes('two'),
+    assert.ok((await first.db.getPartitionHolders(`${scope.organization_id}/indexes/${tags.uuid}.json`)).includes('two'),
         'read follow-up registers the queried partition before later changes')
     await first.db.send({ ...scope, method: 'object.update', object: { _id: created.object[0]._id, $update: { $inc: { value: 2 } } } })
     await first.db.flush()

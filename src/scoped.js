@@ -14,7 +14,7 @@ import { auditMetadata, readJSON, replaceJSON } from './storage.js'
 import { createRecord, updateRecord, deleteRecord, readRecordById } from './records.js'
 import { applyReadFilter } from './read.js'
 import { withResolution, resolvedCatalog } from './resolution.js'
-import { deleteArtifact, deleteOrganization, getArtifact, getOrganization, setArtifact, setOrganization } from './organization.js'
+import { deleteArtifact, deleteOrganization, getArtifact, getArtifactMap, getOrganization, setArtifact, setOrganization } from './organization.js'
 import { normalizeEntities, entityUuid, hasExplicitFilter } from './crud.js'
 
 function errorHandler(data, error) {
@@ -76,9 +76,10 @@ export function createDB(options = {}) {
             }
         }
         const organizationDirectory = join(root, organization)
+        const artifacts = getArtifactMap(organization)
         const rootCatalogDirectory = join(organizationDirectory, 'catalogs', 'storages')
         const index = createIndex({ directory: organizationDirectory, indexRoot: organizationDirectory,
-            maxBytes: options.maxIndexBytes, cache: options.cache,
+            maxBytes: options.maxIndexBytes, cache: options.cache, artifacts,
             resolveArrayDirectory: () => join(root, organization, 'catalogs', 'storages'),
             catalogIdForDirectory: directory => directory === rootCatalogDirectory
                 ? getOrganization(organization).root : undefined,
@@ -116,13 +117,24 @@ export function createDB(options = {}) {
         organizations.set(organization, state)
         return state
     }
+    const rememberStorage = (organization, record) => {
+        if (record) setArtifact(organization, fileId(record), record)
+        return record
+    }
+    const readStorageRecord = async (organization, uuid) => {
+        const artifacts = getArtifactMap(organization)
+        if (artifacts.has(uuid)) return artifacts.get(uuid)
+        const record = await readRecordById(organizationState(organization).index, CATALOG, STORAGES,
+            id => storageFile(organization, id), uuid)
+        return rememberStorage(organization, record)
+    }
     const findStorage = async (organization, storage) => {
         const state = organizationState(organization)
         await state.ready
         const { index } = state
         if (storage && typeof storage === 'object') {
             const uuid = entityUuid(storage, 'storage')
-            const byUuid = uuid ? await readRecordById(index, CATALOG, STORAGES, id => storageFile(organization, id), uuid) : undefined
+            const byUuid = uuid ? await readStorageRecord(organization, uuid) : undefined
             const byName = storage.name === undefined ? undefined : await findStorage(organization, name(storage.name, 'storage.name'))
             if (uuid && storage.name !== undefined && (!byUuid || !byName || fileId(byUuid) !== fileId(byName)))
                 throw new Error('storage.uuid and storage.name must resolve to the same storage')
@@ -133,12 +145,15 @@ export function createDB(options = {}) {
         if (existing) return existing
         for await (const entry of index.scan(CATALOG, STORAGES, 'name', { type: 'string', lower: storage, upper: storage })) {
             if (entry.value !== storage) continue
-            const record = await readRecordById(index, CATALOG, STORAGES, uuid => storageFile(organization, uuid), entry.objectId)
+            const record = await readStorageRecord(organization, entry.objectId)
             if (record) return record
             const peer = peers.findScope(organization, storage)
             if (peer && options.peerReader) {
                 const acquired = await options.peerReader({ ...peer, type: 'storage', fileId: entry.objectId })
-                if (acquired) return createRecord(index, CATALOG, STORAGES, storageFile(organization, fileId(acquired)), acquired)
+                if (acquired) {
+                    await createRecord(index, CATALOG, STORAGES, storageFile(organization, fileId(acquired)), acquired)
+                    return rememberStorage(organization, acquired)
+                }
             }
         }
     }
@@ -152,6 +167,7 @@ export function createDB(options = {}) {
         const record = { _id: storageId ? id(storageId, 'storageId') : ObjectId().toString(), name: storage, created: auditMetadata(request), updated: auditMetadata(request) }
         record.index = indexId(`catalogs/${record._id}/databases`)
         await createRecord(index, CATALOG, STORAGES, storageFile(organization, uuid), record)
+        rememberStorage(organization, record)
         await engineFor(organization, record).engine.ready
         if (notify) await options.onStorageChange?.({ organization_id: organization, storageId: record._id, storageFileId: fileId(record), storage: record.name, operation: 'set', record })
         return record
@@ -169,6 +185,7 @@ export function createDB(options = {}) {
         const engine = createEngine({ ...options, directory: join(root, organization), indexScope: record._id, managedRoot: true,
             writeBehind: true,
             indexRoot: join(root, organization),
+            artifacts: getArtifactMap(organization),
             sharedPersistence: persistence,
             scheduleIndexing: options.scheduleIndexing ?? serialize,
             persistenceOptions: options.persistenceOptions,
@@ -194,10 +211,13 @@ export function createDB(options = {}) {
         if (deleted) throw new Error('Storage has been deleted')
         const state = organizationState(organization)
         await state.ready
-        let record = await readRecordById(state.index, CATALOG, STORAGES, uuid => storageFile(organization, uuid), payload.storageFileId ?? storageId)
+        let record = await readStorageRecord(organization, payload.storageFileId ?? storageId)
         if (!record && options.peerReader) {
             record = await options.peerReader({ ...payload, type: 'storage', nodeId: payload.nodeId ?? payload.serverId ?? peers.findScope(organization, payload.storage)?.nodeId, fileId: payload.storageFileId })
-            if (record) await createRecord(state.index, CATALOG, STORAGES, storageFile(organization, fileId(record)), record)
+            if (record) {
+                await createRecord(state.index, CATALOG, STORAGES, storageFile(organization, fileId(record)), record)
+                rememberStorage(organization, record)
+            }
         }
         if (!record) throw new Error('Storage file not found')
         return engineFor(organization, record)
@@ -259,7 +279,7 @@ export function createDB(options = {}) {
                         const state = organizationState(organization)
                         await state.ready
                         for await (const entry of state.index.scan(CATALOG, STORAGES, '_id', { type: 'string' })) {
-                            const record = await readRecordById(state.index, CATALOG, STORAGES, uuid => storageFile(organization, uuid), entry.objectId)
+                            const record = await readStorageRecord(organization, entry.objectId)
                             if (record) {
                                 entities.push(context(organization, record))
                                 engineFor(organization, record)
@@ -343,7 +363,7 @@ export function createDB(options = {}) {
                             const storageName = name(input.name, 'storage.name')
                             if (await findStorage(organization, storageName)) throw new Error(`Storage already exists: ${storageName}`)
                             const uuid = entityUuid(input, 'storage') ?? newFileId()
-                            if (await readRecordById(state.index, CATALOG, STORAGES, id => storageFile(organization, id), uuid))
+                            if (await readStorageRecord(organization, uuid))
                                 throw new Error(`Storage UUID already exists: ${uuid}`)
                             records.push(await createStorage(organization, storageName, request, undefined, true, uuid))
                         }
@@ -360,6 +380,7 @@ export function createDB(options = {}) {
                             if (conflict && fileId(conflict) !== fileId(record)) throw new Error('Storage name already exists')
                             await updateRecord(state.index, CATALOG, STORAGES, storageFile(organization, fileId(record)), record,
                                 value => { value.name = renamed; value.updated = auditMetadata(request) })
+                            rememberStorage(organization, record)
                             const loaded = namespaces.get(`${organization}/storages/${record._id}/`)
                             if (loaded) loaded.record = record
                             await options.onStorageChange?.({ ...context(organization, record), operation: 'set', record })
@@ -370,6 +391,7 @@ export function createDB(options = {}) {
                             await loaded.engine.flushIndexes()
                             await loaded.engine.dropIndexes()
                             await deleteRecord(state.index, CATALOG, STORAGES, storageFile(organization, fileId(record)), record)
+                            deleteArtifact(organization, fileId(record))
                             await rm(storageFile(organization, fileId(record)), { force: true })
                             await replaceJSON(join(root, organization, 'deleted', `${stableId('storage:' + record._id)}.json`), { _id: record._id, name: record.name })
                             namespaces.delete(loaded.prefix)
@@ -403,12 +425,13 @@ export function createDB(options = {}) {
                 const state = organizationState(organization)
                 await state.ready
                 const { index } = state
-                const current = await readRecordById(index, CATALOG, STORAGES, uuid => storageFile(organization, uuid), fileId(record))
+                const current = await readStorageRecord(organization, fileId(record))
                 if (payload.operation === 'remove') {
                     const loaded = engineFor(organization, current ?? record)
                     await loaded.engine.flushIndexes()
                     await loaded.engine.dropIndexes()
                     if (current) await deleteRecord(index, CATALOG, STORAGES, file, current)
+                    deleteArtifact(organization, fileId(record))
                     await rm(file, { force: true })
                     await replaceJSON(join(root, organization, 'deleted', `${stableId('storage:' + storageId)}.json`), { _id: storageId, name: record.name })
                     if (loaded) namespaces.delete(loaded.prefix)
@@ -418,6 +441,7 @@ export function createDB(options = {}) {
                     if (conflict && conflict._id !== storageId) throw new Error('Conflicting storage reference')
                     if (current) await updateRecord(index, CATALOG, STORAGES, file, current, record)
                     else await createRecord(index, CATALOG, STORAGES, file, record)
+                    rememberStorage(organization, record)
                     const loaded = namespaces.get(`${organization}/storages/${storageId}/`)
                     if (loaded) loaded.record = current ?? record
                 }
@@ -434,7 +458,7 @@ export function createDB(options = {}) {
             if (payload.type === 'storage') {
                 const state = organizationState(id(payload.organization_id, 'organization_id'))
                 await state.ready
-                return readRecordById(state.index, CATALOG, STORAGES, uuid => storageFile(payload.organization_id, uuid), payload.fileId ?? payload.storageFileId ?? payload.storageId)
+                return readStorageRecord(payload.organization_id, payload.fileId ?? payload.storageFileId ?? payload.storageId)
             }
             return (await byId(payload)).engine.readLocalEntity(payload)
         },

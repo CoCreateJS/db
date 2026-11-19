@@ -38,7 +38,7 @@ test('bulk partition lookup follows split catalogs and refreshes after mutations
     const paths = await index.locatePartitions('db', 'items', [[entries[0][0], 100]], 'object');
     assert.equal(paths.size, 1);
     const leaf = await index.readPartition([...paths][0]);
-    assert.deepEqual(leaf.entries, [[100, 'object']]);
+    assert.deepEqual(leaf.entries, [[100, ['object']]]);
 }));
 
 test('document propagation retains holders from unchanged fields and old partitions', async () => fixture(async directory => {

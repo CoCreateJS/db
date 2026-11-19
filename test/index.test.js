@@ -78,7 +78,7 @@ const readCatalog = async (directory, database, array) => {
             return
         }
         for (const child of node.indexes ?? [])
-            await visit(JSON.parse(await readFile(join(base, `${child.id}.json`), 'utf8')))
+            await visit(JSON.parse(await readFile(join(base, `${child.uuid}.json`), 'utf8')))
     }
     await visit(root)
     return { root, keys }
@@ -579,17 +579,19 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
             const path = pending.pop()
             const value = await index.readPartition(path)
             const changes = await splitSerializedPartition(value, Buffer.byteLength(JSON.stringify(value)))
-            if (changes) pending.push(...changes.partitions.map(change => change.path))
+            if (changes) pending.push(...changes.partitions.map(change => change.path).filter(change => change !== path))
         }
         const root = JSON.parse(await readFile(join(indexDirectory, rootFile), 'utf8'))
         assert.ok(root.indexes, 'overflowed catalog root should point to child 32-character hexadecimal files')
         assert.equal(root.entries, undefined)
         assert.equal(root.catalogLength, fields.length)
-        assert.ok(Buffer.byteLength(JSON.stringify(root)) <= 512)
+        assert.ok(root.indexes.length >= 2)
+        if (Buffer.byteLength(JSON.stringify(root)) > 512)
+            assert.ok(root.indexes.length < 4, 'a root below the minimum split fanout is irreducible')
         const depth = async node => node.entries
             ? 1
             : 1 + Math.max(...await Promise.all(node.indexes.map(async child =>
-                depth(JSON.parse(await readFile(join(indexDirectory, `${child.id}.json`), 'utf8')))
+                depth(JSON.parse(await readFile(join(indexDirectory, `${child.uuid}.json`), 'utf8')))
             )))
         assert.ok(await depth(root) >= 3, 'catalog root should grow another level when its references overflow')
 
@@ -615,37 +617,46 @@ test('splits the catalog root into 32-character hexadecimal files and resolves c
     }, { maxBytes: 512 })
 })
 
-test('migrates a legacy flat catalog when the next key root is written', async () => {
+test('nested index mode stores UUID nodes with flattened value boundaries', async () => {
     await withIndex(async (index, directory) => {
-        const indexDirectory = join(directory, 'test', 'users', 'index')
-        await mkdir(indexDirectory, { recursive: true })
-        await writeFile(join(indexDirectory, 'index.json'), JSON.stringify({
-            count: 1,
-            keys: { age: { number: 'legacy-root' } }
-        }))
-        await writeFile(join(indexDirectory, 'legacy-root.json'), JSON.stringify({
-            id: 'legacy-root',
-            entries: [[31, 'object-1']],
-            count: 1,
-            first: { value: 31, objectId: 'object-1' },
-            last: { value: 31, objectId: 'object-1' }
-        }))
-
-        await index.create('test', 'users', 'name', 'Ada', 'object-1')
-
-        assert.deepEqual(
-            await collect(index.scan('test', 'users', 'age', { type: 'number' })),
-            [{ value: 31, objectId: 'object-1' }]
-        )
-        assert.deepEqual(
-            await collect(index.scan('test', 'users', 'name', { type: 'string' })),
-            [{ value: 'Ada', objectId: 'object-1' }]
-        )
-        const root = JSON.parse(await readFile(join(indexDirectory, 'index.json'), 'utf8'))
-        assert.equal(root.keys, undefined)
-        assert.ok(root.entries || root.indexes)
-        assert.equal(root.length, 1)
+        await index.create('test', 'users', 'age', 31, 'object-1')
+        const node = (await index.read('test', 'users', 'age')).indexes.number
+        assert.match(node.uuid, /^[a-f0-9]{32}$/)
+        assert.equal(node.firstValue, 31)
+        assert.equal(node.firstUuid, 'object-1')
+        assert.equal(node.lastValue, 31)
+        assert.equal(node.lastUuid, 'object-1')
+        assert.deepEqual(await collect(index.scan('test', 'users', 'age', { type: 'number' })),
+            [{ value: 31, objectId: 'object-1' }])
+        const saved = JSON.parse(await readFile(join(directory, 'test', 'users', 'index', `${node.uuid}.json`), 'utf8'))
+        assert.equal(saved.uuid, node.uuid)
+        assert.equal(saved.firstValue, 31)
+        assert.equal(saved.firstUuid, 'object-1')
+        assert.equal('first' in saved, false)
     }, { flat: false })
+})
+
+test('UUID artifact callbacks read and retain the same live index objects', async () => {
+    const artifacts = new Map()
+    await withIndex(async (_unused, directory) => {
+        const index = createIndex({ directory,
+            readArtifact: uuid => artifacts.get(uuid),
+            writeArtifact: (uuid, value) => { artifacts.set(uuid, value); return value },
+            deleteArtifact: uuid => artifacts.delete(uuid)
+        })
+        for (let value = 0; value < 24; value++) await index.create('test', 'users', 'rank', value % 4, `doc-${value}`)
+        const metadata = await index.getMetadata('test', 'users', 'rank')
+        assert.equal(metadata.indexes.number.length, 24)
+        const root = await index.read('test', 'users', 'rank')
+        const node = artifacts.get(root.indexes.number.uuid)
+        assert.strictEqual(root.indexes.number, node)
+        assert.ok([...artifacts.values()].every(value => value && typeof value.uuid === 'string'))
+        assert.deepEqual(await collect(index.scan('test', 'users', 'rank', { type: 'number', lower: 2, upper: 2 })),
+            ['doc-10', 'doc-14', 'doc-18', 'doc-2', 'doc-22', 'doc-6'].map(objectId => ({ value: 2, objectId })))
+        await index.delete('test', 'users', 'rank', 2, 'doc-2')
+        assert.strictEqual(artifacts.get(node.uuid), node)
+        assert.equal(node.length, 23)
+    })
 })
 
 test('rejects invalid logical path components and unsupported indexed values', async () => {
@@ -1249,7 +1260,7 @@ test('object.delete removes an object and prunes all empty indexes and catalog r
         ;({ root: catalog, keys } = await readCatalog(directory, 'test', 'users'))
         assert.equal(catalog.length, 0)
         assert.deepEqual(keys, {})
-        assert.ok((await readdir(join(directory, 'indexes'))).includes(`${catalog.id}.json`))
+        assert.ok((await readdir(join(directory, 'indexes'))).includes(`${catalog.uuid}.json`))
         assert.deepEqual((await readdir(join(directory, 'objects'))).filter(file => file.endsWith('.json')), [])
     })
 })
