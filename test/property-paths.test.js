@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createIndex } from '../src/index/index.js'
 import { queryIndexCandidates } from '../src/query.js'
-import { flattenIndexValues, getPath, normalizeArrayContinuity, writeExclusiveJSON, readJSON } from '../src/storage.js'
+import { flattenIndexValues, getPath, normalizeArrayContinuity, normalizeObject, writeExclusiveJSON, readJSON } from '../src/storage.js'
 import { removeMemoryPath } from '../src/memory.js'
 import { fileId, identify, newFileId } from '../src/files.js'
 
@@ -80,4 +80,18 @@ test('object indexes own nested properties, containers, and every continuous arr
     assert.equal(restored.roles[1], undefined)
     assert.equal(restored.roles[2], null)
     assert.equal((await readdir(directory)).includes('keys'), false)
+})
+
+test('shared dot notation utilities flatten index entries and rebuild literal input paths', () => {
+	const record = { uuid: 'artifact-id', profile: { city: 'Lima' }, empty: {}, list: [] }
+	const fields = new Map(flattenIndexValues(record).filter(([key]) => !key.startsWith('\0exists:')))
+	assert.equal(fields.get('profile'), record.profile)
+	assert.equal(fields.get('profile.city'), 'Lima')
+	assert.equal(fields.get('empty'), record.empty)
+	assert.equal(fields.get('list'), record.list)
+	assert.equal(fields.has('uuid'), false)
+
+	const input = { 'profile.city': 'Paris', 'items[0].name': 'Phone', $internal: true }
+	assert.equal(normalizeObject(input), input)
+	assert.deepEqual(input, { profile: { city: 'Paris' }, items: [{ name: 'Phone' }] })
 })

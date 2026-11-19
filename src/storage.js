@@ -10,6 +10,7 @@ import { recordFileBytes, flushFileBytes } from './bytes.js'
 import { recordPath, stableId } from './files.js'
 import { stringifyValue } from './codec.js'
 import { encode } from '@cocreate/coson'
+import { dotNotationToObject, objectToDotNotation } from '@cocreate/utils'
 export const DATABASE_CATALOG = '__catalog__'
 export const DATABASE_CATALOG_ARRAY = 'databases'
 export const ARRAY_CATALOG = '__arrays__'
@@ -118,15 +119,16 @@ export function setPath(object, path, value) {
 }
 
 export function normalizeObject(input) {
+	const dotted = Object.create(null)
     for (const key of Object.keys(input)) {
         if (key.startsWith('$') && key !== '$bytes') { delete input[key]; continue }
-        if (key.includes('.') || key.includes('[')) pathParts(key)
+        if (key.includes('.') || key.includes('[')) {
+            pathParts(key)
+            dotted[key] = input[key]
+            delete input[key]
+        }
     }
-    for (const key of Object.keys(input)) if (key.includes('.') || key.includes('[')) {
-        const value = input[key]
-        delete input[key]
-        setPath(input, key, value)
-    }
+    if (Object.keys(dotted).length) dotNotationToObject(dotted, input)
     return input
 }
 
@@ -146,26 +148,20 @@ export function normalizeArrayContinuity(value, seen = new WeakSet()) {
 }
 
 export function flattenIndexValues(object, prefix = '', entries = []) {
-    const add = (path, value) => {
-        entries.push([`${EXISTS_INDEX_PREFIX}${path}`, true], [path, value])
-        if (Array.isArray(value)) {
-            normalizeArrayContinuity(value)
-            for (let i = 0; i < value.length; i++) add(`${path}[${i}]`, value[i])
-        } else if (value && typeof value === 'object' && !ArrayBuffer.isView(value) && !(value instanceof ArrayBuffer)) {
-            const ownsBinaryMetadata = isBinaryMetadata(value.binary)
-            for (const [key, child] of Object.entries(value)) {
-                if (key.startsWith('$') || key === 'binary' && isBinaryMetadata(child)) continue
-                if (ownsBinaryMetadata && typeof child === 'string' && /^binary\[(0|[1-9]\d*)\]$/.test(child)) continue
-                add(`${path}.${key}`, child)
-            }
-        }
-    }
-    const ownsBinaryMetadata = isBinaryMetadata(object?.binary)
-    for (const [key, value] of Object.entries(object ?? {})) {
-        if (!prefix && key === 'uuid' || key.startsWith('$') || key === 'binary' && isBinaryMetadata(value)) continue
-        if (ownsBinaryMetadata && typeof value === 'string' && /^binary\[(0|[1-9]\d*)\]$/.test(value)) continue
-        add(prefix ? `${prefix}.${key}` : key, value)
-    }
+    normalizeArrayContinuity(object)
+    const flattened = objectToDotNotation(object ?? {}, {
+        includeContainers: true,
+        includeArrayHoles: true,
+        preserveBinary: true,
+        shouldInclude: (path, value, parent, key) =>
+            !(parent === object && !prefix && key === 'uuid') &&
+            !(typeof key === 'string' && key.startsWith('$')) &&
+            !(key === 'binary' && isBinaryMetadata(value)) &&
+            !(typeof value === 'string' && /^binary\[(0|[1-9]\d*)\]$/.test(value) &&
+                isBinaryMetadata(parent?.binary))
+    })
+    for (const [path, value] of Object.entries(flattened))
+        entries.push([`${EXISTS_INDEX_PREFIX}${prefix}${path}`, true], [prefix ? `${prefix}.${path}` : path, value])
     return entries
 }
 
