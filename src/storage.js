@@ -149,18 +149,46 @@ export function normalizeArrayContinuity(value, seen = new WeakSet()) {
 
 export function flattenIndexValues(object, prefix = '', entries = []) {
     normalizeArrayContinuity(object)
-    const flattened = objectToDotNotation(object ?? {}, {
-        includeContainers: true,
-        includeArrayHoles: true,
-        preserveBinary: true,
-        shouldInclude: (path, value, parent, key) =>
-            !(parent === object && !prefix && key === 'uuid') &&
-            !(typeof key === 'string' && key.startsWith('$')) &&
-            !(key === 'binary' && isBinaryMetadata(value)) &&
-            !(typeof value === 'string' && /^binary\[(0|[1-9]\d*)\]$/.test(value) &&
-                isBinaryMetadata(parent?.binary))
-    })
-    for (const [path, value] of Object.entries(flattened))
+    const flattened = objectToDotNotation(object ?? {})
+    const values = new Map()
+    const seen = new Set()
+    const add = (path, value) => {
+        if (!path || seen.has(path) || path.split(/[.\[\]]/).some(key => key.startsWith('$')) ||
+            !prefix && path === 'uuid' || isBinaryMetadata(value)) return
+        let parts
+        try { parts = pathParts(path) }
+        catch { parts = [path] }
+        const parentPath = parts.length > 1
+            ? path.slice(0, path.lastIndexOf(typeof parts.at(-1) === 'number' ? '[' : '.'))
+            : ''
+        const parent = parentPath ? getPath(object, parentPath) : object
+        if (typeof value === 'string' && /^binary\[(0|[1-9]\d*)\]$/.test(value) && isBinaryMetadata(parent?.binary)) return
+        if (parts.length > 1) {
+            const boundary = /(?:^|\.)([^.[\]]+)|\[(\d+)\]/g
+            let match
+            while ((match = boundary.exec(path))) {
+                const ancestorPath = path.slice(0, boundary.lastIndex)
+                if (ancestorPath === path) break
+                const ancestor = getPath(object, ancestorPath)
+                if (ancestor && typeof ancestor === 'object' &&
+                    (ArrayBuffer.isView(ancestor) || ancestor instanceof ArrayBuffer)) return
+                if (!seen.has(ancestorPath) && !ancestorPath.split(/[.\[\]]/).some(key => key.startsWith('$')) &&
+                    !(ancestorPath === 'uuid' && !prefix) && !isBinaryMetadata(ancestor)) {
+                    seen.add(ancestorPath)
+                    values.set(ancestorPath, ancestor)
+                }
+            }
+        }
+        seen.add(path)
+        values.set(path, value)
+    }
+
+    // CoCreateDB retains container values for its own operators and indexes;
+    // Utils remains responsible only for producing the flattened leaf map.
+    for (const [key, value] of Object.entries(object ?? {})) add(key, value)
+    for (const [path, value] of Object.entries(flattened)) add(path, value)
+
+    for (const [path, value] of values)
         entries.push([`${EXISTS_INDEX_PREFIX}${prefix}${path}`, true], [prefix ? `${prefix}.${path}` : path, value])
     return entries
 }
