@@ -6,7 +6,7 @@ Each indexed key has a Map of value-type trees, not one mixed-type tree. UUID is
 
 Tree leaves hold `[value, entries]` groups; branches hold child partitions. Partition metadata includes firstValue, firstUuid, lastValue, lastUuid and length. Default size is 64. Insert splits oversized partitions; removal prunes empty partitions and collapses single-child roots. Moves can reuse entries. Partitions have no persistent identity.
 
-Query selection uses an available compatible equality/range index with the smallest root length, scans bounded candidates and verifies against shared queryData. Without a usable candidate it scans local artifacts. UUID queries use direct lookup. Sorting and search are not implemented. Pagination applies to local matches. Do not infer global coverage from local trees.
+Query selection uses the smallest usable scalar index and verifies candidates with shared queryData. A range scans the matching type index first when the bounds have that type, then checks artifacts outside that index for matches under JavaScript coercion. Queries without a usable index scan local artifacts. UUID queries use direct lookup. Sorting and search are not implemented. Pagination applies to local matches. Do not infer global coverage from local trees.
 
 ## Requirements and optimization targets
 

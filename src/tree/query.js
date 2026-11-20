@@ -1,72 +1,39 @@
-import { queryData } from '@cocreate/utils'
-
-const scalar = value => value === null ||
-    typeof value === 'string' ||
-    typeof value === 'boolean' ||
-    typeof value === 'number' && Number.isFinite(value)
-
-const ordered = value => value !== null &&
-    (typeof value === 'string' || typeof value === 'boolean' ||
-        typeof value === 'number' && Number.isFinite(value))
-
-function indexBounds(condition) {
-    if (scalar(condition)) return { value: condition, min: condition, max: condition }
-    if (!condition || typeof condition !== 'object' || Array.isArray(condition) || condition instanceof Date)
-        return null
-
-    const entries = Object.entries(condition)
-    if (!entries.length || entries.some(([operator]) =>
-        !['$eq', '$gt', '$gte', '$lt', '$lte'].includes(operator))) return null
-
-    const equality = entries.find(([operator]) => operator === '$eq')
-    if (equality) {
-        if (entries.length !== 1 || !scalar(equality[1])) return null
-        return { value: equality[1], min: equality[1], max: equality[1] }
-    }
-
-    if (entries.length > 2 || entries.some(([, value]) => !ordered(value))) return null
-    const type = typeof entries[0][1]
-    if (entries.some(([, value]) => typeof value !== type)) return null
-
-    const lower = entries.find(([operator]) => operator === '$gt' || operator === '$gte')
-    const upper = entries.find(([operator]) => operator === '$lt' || operator === '$lte')
-    if (entries.length === 2 && (!lower || !upper)) return null
-
-    return {
-        value: entries[0][1],
-        min: lower?.[1],
-        max: upper?.[1]
-    }
-}
-
-export function queryTree(scope, query = {}, limit = Infinity) {
-    if (limit <= 0) return []
-    if (typeof query.uuid === 'string') {
-        const object = scope.artifacts.get(query.uuid)
-        return object && queryData(object, query) ? [object] : []
-    }
-
+import {queryData} from '@cocreate/utils'
+import {type} from '../artifact.js'
+export function queryTree(scope,query={},limit=Infinity){
+    if(scope.indexError)throw scope.indexError
+    if(limit<=0)return []
+    if(typeof query.uuid==='string'){const object=scope.artifacts.get(query.uuid);return object&&queryData(object,query)?[object]:[]}
     let candidate
-    for (const [key, condition] of Object.entries(query)) {
-        if (key.startsWith('$')) continue
-        const bounds = indexBounds(condition)
-        if (!bounds) continue
-        const tree = scope.tree.get(key)?.get(bounds.value === null ? 'null' : typeof bounds.value)
-        if (!tree) continue
-        if (!candidate || tree.root.length < candidate.tree.root.length)
-            candidate = { tree, min: bounds.min, max: bounds.max }
+    for(const [key,condition] of Object.entries(query)){
+        if(key.startsWith('$') || key.includes('[') || /(^|\.)\d+(\.|$)|^\.|\.$|\.\./.test(key))continue
+        const bounds=condition!==null&&typeof condition==='object'?condition:{$eq:condition}
+        const equality=Object.hasOwn(bounds,'$eq')
+        const min=equality?bounds.$eq:(bounds.$gte??bounds.$gt)
+        const max=equality?bounds.$eq:(bounds.$lte??bounds.$lt)
+        const value=min===undefined?max:min
+        if(value!==null&&!['number','string','boolean'].includes(typeof value))continue
+        const tree=scope.tree.get(key)?.get(type(value));if(!tree)continue
+        if(!equality&&(value===null||
+            Object.keys(bounds).some(op=>!['$gt','$gte','$lt','$lte'].includes(op)||type(bounds[op])!==type(value)||
+                typeof bounds[op]==='number'&&!Number.isFinite(bounds[op]))))continue
+        if(!candidate||tree.root.length<candidate.tree.root.length)candidate={tree,min,max,key,range:!equality}
     }
-
-    const source = candidate
-        ? (function* () {
-            for (const entry of candidate.tree.scan(candidate.min, candidate.max)) yield entry.object
-        })()
-        : scope.artifacts.values()
-    const result = []
-    for (const object of source) {
-        if (!queryData(object, query)) continue
-        result.push(object)
-        if (result.length >= limit) break
+    function* indexedCandidates({tree,min,max,key,range}){
+        for(const entry of tree.scan(min,max)){
+            const object=entry.object
+            if(!scope.pendingIndex?.has(object))yield object
+        }
+        yield* (scope.pendingIndex ?? [])
+        // Other types and unindexed containers can also satisfy a native range.
+        if(range&&tree.root.length!==scope.artifacts.size){
+            for(const object of scope.artifacts.values()){
+                if(scope.pendingIndex?.has(object))continue
+                const entry=object.getIndex(key)
+                if(entry?.tree!==tree||!entry.partition)yield object
+            }
+        }
     }
-    return result
+    const source=candidate?indexedCandidates(candidate):scope.artifacts.values()
+    const result=[];for(const object of source){if(scope.artifacts.get(object.uuid)===object && queryData(object,query)){result.push(object);if(result.length>=limit)break}}return result
 }

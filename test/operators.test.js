@@ -76,3 +76,17 @@ test('indexed and full-scan query results match Utils semantics', () => {
         assert.deepEqual(actual, expected, JSON.stringify(query))
     }
 })
+
+test('ranges match numeric strings and unindexed arrays even when a numeric index exists', () => {
+    const scope = indexedScope([
+        { uuid: 'number', score: 20, active: true },
+        { uuid: 'string', score: '20', active: true },
+        { uuid: 'array', score: [20], active: true },
+        { uuid: 'low', score: 5, active: true },
+        { uuid: 'inactive', score: '30', active: false }
+    ])
+    assert.deepEqual(queryTree(scope, { score: { $gt: 10 } }).map(o => o.uuid).sort(),
+        ['array', 'inactive', 'number', 'string'])
+    assert.deepEqual(queryTree(scope, { active: true, score: { $gt: 10 } }).map(o => o.uuid).sort(),
+        ['array', 'number', 'string'])
+})

@@ -1,5 +1,5 @@
 import { uuid, getValueFromObject, dotNotationToObject } from '@cocreate/utils'
-import { createArtifact, attach, type, updateArtifact } from './artifact.js'
+import { createArtifact, attach, type, updateArtifact, deferArtifact, reconcileArtifact, restoreArtifactIndex } from './artifact.js'
 import { Tree } from './tree/index.js'
 import { queryTree } from './tree/query.js'
 
@@ -53,16 +53,56 @@ function reference(envelope, name) {
     }
 }
 
-function insertEntry(tree, size, entry) {
+function insertEntry(tree, size, entry, local) {
     let types = tree.get(entry.key)
     if (!types) tree.set(entry.key, types = new Map())
     let index = types.get(type(entry.value))
-    if (!index) types.set(type(entry.value), index = new Tree(size))
+    if (!index) types.set(type(entry.value), index = new Tree(size,local,entry.key))
     entry.insert(index)
 }
 
-export function createScopeManager({ db, size = 64 }) {
-    const context = { artifacts: db.artifacts, tree: db.tree }
+export function createScopeManager({ db, size = 1024, deferIndex = false }) {
+    const pendingIndex = new Set()
+    const deleted = db.deleted = new Map()
+    db.deleting ??= new Set()
+    const context = { artifacts: db.artifacts, tree: db.tree, pendingIndex, get indexError() { return indexError } }
+    let scheduled, indexError
+    const insert = entry => insertEntry(db.tree, size, entry, db.local)
+    function flushArtifact(artifact) {
+        if(indexError)throw indexError
+        if(!pendingIndex.has(artifact))return
+        try {
+            if(deleted.get(artifact.uuid) === artifact) {
+                if(db.deleting.has(artifact.uuid))return
+                for(const entry of Object.values(artifact.getIndex()))if(entry.partition)entry.tree.remove(entry)
+                deleted.delete(artifact.uuid)
+            } else reconcileArtifact(artifact,insert)
+            pendingIndex.delete(artifact)
+        }
+        catch(error){indexError=error;throw error}
+    }
+    const handler={queue(artifact){pendingIndex.add(artifact);schedule()},flush:flushArtifact}
+    function drain(limit = Infinity) {
+        if (indexError) throw indexError
+        for (const artifact of pendingIndex) {
+            if (limit-- <= 0) break
+            try { flushArtifact(artifact) }
+            catch (error) { indexError = error; throw error }
+        }
+    }
+    function schedule() {
+        if (scheduled || !pendingIndex.size || indexError) return
+        scheduled = setImmediate(() => {
+            scheduled = undefined
+            try { drain(64) } catch { return }
+            schedule()
+        })
+    }
+    function flushIndex() {
+        if (scheduled) clearImmediate(scheduled)
+        scheduled = undefined
+        drain()
+    }
 
     function select(parent, scope, query = {}, limit = Infinity) {
         const criteria = { ...query, scope }
@@ -72,6 +112,8 @@ export function createScopeManager({ db, size = 64 }) {
     }
 
     const names = new Map()
+    const identities = new Map()
+    const identityKey = (parent, id) => JSON.stringify([parent, id])
     const key = (parent, scope, name) => JSON.stringify([parent, scope, name])
     const catalog = db.config.artifacts
     const dynamicKeys = new Set()
@@ -102,7 +144,7 @@ export function createScopeManager({ db, size = 64 }) {
     function find(parent, scope, ref) {
         if (!ref) return []
         const artifact = ref.uuid ? db.artifacts.get(ref.uuid) : names.get(key(parent?.uuid, scope, ref.name))
-        return artifact && artifact.scope === scope && artifact.parent === parent?.uuid ? [artifact] : []
+        return artifact && db.artifacts.get(artifact.uuid)===artifact && artifact.scope === scope && artifact.parent === parent?.uuid ? [artifact] : []
     }
     function configuration(writable = true) {
         const snapshot = structuredClone(db.config)
@@ -131,6 +173,7 @@ export function createScopeManager({ db, size = 64 }) {
         return snapshot
     }
     function create(value, parent, scope) {
+        if (indexError) throw indexError
         if (!isRecord(value)) throw new TypeError(`${scope} must contain an object`)
         value.scope = scope
         if (parent) value.parent = parent.uuid
@@ -139,24 +182,42 @@ export function createScopeManager({ db, size = 64 }) {
         const isScope = structural(parent, scope)
         if (isScope && (typeof value.name !== 'string' || !value.name || names.has(key(parent?.uuid, scope, value.name)))) throw Error('Invalid or duplicate scope name')
         if (scope === 'object') value._id ??= uuidValue().slice(0, 24)
-        if (db.artifacts.has(value.uuid)) throw new Error(`Artifact UUID already exists: ${value.uuid}`)
+        if (scope === "object" && identities.has(identityKey(value.parent, value._id))) throw Error("duplicate identity")
+        if (db.artifacts.has(value.uuid) || deleted.has(value.uuid)) throw new Error(`Artifact UUID already exists: ${value.uuid}`)
         const artifact = createArtifact(value, isScope)
-        attach(artifact, entry => insertEntry(db.tree, size, entry))
+        if (deferIndex && !isScope) { deferArtifact(artifact,handler); handler.queue(artifact) }
+        else attach(artifact, insert)
         db.artifacts.set(artifact.uuid, artifact)
+        if (scope === "object") identities.set(identityKey(artifact.parent, artifact._id), artifact.uuid)
         if (isScope) register(artifact)
+        configureArtifact(artifact,false)
+        return artifact
+    }
+    function configureArtifact(artifact,restored=true){
+        if(restored){if(deferIndex)deferArtifact(artifact,handler);else attach(artifact,e=>{if(!e.partition)insert(e)})}
+        Object.defineProperty(artifact, Symbol.for("cocreate.deleteArtifact"), {value:()=>remove(artifact)})
+        Object.defineProperty(artifact, Symbol.for("cocreate.isLiveArtifact"), {value:()=>db.artifacts.get(artifact.uuid)===artifact})
         return artifact
     }
 
-    function remove(artifact) {
-        const children = queryTree(context, { parent: artifact.uuid }, 1)
-        if (children.length) throw new Error('Cannot delete a scope that still has child artifacts')
-        for (const entry of Object.values(artifact.getIndex()))
-            if (entry.partition) entry.tree.remove(entry)
-        db.artifacts.delete(artifact.uuid)
-        if (Object.hasOwn(catalog, artifact.uuid)) {
+    async function remove(artifact) {
+        if(db.artifacts.get(artifact.uuid)!==artifact)throw Error('Artifact not found')
+        if (Object.hasOwn(catalog, artifact.uuid) && queryTree(context, { parent: artifact.uuid }, 1).length) throw Error('Cannot delete a scope that still has child artifacts')
+        const id=artifact.uuid
+        db.deleting.add(id)
+        deleted.set(id,artifact)
+        db.artifacts.delete(id)
+        try { if(db.local)await db.local.deleteArtifact(id) }
+        catch(error){db.artifacts.set(id,artifact);deleted.delete(id);throw error}
+        finally{db.deleting.delete(id)}
+        if (artifact.scope === 'object') identities.delete(identityKey(artifact.parent, artifact._id))
+        if (Object.hasOwn(catalog, id)) {
             names.delete(key(artifact.parent, artifact.scope, artifact.name))
-            delete catalog[artifact.uuid]
+            delete catalog[id]
         }
+        if(deferIndex){pendingIndex.add(artifact);schedule()}
+        else {pendingIndex.add(artifact);flushArtifact(artifact)}
+        return true
     }
 
     function validateTarget(target) {
@@ -247,5 +308,5 @@ export function createScopeManager({ db, size = 64 }) {
         }
         if (pending.size === count) throw Error('Missing or cyclic configured parent')
     }
-    return { create, resolve, select, remove, direct, validateTarget, configuration }
+    return { create, resolve, select, remove, direct, validateTarget, configuration, configureArtifact, flushIndex, pendingIndex, hasIdentity: (parent,id) => identities.has(identityKey(parent?.uuid,id)) }
 }

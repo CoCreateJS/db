@@ -43,7 +43,7 @@ export async function crud({ db, scopes }, request) {
             resolve()
             if (resolved.missing) return
             if (scope !== 'object' && input.name && select({ name: input.name }, 1).length) throw Error('duplicate name')
-            if (scope === 'object' && input._id && select({ _id: input._id }, 1).length) throw Error('duplicate identity')
+            if (scope === 'object' && input._id && scopes.hasIdentity(resolved.parent, input._id)) throw Error('duplicate identity')
             const artifact = scopes.create(input, resolved.parent, scope)
             return artifact
         }
@@ -94,7 +94,7 @@ export async function crud({ db, scopes }, request) {
         } else if (action === 'read') output.push(...targets.keys())
         else {
             for (const artifact of targets.keys()) {
-                scopes.remove(artifact)
+                await artifact.delete()
                 output.push(artifact)
             }
         }
