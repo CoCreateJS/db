@@ -1,0 +1,443 @@
+{
+  "status": "passed",
+  "benchmark": "cocreatedb-standard-single-node-memory",
+  "benchmarkVersion": 1,
+  "fixture": "shared lifecycle fixture v3",
+  "fixtureVersion": "3.0.0",
+  "runIndex": 5,
+  "datasetSize": 10000,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 1000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "environment": {
+    "date": "2026-11-20T01:05:33.837Z",
+    "node": "v24.18.0",
+    "platform": "linux-x64",
+    "release": "7.0.0-1017-aws",
+    "os": "#18~24.04.1-Ubuntu SMP PREEMPT Thu Oct 29 17:57:24 UTC 2026",
+    "cpuModel": "AMD EPYC 7571",
+    "cpuCount": 2,
+    "totalMemoryBytes": 8218963968,
+    "freeMemoryBytesAtStart": 5359423488,
+    "databaseVersion": "1.0.0",
+    "sourceRevision": "2955244dea8f32f0a7ebc16108239a82e721f58a",
+    "processModel": "single in-process Node process; benchmark client and database share CPU/RSS",
+    "persistence": "not configured; memory-resident run",
+    "durability": "none; no disk or provider writes",
+    "diskUsageBytes": null,
+    "diskIO": null
+  },
+  "configuration": {
+    "scopes": "default",
+    "indexSize": 64,
+    "chunkSize": 1000
+  },
+  "startedAt": "2026-11-20T01:05:33.846Z",
+  "initializationMs": 1.1591479999999876,
+  "readiness": {
+    "readyMs": 1.0579139999999967,
+    "ready": true
+  },
+  "memory": {
+    "idle": {
+      "rss": 65781760,
+      "heapTotal": 11776000,
+      "heapUsed": 7699928,
+      "external": 2595376,
+      "arrayBuffers": 174192
+    },
+    "loaded": {
+      "rss": 246243328,
+      "heapTotal": 184700928,
+      "heapUsed": 55995408,
+      "external": 2615612,
+      "arrayBuffers": 174115
+    },
+    "peakRssBytes": 267096064,
+    "incrementalRssBytes": 180461568,
+    "incrementalHeapBytes": 48295480,
+    "rssBytesPerObject": 18046.1568,
+    "final": {
+      "rss": 267096064,
+      "heapTotal": 204128256,
+      "heapUsed": 108376984,
+      "external": 2645819,
+      "arrayBuffers": 174115
+    }
+  },
+  "firstObjectCreateMs": 6.032159000000007,
+  "fixtureHash": "767927150f41a6967e99ab0e05f11128ba4f408f1b9bfc5e1fc753a84119ac8f",
+  "createAndIndexMs": 3359.852061,
+  "createRecordsPerSecond": 2976.3215220326333,
+  "indexCreationAndMaintenance": {
+    "synchronous": true,
+    "includedInCreateAndIndexMs": true,
+    "flushMs": 0
+  },
+  "indexEntriesPerObject": 17,
+  "operations": {
+    "uuidRead": {
+      "firstOperationMs": 0.19870600000012928,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.016071000000010827,
+        "maxMs": 0.05815200000006371,
+        "meanMs": 0.029404724999972133,
+        "p50Ms": 0.02925100000038583,
+        "p95Ms": 0.04755199999999604,
+        "p99Ms": 0.05815200000006371,
+        "totalMs": 1.2875020000001314,
+        "opsPerSecond": 31067.912904209796
+      }
+    },
+    "equality": {
+      "firstOperationMs": 0.4530049999998482,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.17857600000024831,
+        "maxMs": 0.343902000000071,
+        "meanMs": 0.2474088999999367,
+        "p50Ms": 0.26983900000004724,
+        "p95Ms": 0.31599000000005617,
+        "p99Ms": 0.343902000000071,
+        "totalMs": 10.765234999999848,
+        "opsPerSecond": 3715.6643584650556
+      }
+    },
+    "nestedEquality": {
+      "firstOperationMs": 0.5578279999999722,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.22803799999974217,
+        "maxMs": 0.46918600000026345,
+        "meanMs": 0.31088705000001937,
+        "p50Ms": 0.3316709999999148,
+        "p95Ms": 0.397562999999991,
+        "p99Ms": 0.46918600000026345,
+        "totalMs": 13.070760999999948,
+        "opsPerSecond": 3060.265580558023
+      }
+    },
+    "numericRange": {
+      "firstOperationMs": 0.2718089999998483,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.14446499999985463,
+        "maxMs": 0.3176699999999073,
+        "meanMs": 0.20137505000001282,
+        "p50Ms": 0.17097499999999854,
+        "p95Ms": 0.3015700000000834,
+        "p99Ms": 0.3176699999999073,
+        "totalMs": 8.700327000000016,
+        "opsPerSecond": 4597.528345773661
+      }
+    },
+    "and": {
+      "firstOperationMs": 0.9009289999999055,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.5996800000002622,
+        "maxMs": 1.0354339999998956,
+        "meanMs": 0.8012604749999696,
+        "p50Ms": 0.7738659999999982,
+        "p95Ms": 1.032394000000295,
+        "p99Ms": 1.0354339999998956,
+        "totalMs": 32.767379999999775,
+        "opsPerSecond": 1220.7262222368793
+      }
+    },
+    "or": {
+      "firstOperationMs": 0.4353849999997692,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.40405299999974886,
+        "maxMs": 0.46652599999970334,
+        "meanMs": 0.4201025750000099,
+        "p50Ms": 0.41582400000015696,
+        "p95Ms": 0.44255500000008396,
+        "p99Ms": 0.46652599999970334,
+        "totalMs": 17.298451000000114,
+        "opsPerSecond": 2312.345770150156
+      }
+    },
+    "singleCreate": {
+      "firstOperationMs": 0.7981669999999212,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.3434620000002724,
+        "maxMs": 0.4038630000000012,
+        "meanMs": 0.3660921749999943,
+        "p50Ms": 0.3609819999996944,
+        "p95Ms": 0.39643300000034287,
+        "p99Ms": 0.4038630000000012,
+        "totalMs": 14.742675999999847,
+        "opsPerSecond": 2713.2116313212346
+      }
+    },
+    "singleKeyUpdate": {
+      "firstOperationMs": 1.946234000000004,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.13850499999989552,
+        "maxMs": 0.2375070000002779,
+        "meanMs": 0.1600875250000172,
+        "p50Ms": 0.14257499999985157,
+        "p95Ms": 0.2327980000000025,
+        "p99Ms": 0.2375070000002779,
+        "totalMs": 6.490704000000278,
+        "opsPerSecond": 6162.659705326
+      }
+    },
+    "indexedKeyUpdate": {
+      "firstOperationMs": 0.541667999999845,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.15589600000021164,
+        "maxMs": 0.36706199999980527,
+        "meanMs": 0.18704459999999018,
+        "p50Ms": 0.1623250000002372,
+        "p95Ms": 0.2658179999998538,
+        "p99Ms": 0.36706199999980527,
+        "totalMs": 7.5798799999997755,
+        "opsPerSecond": 5277.128397811204
+      }
+    },
+    "numericIncrement": {
+      "firstOperationMs": 0.5545280000001185,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.1463050000002113,
+        "maxMs": 0.31219999999984793,
+        "meanMs": 0.2253881250000404,
+        "p50Ms": 0.23637800000005882,
+        "p95Ms": 0.28955900000028123,
+        "p99Ms": 0.31219999999984793,
+        "totalMs": 9.125260000000253,
+        "opsPerSecond": 4383.436745911776
+      }
+    },
+    "singleDelete": {
+      "firstOperationMs": 0.582260000000133,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.1558460000001105,
+        "maxMs": 0.34112099999993006,
+        "meanMs": 0.21087172499998133,
+        "p50Ms": 0.19130600000016784,
+        "p95Ms": 0.28432900000007066,
+        "p99Ms": 0.34112099999993006,
+        "totalMs": 8.561221999999816,
+        "opsPerSecond": 4672.230202651077
+      }
+    },
+    "filteredBulkDelete": {
+      "deleted": 25,
+      "elapsedMs": 3.8807879999999386,
+      "opsPerSecond": 6441.990647260401
+    }
+  },
+  "sustained": [
+    {
+      "mode": "read",
+      "concurrency": 1,
+      "durationTargetMs": 1000,
+      "operations": 91009,
+      "elapsedMs": 1000.0491349999998,
+      "opsPerSecond": 91004.52849249254,
+      "latency": {
+        "samples": 20000,
+        "minMs": 0.005059999999502907,
+        "maxMs": 6.947958999999628,
+        "meanMs": 0.00887635649999886,
+        "p50Ms": 0.0062099999995552935,
+        "p95Ms": 0.011580000000321888,
+        "p99Ms": 0.024361000000681088
+      },
+      "latencyReservoirLimit": 20000,
+      "cpuUsageUs": {
+        "user": 991630,
+        "system": 11698
+      },
+      "cpuUtilizationPercent": 100.3278703900884,
+      "memory": {
+        "rss": 254361600,
+        "heapTotal": 190390272,
+        "heapUsed": 118973784,
+        "external": 2645819,
+        "arrayBuffers": 174115
+      }
+    },
+    {
+      "mode": "write",
+      "concurrency": 1,
+      "durationTargetMs": 1000,
+      "operations": 6717,
+      "elapsedMs": 1000.0107440000002,
+      "opsPerSecond": 6716.927833327358,
+      "latency": {
+        "samples": 6717,
+        "minMs": 0.11749400000007881,
+        "maxMs": 6.8936869999997725,
+        "meanMs": 0.14525864939705452,
+        "p50Ms": 0.12728400000014517,
+        "p95Ms": 0.20581700000002456,
+        "p99Ms": 0.2773590000006152
+      },
+      "latencyReservoirLimit": 20000,
+      "cpuUsageUs": {
+        "user": 1153972,
+        "system": 11226
+      },
+      "cpuUtilizationPercent": 116.51854812471893,
+      "memory": {
+        "rss": 256122880,
+        "heapTotal": 191700992,
+        "heapUsed": 89886720,
+        "external": 2645819,
+        "arrayBuffers": 174115
+      }
+    },
+    {
+      "mode": "mixed",
+      "concurrency": 1,
+      "durationTargetMs": 1000,
+      "operations": 13420,
+      "elapsedMs": 1000.0660159999998,
+      "opsPerSecond": 13419.114123762009,
+      "latency": {
+        "samples": 13420,
+        "minMs": 0.009181000000353379,
+        "maxMs": 4.216169000000264,
+        "meanMs": 0.07144187667660137,
+        "p50Ms": 0.09075300000040443,
+        "p95Ms": 0.1637749999999869,
+        "p99Ms": 0.1982770000004166
+      },
+      "latencyReservoirLimit": 20000,
+      "cpuUsageUs": {
+        "user": 1107518,
+        "system": 17013
+      },
+      "cpuUtilizationPercent": 112.4456767862013,
+      "memory": {
+        "rss": 258936832,
+        "heapTotal": 195633152,
+        "heapUsed": 92827896,
+        "external": 2645819,
+        "arrayBuffers": 174115
+      }
+    },
+    {
+      "mode": "read",
+      "concurrency": 8,
+      "durationTargetMs": 1000,
+      "operations": 187149,
+      "elapsedMs": 1000.0055140000004,
+      "opsPerSecond": 187147.968066104,
+      "latency": {
+        "samples": 20000,
+        "minMs": 0.0053600000001097214,
+        "maxMs": 2.6914190000006784,
+        "meanMs": 0.02384225814999977,
+        "p50Ms": 0.023200999999971827,
+        "p95Ms": 0.03826099999969301,
+        "p99Ms": 0.058861999999862746
+      },
+      "latencyReservoirLimit": 20000,
+      "cpuUsageUs": {
+        "user": 1023709,
+        "system": 4019
+      },
+      "cpuUtilizationPercent": 102.77223331390547,
+      "memory": {
+        "rss": 261300224,
+        "heapTotal": 198176768,
+        "heapUsed": 93373776,
+        "external": 2645819,
+        "arrayBuffers": 174115
+      }
+    },
+    {
+      "mode": "write",
+      "concurrency": 8,
+      "durationTargetMs": 1000,
+      "operations": 7748,
+      "elapsedMs": 1000.0675660000006,
+      "opsPerSecond": 7747.476534000499,
+      "latency": {
+        "samples": 7748,
+        "minMs": 0.1107240000001184,
+        "maxMs": 6.534484999998313,
+        "meanMs": 0.5828930463345295,
+        "p50Ms": 0.5653979999997318,
+        "p95Ms": 1.0482339999998658,
+        "p99Ms": 1.4652879999994184
+      },
+      "latencyReservoirLimit": 20000,
+      "cpuUsageUs": {
+        "user": 1006791,
+        "system": 3111
+      },
+      "cpuUtilizationPercent": 100.98337695715244,
+      "memory": {
+        "rss": 262901760,
+        "heapTotal": 199487488,
+        "heapUsed": 81660288,
+        "external": 2645819,
+        "arrayBuffers": 174115
+      }
+    },
+    {
+      "mode": "mixed",
+      "concurrency": 8,
+      "durationTargetMs": 1000,
+      "operations": 15300,
+      "elapsedMs": 1000.0024429999994,
+      "opsPerSecond": 15299.962622191324,
+      "latency": {
+        "samples": 15300,
+        "minMs": 0.01029000000016822,
+        "maxMs": 4.916661999999633,
+        "meanMs": 0.31905711104574924,
+        "p50Ms": 0.34014100000058534,
+        "p95Ms": 0.5232169999999314,
+        "p99Ms": 0.5670380000010482
+      },
+      "latencyReservoirLimit": 20000,
+      "cpuUsageUs": {
+        "user": 1006998,
+        "system": 6001
+      },
+      "cpuUtilizationPercent": 101.29965252494895,
+      "memory": {
+        "rss": 267096064,
+        "heapTotal": 204128256,
+        "heapUsed": 108375072,
+        "external": 2645819,
+        "arrayBuffers": 174115
+      }
+    }
+  ],
+  "cpuUsageUs": {
+    "user": 10507779,
+    "system": 250429
+  },
+  "totalElapsedMs": 9823.355777,
+  "cpuUtilizationPercent": 109.51662796525017,
+  "completedAt": "2026-11-20T01:05:43.671Z"
+}

@@ -1,0 +1,806 @@
+{
+  "status": "passed",
+  "benchmark": "redis-json-search-standard-single-node-local-loopback",
+  "benchmarkVersion": 1,
+  "fixture": "shared lifecycle fixture v3",
+  "fixtureVersion": "3.0.0",
+  "runIndex": 4,
+  "datasetSize": 1000,
+  "mode": "json-search",
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "environment": {
+    "date": "2026-11-20T04:49:26.123Z",
+    "node": "v24.18.0",
+    "platform": "linux-x64",
+    "release": "7.0.0-1017-aws",
+    "os": "#18~24.04.1-Ubuntu SMP PREEMPT Thu Oct 29 17:57:24 UTC 2026",
+    "cpuModel": "AMD EPYC 7571",
+    "cpuCount": 2,
+    "totalMemoryBytes": 8218963968,
+    "freeMemoryBytesAtStart": 5236756480,
+    "redisServerVersion": "8.10.3",
+    "redisNodeDriverVersion": "5.12.4",
+    "processModel": "Redis server child process plus Node driver client over loopback TCP",
+    "persistence": "RDB snapshots and AOF disabled; temporary Redis process and directory per independent run",
+    "durability": "memory only; no replication or persistence",
+    "transport": "RESP over 127.0.0.1 TCP",
+    "diskUsageBytes": 0,
+    "diskIO": null
+  },
+  "sourceRevision": "4dccde14ba2f645043954617648d7a75be326dfa",
+  "startedAt": "2026-11-20T04:49:26.131Z",
+  "configuration": {
+    "deployment": "single Redis server",
+    "version": "8.10.3",
+    "client": "5.12.4",
+    "storage": "RedisJSON documents with RediSearch JSON index",
+    "durability": "RDB and AOF disabled",
+    "queryLimit": 100,
+    "indexSchema": [
+      "$.uuid",
+      "AS",
+      "uuid",
+      "TAG",
+      "$.group",
+      "AS",
+      "group",
+      "TAG",
+      "$.profile.team",
+      "AS",
+      "team",
+      "TAG",
+      "$.rank",
+      "AS",
+      "rank",
+      "NUMERIC",
+      "SORTABLE",
+      "$.active",
+      "AS",
+      "active",
+      "TAG",
+      "$.bulkDelete",
+      "AS",
+      "bulkDelete",
+      "TAG"
+    ]
+  },
+  "serverStartupMs": 98.822564,
+  "serverPid": 103141,
+  "serverVersion": "8.10.3",
+  "serverMemory": {
+    "idle": {
+      "VmSize": 173522944,
+      "VmHWM": 25485312,
+      "VmRSS": 25485312,
+      "cpuTicks": 2
+    },
+    "loaded": {
+      "VmSize": 253218816,
+      "VmHWM": 28598272,
+      "VmRSS": 28598272,
+      "cpuTicks": 8
+    },
+    "peakRssBytes": 28598272
+  },
+  "firstObjectCreateMs": 0.5590689999999654,
+  "indexSetupMs": 1.1720980000000054,
+  "clientMemory": {
+    "idle": {
+      "rss": 97931264,
+      "heapTotal": 57651200,
+      "heapUsed": 17343288,
+      "external": 2617920,
+      "arrayBuffers": 144562
+    },
+    "loaded": {
+      "rss": 99110912,
+      "heapTotal": 58175488,
+      "heapUsed": 23437616,
+      "external": 2622960,
+      "arrayBuffers": 149562
+    },
+    "final": {
+      "rss": 127430656,
+      "heapTotal": 61718528,
+      "heapUsed": 27434384,
+      "external": 3054742,
+      "arrayBuffers": 144233
+    },
+    "peakRssBytes": 128413696
+  },
+  "fixtureHash": "bc4f84465e1e80b84bf541e527e39516776dc4bc07afb233c45b825b29a846ac",
+  "createAndIndexMs": 68.34473000000003,
+  "createRecordsPerSecond": 14631.706058389573,
+  "indexInfo": [
+    "index_name",
+    "fixture_idx",
+    "index_options",
+    [],
+    "index_definition",
+    [
+      "key_type",
+      "JSON",
+      "prefixes",
+      [
+        "doc:"
+      ],
+      "default_score",
+      "1",
+      "indexes_all",
+      "false"
+    ],
+    "attributes",
+    [
+      [
+        "identifier",
+        "$.uuid",
+        "attribute",
+        "uuid",
+        "type",
+        "TAG",
+        "SEPARATOR",
+        ""
+      ],
+      [
+        "identifier",
+        "$.group",
+        "attribute",
+        "group",
+        "type",
+        "TAG",
+        "SEPARATOR",
+        ""
+      ],
+      [
+        "identifier",
+        "$.profile.team",
+        "attribute",
+        "team",
+        "type",
+        "TAG",
+        "SEPARATOR",
+        ""
+      ],
+      [
+        "identifier",
+        "$.rank",
+        "attribute",
+        "rank",
+        "type",
+        "NUMERIC",
+        "SORTABLE",
+        "UNF"
+      ],
+      [
+        "identifier",
+        "$.active",
+        "attribute",
+        "active",
+        "type",
+        "TAG",
+        "SEPARATOR",
+        ""
+      ],
+      [
+        "identifier",
+        "$.bulkDelete",
+        "attribute",
+        "bulkDelete",
+        "type",
+        "TAG",
+        "SEPARATOR",
+        ""
+      ]
+    ],
+    "num_docs",
+    1001,
+    "max_doc_id",
+    1001,
+    "num_terms",
+    0,
+    "num_records",
+    6001,
+    "inverted_sz_mb",
+    "0.08874034881591797",
+    "vector_index_sz_mb",
+    "0",
+    "total_inverted_index_blocks",
+    1048,
+    "offset_vectors_sz_mb",
+    "0",
+    "doc_table_size_mb",
+    "0.1107797622680664",
+    "sortable_values_size_mb",
+    "0.03814697265625",
+    "key_table_size_mb",
+    "0.03372955322265625",
+    "tag_overhead_sz_mb",
+    "0.03499603271484375",
+    "text_overhead_sz_mb",
+    "0",
+    "total_index_memory_sz_mb",
+    "0.3064994812011719",
+    "geoshapes_sz_mb",
+    "0",
+    "records_per_doc_avg",
+    "5.995005130767822",
+    "bytes_per_record_avg",
+    "15.505915641784668",
+    "offsets_per_term_avg",
+    "0",
+    "offset_bits_per_record_avg",
+    "nan",
+    "hash_indexing_failures",
+    0,
+    "total_indexing_time",
+    "43.959492",
+    "indexing",
+    0,
+    "percent_indexed",
+    "1",
+    "number_of_uses",
+    1,
+    "cleaning",
+    0,
+    "gc_stats",
+    [
+      "bytes_collected",
+      "0",
+      "total_ms_run",
+      "0",
+      "total_cycles",
+      "0",
+      "average_cycle_time_ms",
+      "nan",
+      "last_run_time_ms",
+      "0",
+      "gc_numeric_trees_missed",
+      "0",
+      "gc_blocks_denied",
+      "0"
+    ],
+    "cursor_stats",
+    [
+      "global_idle",
+      0,
+      "global_total",
+      0,
+      "index_capacity",
+      128,
+      "index_total",
+      0
+    ],
+    "dialect_stats",
+    [
+      "dialect_1",
+      0,
+      "dialect_2",
+      0,
+      "dialect_3",
+      0,
+      "dialect_4",
+      0
+    ],
+    "Index Errors",
+    [
+      "indexing failures",
+      0,
+      "last indexing error",
+      "N/A",
+      "last indexing error key",
+      "N/A",
+      "background indexing status",
+      "OK"
+    ],
+    "field statistics",
+    [
+      [
+        "identifier",
+        "$.uuid",
+        "attribute",
+        "uuid",
+        "Index Errors",
+        [
+          "indexing failures",
+          0,
+          "last indexing error",
+          "N/A",
+          "last indexing error key",
+          "N/A"
+        ]
+      ],
+      [
+        "identifier",
+        "$.group",
+        "attribute",
+        "group",
+        "Index Errors",
+        [
+          "indexing failures",
+          0,
+          "last indexing error",
+          "N/A",
+          "last indexing error key",
+          "N/A"
+        ]
+      ],
+      [
+        "identifier",
+        "$.profile.team",
+        "attribute",
+        "team",
+        "Index Errors",
+        [
+          "indexing failures",
+          0,
+          "last indexing error",
+          "N/A",
+          "last indexing error key",
+          "N/A"
+        ]
+      ],
+      [
+        "identifier",
+        "$.rank",
+        "attribute",
+        "rank",
+        "Index Errors",
+        [
+          "indexing failures",
+          0,
+          "last indexing error",
+          "N/A",
+          "last indexing error key",
+          "N/A"
+        ]
+      ],
+      [
+        "identifier",
+        "$.active",
+        "attribute",
+        "active",
+        "Index Errors",
+        [
+          "indexing failures",
+          0,
+          "last indexing error",
+          "N/A",
+          "last indexing error key",
+          "N/A"
+        ]
+      ],
+      [
+        "identifier",
+        "$.bulkDelete",
+        "attribute",
+        "bulkDelete",
+        "Index Errors",
+        [
+          "indexing failures",
+          0,
+          "last indexing error",
+          "N/A",
+          "last indexing error key",
+          "N/A"
+        ]
+      ]
+    ]
+  ],
+  "redisMemory": "# Memory\r\nused_memory:2663680\r\nused_memory_human:2.54M\r\nused_memory_rss:27504640\r\nused_memory_rss_human:26.23M\r\nused_memory_peak:2688488\r\nused_memory_peak_human:2.56M\r\nused_memory_peak_time:1795150166\r\nused_memory_peak_perc:99.08%\r\nused_memory_overhead:1342717\r\nused_memory_startup:1195896\r\nused_memory_dataset:1320963\r\nused_memory_dataset_perc:90.00%\r\nallocator_allocated:5076488\r\nallocator_active:5373952\r\nallocator_resident:8945664\r\nallocator_muzzy:0\r\ntotal_system_memory:8218963968\r\ntotal_system_memory_human:7.65G\r\nused_memory_lua:32768\r\nused_memory_vm_eval:32768\r\nused_memory_lua_human:32.00K\r\nused_memory_scripts_eval:0\r\nnumber_of_cached_scripts:0\r\nnumber_of_functions:0\r\nnumber_of_libraries:0\r\nused_memory_vm_functions:34816\r\nused_memory_vm_total:67584\r\nused_memory_vm_total_human:66.00K\r\nused_memory_functions:192\r\nused_memory_hash_templates:72\r\nused_memory_scripts:192\r\nused_memory_scripts_human:192B\r\nmaxmemory:0\r\nmaxmemory_human:0B\r\nmaxmemory_policy:noeviction\r\nallocator_frag_ratio:1.09\r\nallocator_frag_bytes:281528\r\nallocator_rss_ratio:1.66\r\nallocator_rss_bytes:3571712\r\nrss_overhead_ratio:3.07\r\nrss_overhead_bytes:18558976\r\nmem_fragmentation_ratio:14.86\r\nmem_fragmentation_bytes:25653376\r\nmem_not_counted_for_evict:0\r\nmem_replication_backlog:0\r\nmem_total_replication_buffers:0\r\nmem_replica_full_sync_buffer:0\r\nmem_clients_slaves:0\r\nmem_clients_normal:38189\r\nmem_clients_normal_shared:0\r\nmem_clients_normal_unshared:0\r\nmem_cluster_slot_migration_output_buffer:0\r\nmem_cluster_slot_migration_input_buffer:0\r\nmem_cluster_slot_migration_input_buffer_peak:0\r\nmem_cluster_links:0\r\nmem_aof_buffer:0\r\nmem_allocator:jemalloc-5.3.0\r\nmem_overhead_db_hashtable_rehashing:0\r\nactive_defrag_running:0\r\nlazyfree_pending_objects:0\r\nlazyfreed_objects:0\r\n",
+  "redisKeyCount": 1001,
+  "operations": {
+    "uuidRead": {
+      "firstOperationMs": 0.5028670000000375,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.2307779999999866,
+        "maxMs": 0.6516709999999648,
+        "meanMs": 0.26610557500000026,
+        "p50Ms": 0.2408780000000661,
+        "p95Ms": 0.3688329999999951,
+        "p99Ms": 0.6516709999999648,
+        "totalMs": 10.758325000000013,
+        "opsPerSecond": 3718.050904764445
+      }
+    },
+    "equality": {
+      "firstOperationMs": 3.743033999999966,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 1.753327000000013,
+        "maxMs": 3.0901020000000017,
+        "meanMs": 2.3539825000000034,
+        "p50Ms": 2.289226000000099,
+        "p95Ms": 2.934266999999977,
+        "p99Ms": 3.0901020000000017,
+        "totalMs": 94.25119299999994,
+        "opsPerSecond": 424.39781107067813
+      }
+    },
+    "nestedEquality": {
+      "firstOperationMs": 1.5061189999998987,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 1.097505999999953,
+        "maxMs": 1.622604000000024,
+        "meanMs": 1.2565056,
+        "p50Ms": 1.20957999999996,
+        "p95Ms": 1.5092290000000048,
+        "p99Ms": 1.622604000000024,
+        "totalMs": 50.31273599999997,
+        "opsPerSecond": 795.027326679273
+      }
+    },
+    "numericRange": {
+      "firstOperationMs": 2.2255139999999756,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 1.7698080000000118,
+        "maxMs": 2.8110830000000533,
+        "meanMs": 2.026684499999999,
+        "p50Ms": 1.9734849999999824,
+        "p95Ms": 2.5307330000000547,
+        "p99Ms": 2.8110830000000533,
+        "totalMs": 81.12489199999993,
+        "opsPerSecond": 493.0669121876924
+      }
+    },
+    "and": {
+      "firstOperationMs": 2.154769999999985,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 1.7542180000000371,
+        "maxMs": 2.4360599999999977,
+        "meanMs": 2.009057125000018,
+        "p50Ms": 1.9775150000000394,
+        "p95Ms": 2.346447000000012,
+        "p99Ms": 2.4360599999999977,
+        "totalMs": 80.42669799999999,
+        "opsPerSecond": 497.34728634513885
+      }
+    },
+    "or": {
+      "firstOperationMs": 2.2754449999999906,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 1.7367369999999482,
+        "maxMs": 2.760240999999951,
+        "meanMs": 2.0161981999999967,
+        "p50Ms": 1.9346630000000005,
+        "p95Ms": 2.41820000000007,
+        "p99Ms": 2.760240999999951,
+        "totalMs": 80.7040780000001,
+        "opsPerSecond": 495.63790320484117
+      }
+    },
+    "singleCreate": {
+      "firstOperationMs": 0.5901389999999083,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.2899199999999382,
+        "maxMs": 0.6554409999998825,
+        "meanMs": 0.31960504999999556,
+        "p50Ms": 0.3005600000001323,
+        "p95Ms": 0.3671520000000328,
+        "p99Ms": 0.6554409999998825,
+        "totalMs": 12.820142000000033,
+        "opsPerSecond": 3120.090245490253
+      }
+    },
+    "singleKeyUpdate": {
+      "firstOperationMs": 0.8944289999999455,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.4939270000002125,
+        "maxMs": 0.8505780000000414,
+        "meanMs": 0.5291504249999945,
+        "p50Ms": 0.5165070000000469,
+        "p95Ms": 0.5835590000001503,
+        "p99Ms": 0.8505780000000414,
+        "totalMs": 21.204287999999906,
+        "opsPerSecond": 1886.410899531273
+      }
+    },
+    "numericIncrement": {
+      "firstOperationMs": 0.7853860000000168,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.2048170000000482,
+        "maxMs": 1.353823999999804,
+        "meanMs": 0.3284595999999908,
+        "p50Ms": 0.2990099999999529,
+        "p95Ms": 0.3966729999999643,
+        "p99Ms": 1.353823999999804,
+        "totalMs": 13.184263999999985,
+        "opsPerSecond": 3033.9198304888346
+      }
+    },
+    "singleDelete": {
+      "firstOperationMs": 0.7478349999998954,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.3529320000000098,
+        "maxMs": 0.6767820000000029,
+        "meanMs": 0.4450040999999885,
+        "p50Ms": 0.43428399999993417,
+        "p95Ms": 0.544168000000127,
+        "p99Ms": 0.6767820000000029,
+        "totalMs": 17.841537000000017,
+        "opsPerSecond": 2241.9593110167566
+      }
+    },
+    "filteredBulkDelete": {
+      "deleted": 25,
+      "elapsedMs": 0.6356109999999262
+    }
+  },
+  "sustained": [
+    {
+      "mode": "read",
+      "concurrency": 1,
+      "durationTargetMs": 5000,
+      "operations": 25236,
+      "elapsedMs": 5000.077488999999,
+      "opsPerSecond": 5047.121780716067,
+      "latency": {
+        "samples": 20000,
+        "minMs": 0.13523499999973865,
+        "maxMs": 2.5682339999998476,
+        "meanMs": 0.19333705240000162,
+        "p50Ms": 0.18614600000000792,
+        "p95Ms": 0.2253180000006978,
+        "p99Ms": 0.3216609999999491
+      },
+      "latencyReservoirLimit": 20000,
+      "clientCpuUsageUs": {
+        "user": 1939783,
+        "system": 1233865
+      },
+      "clientCpuUtilizationPercent": 63.47197632400534,
+      "serverCpuMs": 1980,
+      "serverCpuUtilizationPercent": 39.59938629663105,
+      "clientMemory": {
+        "rss": 121729024,
+        "heapTotal": 59801600,
+        "heapUsed": 27532488,
+        "external": 3285059,
+        "arrayBuffers": 144214
+      },
+      "serverMemory": {
+        "VmSize": 429395968,
+        "VmHWM": 31612928,
+        "VmRSS": 31612928,
+        "cpuTicks": 239
+      }
+    },
+    {
+      "mode": "write",
+      "concurrency": 1,
+      "durationTargetMs": 5000,
+      "operations": 11479,
+      "elapsedMs": 5000.138510999999,
+      "opsPerSecond": 2295.7364030510157,
+      "latency": {
+        "samples": 11479,
+        "minMs": 0.31269000000065716,
+        "maxMs": 4.674904000000424,
+        "meanMs": 0.4298185536196507,
+        "p50Ms": 0.418653999999151,
+        "p95Ms": 0.46306600000025355,
+        "p99Ms": 0.6155300000000352
+      },
+      "latencyReservoirLimit": 20000,
+      "clientCpuUsageUs": {
+        "user": 1512404,
+        "system": 983064
+      },
+      "clientCpuUtilizationPercent": 49.90797743922739,
+      "serverCpuMs": 2540,
+      "serverCpuUtilizationPercent": 50.79859276722345,
+      "clientMemory": {
+        "rss": 124993536,
+        "heapTotal": 59473920,
+        "heapUsed": 23661024,
+        "external": 3069213,
+        "arrayBuffers": 143844
+      },
+      "serverMemory": {
+        "VmSize": 429395968,
+        "VmHWM": 31686656,
+        "VmRSS": 31199232,
+        "cpuTicks": 493
+      }
+    },
+    {
+      "mode": "mixed",
+      "concurrency": 1,
+      "durationTargetMs": 5000,
+      "operations": 15901,
+      "elapsedMs": 5000.123844,
+      "opsPerSecond": 3180.1212322132237,
+      "latency": {
+        "samples": 15901,
+        "minMs": 0.13570400000025984,
+        "maxMs": 7.902979999998934,
+        "meanMs": 0.3091800540217659,
+        "p50Ms": 0.3715219999994588,
+        "p95Ms": 0.45139500000004773,
+        "p99Ms": 0.5325279999997292
+      },
+      "latencyReservoirLimit": 20000,
+      "clientCpuUsageUs": {
+        "user": 1591391,
+        "system": 1034450
+      },
+      "clientCpuUtilizationPercent": 52.51551925360671,
+      "serverCpuMs": 2390,
+      "serverCpuUtilizationPercent": 47.79881608068426,
+      "clientMemory": {
+        "rss": 125911040,
+        "heapTotal": 59920384,
+        "heapUsed": 35344176,
+        "external": 2754335,
+        "arrayBuffers": 250730
+      },
+      "serverMemory": {
+        "VmSize": 429395968,
+        "VmHWM": 31686656,
+        "VmRSS": 31469568,
+        "cpuTicks": 733
+      }
+    },
+    {
+      "mode": "read",
+      "concurrency": 8,
+      "durationTargetMs": 5000,
+      "operations": 125462,
+      "elapsedMs": 5000.115556999999,
+      "opsPerSecond": 25091.82009290911,
+      "latency": {
+        "samples": 20000,
+        "minMs": 0.1833359999982349,
+        "maxMs": 4.498758999998245,
+        "meanMs": 0.30686114255000213,
+        "p50Ms": 0.2942699999985052,
+        "p95Ms": 0.3429809999997815,
+        "p99Ms": 0.48398599999927683
+      },
+      "latencyReservoirLimit": 20000,
+      "clientCpuUsageUs": {
+        "user": 2079948,
+        "system": 803669
+      },
+      "clientCpuUtilizationPercent": 57.671007142285546,
+      "serverCpuMs": 2220,
+      "serverCpuUtilizationPercent": 44.39897387755513,
+      "clientMemory": {
+        "rss": 126513152,
+        "heapTotal": 60760064,
+        "heapUsed": 30256360,
+        "external": 3737558,
+        "arrayBuffers": 144345
+      },
+      "serverMemory": {
+        "VmSize": 429395968,
+        "VmHWM": 31686656,
+        "VmRSS": 31248384,
+        "cpuTicks": 955
+      }
+    },
+    {
+      "mode": "write",
+      "concurrency": 8,
+      "durationTargetMs": 5000,
+      "operations": 40671,
+      "elapsedMs": 5000.296423,
+      "opsPerSecond": 8133.717795793963,
+      "latency": {
+        "samples": 20000,
+        "minMs": 0.49453600000197184,
+        "maxMs": 3.232037000001583,
+        "meanMs": 0.969567577849987,
+        "p50Ms": 0.9534919999969134,
+        "p95Ms": 1.1172369999985676,
+        "p99Ms": 1.2334410000003118
+      },
+      "latencyReservoirLimit": 20000,
+      "clientCpuUsageUs": {
+        "user": 1241453,
+        "system": 465684
+      },
+      "clientCpuUtilizationPercent": 34.140715981309334,
+      "serverCpuMs": 3320,
+      "serverCpuUtilizationPercent": 66.39606373591984,
+      "clientMemory": {
+        "rss": 126971904,
+        "heapTotal": 61206528,
+        "heapUsed": 25989008,
+        "external": 2958661,
+        "arrayBuffers": 143844
+      },
+      "serverMemory": {
+        "VmSize": 432541696,
+        "VmHWM": 32968704,
+        "VmRSS": 32968704,
+        "cpuTicks": 1287
+      }
+    },
+    {
+      "mode": "mixed",
+      "concurrency": 8,
+      "durationTargetMs": 5000,
+      "operations": 52099,
+      "elapsedMs": 5000.111025000002,
+      "opsPerSecond": 10419.56863347849,
+      "latency": {
+        "samples": 20000,
+        "minMs": 0.20454700000118464,
+        "maxMs": 6.028421000002709,
+        "meanMs": 0.5952631863999964,
+        "p50Ms": 0.7144439999974566,
+        "p95Ms": 0.8108670000001439,
+        "p99Ms": 1.0004840000001423
+      },
+      "latencyReservoirLimit": 20000,
+      "clientCpuUsageUs": {
+        "user": 1485887,
+        "system": 593127
+      },
+      "clientCpuUtilizationPercent": 41.579356730383786,
+      "serverCpuMs": 2950,
+      "serverCpuUtilizationPercent": 58.99868993408999,
+      "clientMemory": {
+        "rss": 127430656,
+        "heapTotal": 61718528,
+        "heapUsed": 27416152,
+        "external": 3054742,
+        "arrayBuffers": 144233
+      },
+      "serverMemory": {
+        "VmSize": 432541696,
+        "VmHWM": 33406976,
+        "VmRSS": 33406976,
+        "cpuTicks": 1582
+      }
+    }
+  ],
+  "clientCpuUsageUs": {
+    "user": 10525798,
+    "system": 5222157
+  },
+  "totalElapsedMs": 31042.844193,
+  "clientCpuUtilizationPercent": 50.72974274551518,
+  "serverResourceUsage": {
+    "idle": {
+      "VmSize": 173522944,
+      "VmHWM": 25485312,
+      "VmRSS": 25485312,
+      "cpuTicks": 2
+    },
+    "final": {
+      "VmSize": 432541696,
+      "VmHWM": 33406976,
+      "VmRSS": 33406976,
+      "cpuTicks": 1582
+    },
+    "cpuMs": 15800,
+    "cpuUtilizationPercent": 50.89739813068681
+  },
+  "completedAt": "2026-11-20T04:49:57.175Z"
+}

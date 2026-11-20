@@ -1,0 +1,14 @@
+{
+  "name": "@cocreate/db-benchmark-redis",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prebenchmark": "node prepare.mjs",
+    "benchmark": "node run.mjs",
+    "report": "node report.mjs"
+  },
+  "dependencies": {
+    "redis": "5.12.4"
+  }
+}

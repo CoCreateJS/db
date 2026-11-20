@@ -1,0 +1,93 @@
+{
+  "benchmark": "cocreatedb-next-object-lifecycle-memory",
+  "fixture": "shared deterministic lifecycle fixture v2",
+  "startedAt": "2026-11-20T01:32:53.918Z",
+  "node": "v24.18.0",
+  "platform": "linux-x64",
+  "cpuCount": 2,
+  "mode": "in-memory prototype; synchronous indexing; no peer or durable persistence latency",
+  "samples": 40,
+  "sizes": [
+    {
+      "size": 1000,
+      "scenario": "fresh",
+      "initMs": 0.7101639999999918,
+      "scopeIdentities": 4,
+      "parentUuid": "01a1f695c9367e938f7ffa2ce946bbd8",
+      "fixtureHash": "25ebce8889cb93e29279301a3681ce66ebe80d5cb0d147387455ad5cddb44e48",
+      "createBatchMs": 220.214651,
+      "createAndIndexMs": 220.214651,
+      "createRecordsPerSecond": 4541.023930328777,
+      "indexEntriesPerRecord": 11,
+      "indexFlushMs": 0,
+      "readUuid": {
+        "coldMs": 0.2290570000000116,
+        "p50Ms": 0.025801000000001295,
+        "p95Ms": 0.03258099999999331,
+        "p99Ms": 0.058411999999975706,
+        "meanMs": 0.027214925000002665,
+        "opsPerSecond": 34214.96750861117
+      },
+      "readEquality": {
+        "coldMs": 1.432138000000009,
+        "p50Ms": 0.28440999999997985,
+        "p95Ms": 0.6707819999999742,
+        "p99Ms": 2.5329040000000305,
+        "meanMs": 0.4096257499999993,
+        "opsPerSecond": 2432.5675549856037
+      },
+      "readNestedPath": {
+        "coldMs": 0.5940389999999525,
+        "p50Ms": 0.25273799999996527,
+        "p95Ms": 0.36094200000002274,
+        "p99Ms": 0.8889890000000378,
+        "meanMs": 0.27794062500000366,
+        "opsPerSecond": 3581.9547210476703
+      },
+      "readRange": {
+        "coldMs": 1.8286600000000135,
+        "p50Ms": 0.46402499999999236,
+        "p95Ms": 2.2257829999999785,
+        "p99Ms": 2.741821000000016,
+        "meanMs": 0.617766749999997,
+        "opsPerSecond": 1615.4583859131367
+      },
+      "updateUuid": {
+        "coldMs": 2.5516440000000102,
+        "p50Ms": 0.17700600000000577,
+        "p95Ms": 0.2597680000000082,
+        "p99Ms": 0.3258100000000468,
+        "meanMs": 0.19426537500000052,
+        "opsPerSecond": 5083.199909925703
+      },
+      "updateIndexFlushMs": 0,
+      "postCreate": {
+        "createMs": 0.3568909999999619,
+        "firstReadMs": 0.0903030000000058,
+        "firstUpdateMs": 0.34626099999996995,
+        "createToReadMs": 0.4471939999999677,
+        "createToUpdateMs": 0.7031519999999318
+      },
+      "deleteBatch": {
+        "count": 25,
+        "elapsedMs": 2.814491999999973,
+        "indexFlushMs": 0,
+        "totalMs": 2.814491999999973,
+        "recordsPerSecond": 8882.597641066395
+      },
+      "cpuUsageUs": {
+        "user": 427631,
+        "system": 26364
+      },
+      "wallMs": 313.680775,
+      "memory": {
+        "rss": 88264704,
+        "heapTotal": 29339648,
+        "heapUsed": 18306488,
+        "external": 2613236,
+        "arrayBuffers": 174151
+      }
+    }
+  ],
+  "completedAt": "2026-11-20T01:32:54.255Z"
+}

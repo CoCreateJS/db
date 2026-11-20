@@ -1,0 +1,14 @@
+{
+  "name": "@cocreate/db-benchmark-mongodb",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "benchmark": "node run.mjs",
+    "report": "node report.mjs"
+  },
+  "dependencies": {
+    "mongodb": "7.9.0",
+    "mongodb-memory-server": "11.3.0"
+  }
+}

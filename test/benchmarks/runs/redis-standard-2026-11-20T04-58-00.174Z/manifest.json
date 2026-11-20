@@ -1,0 +1,274 @@
+{
+  "suite": "Redis comparison benchmark v1",
+  "provider": "Redis",
+  "serverVersion": "8.10.3",
+  "driverVersion": "5.12.4",
+  "runId": "2026-11-20T04-58-00.174Z",
+  "startedAt": "2026-11-20T04:58:00.174Z",
+  "sizes": [
+    1000,
+    10000,
+    100000
+  ],
+  "modes": [
+    "string",
+    "json-search"
+  ],
+  "independentRunsRequested": 5,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "resourcePolicy": "fresh Redis child process and temporary directory per run; RDB/AOF disabled",
+  "results": [
+    {
+      "size": 1000,
+      "runIndex": 1,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-1000-run-01.json",
+      "elapsedMs": 30481.727511999998
+    },
+    {
+      "size": 1000,
+      "runIndex": 2,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-1000-run-02.json",
+      "elapsedMs": 30453.216416000003
+    },
+    {
+      "size": 1000,
+      "runIndex": 3,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-1000-run-03.json",
+      "elapsedMs": 30463.749879
+    },
+    {
+      "size": 1000,
+      "runIndex": 4,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-1000-run-04.json",
+      "elapsedMs": 30471.702747000003
+    },
+    {
+      "size": 1000,
+      "runIndex": 5,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-1000-run-05.json",
+      "elapsedMs": 30475.382198
+    },
+    {
+      "size": 10000,
+      "runIndex": 1,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-10000-run-01.json",
+      "elapsedMs": 30701.108644
+    },
+    {
+      "size": 10000,
+      "runIndex": 2,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-10000-run-02.json",
+      "elapsedMs": 30710.575205
+    },
+    {
+      "size": 10000,
+      "runIndex": 3,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-10000-run-03.json",
+      "elapsedMs": 30685.169098
+    },
+    {
+      "size": 10000,
+      "runIndex": 4,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-10000-run-04.json",
+      "elapsedMs": 30677.286461
+    },
+    {
+      "size": 10000,
+      "runIndex": 5,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-10000-run-05.json",
+      "elapsedMs": 30683.375562
+    },
+    {
+      "size": 100000,
+      "runIndex": 1,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-100000-run-01.json",
+      "elapsedMs": 32550.433133
+    },
+    {
+      "size": 100000,
+      "runIndex": 2,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-100000-run-02.json",
+      "elapsedMs": 32532.804941
+    },
+    {
+      "size": 100000,
+      "runIndex": 3,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-100000-run-03.json",
+      "elapsedMs": 32457.600527000002
+    },
+    {
+      "size": 100000,
+      "runIndex": 4,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-100000-run-04.json",
+      "elapsedMs": 32451.876042999997
+    },
+    {
+      "size": 100000,
+      "runIndex": 5,
+      "mode": "string",
+      "status": "passed",
+      "file": "string-size-100000-run-05.json",
+      "elapsedMs": 32462.851615999996
+    },
+    {
+      "size": 1000,
+      "runIndex": 1,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-1000-run-01.json",
+      "elapsedMs": 31088.462264
+    },
+    {
+      "size": 1000,
+      "runIndex": 2,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-1000-run-02.json",
+      "elapsedMs": 31227.468601
+    },
+    {
+      "size": 1000,
+      "runIndex": 3,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-1000-run-03.json",
+      "elapsedMs": 31089.221191999997
+    },
+    {
+      "size": 1000,
+      "runIndex": 4,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-1000-run-04.json",
+      "elapsedMs": 31224.598991000003
+    },
+    {
+      "size": 1000,
+      "runIndex": 5,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-1000-run-05.json",
+      "elapsedMs": 31076.639133
+    },
+    {
+      "size": 10000,
+      "runIndex": 1,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-10000-run-01.json",
+      "elapsedMs": 32441.56398
+    },
+    {
+      "size": 10000,
+      "runIndex": 2,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-10000-run-02.json",
+      "elapsedMs": 32494.709373
+    },
+    {
+      "size": 10000,
+      "runIndex": 3,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-10000-run-03.json",
+      "elapsedMs": 32396.15219
+    },
+    {
+      "size": 10000,
+      "runIndex": 4,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-10000-run-04.json",
+      "elapsedMs": 32545.110836999997
+    },
+    {
+      "size": 10000,
+      "runIndex": 5,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-10000-run-05.json",
+      "elapsedMs": 32419.239053999998
+    },
+    {
+      "size": 100000,
+      "runIndex": 1,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-100000-run-01.json",
+      "elapsedMs": 46469.739819
+    },
+    {
+      "size": 100000,
+      "runIndex": 2,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-100000-run-02.json",
+      "elapsedMs": 46174.557732
+    },
+    {
+      "size": 100000,
+      "runIndex": 3,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-100000-run-03.json",
+      "elapsedMs": 46302.678120000004
+    },
+    {
+      "size": 100000,
+      "runIndex": 4,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-100000-run-04.json",
+      "elapsedMs": 45983.483535
+    },
+    {
+      "size": 100000,
+      "runIndex": 5,
+      "mode": "json-search",
+      "status": "passed",
+      "file": "json-search-size-100000-run-05.json",
+      "elapsedMs": 46747.271088
+    }
+  ],
+  "completedAt": "2026-11-20T05:15:11.069Z",
+  "summary": {
+    "successfulRuns": 30,
+    "failedRuns": 0,
+    "notAttempted": 0
+  }
+}

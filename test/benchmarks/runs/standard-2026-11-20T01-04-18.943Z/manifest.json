@@ -1,0 +1,209 @@
+{
+  "suite": "CoCreateDB standard single-node benchmark v1",
+  "runId": "2026-11-20T01-04-18.943Z",
+  "startedAt": "2026-11-20T01:04:18.943Z",
+  "sizes": [
+    1000,
+    10000,
+    100000,
+    1000000
+  ],
+  "independentRunsRequested": 5,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 1000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "results": [
+    {
+      "size": 1000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-1000-run-01.json",
+      "elapsedMs": 6671.914879
+    },
+    {
+      "size": 1000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-1000-run-02.json",
+      "elapsedMs": 6721.391462
+    },
+    {
+      "size": 1000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-1000-run-03.json",
+      "elapsedMs": 6766.739058
+    },
+    {
+      "size": 1000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-1000-run-04.json",
+      "elapsedMs": 6681.717334
+    },
+    {
+      "size": 1000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-1000-run-05.json",
+      "elapsedMs": 6673.557621
+    },
+    {
+      "size": 10000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-10000-run-01.json",
+      "elapsedMs": 9863.956633
+    },
+    {
+      "size": 10000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-10000-run-02.json",
+      "elapsedMs": 9877.74171
+    },
+    {
+      "size": 10000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-10000-run-03.json",
+      "elapsedMs": 9869.828203
+    },
+    {
+      "size": 10000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-10000-run-04.json",
+      "elapsedMs": 9802.202650000001
+    },
+    {
+      "size": 10000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-10000-run-05.json",
+      "elapsedMs": 9823.355777
+    },
+    {
+      "size": 100000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-100000-run-01.json",
+      "elapsedMs": 53583.657342
+    },
+    {
+      "size": 100000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-100000-run-02.json",
+      "elapsedMs": 52035.99222
+    },
+    {
+      "size": 100000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-100000-run-03.json",
+      "elapsedMs": 52568.01680500001
+    },
+    {
+      "size": 100000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-100000-run-04.json",
+      "elapsedMs": 53545.600537000006
+    },
+    {
+      "size": 100000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-100000-run-05.json",
+      "elapsedMs": 52420.109213
+    },
+    {
+      "size": 1000000,
+      "runIndex": 1,
+      "status": "failed",
+      "file": "size-1000000-run-01.json",
+      "failure": {
+        "message": "Node.js JavaScript heap out of memory",
+        "exitCode": null,
+        "signal": "SIGABRT",
+        "stderr": "\n<--- Last few GCs --->\n\n[56824:0x1de44000]   408953 ms: Mark-Compact 2041.0 (2053.6) -> 2036.4 (2053.1) MB, pooled: 0 MB, 3228.25 / 0.00 ms  (average mu = 0.271, current mu = 0.175) allocation failure; scavenge might not succeed\n[56824:0x1de44000]   412559 ms: Mark-Compact 2040.4 (2053.1) -> 2036.5 (2053.1) MB, pooled: 0 MB, 3493.56 / 0.00 ms  (average mu = 0.160, current mu = 0.031) allocation failure; scavenge might not succeed\n\nFATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory\n----- Native stack trace -----\n\n 1: 0x74eae8 node::OOMErrorHandler(char const*, v8::OOMDetails const&) [/usr/bin/node]\n 2: 0xc42680  [/usr/bin/node]\n 3: 0xc4276f  [/usr/bin/node]\n 4: 0xee5fc5  [/usr/bin/node]\n 5: 0xee5ff2  [/usr/bin/node]\n 6: 0xee62ea  [/usr/bin/node]\n 7: 0xef6fea  [/usr/bin/node]\n 8: 0xefb390  [/usr/bin/node]\n 9: 0x198d931  [/usr/bin/node]\n"
+      }
+    },
+    {
+      "status": "not-attempted",
+      "runIndex": 2,
+      "datasetSize": 1000000,
+      "reason": "A preceding independent run for this size failed.",
+      "file": "size-1000000-run-02.json"
+    },
+    {
+      "status": "not-attempted",
+      "runIndex": 3,
+      "datasetSize": 1000000,
+      "reason": "A preceding independent run for this size failed.",
+      "file": "size-1000000-run-03.json"
+    },
+    {
+      "status": "not-attempted",
+      "runIndex": 4,
+      "datasetSize": 1000000,
+      "reason": "A preceding independent run for this size failed.",
+      "file": "size-1000000-run-04.json"
+    },
+    {
+      "status": "not-attempted",
+      "runIndex": 5,
+      "datasetSize": 1000000,
+      "reason": "A preceding independent run for this size failed.",
+      "file": "size-1000000-run-05.json"
+    }
+  ],
+  "legacyCompatibility": {
+    "status": "passed",
+    "fixture": "lifecycle fixture v2",
+    "runs": [
+      {
+        "runIndex": 1,
+        "status": "passed",
+        "file": "legacy-v2/run-01/run-2026-11-20T01-17-37.804Z.json",
+        "fixtureHash": "25ebce8889cb93e29279301a3681ce66ebe80d5cb0d147387455ad5cddb44e48"
+      },
+      {
+        "runIndex": 2,
+        "status": "passed",
+        "file": "legacy-v2/run-02/run-2026-11-20T01-17-38.270Z.json",
+        "fixtureHash": "25ebce8889cb93e29279301a3681ce66ebe80d5cb0d147387455ad5cddb44e48"
+      },
+      {
+        "runIndex": 3,
+        "status": "passed",
+        "file": "legacy-v2/run-03/run-2026-11-20T01-17-38.730Z.json",
+        "fixtureHash": "25ebce8889cb93e29279301a3681ce66ebe80d5cb0d147387455ad5cddb44e48"
+      },
+      {
+        "runIndex": 4,
+        "status": "passed",
+        "file": "legacy-v2/run-04/run-2026-11-20T01-17-39.182Z.json",
+        "fixtureHash": "25ebce8889cb93e29279301a3681ce66ebe80d5cb0d147387455ad5cddb44e48"
+      },
+      {
+        "runIndex": 5,
+        "status": "passed",
+        "file": "legacy-v2/run-05/run-2026-11-20T01-17-39.647Z.json",
+        "fixtureHash": "25ebce8889cb93e29279301a3681ce66ebe80d5cb0d147387455ad5cddb44e48"
+      }
+    ],
+    "requestedRuns": 5
+  },
+  "completedAt": "2026-11-20T01:17:40.000Z",
+  "summary": {
+    "successfulRuns": 15,
+    "failedRuns": 1,
+    "notAttempted": 4
+  }
+}

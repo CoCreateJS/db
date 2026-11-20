@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 const directory = resolve(process.argv[2] ?? '')
 if (!process.argv[2]) throw Error('Usage: node test/benchmarks/standard-report.mjs <run-directory>')
@@ -24,13 +24,14 @@ for (const run of rawRuns) {
 }
 function opSummary(runs, key) {
     const entries = runs.map(run => run.operations?.[key]).filter(Boolean)
-    const metric = field => median(entries.map(entry => entry.measured?.[field]).filter(Number.isFinite))
     return {
-        first: metric('firstOperationMs'),
+        first: median(entries.map(entry => entry.firstOperationMs).filter(Number.isFinite)),
+        min: median(entries.map(entry => entry.measured?.minMs).filter(Number.isFinite)),
+        max: median(entries.map(entry => entry.measured?.maxMs).filter(Number.isFinite)),
+        mean: median(entries.map(entry => entry.measured?.meanMs).filter(Number.isFinite)),
         p50: median(entries.map(entry => entry.measured?.p50Ms).filter(Number.isFinite)),
         p95: median(entries.map(entry => entry.measured?.p95Ms).filter(Number.isFinite)),
         p99: median(entries.map(entry => entry.measured?.p99Ms).filter(Number.isFinite)),
-        mean: median(entries.map(entry => entry.measured?.meanMs).filter(Number.isFinite)),
         ops: median(entries.map(entry => entry.measured?.opsPerSecond).filter(Number.isFinite))
     }
 }
@@ -48,9 +49,11 @@ for (const size of sizes) {
         fixtureVersion: runs[0]?.fixtureVersion ?? '3.0.0',
         fixtureHash: runs[0]?.fixtureHash ?? null,
         initializationMs: median(runs.map(run => run.initializationMs)),
+        readinessMs: median(runs.map(run => run.readiness?.readyMs)),
         firstObjectCreateMs: median(runs.map(run => run.firstObjectCreateMs)),
         createAndIndexMs: median(runs.map(run => run.createAndIndexMs)),
         createRecordsPerSecond: median(runs.map(run => run.createRecordsPerSecond)),
+        totalElapsedMs: median(runs.map(run => run.totalElapsedMs)),
         operations: Object.fromEntries(['singleCreate', 'uuidRead', 'equality', 'nestedEquality', 'numericRange', 'and', 'or', 'singleKeyUpdate', 'indexedKeyUpdate', 'numericIncrement', 'singleDelete'].map(key => [key, opSummary(runs, key)])),
         filteredBulkDeleteMs: median(runs.map(run => run.operations?.filteredBulkDelete?.elapsedMs)),
         memory: {
@@ -88,20 +91,21 @@ for (const size of sizes) {
     }
     summaries[size] = summary
     const operationRows = Object.entries(summary.operations).map(([name, value]) =>
-        `| ${name} | ${fmt(value.first)} | ${fmt(value.p50)} | ${fmt(value.p95)} | ${fmt(value.p99)} | ${ops(value.ops)} |`)
+        `| ${name} | ${fmt(value.first)} | ${fmt(value.min)} | ${fmt(value.max)} | ${fmt(value.mean)} | ${fmt(value.p50)} | ${fmt(value.p95)} | ${fmt(value.p99)} | ${ops(value.ops)} |`)
     const sustainedRows = summary.sustained.map(value =>
         `| ${value.mode} | ${value.concurrency} | ${ops(value.operationsPerSecond)} | ${fmt(value.p50Ms)} | ${fmt(value.p95Ms)} | ${fmt(value.p99Ms)} | ${fmt(value.cpuUtilizationPercent)}% |`)
     const statusRows = failures.map(run => `| ${run.runIndex ?? '-'} | ${run.status} | ${run.failure?.message ?? run.reason ?? 'see manifest'} |`)
     sections.push([
         `## ${size.toLocaleString()} objects`, '',
         `- Runs: ${runs.length}/${manifest.independentRunsRequested} passed; fixture hash: \`${summary.fixtureHash ?? 'none'}\`.`,
-        `- Init: ${fmt(summary.initializationMs)} ms; first object create: ${fmt(summary.firstObjectCreateMs)} ms.`,
+        `- Init: ${fmt(summary.initializationMs)} ms; readiness: ${fmt(summary.readinessMs)} ms; first object create: ${fmt(summary.firstObjectCreateMs)} ms.`,
         `- Bulk create/index: ${fmt(summary.createAndIndexMs)} ms; ${ops(summary.createRecordsPerSecond)}.`,
+        `- Total independent run time: ${fmt(summary.totalElapsedMs)} ms.`,
         `- Index entries/object: ${runs[0]?.indexEntriesPerObject ?? 'n/a'}; indexing is synchronous and included in create time.`,
         `- Memory (idle / loaded / peak RSS): ${miB(summary.memory.idleRssBytes)} / ${miB(summary.memory.loadedRssBytes)} / ${miB(summary.memory.peakRssBytes)}.`,
         `- Incremental memory/object: ${fmt(summary.memory.rssBytesPerObject)} bytes RSS; incremental heap: ${miB(summary.memory.incrementalHeapBytes)}.`,
         `- CPU: ${fmt(summary.cpu.userUs / 1000)} ms user + ${fmt(summary.cpu.systemUs / 1000)} ms system; ${fmt(summary.cpu.utilizationPercent)}% utilization.`, '',
-        '| Operation | First ms | Warm p50 ms | p95 ms | p99 ms | Warm ops/s |', '| --- | ---: | ---: | ---: | ---: | ---: |', ...operationRows, '',
+        '| Operation | First ms | Warm min ms | Warm max ms | Warm mean ms | Warm p50 ms | p95 ms | p99 ms | Warm ops/s |', '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |', ...operationRows, '',
         '| Sustained mode | In-flight | ops/s | p50 ms | p95 ms | p99 ms | CPU utilization |', '| --- | ---: | ---: | ---: | ---: | ---: | ---: |', ...(sustainedRows.length ? sustainedRows : ['| n/a | n/a | n/a | n/a | n/a | n/a | n/a |']), '',
         '| Run | Status | Failure / skip reason |', '| ---: | --- | --- |', ...(statusRows.length ? statusRows : ['| - | all passed | - |'])
     ].join('\n'))
@@ -153,7 +157,9 @@ const summaryEntry = {
     failures: manifest.results.filter(run => run.status !== 'passed')
 }
 provider.standardized ??= { methodology: 'CoCreateDB-only phase; in-process, memory-resident, no persistence or network', runs: [] }
-if (!provider.standardized.runs.some(run => run.runId === summaryEntry.runId)) provider.standardized.runs.push(summaryEntry)
+const existingSummaryIndex = provider.standardized.runs.findIndex(run => run.runId === summaryEntry.runId)
+if (existingSummaryIndex === -1) provider.standardized.runs.push(summaryEntry)
+else provider.standardized.runs[existingSummaryIndex] = summaryEntry
 await writeFile(providerPath, `${JSON.stringify(provider, null, 2)}\n`)
 
 const lines = [
@@ -191,7 +197,7 @@ const lines = [
     `Raw independent runs and the manifest are stored under \`${directory}\`. Status counts: ${JSON.stringify(manifest.summary)}. Provider summary appended to [cocreatedb.json](../providers/cocreatedb.json) without replacing historical data.`,
     '',
     '## Limits and follow-up', '',
-    'This phase measures the in-memory CoCreateDB prototype only. No MongoDB, Redis, Couchbase, CouchDB or CockroachDB adapters are included until each provider is run under this methodology. Results from historical MongoDB/Redis references are not ranked against these measurements. Distributed synchronization, replication, sharding, recovery, persistence durability, server/client separation, and transaction guarantees are out of scope.'
+    'This report measures the in-memory CoCreateDB prototype. MongoDB and Redis have separate provider adapters and reports; compare their results by operation while accounting for transport, indexing and durability differences. Distributed synchronization, replication, sharding, recovery, persistence durability, server/client separation, and transaction guarantees are out of scope for this in-memory CoCreateDB run.'
 ]
 await writeFile(join(directory, 'report.md'), `${lines.join('\n')}\n`)
 console.log(`report=${join(directory, 'report.md')}`)

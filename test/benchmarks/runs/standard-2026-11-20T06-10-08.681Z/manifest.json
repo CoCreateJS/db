@@ -1,0 +1,168 @@
+{
+  "suite": "CoCreateDB standard single-node benchmark v1",
+  "runId": "2026-11-20T06-10-08.681Z",
+  "startedAt": "2026-11-20T06:10:08.681Z",
+  "sizes": [
+    1000,
+    10000,
+    100000
+  ],
+  "independentRunsRequested": 5,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "results": [
+    {
+      "size": 1000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-1000-run-01.json",
+      "elapsedMs": 30749.502944
+    },
+    {
+      "size": 1000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-1000-run-02.json",
+      "elapsedMs": 30771.618685999998
+    },
+    {
+      "size": 1000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-1000-run-03.json",
+      "elapsedMs": 30781.158704
+    },
+    {
+      "size": 1000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-1000-run-04.json",
+      "elapsedMs": 30804.044468
+    },
+    {
+      "size": 1000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-1000-run-05.json",
+      "elapsedMs": 30774.000728
+    },
+    {
+      "size": 10000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-10000-run-01.json",
+      "elapsedMs": 34107.924496
+    },
+    {
+      "size": 10000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-10000-run-02.json",
+      "elapsedMs": 34182.673113
+    },
+    {
+      "size": 10000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-10000-run-03.json",
+      "elapsedMs": 34138.179138
+    },
+    {
+      "size": 10000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-10000-run-04.json",
+      "elapsedMs": 34237.210899
+    },
+    {
+      "size": 10000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-10000-run-05.json",
+      "elapsedMs": 34161.354594000004
+    },
+    {
+      "size": 100000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-100000-run-01.json",
+      "elapsedMs": 77874.05840000001
+    },
+    {
+      "size": 100000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-100000-run-02.json",
+      "elapsedMs": 78690.494357
+    },
+    {
+      "size": 100000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-100000-run-03.json",
+      "elapsedMs": 79093.622574
+    },
+    {
+      "size": 100000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-100000-run-04.json",
+      "elapsedMs": 78572.93594
+    },
+    {
+      "size": 100000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-100000-run-05.json",
+      "elapsedMs": 79609.10204700001
+    }
+  ],
+  "legacyCompatibility": {
+    "status": "passed",
+    "fixture": "lifecycle fixture v2",
+    "runs": [
+      {
+        "runIndex": 1,
+        "status": "passed",
+        "file": "legacy-v2/run-01/run-2026-11-20T06-22-10.487Z.json",
+        "fixtureHash": "25ebce8889cb93e29279301a3681ce66ebe80d5cb0d147387455ad5cddb44e48"
+      },
+      {
+        "runIndex": 2,
+        "status": "passed",
+        "file": "legacy-v2/run-02/run-2026-11-20T06-22-10.959Z.json",
+        "fixtureHash": "25ebce8889cb93e29279301a3681ce66ebe80d5cb0d147387455ad5cddb44e48"
+      },
+      {
+        "runIndex": 3,
+        "status": "passed",
+        "file": "legacy-v2/run-03/run-2026-11-20T06-22-11.463Z.json",
+        "fixtureHash": "25ebce8889cb93e29279301a3681ce66ebe80d5cb0d147387455ad5cddb44e48"
+      },
+      {
+        "runIndex": 4,
+        "status": "passed",
+        "file": "legacy-v2/run-04/run-2026-11-20T06-22-11.935Z.json",
+        "fixtureHash": "25ebce8889cb93e29279301a3681ce66ebe80d5cb0d147387455ad5cddb44e48"
+      },
+      {
+        "runIndex": 5,
+        "status": "passed",
+        "file": "legacy-v2/run-05/run-2026-11-20T06-22-12.426Z.json",
+        "fixtureHash": "25ebce8889cb93e29279301a3681ce66ebe80d5cb0d147387455ad5cddb44e48"
+      }
+    ],
+    "requestedRuns": 5
+  },
+  "completedAt": "2026-11-20T06:22:12.792Z",
+  "summary": {
+    "successfulRuns": 15,
+    "failedRuns": 0,
+    "notAttempted": 0
+  }
+}

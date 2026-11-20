@@ -1,0 +1,1260 @@
+{
+  "status": "passed",
+  "benchmark": "mongodb-standard-single-node-local-loopback",
+  "benchmarkVersion": 1,
+  "fixture": "shared lifecycle fixture v3",
+  "fixtureVersion": "3.0.0",
+  "runIndex": 4,
+  "datasetSize": 1000,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "environment": {
+    "date": "2026-11-20T04:10:07.382Z",
+    "node": "v24.18.0",
+    "platform": "linux-x64",
+    "release": "7.0.0-1017-aws",
+    "os": "#18~24.04.1-Ubuntu SMP PREEMPT Thu Oct 29 17:57:24 UTC 2026",
+    "cpuModel": "AMD EPYC 7571",
+    "cpuCount": 2,
+    "totalMemoryBytes": 8218963968,
+    "freeMemoryBytesAtStart": 5152305152,
+    "mongoServerVersion": "9.0.8",
+    "mongoNodeDriverVersion": "7.9.0",
+    "processModel": "MongoDB mongod child process plus Node driver client over loopback TCP",
+    "persistence": "WiredTiger temporary dbPath on local filesystem; removed after each independent run",
+    "durability": "standalone; writeConcern w:1,j:false; no replication or transactions",
+    "readPreference": "primary",
+    "readConcern": "local",
+    "transport": "MongoDB wire protocol over 127.0.0.1 TCP; client and server process costs reported separately",
+    "diskUsageBytes": "measured from temporary dbPath before cleanup",
+    "diskIO": null
+  },
+  "sourceRevision": "4dccde14ba2f645043954617648d7a75be326dfa",
+  "configuration": {
+    "deployment": "single standalone mongod",
+    "storageEngine": "wiredTiger",
+    "wiredTigerCacheSizeGB": 1,
+    "writeConcern": {
+      "w": 1,
+      "j": false
+    },
+    "readPreference": "primary",
+    "readConcern": "local",
+    "indexDefinitions": [
+      {
+        "key": {
+          "uuid": 1
+        },
+        "unique": true,
+        "name": "uuid_unique"
+      },
+      {
+        "key": {
+          "group": 1,
+          "uuid": 1
+        },
+        "name": "group_uuid"
+      },
+      {
+        "key": {
+          "profile.team": 1,
+          "uuid": 1
+        },
+        "name": "profile_team_uuid"
+      },
+      {
+        "key": {
+          "rank": 1
+        },
+        "name": "rank"
+      },
+      {
+        "key": {
+          "group": 1,
+          "active": 1,
+          "uuid": 1
+        },
+        "name": "group_active_uuid"
+      },
+      {
+        "key": {
+          "bulkDelete": 1
+        },
+        "name": "bulk_delete"
+      },
+      {
+        "key": {
+          "organization_id": 1
+        },
+        "name": "organization_id"
+      },
+      {
+        "key": {
+          "createdAt": 1
+        },
+        "name": "created_at"
+      },
+      {
+        "key": {
+          "profile.score": 1
+        },
+        "name": "profile_score"
+      },
+      {
+        "key": {
+          "profile.location.region": 1
+        },
+        "name": "profile_location_region"
+      },
+      {
+        "key": {
+          "profile.location.verified": 1
+        },
+        "name": "profile_location_verified"
+      },
+      {
+        "key": {
+          "payload": 1
+        },
+        "name": "payload"
+      },
+      {
+        "key": {
+          "revision": 1
+        },
+        "name": "revision"
+      },
+      {
+        "key": {
+          "tags.0": 1
+        },
+        "name": "tags_0"
+      },
+      {
+        "key": {
+          "tags.1": 1
+        },
+        "name": "tags_1"
+      }
+    ],
+    "chunkSize": 1000,
+    "maxPoolSize": 16,
+    "retryWrites": false
+  },
+  "startedAt": "2026-11-20T04:10:07.391Z",
+  "serverStartupMs": 310.509341,
+  "readinessMs": 37.10261300000002,
+  "mongoServerVersion": "9.0.8",
+  "serverPid": 92535,
+  "serverMemory": {
+    "idle": {
+      "VmSize": 4107423744,
+      "VmHWM": 157007872,
+      "VmRSS": 157007872,
+      "cpuTicks": 16
+    },
+    "loaded": {
+      "VmSize": 4107431936,
+      "VmHWM": 179159040,
+      "VmRSS": 179159040,
+      "cpuTicks": 28
+    },
+    "peakRssBytes": 179159040,
+    "databasePathBytes": 209915574
+  },
+  "indexSetupMs": 155.23997999999995,
+  "firstObjectCreateMs": 2.5982060000000047,
+  "fixtureHash": "bc4f84465e1e80b84bf541e527e39516776dc4bc07afb233c45b825b29a846ac",
+  "createAndIndexMs": 99.52445200000011,
+  "createRecordsPerSecond": 10047.782026471232,
+  "indexCreationAndMaintenance": {
+    "indexSetupMs": 155.23997999999995,
+    "incrementalMaintainedDuringInsert": true,
+    "indexes": [
+      {
+        "v": 2,
+        "key": {
+          "_id": 1
+        },
+        "name": "_id_"
+      },
+      {
+        "v": 2,
+        "key": {
+          "uuid": 1
+        },
+        "name": "uuid_unique",
+        "unique": true
+      },
+      {
+        "v": 2,
+        "key": {
+          "group": 1,
+          "uuid": 1
+        },
+        "name": "group_uuid"
+      },
+      {
+        "v": 2,
+        "key": {
+          "profile.team": 1,
+          "uuid": 1
+        },
+        "name": "profile_team_uuid"
+      },
+      {
+        "v": 2,
+        "key": {
+          "rank": 1
+        },
+        "name": "rank"
+      },
+      {
+        "v": 2,
+        "key": {
+          "group": 1,
+          "active": 1,
+          "uuid": 1
+        },
+        "name": "group_active_uuid"
+      },
+      {
+        "v": 2,
+        "key": {
+          "bulkDelete": 1
+        },
+        "name": "bulk_delete"
+      },
+      {
+        "v": 2,
+        "key": {
+          "organization_id": 1
+        },
+        "name": "organization_id"
+      },
+      {
+        "v": 2,
+        "key": {
+          "createdAt": 1
+        },
+        "name": "created_at"
+      },
+      {
+        "v": 2,
+        "key": {
+          "profile.score": 1
+        },
+        "name": "profile_score"
+      },
+      {
+        "v": 2,
+        "key": {
+          "profile.location.region": 1
+        },
+        "name": "profile_location_region"
+      },
+      {
+        "v": 2,
+        "key": {
+          "profile.location.verified": 1
+        },
+        "name": "profile_location_verified"
+      },
+      {
+        "v": 2,
+        "key": {
+          "payload": 1
+        },
+        "name": "payload"
+      },
+      {
+        "v": 2,
+        "key": {
+          "revision": 1
+        },
+        "name": "revision"
+      },
+      {
+        "v": 2,
+        "key": {
+          "tags.0": 1
+        },
+        "name": "tags_0"
+      },
+      {
+        "v": 2,
+        "key": {
+          "tags.1": 1
+        },
+        "name": "tags_1"
+      }
+    ]
+  },
+  "databaseStats": {
+    "db": "cocreatedb_bench_1000_4",
+    "collections": 1,
+    "views": 0,
+    "objects": 1001,
+    "avgObjSize": 441.2567432567433,
+    "dataSize": 441698,
+    "storageSize": 4096,
+    "indexes": 16,
+    "indexSize": 65536,
+    "totalSize": 69632,
+    "scaleFactor": 1,
+    "fsUsedSize": 53753049088,
+    "fsTotalSize": 65445814272,
+    "ok": 1
+  },
+  "storageEngineStats": {
+    "engine": "wiredTiger",
+    "cache": {
+      "application requested eviction interrupt": 0,
+      "application thread time evicting (usecs)": 0,
+      "application threads eviction requested with cache fill ratio < 25%": 0,
+      "application threads eviction requested with cache fill ratio >= 25% and < 50%": 0,
+      "application threads eviction requested with cache fill ratio >= 50% and < 75%": 0,
+      "application threads eviction requested with cache fill ratio >= 75%": 0,
+      "application threads eviction skip page with updates or dirty page": 0,
+      "application threads page read from disk to cache count": 0,
+      "application threads page read from disk to cache time (usecs)": 0,
+      "application threads page write from cache to disk count": 0,
+      "application threads page write from cache to disk time (usecs)": 0,
+      "bytes allocated for updates": 2984711,
+      "bytes allocated for updates from the ingest btrees": 0,
+      "bytes allocated for updates from the stable btrees": 0,
+      "bytes belonging to page images in the cache": 0,
+      "bytes belonging to page images in the cache from the ingest btrees": 0,
+      "bytes belonging to page images in the cache from the stable btrees": 0,
+      "bytes belonging to the history store table in the cache": 199,
+      "bytes currently in the cache": 2993001,
+      "bytes dirty in the cache cumulative": 27844,
+      "bytes not belonging to page images in the cache": 2993001,
+      "bytes read into cache": 0,
+      "bytes written from cache": 0,
+      "cache tolerance configured": 0,
+      "checkpoint blocked page eviction": 0,
+      "checkpoint of history store file blocked non-history store page eviction": 0,
+      "dirty bytes belonging to the history store table in the cache": 0,
+      "dirty internal page cannot be evicted in disaggregated storage": 0,
+      "evict page attempts by eviction server": 0,
+      "evict page attempts by eviction worker threads": 0,
+      "evict page failures by eviction server": 0,
+      "evict page failures by eviction worker threads": 0,
+      "eviction calls to get a page found queue empty": 1,
+      "eviction calls to get a page found queue empty after locking": 0,
+      "eviction currently operating in aggressive mode": 0,
+      "eviction empty score": 0,
+      "eviction gave up due to detecting a disk value without a timestamp behind the last update on the chain": 0,
+      "eviction gave up due to detecting a tombstone without a timestamp ahead of the selected on disk update": 0,
+      "eviction gave up due to detecting a tombstone without a timestamp ahead of the selected on disk update after validating the update chain": 0,
+      "eviction gave up due to detecting update chain entries without timestamps after the selected on disk update": 0,
+      "eviction gave up due to needing to remove a record from the history store but checkpoint is running": 0,
+      "eviction gave up due to no progress being made": 0,
+      "eviction passes of a file": 0,
+      "eviction server candidate queue empty when topping up": 0,
+      "eviction server candidate queue not empty when topping up": 0,
+      "eviction server completed walks of all dhandles": 0,
+      "eviction server push pages to queue failed because of racing with setting flag": 0,
+      "eviction server skipped the internal pages if eviction is not in aggressive mode": 0,
+      "eviction server skipped the pages already in the urgent queue": 0,
+      "eviction server skipped the pages when prefetching": 0,
+      "eviction server skipped the root pages": 0,
+      "eviction server skips clean history store pages with updates when a precise checkpoint is in progress": 0,
+      "eviction server skips dirty pages during a running checkpoint": 0,
+      "eviction server skips disaggregated trees already visited by the ongoing checkpoint": 0,
+      "eviction server skips ingest btrees in disagg": 0,
+      "eviction server skips internal pages as it has an active child": 0,
+      "eviction server skips metadata pages with history": 0,
+      "eviction server skips pages that are written with transactions greater than the checkpoint timestamp": 0,
+      "eviction server skips pages that are written with transactions greater than the last running": 0,
+      "eviction server skips pages that are written with transactions greater than the prune timestamp": 0,
+      "eviction server skips pages that have been reconciled previously at the same prune timestamp": 0,
+      "eviction server skips pages that previously failed eviction and likely will again": 0,
+      "eviction server skips pages that we do not want to evict": 0,
+      "eviction server skips resuming trees whose walk already traversed the whole tree": 0,
+      "eviction server skips stable btrees in disagg": 0,
+      "eviction server skips tree that we do not want to evict": 0,
+      "eviction server skips trees because there are too many active walks": 0,
+      "eviction server skips trees that are being checkpointed": 0,
+      "eviction server skips trees that are configured to stick in cache": 0,
+      "eviction server skips trees that are read-only if it is not looking for clean pages": 0,
+      "eviction server skips trees that disable eviction": 0,
+      "eviction server skips trees that were not useful before": 0,
+      "eviction server slept, because we did not make progress with eviction": 0,
+      "eviction server unable to reach eviction goal": 0,
+      "eviction server waiting for a leaf page": 0,
+      "eviction server walks trees within their walk period because they dominate the cache": 0,
+      "eviction server walks trees within their walk period because they dominate the cache but queues no pages": 0,
+      "eviction state": 32,
+      "eviction threshold cache full target multiplied by 100 for precision": 8000,
+      "eviction threshold cache full trigger multiplied by 100 for precision": 9500,
+      "eviction threshold dirty target multiplied by 100 for precision": 500,
+      "eviction threshold dirty trigger multiplied by 100 for precision": 2000,
+      "eviction threshold updates target multiplied by 100 for precision": 250,
+      "eviction threshold updates trigger multiplied by 100 for precision": 1000,
+      "eviction walk most recent sleeps for checkpoint handle gathering": 0,
+      "eviction walk pages queued that had updates": 0,
+      "eviction walk pages queued that were clean": 0,
+      "eviction walk pages queued that were dirty": 0,
+      "eviction walk pages seen that had updates": 0,
+      "eviction walk pages seen that were clean": 0,
+      "eviction walk pages seen that were dirty": 0,
+      "eviction walk restored - had to walk this many pages": 0,
+      "eviction walk restored position": 0,
+      "eviction walk restored position differs from the saved one": 0,
+      "eviction walk target pages histogram - 0-9": 0,
+      "eviction walk target pages histogram - 10-31": 0,
+      "eviction walk target pages histogram - 128 and higher": 0,
+      "eviction walk target pages histogram - 32-63": 0,
+      "eviction walk target pages histogram - 64-128": 0,
+      "eviction walk target pages reduced due to history store cache pressure": 0,
+      "eviction walk target strategy clean pages": 0,
+      "eviction walk target strategy dirty pages": 0,
+      "eviction walk target strategy pages with updates": 0,
+      "eviction walks abandoned": 0,
+      "eviction walks gave up because they restarted their walk twice": 0,
+      "eviction walks gave up because they saw too many pages and found no candidates": 0,
+      "eviction walks gave up because they saw too many pages and found too few candidates": 0,
+      "eviction walks random search fails to locate a page, results in a null position": 0,
+      "eviction walks reached end of tree": 0,
+      "eviction walks restarted": 0,
+      "eviction walks started from root of tree": 0,
+      "eviction walks started from saved location in tree": 0,
+      "eviction worker thread active": 4,
+      "eviction worker thread stable number": 0,
+      "files with active eviction walks": 0,
+      "files with new eviction walks started": 0,
+      "forced eviction - do not retry count to evict pages selected to evict during reconciliation": 0,
+      "forced eviction - history store pages failed to evict while session has history store cursor open": 0,
+      "forced eviction - history store pages selected while session has history store cursor open": 0,
+      "forced eviction - history store pages successfully evicted while session has history store cursor open": 0,
+      "forced eviction - pages evicted belonging to ingest btrees count": 0,
+      "forced eviction - pages evicted that were clean count": 0,
+      "forced eviction - pages evicted that were dirty count": 0,
+      "forced eviction - pages selected because of a large number of updates to a single item": 0,
+      "forced eviction - pages selected because of too many deleted items count": 0,
+      "forced eviction - pages selected belonging to ingest btrees unable to be evicted count": 0,
+      "forced eviction - pages selected count": 0,
+      "forced eviction - pages selected unable to be evicted count": 0,
+      "garbage collection from the ingest btree page is skipped because the prune timestamp has not moved": 0,
+      "hazard pointer blocked page eviction": 0,
+      "hazard pointer check calls": 0,
+      "hazard pointer check entries walked": 0,
+      "hazard pointer maximum array length": 0,
+      "history store cursor not cached during eviction": 0,
+      "history store table insert calls": 0,
+      "history store table insert calls that returned restart": 0,
+      "history store table key to be processed": 0,
+      "history store table max on-disk size": 0,
+      "history store table on-disk size": 0,
+      "history store table reads": 0,
+      "history store table reads missed": 0,
+      "history store table reads requiring squashed modifies": 0,
+      "history store table resolved updates without timestamps that lose their durable timestamp": 0,
+      "history store table truncation by rollback to stable to remove an unstable update": 0,
+      "history store table truncation by rollback to stable to remove an update": 0,
+      "history store table truncation to remove all the keys of a btree": 0,
+      "history store table truncation to remove an update": 0,
+      "history store table truncation to remove range of updates due to an update without a timestamp on data page": 0,
+      "history store table truncation to remove range of updates due to key being removed from the data page during reconciliation": 0,
+      "history store table truncations that would have happened in non-dryrun mode": 0,
+      "history store table truncations to remove an unstable update that would have happened in non-dryrun mode": 0,
+      "history store table truncations to remove an update that would have happened in non-dryrun mode": 0,
+      "history store table update to be processed": 0,
+      "history store table updates without timestamps fixed up by reinserting with the fixed timestamp": 0,
+      "history store table writes requiring squashed modifies": 0,
+      "in-memory page passed criteria to be split": 0,
+      "in-memory page splits": 0,
+      "in-memory page splits performed on ingest btree pages": 0,
+      "ingest pages evicted": 0,
+      "internal page split blocked its eviction": 0,
+      "internal pages evicted": 0,
+      "internal pages queued for eviction": 0,
+      "internal pages read into cache": 0,
+      "internal pages seen by eviction walk": 0,
+      "internal pages seen by eviction walk that are already queued": 0,
+      "internal pages split during eviction": 0,
+      "leaf pages currently held in the cache": 24,
+      "leaf pages read into cache": 0,
+      "leaf pages split during eviction": 0,
+      "locate a random in-mem ref by examining all entries on the root page": 0,
+      "maximum bytes configured": 1073741824,
+      "maximum clean page size seen at eviction per checkpoint": 0,
+      "maximum dirty page size seen at eviction per checkpoint": 0,
+      "maximum gap between unvisited page and connection evict pass generation seen at eviction": 0,
+      "maximum gap between unvisited page and connection evict pass generation seen at eviction per checkpoint": 0,
+      "maximum gap between visited page and connection evict pass generation seen at eviction": 0,
+      "maximum gap between visited page and connection evict pass generation seen at eviction per checkpoint": 0,
+      "maximum milliseconds spent at a single eviction": 0,
+      "maximum milliseconds spent at a single eviction per checkpoint": 0,
+      "maximum number of times a page tried to be added to eviction queue but fail": 0,
+      "maximum number of times a page tried to be evicted": 0,
+      "maximum updates page size seen at eviction per checkpoint": 0,
+      "modified page evict attempts by application threads": 0,
+      "modified page evict failures by application threads": 0,
+      "modified pages evicted": 0,
+      "multi-block reconciliation blocked whilst checkpoint is running": 0,
+      "npos read - had to walk this many pages": 0,
+      "number of internal pages read that had deltas attached": 0,
+      "number of leaf pages read that had deltas attached": 0,
+      "number of times dirty trigger was reached": 0,
+      "number of times eviction trigger was reached": 0,
+      "number of times updates trigger was reached": 0,
+      "number of times when cas update the btree max_lsn failed": 0,
+      "obsolete updates removed": 0,
+      "operations timed out waiting for space in cache": 0,
+      "overflow keys on a multiblock row-store page blocked its eviction": 0,
+      "overflow pages read into cache": 0,
+      "page evict attempts by application threads": 0,
+      "page evict failures by application threads": 0,
+      "page eviction blocked due to materialization frontier": 0,
+      "page eviction blocked in disaggregated storage as it can only be written by the next checkpoint": 0,
+      "page split during eviction deepened the tree": 0,
+      "page written requiring history store records": 0,
+      "pages already in queue when topping up": 0,
+      "pages considered for eviction that were brought in by pre-fetch": 0,
+      "pages currently held in the cache": 52,
+      "pages currently held in the cache from the ingest btrees": 0,
+      "pages currently held in the cache from the stable btrees": 0,
+      "pages dirtied due to obsolete time window by eviction": 0,
+      "pages evicted ahead of the page materialization frontier": 0,
+      "pages evicted in parallel with checkpoint": 0,
+      "pages queued for eviction": 0,
+      "pages queued for eviction post lru sorting": 0,
+      "pages queued for urgent eviction": 0,
+      "pages queued for urgent eviction during walk": 0,
+      "pages queued for urgent eviction from history store due to high dirty content": 0,
+      "pages read into cache": 0,
+      "pages read into cache after truncate": 0,
+      "pages read into cache after truncate in prepare state": 0,
+      "pages read into cache by checkpoint": 0,
+      "pages removed from the ordinary queue to be queued for urgent eviction": 0,
+      "pages requested from the cache": 20522,
+      "pages requested from the cache due to pre-fetch": 0,
+      "pages requested from the cache internal": 0,
+      "pages requested from the cache leaf": 20522,
+      "pages requested from the history store": 0,
+      "pages seen by eviction walk": 0,
+      "pages seen by eviction walk that are already queued": 0,
+      "pages selected for eviction unable to be evicted": 0,
+      "pages selected for eviction unable to be evicted because of active children on an internal page": 0,
+      "pages selected for eviction unable to be evicted because of failure in reconciliation": 0,
+      "pages selected for eviction unable to be evicted because of race between checkpoint and updates without timestamps": 0,
+      "pages selected for eviction unable to be evicted belonging to ingest btrees": 0,
+      "pages walked for eviction": 0,
+      "pages with an unresolved multiblock split flagged by checkpoint to be evicted soon": 0,
+      "pages with an unresolved multiblock split re-reconciled by checkpoint": 0,
+      "pages written from cache": 0,
+      "pages written requiring in-memory restoration due to invisible updates": 0,
+      "pages written requiring in-memory restoration due to scrub eviction": 0,
+      "percentage overhead": 8,
+      "precise checkpoint caused an eviction to be skipped because any dirty content needs to remain in cache": 0,
+      "realizing in-memory split after reconciliation failed due to internal lock busy": 0,
+      "recent modification of a page blocked its eviction": 0,
+      "reconciled pages scrubbed and added back to the cache clean": 0,
+      "reverse splits performed": 0,
+      "reverse splits skipped because of VLCS namespace gap restrictions": 0,
+      "shared disk bucket lock contention count": 0,
+      "shared disk bytes saved by sharing duplicate disk images": 0,
+      "shared disk hash table size": 0,
+      "shared disk hit": 0,
+      "shared disk miss": 0,
+      "shared history store cursor not cached during eviction": 0,
+      "size of delta updates reconstructed on the base page": 0,
+      "size of tombstones restored when reading a page": 0,
+      "the number of times full update inserted to history store": 0,
+      "the number of times reverse modify inserted to history store": 0,
+      "time eviction worker threads spend waiting for locks (usecs)": 0,
+      "total milliseconds spent inside reentrant history store evictions in a reconciliation": 0,
+      "tracked bytes belonging to internal pages in the cache": 5594,
+      "tracked bytes belonging to internal pages in the cache from the ingest btrees": 0,
+      "tracked bytes belonging to internal pages in the cache from the stable btrees": 0,
+      "tracked bytes belonging to leaf pages in the cache": 2987407,
+      "tracked bytes belonging to leaf pages in the cache from the ingest btrees": 0,
+      "tracked bytes belonging to leaf pages in the cache from the stable btrees": 0,
+      "tracked dirty bytes in the cache": 2987295,
+      "tracked dirty bytes in the cache from the ingest btrees": 0,
+      "tracked dirty bytes in the cache from the stable btrees": 0,
+      "tracked dirty internal page bytes in the cache": 0,
+      "tracked dirty internal page bytes in the cache from the ingest btrees": 0,
+      "tracked dirty internal page bytes in the cache from the stable btrees": 0,
+      "tracked dirty leaf page bytes in the cache": 2987295,
+      "tracked dirty leaf page bytes in the cache from the ingest btrees": 0,
+      "tracked dirty leaf page bytes in the cache from the stable btrees": 0,
+      "tracked dirty pages in the cache": 23,
+      "tracked dirty pages in the cache from the ingest btrees": 0,
+      "tracked dirty pages in the cache from the stable btrees": 0,
+      "uncommitted truncate blocked page eviction": 0,
+      "unmodified pages evicted": 0,
+      "update bytes belonging to the history store table in the cache": 0,
+      "updates in uncommitted txn - bytes": 0,
+      "updates in uncommitted txn - count": 0
+    }
+  },
+  "clientMemory": {
+    "idle": {
+      "rss": 93589504,
+      "heapTotal": 33480704,
+      "heapUsed": 22207224,
+      "external": 21356543,
+      "arrayBuffers": 18599042
+    },
+    "loaded": {
+      "rss": 106868736,
+      "heapTotal": 56025088,
+      "heapUsed": 21426208,
+      "external": 21530446,
+      "arrayBuffers": 18772905
+    },
+    "final": {
+      "rss": 284196864,
+      "heapTotal": 190197760,
+      "heapUsed": 106125760,
+      "external": 31739136,
+      "arrayBuffers": 28951388
+    }
+  },
+  "queryPlans": {
+    "equality": {
+      "winningPlan": {
+        "isCached": false,
+        "stage": "LIMIT",
+        "limitAmount": 100,
+        "inputStage": {
+          "stage": "FETCH",
+          "nss": "cocreatedb_bench_1000_4.records",
+          "inputStage": {
+            "stage": "IXSCAN",
+            "nss": "cocreatedb_bench_1000_4.records",
+            "keyPattern": {
+              "group": 1,
+              "uuid": 1
+            },
+            "indexName": "group_uuid",
+            "isMultiKey": false,
+            "multiKeyPaths": {
+              "group": [],
+              "uuid": []
+            },
+            "isUnique": false,
+            "isSparse": false,
+            "isPartial": false,
+            "indexVersion": 2,
+            "direction": "forward",
+            "indexBounds": {
+              "group": [
+                "[\"group-3\", \"group-3\"]"
+              ],
+              "uuid": [
+                "[MinKey, MaxKey]"
+              ]
+            }
+          }
+        }
+      },
+      "nReturned": 100,
+      "totalKeysExamined": 100,
+      "totalDocsExamined": 100
+    },
+    "nestedEquality": {
+      "winningPlan": {
+        "isCached": false,
+        "stage": "LIMIT",
+        "limitAmount": 100,
+        "inputStage": {
+          "stage": "FETCH",
+          "nss": "cocreatedb_bench_1000_4.records",
+          "inputStage": {
+            "stage": "IXSCAN",
+            "nss": "cocreatedb_bench_1000_4.records",
+            "keyPattern": {
+              "profile.team": 1,
+              "uuid": 1
+            },
+            "indexName": "profile_team_uuid",
+            "isMultiKey": false,
+            "multiKeyPaths": {
+              "profile.team": [],
+              "uuid": []
+            },
+            "isUnique": false,
+            "isSparse": false,
+            "isPartial": false,
+            "indexVersion": 2,
+            "direction": "forward",
+            "indexBounds": {
+              "profile.team": [
+                "[\"team-7\", \"team-7\"]"
+              ],
+              "uuid": [
+                "[MinKey, MaxKey]"
+              ]
+            }
+          }
+        }
+      },
+      "nReturned": 50,
+      "totalKeysExamined": 50,
+      "totalDocsExamined": 50
+    },
+    "numericRange": {
+      "winningPlan": {
+        "isCached": false,
+        "stage": "LIMIT",
+        "limitAmount": 100,
+        "inputStage": {
+          "stage": "FETCH",
+          "nss": "cocreatedb_bench_1000_4.records",
+          "inputStage": {
+            "stage": "IXSCAN",
+            "nss": "cocreatedb_bench_1000_4.records",
+            "keyPattern": {
+              "rank": 1
+            },
+            "indexName": "rank",
+            "isMultiKey": false,
+            "multiKeyPaths": {
+              "rank": []
+            },
+            "isUnique": false,
+            "isSparse": false,
+            "isPartial": false,
+            "indexVersion": 2,
+            "direction": "forward",
+            "indexBounds": {
+              "rank": [
+                "[400, 600)"
+              ]
+            }
+          }
+        }
+      },
+      "nReturned": 100,
+      "totalKeysExamined": 100,
+      "totalDocsExamined": 100
+    },
+    "and": {
+      "winningPlan": {
+        "isCached": false,
+        "stage": "LIMIT",
+        "limitAmount": 100,
+        "inputStage": {
+          "stage": "FETCH",
+          "nss": "cocreatedb_bench_1000_4.records",
+          "inputStage": {
+            "stage": "IXSCAN",
+            "nss": "cocreatedb_bench_1000_4.records",
+            "keyPattern": {
+              "group": 1,
+              "active": 1,
+              "uuid": 1
+            },
+            "indexName": "group_active_uuid",
+            "isMultiKey": false,
+            "multiKeyPaths": {
+              "group": [],
+              "active": [],
+              "uuid": []
+            },
+            "isUnique": false,
+            "isSparse": false,
+            "isPartial": false,
+            "indexVersion": 2,
+            "direction": "forward",
+            "indexBounds": {
+              "group": [
+                "[\"group-4\", \"group-4\"]"
+              ],
+              "active": [
+                "[true, true]"
+              ],
+              "uuid": [
+                "[MinKey, MaxKey]"
+              ]
+            }
+          }
+        }
+      },
+      "nReturned": 100,
+      "totalKeysExamined": 100,
+      "totalDocsExamined": 100
+    },
+    "or": {
+      "winningPlan": {
+        "isCached": false,
+        "stage": "LIMIT",
+        "limitAmount": 100,
+        "inputStage": {
+          "stage": "FETCH",
+          "nss": "cocreatedb_bench_1000_4.records",
+          "inputStage": {
+            "stage": "SORT_MERGE",
+            "sortPattern": {
+              "uuid": 1
+            },
+            "inputStages": [
+              {
+                "stage": "IXSCAN",
+                "nss": "cocreatedb_bench_1000_4.records",
+                "keyPattern": {
+                  "group": 1,
+                  "uuid": 1
+                },
+                "indexName": "group_uuid",
+                "isMultiKey": false,
+                "multiKeyPaths": {
+                  "group": [],
+                  "uuid": []
+                },
+                "isUnique": false,
+                "isSparse": false,
+                "isPartial": false,
+                "indexVersion": 2,
+                "direction": "forward",
+                "indexBounds": {
+                  "group": [
+                    "[\"group-1\", \"group-1\"]"
+                  ],
+                  "uuid": [
+                    "[MinKey, MaxKey]"
+                  ]
+                }
+              },
+              {
+                "stage": "IXSCAN",
+                "nss": "cocreatedb_bench_1000_4.records",
+                "keyPattern": {
+                  "group": 1,
+                  "uuid": 1
+                },
+                "indexName": "group_uuid",
+                "isMultiKey": false,
+                "multiKeyPaths": {
+                  "group": [],
+                  "uuid": []
+                },
+                "isUnique": false,
+                "isSparse": false,
+                "isPartial": false,
+                "indexVersion": 2,
+                "direction": "forward",
+                "indexBounds": {
+                  "group": [
+                    "[\"group-8\", \"group-8\"]"
+                  ],
+                  "uuid": [
+                    "[MinKey, MaxKey]"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "nReturned": 100,
+      "totalKeysExamined": 101,
+      "totalDocsExamined": 100
+    }
+  },
+  "operations": {
+    "uuidRead": {
+      "firstOperationMs": 1.2899929999998676,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.6426010000000133,
+        "maxMs": 1.6625149999999849,
+        "meanMs": 0.8904460999999969,
+        "p50Ms": 0.9026699999999437,
+        "p95Ms": 1.0817649999999048,
+        "p99Ms": 1.6625149999999849,
+        "totalMs": 36.05823899999996,
+        "opsPerSecond": 1109.316514320071
+      }
+    },
+    "equality": {
+      "firstOperationMs": 4.7136749999999665,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 2.1382810000000063,
+        "maxMs": 7.618050999999923,
+        "meanMs": 2.8956999750000194,
+        "p50Ms": 2.4328709999999774,
+        "p95Ms": 4.481968000000052,
+        "p99Ms": 7.618050999999923,
+        "totalMs": 117.09879299999989,
+        "opsPerSecond": 341.59190692939114
+      }
+    },
+    "nestedEquality": {
+      "firstOperationMs": 1.906413000000157,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 1.3420439999999871,
+        "maxMs": 2.722998999999845,
+        "meanMs": 1.618464349999988,
+        "p50Ms": 1.507229999999936,
+        "p95Ms": 1.9696149999999761,
+        "p99Ms": 2.722998999999845,
+        "totalMs": 65.33572500000014,
+        "opsPerSecond": 612.2224862431681
+      }
+    },
+    "numericRange": {
+      "firstOperationMs": 2.259614000000056,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 2.01633599999991,
+        "maxMs": 7.316491000000042,
+        "meanMs": 2.6710792500000027,
+        "p50Ms": 2.34671800000001,
+        "p95Ms": 4.4431959999999435,
+        "p99Ms": 7.316491000000042,
+        "totalMs": 107.83322599999997,
+        "opsPerSecond": 370.9431822061969
+      }
+    },
+    "and": {
+      "firstOperationMs": 2.689499000000069,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 2.024505999999974,
+        "maxMs": 4.590790999999854,
+        "meanMs": 2.4303663749999886,
+        "p50Ms": 2.293274999999994,
+        "p95Ms": 3.4456840000000284,
+        "p99Ms": 4.590790999999854,
+        "totalMs": 98.03648300000009,
+        "opsPerSecond": 408.0113726641945
+      }
+    },
+    "or": {
+      "firstOperationMs": 2.947558000000072,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 2.108739999999898,
+        "maxMs": 3.7767740000001595,
+        "meanMs": 2.361107299999992,
+        "p50Ms": 2.2288229999999203,
+        "p95Ms": 2.804871999999932,
+        "p99Ms": 3.7767740000001595,
+        "totalMs": 95.27793199999996,
+        "opsPerSecond": 419.8243933338101
+      }
+    },
+    "singleCreate": {
+      "firstOperationMs": 1.2139099999999416,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.5540889999999763,
+        "maxMs": 0.7644850000001497,
+        "meanMs": 0.60633327500002,
+        "p50Ms": 0.6012590000000273,
+        "p95Ms": 0.6481120000000828,
+        "p99Ms": 0.7644850000001497,
+        "totalMs": 24.355413,
+        "opsPerSecond": 1642.3453792386933
+      }
+    },
+    "singleKeyUpdate": {
+      "firstOperationMs": 1.8259600000001228,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.5739490000000842,
+        "maxMs": 0.9416409999998905,
+        "meanMs": 0.6555836250000141,
+        "p50Ms": 0.6157600000001366,
+        "p95Ms": 0.8720280000000002,
+        "p99Ms": 0.9416409999998905,
+        "totalMs": 26.30869800000005,
+        "opsPerSecond": 1520.4097139280677
+      }
+    },
+    "indexedKeyUpdate": {
+      "firstOperationMs": 0.822687999999971,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.6054300000000694,
+        "maxMs": 0.849868000000015,
+        "meanMs": 0.6448132500000099,
+        "p50Ms": 0.6364609999998265,
+        "p95Ms": 0.695692999999892,
+        "p99Ms": 0.849868000000015,
+        "totalMs": 25.90381400000001,
+        "opsPerSecond": 1544.1741513431182
+      }
+    },
+    "numericIncrement": {
+      "firstOperationMs": 0.8850190000000566,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.6234909999998308,
+        "maxMs": 2.757660999999871,
+        "meanMs": 0.9279151499999785,
+        "p50Ms": 0.8284980000000814,
+        "p95Ms": 1.4296669999998812,
+        "p99Ms": 2.757660999999871,
+        "totalMs": 37.254569000000174,
+        "opsPerSecond": 1073.6938065234312
+      }
+    },
+    "singleDelete": {
+      "firstOperationMs": 1.8854619999999613,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.5779090000000906,
+        "maxMs": 1.7983200000003308,
+        "meanMs": 0.6837123250000332,
+        "p50Ms": 0.616631000000325,
+        "p95Ms": 1.1183270000001357,
+        "p99Ms": 1.7983200000003308,
+        "totalMs": 27.46210599999995,
+        "opsPerSecond": 1456.552530967584
+      }
+    },
+    "filteredBulkDelete": {
+      "deleted": 25,
+      "elapsedMs": 2.8201530000001185,
+      "opsPerSecond": 8864.767266172776
+    }
+  },
+  "sustained": [
+    {
+      "mode": "read",
+      "concurrency": 1,
+      "durationTargetMs": 5000,
+      "operations": 9893,
+      "elapsedMs": 5000.4698260000005,
+      "opsPerSecond": 1978.4140979236056,
+      "latency": {
+        "samples": 9893,
+        "minMs": 0.4086139999999432,
+        "maxMs": 5.117768000000069,
+        "meanMs": 0.5003858931567761,
+        "p50Ms": 0.4713549999996758,
+        "p95Ms": 0.6102999999993699,
+        "p99Ms": 1.057264999999461
+      },
+      "latencyReservoirLimit": 20000,
+      "clientCpuUsageUs": {
+        "user": 3575491,
+        "system": 463694
+      },
+      "clientCpuUtilizationPercent": 80.77610985668208,
+      "serverCpuMs": 1670,
+      "serverCpuUtilizationPercent": 33.396861857196214,
+      "clientMemory": {
+        "rss": 128561152,
+        "heapTotal": 59432960,
+        "heapUsed": 37427960,
+        "external": 21686463,
+        "arrayBuffers": 18898715
+      },
+      "serverMemory": null
+    },
+    {
+      "mode": "write",
+      "concurrency": 1,
+      "durationTargetMs": 5000,
+      "operations": 9098,
+      "elapsedMs": 5000.148195000001,
+      "opsPerSecond": 1819.546070474017,
+      "latency": {
+        "samples": 9098,
+        "minMs": 0.4302740000002814,
+        "maxMs": 5.0711670000000595,
+        "meanMs": 0.5437074144866887,
+        "p50Ms": 0.5105170000006183,
+        "p95Ms": 0.6509619999997085,
+        "p99Ms": 1.2884120000007897
+      },
+      "latencyReservoirLimit": 20000,
+      "clientCpuUsageUs": {
+        "user": 2337796,
+        "system": 557043
+      },
+      "clientCpuUtilizationPercent": 57.895064048196666,
+      "serverCpuMs": 2730,
+      "serverCpuUtilizationPercent": 54.59838175856305,
+      "clientMemory": {
+        "rss": 129384448,
+        "heapTotal": 61267968,
+        "heapUsed": 34928552,
+        "external": 21641626,
+        "arrayBuffers": 18853878
+      },
+      "serverMemory": null
+    },
+    {
+      "mode": "mixed",
+      "concurrency": 1,
+      "durationTargetMs": 5000,
+      "operations": 9566,
+      "elapsedMs": 5000.157905999999,
+      "opsPerSecond": 1913.1395807562728,
+      "latency": {
+        "samples": 9566,
+        "minMs": 0.41527400000268244,
+        "maxMs": 5.206752000000051,
+        "meanMs": 0.5174308347271471,
+        "p50Ms": 0.4995870000002469,
+        "p95Ms": 0.6464820000001055,
+        "p99Ms": 0.8387180000008811
+      },
+      "latencyReservoirLimit": 20000,
+      "clientCpuUsageUs": {
+        "user": 2894384,
+        "system": 389574
+      },
+      "clientCpuUtilizationPercent": 65.67708583881672,
+      "serverCpuMs": 2400,
+      "serverCpuUtilizationPercent": 47.99848415027237,
+      "clientMemory": {
+        "rss": 132657152,
+        "heapTotal": 62054400,
+        "heapUsed": 31556400,
+        "external": 21926542,
+        "arrayBuffers": 18851778
+      },
+      "serverMemory": null
+    },
+    {
+      "mode": "read",
+      "concurrency": 8,
+      "durationTargetMs": 5000,
+      "operations": 17832,
+      "elapsedMs": 5000.2473089999985,
+      "opsPerSecond": 3566.223608161139,
+      "latency": {
+        "samples": 17832,
+        "minMs": 0.5466479999995499,
+        "maxMs": 17.891640000001644,
+        "meanMs": 1.6053741470390284,
+        "p50Ms": 1.497178999998141,
+        "p95Ms": 2.5321829999993497,
+        "p99Ms": 5.668366999998398
+      },
+      "latencyReservoirLimit": 20000,
+      "clientCpuUsageUs": {
+        "user": 4119352,
+        "system": 633472
+      },
+      "clientCpuUtilizationPercent": 95.05177856793885,
+      "serverCpuMs": 3070,
+      "serverCpuUtilizationPercent": 61.39696319568583,
+      "clientMemory": {
+        "rss": 249413632,
+        "heapTotal": 189739008,
+        "heapUsed": 92715680,
+        "external": 29756075,
+        "arrayBuffers": 26968327
+      },
+      "serverMemory": null
+    },
+    {
+      "mode": "write",
+      "concurrency": 8,
+      "durationTargetMs": 5000,
+      "operations": 15935,
+      "elapsedMs": 5000.092193,
+      "opsPerSecond": 3186.941237265302,
+      "latency": {
+        "samples": 15935,
+        "minMs": 0.5182969999987108,
+        "maxMs": 9.43138099999851,
+        "meanMs": 1.7845985084405445,
+        "p50Ms": 1.7183059999988473,
+        "p95Ms": 2.614917000002606,
+        "p99Ms": 4.025832999999693
+      },
+      "latencyReservoirLimit": 20000,
+      "clientCpuUsageUs": {
+        "user": 2418923,
+        "system": 524874
+      },
+      "clientCpuUtilizationPercent": 58.8748544301091,
+      "serverCpuMs": 5210,
+      "serverCpuUtilizationPercent": 104.19807873330546,
+      "clientMemory": {
+        "rss": 269774848,
+        "heapTotal": 203194368,
+        "heapUsed": 89056224,
+        "external": 38974054,
+        "arrayBuffers": 36186306
+      },
+      "serverMemory": null
+    },
+    {
+      "mode": "mixed",
+      "concurrency": 8,
+      "durationTargetMs": 5000,
+      "operations": 16640,
+      "elapsedMs": 5000.369749000001,
+      "opsPerSecond": 3327.7539132636643,
+      "latency": {
+        "samples": 16640,
+        "minMs": 0.48517599999831873,
+        "maxMs": 13.12813300000198,
+        "meanMs": 1.7038205365384738,
+        "p50Ms": 1.6475050000008196,
+        "p95Ms": 2.4083410000021104,
+        "p99Ms": 3.767665000003035
+      },
+      "latencyReservoirLimit": 20000,
+      "clientCpuUsageUs": {
+        "user": 3287585,
+        "system": 527751
+      },
+      "clientCpuUtilizationPercent": 76.30107755057533,
+      "serverCpuMs": 4330,
+      "serverCpuUtilizationPercent": 86.59359642086338,
+      "clientMemory": {
+        "rss": 284196864,
+        "heapTotal": 190197760,
+        "heapUsed": 106108416,
+        "external": 31739136,
+        "arrayBuffers": 28951388
+      },
+      "serverMemory": null
+    }
+  ],
+  "clientCpuUsageUs": {
+    "user": 20004313,
+    "system": 3230182
+  },
+  "totalElapsedMs": 31853.005181,
+  "clientCpuUtilizationPercent": 72.94286635742345,
+  "serverResourceUsage": {
+    "idle": {
+      "VmSize": 4107423744,
+      "VmHWM": 157007872,
+      "VmRSS": 157007872,
+      "cpuTicks": 16
+    },
+    "final": {
+      "VmSize": 4115853312,
+      "VmHWM": 197959680,
+      "VmRSS": 197959680,
+      "cpuTicks": 1995
+    },
+    "cpuMs": 19790,
+    "cpuUtilizationPercent": 62.12914570398066
+  },
+  "completedAt": "2026-11-20T04:10:39.246Z"
+}

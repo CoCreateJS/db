@@ -336,11 +336,11 @@ function launch(args, env = {}) {
 }
 
 async function orchestrate() {
-    const sizes = (process.argv[2] ?? '1000,10000,100000,1000000').split(',').map(Number)
+    const sizes = (process.argv[2] ?? '1000,10000,100000').split(',').map(Number)
     const runs = Number(process.env.BENCH_RUNS ?? 5)
     const samples = Math.max(40, Number(process.env.BENCH_SAMPLES ?? 40))
     const warmups = Math.max(10, Number(process.env.BENCH_WARMUPS ?? 10))
-    const sustainMs = Math.max(100, Number(process.env.BENCH_SUSTAIN_MS ?? 1000))
+    const sustainMs = Math.max(1000, Number(process.env.BENCH_SUSTAIN_MS ?? 5000))
     const concurrency = (process.env.BENCH_CONCURRENCY ?? '1,8').split(',').map(Number)
     if (!sizes.length || sizes.some(size => !Number.isSafeInteger(size) || size < 1)) throw Error('Dataset sizes must be positive integers')
     const startedAt = new Date()
@@ -377,10 +377,13 @@ async function orchestrate() {
             try { raw = JSON.parse(await readFile(path, 'utf8')) } catch {}
             const status = childResult.code === 0 && raw?.status === 'passed' ? 'passed' : 'failed'
             if (!raw) {
+                const failureMessage = /heap out of memory|JavaScript heap out of memory/i.test(childResult.stderr)
+                    ? 'Node.js JavaScript heap out of memory'
+                    : 'Benchmark subprocess exited before writing results'
                 raw = {
                     status, datasetSize: size, runIndex, startedAt: new Date().toISOString(),
                     environment: recordEnvironment(),
-                    failure: { message: 'Benchmark subprocess exited before writing results', exitCode: childResult.code, signal: childResult.signal, stderr: childResult.stderr },
+                    failure: { message: failureMessage, exitCode: childResult.code, signal: childResult.signal, stderr: childResult.stderr },
                     stdout: childResult.stdout.slice(-2000)
                 }
                 await writeFile(path, `${JSON.stringify(raw, null, 2)}\n`)
@@ -392,7 +395,8 @@ async function orchestrate() {
             console.log(`size=${size} run=${runIndex}/${runs} status=${status}${raw.failure ? ` reason=${raw.failure.message}` : ` create+index=${raw.createAndIndexMs.toFixed(2)}ms`}`)
             if (status === 'failed') {
                 stopThisSize = true
-                stopLargerSizes = /heap|memory|allocation|out of memory/i.test(raw.failure?.message ?? childResult.stderr)
+                const failureText = `${raw.failure?.message ?? ''}\n${childResult.stderr}`
+                stopLargerSizes = childResult.signal === 'SIGKILL' || /heap|memory|allocation|out of memory/i.test(failureText)
             }
         }
     }
@@ -432,7 +436,7 @@ if (process.argv[2] === '--child') {
     const settings = {
         samples: Math.max(40, Number(process.env.BENCH_SAMPLES ?? 40)),
         warmups: Math.max(10, Number(process.env.BENCH_WARMUPS ?? 10)),
-        sustainMs: Math.max(100, Number(process.env.BENCH_SUSTAIN_MS ?? 1000)),
+        sustainMs: Math.max(1000, Number(process.env.BENCH_SUSTAIN_MS ?? 5000)),
         concurrency: (process.env.BENCH_CONCURRENCY ?? '1,8').split(',').map(Number)
     }
     const result = await runOne(size, runIndex, outputFile, settings)
