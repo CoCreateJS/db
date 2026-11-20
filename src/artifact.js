@@ -3,6 +3,13 @@ const INDEX=Symbol('index'), ATTACH=Symbol('attach'), STRUCTURAL=Symbol('structu
 const scalar=v=>v===null||['string','number','boolean'].includes(typeof v)
 export const type=v=>v===null?'null':typeof v
 export const get=getValueFromObject
+function pruneUndefined(object){
+    for(const key of Object.keys(object)){
+        const value=object[key]
+        if(value===undefined){delete object[key];continue}
+        if(value!==null&&typeof value==='object')pruneUndefined(value)
+    }
+}
 function paths(object){
     const flattened=objectToDotNotation(object)
     for(const [key,value] of Object.entries(flattened)){
@@ -40,7 +47,7 @@ Object.defineProperties(prototype,{
 export function createArtifact(object, structural = false){
     if(Object.getPrototypeOf(object)!==Object.prototype)throw Error('plain object required')
     for(const key of ['getValue','setValue','getIndex','delete'])if(Object.hasOwn(object,key))throw Error('reserved key')
-    const keys=paths(object);object.uuid??=uuid();if(typeof object.uuid!=='string'||!object.uuid)throw Error('invalid uuid')
+    pruneUndefined(object);const keys=paths(object);object.uuid??=uuid();if(typeof object.uuid!=='string'||!object.uuid)throw Error('invalid uuid')
     Object.defineProperty(object,'uuid',{writable:false,configurable:false,enumerable:true,value:object.uuid})
     for(const key of structural?['parent','scope','name']:['parent','scope'])if(Object.hasOwn(object,key))Object.defineProperty(object,key,{writable:false,configurable:false,enumerable:true,value:object[key]})
     const index=Object.create(null);for(const key of keys.keys())if(key!=='uuid')index[key]=new Entry(object,key)
@@ -53,7 +60,7 @@ export function updateArtifact(object,patch){
     if(createUpdate(next,patch)===false)throw Error('Invalid update')
     if(object[STRUCTURAL]&&next.name!==object.name)throw Error("Scope rename not supported yet")
     if(next.uuid!==object.uuid||next._id!==object._id||next.parent!==object.parent||next.scope!==object.scope)throw Error('immutable identity')
-    const after=paths(next),index=object.getIndex(),changed=[]
+    pruneUndefined(next);const after=paths(next),index=object.getIndex(),changed=[]
     for(const key of Object.keys(index)){
         const entry=index[key]
         if(!after.has(key)||!Object.is(entry.value,after.get(key))){
