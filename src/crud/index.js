@@ -1,4 +1,4 @@
-import { updateArtifact } from '../artifact.js'
+import { update } from './update.js'
 
 const methods = new Set(['create', 'read', 'update', 'delete'])
 const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -20,7 +20,9 @@ export async function crud({ db, scopes }, request) {
     try {
         const [scope, action] = String(request.method ?? '').split('.')
         if (!scope || !methods.has(action)) throw Error(`Unsupported CRUD method: ${request.method}`)
-        const inputs = inputArray(request[scope], scope)
+        const replay = action === 'update' && Array.isArray(request.$update)
+        const inputs = inputArray(replay ? request.$update : request[scope], scope)
+        if (replay && (request.filter || request.upsert || inputs.some(item => !item.uuid))) throw Error('replay requires explicit UUID targets without filter or upsert')
         const filter = request.filter?.isFilter === false ? undefined : request.filter
         if (action === 'create' && filter) throw Error('Filters are not supported for create')
         if (filter && (filter.sort?.length || filter.search !== undefined)) throw Error('sort/search not implemented')
@@ -77,17 +79,16 @@ export async function crud({ db, scopes }, request) {
         if (!resolved && !targets.size) scopes.validateTarget(scope)
         if (action === 'update') {
             delete response.updated
+            const updates = response.$update = []
+            if (replay && targets.size !== inputs.length) throw Error('missing or duplicate replay target')
             if (!targets.size && request.upsert && inputs.length === 1) output.push(create(inputs[0]))
             else {
-                if (!filter && !inputs.some(input => identity(scope, input))) throw Error(`${scope}.update requires identity or filter`)
-                if (!targets.size && !filter) throw Error(`${scope} not found`)
+                if (!filter && !replay && !inputs.some(input => identity(scope, input))) throw Error(`${scope}.update requires identity or filter`)
+                if (!targets.size && !filter && (!replay || inputs.length)) throw Error(`${scope} not found`)
                 for (const [artifact, input] of targets) {
-                    const { uuid, _id, $update, ...patch } = input
-                    const applied = { ...patch, ...request.$update, ...$update }
-                    updateArtifact(artifact, applied)
-                    output.push({ uuid: artifact.uuid, ...(artifact._id !== undefined ? { _id: artifact._id } : {}), ...applied })
-                    if (!response.updated) response.updated = []
-                    response.updated.push(structuredClone(artifact))
+                    const result = update(artifact, input, replay ? undefined : request.$update)
+                    if (result.mutation) updates.push(result.mutation)
+                    output.push(result.object)
                 }
             }
         } else if (action === 'read') output.push(...targets.keys())

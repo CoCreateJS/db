@@ -19,7 +19,9 @@
     "start": "webpack --config webpack.config.js --watch",
     "build": "NODE_ENV=production webpack --config webpack.config.js",
     "benchmark": "node test/benchmarks/lifecycle.mjs",
-    "benchmark:ranges": "node test/benchmarks/ranges.mjs"
+    "benchmark:ranges": "node test/benchmarks/ranges.mjs",
+    "benchmark:standard": "node test/benchmarks/standard.mjs",
+    "benchmark:report": "node test/benchmarks/standard-report.mjs"
   },
   "publishConfig": {
     "access": "public"

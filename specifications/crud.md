@@ -8,7 +8,7 @@ Responses preserve envelope properties and return `success` plus an array under 
 
 - Create: returns created artifacts; filters are rejected. Missing named ancestors may be created.
 - Read: returns local matching artifacts; missing targets may return an empty successful array.
-- Update: accepts direct patch fields and `$update` patches at envelope and item level. Item `$update` overrides envelope `$update`, which overrides direct patch fields. Returns applied patch with identity and `updated` snapshots for existing targets. A single-input upsert may create a missing target and return that artifact instead. A missing explicit target without a filter or upsert fails.
+- Update: accepts direct patch fields and `$update` patches at envelope and item level. Item `$update` overrides envelope `$update`, which overrides direct patch fields. Returns complete resulting snapshots under the target scope and accepted mutations with identity under `$update`. A top-level `$update` array replays explicit UUID mutations instead of accompanying snapshots; replay rejects filters and upsert. A single-input upsert may create a missing target and return that artifact instead. A missing explicit target without a filter or upsert fails.
 - Delete: returns removed artifacts. Missing matches can yield an empty successful array; structural artifacts with children cannot be removed.
 
 Filters use `filter.query`, `startingIndex` (or `index`) and `limit` (default 50; 0 means all). Explicit identities and filter matches are combined. Current implementation rejects nonempty sort and search. `filter.isFilter === false` disables filter use. Operator support depends on shared utilities and validated artifact values, not blanket MongoDB compatibility.
