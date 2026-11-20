@@ -1,5 +1,5 @@
-import { uuid } from '@cocreate/utils'
-import { createArtifact, attach, type } from './artifact.js'
+import { uuid, getValueFromObject, dotNotationToObject } from '@cocreate/utils'
+import { createArtifact, attach, type, updateArtifact } from './artifact.js'
 import { Tree } from './tree/index.js'
 import { queryTree } from './tree/query.js'
 
@@ -20,7 +20,7 @@ export function createConfiguration({ config, scopes, version } = {}) {
     const source = config && isRecord(config) ? config : {}
     const activeScopes = scopes ?? source.scopes ?? defaults.scopes
     if (!isRecord(activeScopes)) throw new TypeError('scopes must be an ordinary object')
-    return { version: version ?? source.version ?? defaults.version, scopes: activeScopes }
+    return { version: version ?? source.version ?? defaults.version, scopes: structuredClone(activeScopes), artifacts: structuredClone(source.artifacts ?? {}) }
 }
 
 function scopePaths(scopes, target) {
@@ -30,7 +30,8 @@ function scopePaths(scopes, target) {
         if (parents.has(node)) throw new Error('Cyclic scope configuration')
         parents.add(node)
         for (const [name, child] of Object.entries(node)) {
-            if (name.startsWith('$') && name !== '$organization_id') throw new Error(`Unsupported dynamic scope: ${name}`)
+            if (['__proto__','constructor','prototype'].includes(name)) throw Error('Invalid scope name')
+            if (name === '$') throw new Error('Invalid dynamic scope name')
             const next = [...path, name]
             if (name === target) result.push(next)
             if (isRecord(child)) visit(child, next, parents)
@@ -43,11 +44,8 @@ function scopePaths(scopes, target) {
 }
 
 function reference(envelope, name) {
-    if (name === '$organization_id') {
-        const value = envelope.organization_id
-        return typeof value === 'string' && value ? { name: value } : undefined
-    }
-    const value = envelope[name]
+    const key = name.startsWith('$') ? name.slice(1) : name
+    const value = Object.hasOwn(envelope, key) ? envelope[key] : undefined
     if (typeof value === 'string' && value) return { name: value }
     if (isRecord(value)) {
         if (typeof value.uuid === 'string' && value.uuid) return { uuid: value.uuid }
@@ -69,30 +67,83 @@ export function createScopeManager({ db, size = 64 }) {
     function select(parent, scope, query = {}, limit = Infinity) {
         const criteria = { ...query, scope }
         if (parent) criteria.parent = parent.uuid
-        else delete criteria.parent
+        else criteria.parent = undefined
         return queryTree(context, criteria, limit)
     }
 
+    const names = new Map()
+    const key = (parent, scope, name) => JSON.stringify([parent, scope, name])
+    const catalog = db.config.artifacts
+    const dynamicKeys = new Set()
+    function refreshDynamicKeys() {
+        dynamicKeys.clear()
+        function visit(node) {
+            for (const [scope, child] of Object.entries(node)) {
+                if (scope.startsWith('$')) dynamicKeys.add(scope.slice(1))
+                visit(child)
+            }
+        }
+        visit(db.config.scopes)
+    }
+    function structural(parent, scope) {
+        let node = db.config.scopes
+        const path = []
+        while (parent) { path.push(parent.scope); parent = db.artifacts.get(parent.parent) }
+        for (let i = path.length - 1; i >= 0; i--) node = node?.[path[i]]
+        return Object.keys(node?.[scope] ?? {}).length > 0
+    }
+    function register(artifact) {
+        const { uuid, scope, parent, name } = artifact
+        const k = key(parent, scope, name)
+        if (names.has(k)) throw Error('duplicate scope name')
+        names.set(k, artifact)
+        Object.defineProperty(catalog, uuid, { value: { scope, ...(parent === undefined ? {} : { parent }), name }, enumerable: true, writable: true, configurable: true })
+    }
     function find(parent, scope, ref) {
         if (!ref) return []
-        if (ref.uuid) {
-            const artifact = db.artifacts.get(ref.uuid)
-            return artifact && artifact.scope === scope && artifact.parent === parent?.uuid ? [artifact] : []
-        }
-        return select(parent, scope, { name: ref.name }, 2)
+        const artifact = ref.uuid ? db.artifacts.get(ref.uuid) : names.get(key(parent?.uuid, scope, ref.name))
+        return artifact && artifact.scope === scope && artifact.parent === parent?.uuid ? [artifact] : []
     }
-
+    function configuration(writable = true) {
+        const snapshot = structuredClone(db.config)
+        Object.defineProperties(snapshot, {
+            getValue: { value: path => structuredClone(getValueFromObject(db.config, path)) },
+            setValue: { value: (path, value) => {
+                if (!writable) throw Error('Configuration updates require the primary')
+                if (typeof path !== 'string' || !/^scopes(?:\.[^.[\]]+)*$/.test(path) || path.split('.').some(k => ['__proto__','constructor','prototype'].includes(k))) throw Error('Only scope definitions can be edited directly')
+                const next = structuredClone(db.config)
+                if (dotNotationToObject({ [path]: structuredClone(value) }, next) === false) throw Error('Invalid configuration update')
+                scopePaths(next.scopes, '')
+                for (const artifact of db.artifacts.values()) {
+                    let node = next.scopes
+                    const path = [artifact.scope]
+                    let parent = db.artifacts.get(artifact.parent)
+                    while (parent) { path.unshift(parent.scope); parent = db.artifacts.get(parent.parent) }
+                    for (const part of path) node = node?.[part]
+                    if (!isRecord(node)) throw Error('Cannot remove an occupied scope')
+                    if (Boolean(Object.keys(node).length) !== Object.hasOwn(catalog, artifact.uuid)) throw Error('Cannot change structural status of an occupied scope')
+                }
+                db.config.scopes = next.scopes
+                refreshDynamicKeys()
+                return configuration()
+            } }
+        })
+        return snapshot
+    }
     function create(value, parent, scope) {
         if (!isRecord(value)) throw new TypeError(`${scope} must contain an object`)
         value.scope = scope
         if (parent) value.parent = parent.uuid
         else delete value.parent
         value.uuid ??= uuidValue()
+        const isScope = structural(parent, scope)
+        if (isScope && (typeof value.name !== 'string' || !value.name || names.has(key(parent?.uuid, scope, value.name)))) throw Error('Invalid or duplicate scope name')
         if (scope === 'object') value._id ??= uuidValue().slice(0, 24)
         if (db.artifacts.has(value.uuid)) throw new Error(`Artifact UUID already exists: ${value.uuid}`)
-        const artifact = createArtifact(value)
+        const artifact = createArtifact(value, isScope)
         attach(artifact, entry => insertEntry(db.tree, size, entry))
         db.artifacts.set(artifact.uuid, artifact)
+        if (isScope) register(artifact)
         return artifact
     }
 
@@ -102,10 +153,14 @@ export function createScopeManager({ db, size = 64 }) {
         for (const entry of Object.values(artifact.getIndex()))
             if (entry.partition) entry.tree.remove(entry)
         db.artifacts.delete(artifact.uuid)
+        if (Object.hasOwn(catalog, artifact.uuid)) {
+            names.delete(key(artifact.parent, artifact.scope, artifact.name))
+            delete catalog[artifact.uuid]
+        }
     }
 
     function validateTarget(target) {
-        const paths = scopePaths(db.scopes, target)
+        const paths = scopePaths(db.config.scopes, target)
         if (!paths.length) throw new Error(`Scope is not configured: ${target}`)
         return paths
     }
@@ -114,7 +169,7 @@ export function createScopeManager({ db, size = 64 }) {
         const artifact = db.artifacts.get(id)
         if (!artifact || artifact.scope !== target) return
         // Validate existing ancestry rather than resolving names through indexes.
-        // Explicit references remain constraints, including organization_id.
+        // Explicit references remain constraints.
         const ancestors = []
         const seen = new Set([id])
         let current = artifact
@@ -123,15 +178,17 @@ export function createScopeManager({ db, size = 64 }) {
             seen.add(current.parent)
             current = db.artifacts.get(current.parent)
             if (!current) return
-            const key = current.scope === '$organization_id' ? 'organization_id' : current.scope
+            const key = current.scope.startsWith('$') ? current.scope.slice(1) : current.scope
             if (Object.hasOwn(envelope, key)) {
                 const ref = reference(envelope, current.scope)
                 if (!ref || (ref.uuid ? ref.uuid !== current.uuid : ref.name !== current.name)) return
             }
             ancestors.push(current)
         }
-        if (Object.hasOwn(envelope, 'organization_id') && !ancestors.some(a => a.scope === '$organization_id') && artifact.scope !== '$organization_id') return
-        let node = db.scopes
+        for (const key of dynamicKeys) {
+            if (Object.hasOwn(envelope, key) && artifact.scope !== `$${key}` && !ancestors.some(a => a.scope === `$${key}`)) return
+        }
+        let node = db.config.scopes
         for (let i = ancestors.length - 1; i >= 0; i--) {
             const key = ancestors[i].scope
             if (!isRecord(node) || !Object.hasOwn(node, key)) return
@@ -167,5 +224,28 @@ export function createScopeManager({ db, size = 64 }) {
         return { target, parent, created, missing: false, path }
     }
 
-    return { create, resolve, select, remove, direct, validateTarget }
+    scopePaths(db.config.scopes, '')
+    refreshDynamicKeys()
+    if (!isRecord(catalog)) throw Error('Invalid scope catalog')
+    const pending = new Map(Object.entries(catalog))
+    for (const id of pending.keys()) delete catalog[id]
+    while (pending.size) {
+        const count = pending.size
+        for (const [id, value] of pending) {
+            if (!isRecord(value) || typeof value.scope !== 'string') throw Error('Invalid configured scope identity')
+            const parent = db.artifacts.get(value.parent)
+            if (value.parent !== undefined && !parent) continue
+            if (!structural(parent, value.scope)) throw Error('Invalid configured scope identity')
+            let node = db.config.scopes
+            const path = [value.scope]
+            let ancestor = parent
+            while (ancestor) { path.unshift(ancestor.scope); ancestor = db.artifacts.get(ancestor.parent) }
+            for (const part of path) node = node?.[part]
+            if (!isRecord(node)) throw Error('Invalid configured scope path')
+            create({ uuid: id, name: value.name }, parent, value.scope)
+            pending.delete(id)
+        }
+        if (pending.size === count) throw Error('Missing or cyclic configured parent')
+    }
+    return { create, resolve, select, remove, direct, validateTarget, configuration }
 }
