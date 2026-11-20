@@ -1,0 +1,47 @@
+{
+  "provider": "Redis",
+  "historicalUnverified": {
+    "provenance": "prior project conversation; original publication not recovered",
+    "getMs": 0.095,
+    "setMs": 0.103,
+    "getOpsPerSecond": 262467,
+    "setOpsPerSecond": 257732,
+    "statistic": null,
+    "excludeFromVerifiedRankings": true
+  },
+  "published": [
+    {
+      "source": "https://redis.io/docs/latest/management/optimization/benchmarks/",
+      "command": "redis-benchmark -t set,lpush -n 100000 -q",
+      "clientsDefault": 50,
+      "payloadBytesDefault": 3,
+      "set": {
+        "p50Ms": 0.143,
+        "opsPerSecond": 180180.17
+      }
+    },
+    {
+      "source": "https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/benchmarks/",
+      "command": "redis-benchmark -n 1000000 -t set,get -P 16 -q",
+      "host": "MacBook Air 11 inch",
+      "pipeline": 16,
+      "get": {
+        "p50Ms": 0.391,
+        "opsPerSecond": 1811594.25
+      },
+      "set": {
+        "p50Ms": 0.479,
+        "opsPerSecond": 1536098.25
+      }
+    }
+  ],
+  "memory": {
+    "source": "https://redis.io/docs/latest/develop/get-started/faq/",
+    "unit": "MB as published",
+    "empty": 3,
+    "millionSmallStrings": 85,
+    "millionFiveFieldHashes": 160,
+    "note": "illustrative memory usage, not matched process RSS"
+  },
+  "indexedDocumentQueries": null
+}

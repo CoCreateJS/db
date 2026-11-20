@@ -1,69 +1,23 @@
-# CoCreateDB Scope Specification
+# Scopes and configuration
 
-## Scope hierarchy
+## Current model
 
-Every operation carries a required, caller-supplied `organization_id` as a
-top-level payload property. It identifies the organization boundary for that
-operation and may represent a company, project, or other grouping. There is no
-additional namespace tier above it. It is separate from application object
-content and instance configuration.
-
-```text
-storage → database → array → object
-```
-
-`storage` is the first scope within an organization and groups databases. A
-database groups arrays, and an array contains object documents. Property names
-and paths belong to the object index; they are not scopes. The organization is identified directly by
-`organization_id`; it is not another scope in this chain.
-
-Illustrative object creation payload:
+A scope is an artifact category. `parent` is the immediate parent artifact UUID; `name` is a named reference. The default configuration is:
 
 ```js
 {
-    method: "object.create",
-    organization_id: "organization-a",
-    storage: "production",
-    database: "application",
-    array: "users",
-    object: { name: "Example" }
+    version: '1.0.0',
+    scopes: { $organization_id: { storage: { database: { array: { object: {}, index: {} } } } } },
+    artifacts: {}
 }
 ```
 
-The method selects a child scope and operation; `organization_id` is not a
-CRUD method prefix. Each scope is resolved through its parent using indexes.
-An index resolves to another index or to the UUID artifact holding the
-addressed scope value. The `object` scope value is a complete document. Each
-object property path is indexed directly against that document artifact; paths
-have no independent UUID or artifact. Identical logical
-names in different parent scopes do not identify the same record.
+Any `$`-prefixed scope resolves its name from the corresponding envelope property, not just organization_id. A string reference names an artifact; `{ name }` or `{ uuid }` can also address an ancestor. The name does not become the UUID. A structural scope has configured children. Structural identities are recorded as `config.artifacts[uuid] = { scope, parent, name }` (root omits parent). Leaf artifacts are not catalogued there.
 
-## Tenancy isolation
+`config` returns a defensive snapshot with non-enumerable `getValue(path)` and `setValue(path,value)` accessors backed by current configuration. Only scope definitions can be edited by setValue on the primary. Occupied definitions cannot be removed or change structural status. Config transfer restores structural identities, not leaf data or arbitrary structural payload fields. No root pointer is required. `init` uses @cocreate/config; explicitly supplied config overrides resolved settings.
 
-The authorized organization context is validated before bootstrap resolution or artifact acquisition. A payload ID is an address, not proof of authorization. All cache entries, pending work, subscriptions, persistence calls and peer messages preserve organization context. UUID lookup alone cannot cross an organization boundary, even if two organizations contain the same UUID. The organization ID is not generated from a persistence path or rewritten by ordinary CRUD.
+Create and upsert can establish missing named ancestors. Read never creates ancestors. Unknown UUID ancestors cannot be invented. Ambiguous paths fail. Direct UUID lookup validates supplied ancestry constraints without resolving named ancestors. Structural rename, reparent and deletion with children are rejected.
 
-## Namespace provisioning
+## Integration requirements
 
-A CRUD request can initialize an organization in memory when it is first used.
-Persistence may supply an existing root before normal operations, or receive
-the generated root for later recovery. Root creation and installation are
-separate from locating a persistence provider; the DB core does not own that
-provider choice. See [README.md](README.md).
-
-## Persistence boundary
-
-The DB core is in-memory and does not own a filesystem path or choose where
-data comes from or is stored. It requests a value from persistence and uses the
-result, or submits a value and expects persistence to save it. The persistence
-integration owns provider selection, physical addressing, serialization and
-durability. Organization context and artifact UUIDs identify the logical
-request; they do not prescribe a path or provider.
-
-## Addressing invariants
-
-Logical addresses use organization context plus opaque UUID. Storage,
-database, array and object names express relationships, not persistence
-locations. Object property paths are index selectors into their owning object.
-Provider remapping and artifact relocation do not alter these
-relationships. See [data.md](data.md) for identity and [crud.md](crud.md) for
-method routing.
+Authorization is external and must precede DB access. Dynamic scopes are addressing, not access control. Consistent structural identity provisioning across nodes and complete hydration remain planned; concurrent creation of competing structural identities requires external coordination or a defined reconciliation policy.

@@ -1,55 +1,20 @@
-# CoCreateDB Mutation Specification
+# Mutations
 
-## Scope
+## Current
 
-This specification defines how a single create, update, upsert, or delete
-operation changes document state. It does not decide which conflicting
-operation is accepted; see [reconciliation.md](reconciliation.md). Peer
-delivery is defined in [replication.md](replication.md), and storage lifecycle
-in [persistence.md](persistence.md). Public operation flows and method-to-scope
-routing are described in [crud.md](crud.md).
+Update uses shared createUpdate on a cloned object, validates identity and values, removes affected index entries, reconciles object fields in place, then attaches changed entries. It preserves the original artifact object. Direct scalar setValue can move an entry without replacing the artifact. No atomic batch or conflict reconciliation guarantee is made.
 
-## Mutation processing
+```js
+{
+    method: 'object.update',
+    object: [{ uuid: 'uuid8', '$inc.quantity': 5 }],
+    updated: [{ uuid: 'uuid8', scope: 'object', quantity: 15 }],
+    success: true
+}
+```
 
-- Every accepted mutation follows one processing path and produces the resulting
-  document state and an operation-tagged update object.
-- Reuse an incoming update object when available; otherwise generate one using
-  the shared update utility.
-- Execute `$set`, `$unset`, `$inc`, and other supported operators against the
-  state selected by reconciliation.
-- Preserve the mutation's original identity and timestamp. Reconciliation must
-  not make an accepted operation appear to be a new user mutation.
-- Keep mutation application separate from index maintenance, persistence, and
-  peer delivery.
+The snapshot is abbreviated; actual updated entries contain the complete resulting artifact, including parent and other fields when present. Existing updates preserve request patch operators for communication and return independent structuredClone snapshots for persistence. The same envelope can be used externally; no second mutation or DB persistence callback is required. Upsert creation returns a created artifact, not necessarily an updated snapshot. Deletes identify removed artifacts.
 
-## Document lifecycle
+## Planned
 
-- **Create** creates a document when valid under the selected reconciliation
-  result.
-- **Update** modifies an existing document. It does not create a missing
-  document unless explicitly requested as an upsert.
-- **Upsert** creates a missing document or updates an existing one.
-- **Delete** removes the document from the active document state when accepted.
-- An ordinary update does not recreate a deleted or absent document.
-
-The no-match response for update without upsert, validation failures, and
-operator-specific edge cases must be specified by the public CRUD contract.
-
-## Update object semantics
-
-An update object records the operation to apply and its addressing information.
-When generated, it must preserve operator intent (for example, an increment is
-not rewritten as a set unless the operation contract explicitly requires it).
-The object used for peer propagation follows the envelope defined in
-[replication.md](replication.md).
-
-## Processing example
-
-For a `$set` operation, reconciliation first determines the accepted field
-changes. Mutation processing then applies those changes to the selected current
-state and produces the resulting document and update object. Storage and peer
-delivery follow their respective specifications.
-
-## State and side effects
-
-The accepted operation is applied exactly once to the selected decoded object. The resulting complete object and operation-tagged update are the authoritative in-memory result. Stable snapshots or revisions protect asynchronous persistence against subsequent mutations; the persistence workflow never reapplies update operators. Index maintenance tracks pending changes so a read immediately following acceptance remains correct. A deletion changes active state and retains the ordering information required by reconciliation. The application path preserves supported value types and never converts them through a lossy JSON clone.
+Transform accepted mutation intent when conflict handling requires it; do not advertise rejected changes as applied. Preserve operation identity and original timestamp, explicitly represent removed keys, and handle relative operators exactly once per recipient. Reduce clone/diff overhead without bypassing validation or index maintenance. See [reconciliation](reconciliation.md).

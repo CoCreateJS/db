@@ -15,9 +15,11 @@
     "distributed-database"
   ],
   "scripts": {
-    "test": "node --test test/db.test.js",
+    "test": "node --test test/*.test.js",
     "start": "webpack --config webpack.config.js --watch",
-    "build": "NODE_ENV=production webpack --config webpack.config.js"
+    "build": "NODE_ENV=production webpack --config webpack.config.js",
+    "benchmark": "node test/benchmarks/lifecycle.mjs",
+    "benchmark:ranges": "node test/benchmarks/ranges.mjs"
   },
   "publishConfig": {
     "access": "public"

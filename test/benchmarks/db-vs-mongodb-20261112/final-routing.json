@@ -1,9 +1,0 @@
-{
-  "primaryPid": 4167723,
-  "environment": {
-    "COCREATE_DB_DIRECTORY": "/home/ubuntu/Dev/CoCreateDB",
-    "COCREATE_CRUD_READ_STORAGE": null,
-    "COCREATE_CRUD_READ_DATABASE": null,
-    "COCREATE_FILE_STORAGE": null
-  }
-}

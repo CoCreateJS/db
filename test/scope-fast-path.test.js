@@ -1,16 +1,16 @@
+import { internal } from './internal.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import createDB from '../src/index.js'
-import { createScopeManager } from '../src/Scope.js'
+import { createScopeManager } from '../src/scope.js'
 import { crud } from '../src/crud/index.js'
 
 const path = { organization_id: 'org', storage: 'main', database: 'app', array: 'items' }
-const persistence = { async set() {}, async delete() {} }
 
 test('UUID requests skip named scope resolution, preserve explicit constraints', async () => {
-    const db = createDB({ isPrimary: true })
-    const scopes = createScopeManager({ db })
-    const send = request => crud({ db, scopes, persistence }, request)
+    const db = internal()
+    const scopes = db.scopes
+    const send = db.send
     const created = await send({ ...path, method: 'object.create', object: [{ uuid: 'a', price: 1 }, { uuid: 'b', price: 2 }] })
     assert.equal(created.success, true, created.error?.join('; '))
     const original = scopes.resolve
@@ -30,7 +30,7 @@ test('UUID requests skip named scope resolution, preserve explicit constraints',
 })
 
 test('named identities, upsert, empty requests and configuration changes', async () => {
-    const db = createDB({ isPrimary: true })
+    const db = internal()
     const send = request => db.send(request)
     assert.equal((await send({ method: 'object.read' })).object.length, 0)
     assert.equal(db.artifacts.size, 0)
@@ -41,8 +41,7 @@ test('named identities, upsert, empty requests and configuration changes', async
     const array = db.artifacts.get(result.object[0].parent)
     assert.equal((await send({ method: 'array.read', array: { uuid: array.uuid } })).array[0], array)
     assert.equal((await send({ ...path, method: 'object.read', object: { _id: result.object[0]._id } })).object[0], result.object[0])
-    delete db.scopes.$organization_id.storage.database.array.object
-    assert.equal((await send({ method: 'object.read', object: { uuid: 'new' } })).success, false)
+    assert.throws(() => db.config.setValue('scopes.$organization_id.storage.database.array.object', undefined), /occupied/)
 })
 
 test('canonical scope and parent metadata are immutable', async () => {
@@ -52,7 +51,7 @@ test('canonical scope and parent metadata are immutable', async () => {
     assert.equal(result.success,true)
     const artifact = result.object[0]
     assert.equal(artifact.scope,'object')
-    assert.equal(db.artifacts.get(artifact.parent).scope,'array')
+    assert.equal((await db.send({method:'array.read',array:{uuid:artifact.parent}})).array[0].scope,'array')
     assert.equal(Object.hasOwn(artifact,'scopeType'),false)
     for (const key of ['scope','parent']) {
         assert.throws(() => artifact.setValue(key,'wrong'))

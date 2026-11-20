@@ -1,0 +1,29 @@
+{
+  "provider": "MongoDB",
+  "historical": {
+    "date": "2026-11-14",
+    "provenance": "prior project conversation; raw provider results not recovered",
+    "records": 1000,
+    "samples": 3,
+    "statistic": "mean",
+    "unit": "ms",
+    "transport": "Node driver round trip",
+    "writeConcern": {
+      "w": 1,
+      "j": false
+    },
+    "readUuid": 1.747,
+    "readEquality": 1.758,
+    "readRange": 3.457,
+    "create": 1.737,
+    "updateUuid": 2.206,
+    "readNestedPath": null,
+    "delete": null,
+    "rssBytes": null
+  },
+  "specs": {
+    "wiredTigerDefaultCache": "max(0.5*(RAM-1GB),0.256GB)",
+    "source": "https://www.mongodb.com/docs/manual/core/wiredtiger/",
+    "note": "cache limit, not RSS"
+  }
+}

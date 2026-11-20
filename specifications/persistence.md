@@ -1,57 +1,53 @@
-# CoCreateDB Persistence Specification
+# CoCreateDB — Persistence through CRUD workflows
 
-## Workflow ownership
+## Decision
 
-The DB core keeps decoded state in memory and delegates durable reads and writes
-to persistence. It supplies organization context, UUID addresses, values and
-operations; persistence decides how and where to represent them. The DB core
-does not choose filenames, paths or providers. Bootstrap and distribution
-state have their own explicit integration boundaries.
+CoCreateDB owns living artifacts, scopes, indexes and local CRUD. It has no persistence provider, persistence hooks, distribution inventory or remote routing. Persistence is optional and external; the same engine runs in memory-only, durable and distributed deployments. CoCreate CRUD orchestrates existing capabilities through configurable workflows and AST. Socket, IPC and Mesh own communication awareness and recipient selection. See [distribution.md](distribution.md).
 
-Local filesystem, S3, Google Cloud Storage, Azure Blob Storage and other providers are workflow destinations, not core storage modes. The workflow defines provider combination, execution order, parallelism, retries, encryption and paths. The core has no direct durable filesystem fallback, independent disk queue/provider path, `disk`, `file`, `memoryOnly` persistence bypass or configurable `writeBehind` response switch. Cache retention does not select durability destinations.
+## Entry point
 
-## Artifact operations
+Conceptual integration (not an implemented Workflow API contract):
 
-The logical workflow contract includes create(UUID, value), read(UUID),
-update(UUID, value) and delete(UUID) in explicit authorized organization
-context. A mutation sends the changed value and every changed index artifact
-needed to preserve the path from the organization root to that value. Unchanged
-ancestors need not be resent. The call can batch those UUID/value/operation
-entries; exact envelope and partial-failure behavior remain integration
-details. Create cannot silently overwrite an existing identity. Reads return
-decoded JavaScript values. Updates use stable inputs and stale-write protection
-so late completion cannot replace newer state. Deletion includes changed index
-artifacts and required reconciliation metadata in the same persistence work.
+```js
+let response = await server.db.send(data)
+response = await server.workflow.send({ name: 'crud', data, response })
+return response
+```
 
-The invocation/result envelope, absence of a configured workflow, retry and
-failure semantics are explicit integration parameters; no hidden storage
-fallback is permitted. UUID is a logical address, not a required filename.
+The envelope already identifies the method, scope, request and routing context. Use the standard result; do not invent a second mutation event or a parallel distribution protocol. The workflow can invoke other workflows, APIs, persistence adapters and remote CRUD. Configure the behavior without modifying DB or the runtime.
 
-## Unified serialization
+## Successful local operations
 
-All data artifacts use one portable lossless codec contract for supported JavaScript values. Runtime state is decoded; persisted artifacts are encoded bytes. No per-file extension detection, raw/text switch, attachment extraction or default Base64 representation for ordinary binary values is used.
+- Create: store the complete returned artifact, retaining UUID, scope and parent. The structural scope catalog (`db.config.artifacts`) is separately available for configuration persistence; implicit ancestor creation must not be lost.
+- Read: do not write to persistence merely because an artifact was read.
+- Update: propagate the applied change with its operators. Use the resulting object for persistence. Whole-object providers can replace a stored artifact; partial-update providers may derive absolute changed values and explicit removals, rather than blindly repeating non-idempotent operators.
+- Delete: use the confirmed deleted identities to remove durable objects; retain tombstone/version information externally if required by the deployment.
 
-Required round trips preserve nested objects/arrays, strings, booleans, null, explicit undefined versus missing, finite numbers, NaN, positive/negative infinity and native binary bytes. The codec contract defines BigInt, typed arrays, Buffer/Uint8Array/ArrayBuffer normalization, Date, sparse arrays, Map/Set and cyclic/shared references explicitly; no unsupported type or cross-process reference identity is promised. Unsupported values fail explicitly. UTC ISO date strings remain strings. Decoding is bounded and does not evaluate executable content, invoke arbitrary constructors or infer schemas.
+### Update response in this checkpoint
 
-Codec identity/version compatibility is defined independently of the bootstrap package version. The same value model applies to supported Socket, Mesh and IPC paths; a transport unable to preserve a value must not silently lose it. Index segmentation does not imply large binary streaming or object fragmentation. Message and memory limits are explicit.
+```js
+{
+    method: 'object.update',
+    object: [{ uuid: 'a', _id: 'id', '$inc.quantity': 5 }],
+    updated: [{ uuid: 'a', _id: 'id', scope: 'object', parent: 'p', quantity: 15 }],
+    success: true
+}
+```
 
-### CoSON object artifacts
+`object` (or the requested scope key) contains the accepted patch with identity; `updated` contains complete independent post-update snapshots in the same order. The field name `updated` is a provisional envelope convention, not a separately emitted event. Preserve operators for client and remote mutation processing. The workflow can omit `updated` from external delivery after capturing it for persistence. Do not apply both the envelope `$update` and the returned merged patch a second time. The present engine does not transform stale updates or resolve conflicts; accepted patches are not a CRDT protocol. Snapshots require an extra clone; later optimize without sacrificing correctness. Upsert creation retains the existing full-object response shape; general operator-based upsert semantics remain pending. Reserve `updated` at the integration envelope level or choose an unambiguous metadata location before supporting a scope of that name.
 
-Object document artifacts use the `.coson` suffix and CoSON frame format.
-Their stored values may be operator-preserving prepared objects received from a
-transport. CoSON `decode(..., { operators: false })` restores the prepared form,
-including object-local `binary[n]` references and raw-byte descriptor arrays.
-Those bytes belong to each document object, not to the CRUD request envelope.
-The DB excludes descriptor metadata from property indexing while indexing an
-ordinary application property named `binary` normally. Reads return the prepared
-object so it can be cached or transported again without evaluating operators.
+Create and delete currently return living references; snapshot/serialize before detached work if the exact committed revision is required. Multi-object operations are not atomic: an error may follow successful earlier mutations. Handle partial outcomes explicitly before production integration.
 
-## Encryption and integrity
+## Workflow execution
 
-Write: stable resulting decoded value → serialize → optionally encrypt → provider writes bytes. Read: acquire bytes → decrypt when required → deserialize → validate → publish decoded value. The workflow boundary identifies encoding ownership so values are not serialized twice. Encryption policy and key selection belong to the workflow; authenticated encryption, versioned key references and key rotation/recovery protect all sensitive data artifact types, including indexes and catalogs. Keys are not stored with ciphertext. Transport security remains independent. The bootstrap and local inventory follow their own security policies.
+A successful local result can immediately acknowledge the in-memory operation while dispatching a persistence workflow without awaiting it. Manage detached work through the workflow runtime: capture a stable payload, retain the promise, handle rejection, retry as appropriate, and drain on orderly shutdown. An immediate acknowledgement is not a durability guarantee. A deployment requiring durable acknowledgement awaits its persistence workflow instead. Distinguish in-memory success, queued persistence and durable confirmation. Coalesce whole-object writes where appropriate, order by artifact identity/version, and prevent older writes or delayed creates from overwriting newer states or tombstones. Retry idempotently; designate a persistence writer or deduplicate replicated operations.
 
-## Timing and durability
+## Acquisition and routing
 
-Response-first processing is unconditional: after required acquisition and in-memory result construction, client response and immediate peer dispatch do not wait for persistence, serialization for persistence or background indexing. The response confirms in-memory processing only. Stable pending work, queue bounds, backpressure, retry reporting and failure visibility are required independently of completed responses. Background failures do not retroactively rewrite replies.
+When local data is absent, the CRUD workflow may await persistence, another server, a sequential or recursive chain, parallel requests, or a configured combination. A recursive request consumes an ordered route and returns through outstanding awaits. Parallel probes cannot independently recurse unless the workflow explicitly allows it. Include deadlines and correlate requests. A miss, timeout, invalid request and authoritative absence are distinct. Filtered results may be incomplete, and first-response selection is appropriate only where a single valid result is sufficient.
 
-`flush()` and orderly shutdown drain pending core work and workflow invocations according to the documented integration guarantee. They do not imply atomic commits across artifacts or providers. Partial provider failure, interrupted index publication, orphan cleanup, replay and crash recovery require explicit handling. Durable replica acknowledgment is distinct from dispatch or provider invocation success. No silent namespace reset or automatic recreation of missing data is permitted.
+For read, acquire and materialize the artifact using its existing identity and scope, then respond. For missing update/delete, either acquire then perform the mutation once locally, or route the original mutation to an authoritative execution node and reconcile the confirmed result locally; do not blindly execute non-idempotent mutations on every candidate. Use read probes for parallel discovery followed by a single mutation executor. Replication uses normal communication awareness, not persistence-specific broadcasts. Hydration is not a new logical create and must not trigger persistence creation or activity events. Production materialization, completeness tracking and mutation deduplication are not implemented by this checkpoint.
+
+## Boundaries and status
+
+The database has no provider hooks. External workflows, adapters, remote acquisition, hydration, cluster subscriptions, conflict resolution and durable acknowledgement are integration work, not implemented by this local prototype. No external repositories were changed. The current update implementation still clones/reconciles fields and snapshots the result; a later live operator path is an optimization opportunity. Existing local config/bootstrap and worker-forwarding contracts are retained.
