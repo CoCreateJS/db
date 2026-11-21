@@ -1,0 +1,114 @@
+{
+  "phase": "seed",
+  "fixtureHash": "767927150f41a6967e99ab0e05f11128ba4f408f1b9bfc5e1fc753a84119ac8f",
+  "size": 10000,
+  "elapsedMs": 3590.0504100000003,
+  "beforeExplicitFlush": {
+    "leafFiles": 10004,
+    "branchFiles": 321,
+    "routes": 18
+  },
+  "rootUuids": [
+    "01a1ff3f0c10757793d5eda9294b024e",
+    "01a1ff3f0c127368846da79d0e2078de",
+    "01a1ff3f0c137b74ac0d6c533c8db70e",
+    "01a1ff3f0c1476589daaed912971bb3e"
+  ],
+  "routes": [
+    {
+      "key": "name",
+      "type": "string",
+      "uuid": "01a1ff3f-0c11-7b56-be78-4de5b6a4cae9"
+    },
+    {
+      "key": "root",
+      "type": "string",
+      "uuid": "01a1ff3f-10a3-7185-81b7-c031f7a7e0ac"
+    },
+    {
+      "key": "parent",
+      "type": "string",
+      "uuid": "01a1ff3f-10a5-756a-82ac-cf157e01245a"
+    },
+    {
+      "key": "_id",
+      "type": "string",
+      "uuid": "01a1ff3f-10a7-7fd2-8dfd-b9cc3edc74db"
+    },
+    {
+      "key": "organization_id",
+      "type": "string",
+      "uuid": "01a1ff3f-10a7-7a45-b37f-cf568dacd7a8"
+    },
+    {
+      "key": "rank",
+      "type": "number",
+      "uuid": "01a1ff3f-10a8-71cb-9e13-3a5d5ece72e8"
+    },
+    {
+      "key": "group",
+      "type": "string",
+      "uuid": "01a1ff3f-10a8-763b-812a-c4821f8ef836"
+    },
+    {
+      "key": "active",
+      "type": "boolean",
+      "uuid": "01a1ff3f-10a8-7286-8e35-2bfc6df15805"
+    },
+    {
+      "key": "createdAt",
+      "type": "string",
+      "uuid": "01a1ff3f-10a9-706f-a4d1-9d798d9a08b9"
+    },
+    {
+      "key": "profile.team",
+      "type": "string",
+      "uuid": "01a1ff3f-10a9-703d-9b01-af14923a78c1"
+    },
+    {
+      "key": "profile.score",
+      "type": "number",
+      "uuid": "01a1ff3f-10a9-789a-8f77-b3759eaa584b"
+    },
+    {
+      "key": "profile.location.region",
+      "type": "string",
+      "uuid": "01a1ff3f-10aa-741a-ada7-a787ed96405c"
+    },
+    {
+      "key": "profile.location.verified",
+      "type": "boolean",
+      "uuid": "01a1ff3f-10aa-7a3e-b384-260f0346d53f"
+    },
+    {
+      "key": "tags[0]",
+      "type": "string",
+      "uuid": "01a1ff3f-10aa-7a57-a4ee-c0565f320234"
+    },
+    {
+      "key": "tags[1]",
+      "type": "string",
+      "uuid": "01a1ff3f-10aa-7b3f-ba38-5f2e8a3a0f96"
+    },
+    {
+      "key": "payload",
+      "type": "string",
+      "uuid": "01a1ff3f-10aa-76b2-9612-a954a033640d"
+    },
+    {
+      "key": "bulkDelete",
+      "type": "boolean",
+      "uuid": "01a1ff3f-10aa-7fd2-9954-586b51b47755"
+    },
+    {
+      "key": "revision",
+      "type": "number",
+      "uuid": "01a1ff3f-10aa-7688-98fe-d36f04bad076"
+    }
+  ],
+  "leafFiles": 10004,
+  "branchFiles": 321,
+  "leafWrites": 10004,
+  "branchWrites": 321,
+  "sourceWorkingTreeDirty": true
+}

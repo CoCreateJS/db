@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { availableParallelism } from 'node:os'
 import { join, resolve } from 'node:path'
 import createDB from '../../src/index.js'
-import { createLifecycleFixture, createLifecycleRecord, lifecycleFixtureHash, lifecycleQueries, lifecycleScope } from '../fixtures/lifecycle.mjs'
+import { createLifecycleFixture, createLifecycleRecord, lifecycleFixtureHash, lifecycleQueries, lifecycleRoot } from '../fixtures/lifecycle.mjs'
 
 const sizes = process.argv[2]?.split(',').map(Number) ?? [1000]
 const samples = Number(process.env.BENCH_SAMPLES ?? 40)
@@ -59,9 +59,9 @@ const assertCount = (response, count, label) => {
 }
 
 for (const size of sizes) {
-    const scope = lifecycleScope(size)
+    const root = lifecycleRoot(size)
     const seed = await createDB.init()
-    const seedResponse = await seed.send({ ...scope, method: 'object.create', object: { uuid: 'seed-only', rank: -1 } })
+    const seedResponse = await seed.send({ ...root, method: 'object.create', object: { uuid: 'seed-only', rank: -1 } })
     assert.equal(seedResponse.success, true)
     const config = JSON.parse(JSON.stringify(seed.config))
     const restored = process.env.BENCH_MODE === 'restored'
@@ -69,10 +69,10 @@ for (const size of sizes) {
     const db = await createDB.init(undefined, restored ? { config } : { config: {} })
     const initMs = performance.now() - initStart
     const beforeConfig = JSON.parse(JSON.stringify(db.config))
-    assert.equal(Object.keys(beforeConfig.artifacts).length, restored ? 4 : 0)
+    assert.equal(Object.keys(beforeConfig.leaves).length, restored ? 4 : 0)
     if (restored) assert.deepEqual(beforeConfig, config)
     assert.equal((await db.send({ method: 'object.read', object: { uuid: 'seed-only' } })).object.length, 0)
-    const send = (method, extra = {}) => db.send({ ...scope, method: `object.${method}`, ...extra })
+    const send = (method, extra = {}) => db.send({ ...root, method: `object.${method}`, ...extra })
     const documents = createLifecycleFixture(size)
     const fixtureHash = lifecycleFixtureHash(documents)
     const queries = lifecycleQueries(size)
@@ -83,7 +83,7 @@ for (const size of sizes) {
         assertCount(await send('create', { object: documents }), size, 'object.create batch')
         const createBatchMs = performance.now() - createStart
         const afterConfig = JSON.parse(JSON.stringify(db.config))
-        assert.equal(Object.keys(afterConfig.artifacts).length, 4)
+        assert.equal(Object.keys(afterConfig.leaves).length, 4)
         if (restored) {
             assert.deepEqual(afterConfig, config)
             assert.ok(documents.every(doc => doc.parent === seedResponse.object[0].parent))
@@ -117,7 +117,7 @@ for (const size of sizes) {
         for (const { uuid } of documents.slice(0, deleteCount))
             assertCount(await send('read', { object: { uuid } }), 0, 'deleted UUID read')
 
-        const fresh = createLifecycleRecord(size, scope.organization_id)
+        const fresh = createLifecycleRecord(size, root.organization_id)
         const freshCreateStart = performance.now()
         assertCount(await send('create', { object: fresh }), 1, 'post-create object.create')
         const freshCreateMs = performance.now() - freshCreateStart
@@ -134,7 +134,7 @@ for (const size of sizes) {
             size,
             scenario: restored ? "restored" : "fresh",
             initMs,
-            scopeIdentities: Object.keys(afterConfig.artifacts).length,
+            rootIdentities: Object.keys(afterConfig.leaves).length,
             parentUuid: documents[0].parent,
             fixtureHash,
             createBatchMs,
@@ -164,7 +164,7 @@ for (const size of sizes) {
 }
 
 results.completedAt = new Date().toISOString()
-const outputDirectory = resolve(process.env.BENCH_OUTPUT_DIR ?? 'test/benchmarks/runs')
+const outputDirectory = resolve(process.env.BENCH_OUTPUT_DIR ?? 'test/benchmarks/providers/cocreatedb/results/legacy-v2)
 await mkdir(outputDirectory, { recursive: true })
 const output = join(outputDirectory, `run-${startedAt.toISOString().replaceAll(':', '-')}.json`)
 await writeFile(output, `${JSON.stringify(results, null, 2)}\n`)

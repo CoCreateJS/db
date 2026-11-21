@@ -87,7 +87,7 @@ test('bounded eviction skips candidates that become hot while another write is a
     assert.equal(result.skipped, 1)
 })
 
-test('eviction selects all 300 partitions in the first eligible weight group, even above 16 views', async () => {
+test('eviction selects all 300 index branches in the first eligible weight group, even above 16 views', async () => {
     const weights = new Weights()
     const branch = {viewed: 0, leaf: false}
     const higher = {viewed: 51, leaf: true}
@@ -96,12 +96,12 @@ test('eviction selects all 300 partitions in the first eligible weight group, ev
     weights.add(higher)
 
     let active = 0, peak = 0
-    const result = await weights.evictLowestWeight(partition => partition.leaf, async partition => {
-        assert.equal(partition.viewed, 50)
+    const result = await weights.evictLowestWeight(index => index.leaf, async index => {
+        assert.equal(index.viewed, 50)
         peak = Math.max(peak, ++active)
         await new Promise(setImmediate)
         active--
-        weights.remove(partition)
+        weights.remove(index)
         return true
     })
     assert.deepEqual(result, {weight: 50, target: 300, candidates: 300, count: 300, skipped: 0})
@@ -110,7 +110,7 @@ test('eviction selects all 300 partitions in the first eligible weight group, ev
     assert.equal(weights.has(branch), true)
     assert.equal(weights.has(higher), true)
 
-    const next = await weights.evictLowestWeight(partition => partition.leaf, async partition => weights.remove(partition))
+    const next = await weights.evictLowestWeight(index => index.leaf, async index => weights.remove(index))
     assert.equal(next.weight, 51)
     assert.equal(next.count, 1)
 })
@@ -120,10 +120,10 @@ test('whole-group eviction skips an item touched after selection', async () => {
     const first = {viewed: 2}, touched = {viewed: 2}
     weights.add(first)
     weights.add(touched)
-    const result = await weights.evictLowestWeight(() => true, async partition => {
-        assert.equal(partition, first)
+    const result = await weights.evictLowestWeight(() => true, async index => {
+        assert.equal(index, first)
         weights.touch(touched)
-        return weights.remove(partition)
+        return weights.remove(index)
     }, {concurrency: 1})
     assert.equal(result.count, 1)
     assert.equal(result.skipped, 1)

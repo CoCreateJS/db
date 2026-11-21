@@ -3,8 +3,8 @@
 | Scenario | Current behavior or requirement |
 | --- | --- |
 | Duplicate UUID | Reject unrelated overwrite in one engine; cross-node collision policy planned. |
-| Same name under distinct parents | Scope name lookup is parent-qualified. |
-| Dynamic scope | Resolve from envelope without using its value as UUID. |
+| Same name under distinct parents | Root name lookup is parent-qualified. |
+| Dynamic root | Resolve from envelope without using its value as UUID. |
 | Missing named ancestor | Read does not create; create/upsert may create. |
 | Invalid or cyclic configuration | Reject malformed hierarchy or unresolved parent catalog. |
 | Supplied UUID with mismatched ancestor | No direct match. Authorization remains external. |

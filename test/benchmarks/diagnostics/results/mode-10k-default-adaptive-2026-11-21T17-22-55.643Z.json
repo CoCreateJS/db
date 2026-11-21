@@ -1,0 +1,135 @@
+{
+  "status": "passed",
+  "requestedMode": "adaptive",
+  "configuredModeOption": "omitted",
+  "effectiveModeAtStart": "adaptive",
+  "acknowledgement": "memory",
+  "datasetSize": 10000,
+  "fixture": "shared lifecycle fixture v3",
+  "fixtureVersion": "3.0.0",
+  "fixtureHash": "767927150f41a6967e99ab0e05f11128ba4f408f1b9bfc5e1fc753a84119ac8f",
+  "configuration": {
+    "databaseOptions": {},
+    "allOtherDatabaseOptions": "defaults",
+    "batchSize": 1000,
+    "idleMs": 1000
+  },
+  "node": "v24.18.0",
+  "platform": "linux-x64",
+  "startedAt": "2026-11-21T17:22:55.737Z",
+  "phases": {
+    "createRequestsMs": 1026.0586779999999,
+    "createAndIndexMs": 2333.7351329999997,
+    "indexDrainMs": 1268.8320899999999,
+    "idleWaitMs": 1000.7752609999998,
+    "reads": {
+      "uuid": {
+        "elapsedMs": 8.33604000000014,
+        "returned": 1,
+        "correctness": true
+      },
+      "equality": {
+        "elapsedMs": 3.017431000000215,
+        "returned": 100,
+        "correctness": true
+      },
+      "nestedEquality": {
+        "elapsedMs": 1.4868500000002314,
+        "returned": 100,
+        "correctness": true
+      },
+      "range": {
+        "elapsedMs": 2.1341819999997824,
+        "returned": 100,
+        "correctness": true
+      }
+    }
+  },
+  "states": {
+    "afterCreate": {
+      "effectiveMode": "adaptive",
+      "residentRecords": 10000,
+      "warmRecords": 0,
+      "residentLeafObjects": 10004,
+      "warmLeafFiles": 0,
+      "residentBranches": 321,
+      "warmBranchFiles": 0,
+      "processRssBytes": 248442880,
+      "peakRssBytes": 251973632
+    },
+    "afterIdle": {
+      "effectiveMode": "adaptive",
+      "residentRecords": 10000,
+      "warmRecords": 0,
+      "residentLeafObjects": 10004,
+      "warmLeafFiles": 0,
+      "residentBranches": 321,
+      "warmBranchFiles": 0,
+      "processRssBytes": 248475648,
+      "peakRssBytes": 251973632
+    },
+    "afterReads": {
+      "effectiveMode": "adaptive",
+      "residentRecords": 301,
+      "warmRecords": 9699,
+      "residentLeafObjects": 305,
+      "warmLeafFiles": 9699,
+      "residentBranches": 21,
+      "warmBranchFiles": 300,
+      "processRssBytes": 281280512,
+      "peakRssBytes": 282099712
+    }
+  },
+  "io": {
+    "branchWrites": 300,
+    "leafWrites": 9699,
+    "branchReads": 0,
+    "leafReads": 0,
+    "branchBytes": 6566262,
+    "leafBytes": 4979996,
+    "totalBytes": 11546812
+  },
+  "memory": {
+    "totalMemoryBytes": 8218963968,
+    "availableMemoryAtStartBytes": 5526618112,
+    "requestedBudgetBytes": 2054740992,
+    "effectiveBudgetBytes": 2054740992,
+    "defaultMemoryPercent": 25,
+    "pressureStages": [
+      10,
+      20,
+      30,
+      40,
+      50,
+      60,
+      80,
+      90
+    ],
+    "diskFirstAtBudgetPercent": 90,
+    "start": {
+      "rss": 67448832,
+      "heapTotal": 16756736,
+      "heapUsed": 7949072,
+      "external": 2554217,
+      "arrayBuffers": 174359
+    },
+    "final": {
+      "rss": 295120896,
+      "heapTotal": 227348480,
+      "heapUsed": 96757880,
+      "external": 3070279,
+      "arrayBuffers": 600947
+    },
+    "peakRssBytes": 295120896,
+    "workloadPeakRssBytes": 282099712,
+    "postMeasurementPeakRssBytes": 295120896
+  },
+  "pendingIndexCount": 0,
+  "cpuUsageUs": {
+    "user": 6022033,
+    "system": 3672351
+  },
+  "completedAt": "2026-11-21T17:23:04.447Z",
+  "sourceRevision": "7d9c347d0385de84d9aefa6acbb00dafec9edaa7",
+  "sourceWorkingTreeDirty": true
+}

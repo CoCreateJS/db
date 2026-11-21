@@ -11,7 +11,7 @@
 - Use native JavaScript and ESM.
 - Prefer concise implementations, native loops and live references.
 - Avoid unnecessary abstractions, allocations and repeated traversal.
-- Preserve CoCreate terminology: array, object, key, index, scope and artifact.
+- Preserve CoCreate terminology: array, object, key, index, root and leaf.
 - Keep persistence, distribution and transactional orchestration outside the database engine.
 - Preserve standalone and primary/worker execution.
 - Update the relevant specifications when architectural contracts change.

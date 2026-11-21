@@ -1,0 +1,547 @@
+{
+  "status": "passed",
+  "mode": "focused",
+  "databaseMode": "disk-first",
+  "awaitPersistence": false,
+  "residency": "disk-first",
+  "records": 10000,
+  "requests": 20,
+  "fieldCount": 6,
+  "selectedFields": [
+    "rank",
+    "reference"
+  ],
+  "batchSize": 64,
+  "branchSize": 1024,
+  "leafSize": 1024,
+  "memoryPercent": 12.5,
+  "budgetBytes": 1027370496,
+  "systemMemoryBytes": 8218963968,
+  "node": "v24.18.0",
+  "engineRevision": "7d9c347d0385de84d9aefa6acbb00dafec9edaa7",
+  "startedAt": "2026-11-21T14:40:21.063Z",
+  "checkpoints": [
+    {
+      "phase": "growth",
+      "created": 10000,
+      "live": 10000,
+      "elapsedMs": 12030.834198,
+      "rssMiB": 216.4375,
+      "heapMiB": 36.4420166015625,
+      "peakRssMiB": 226.40625,
+      "residency": "disk-first",
+      "hotArtifacts": 4,
+      "totalArtifacts": 10004,
+      "hotPartitions": 226,
+      "coldArtifacts": 10000,
+      "coldPartitions": 171,
+      "artifactReads": 157,
+      "artifactWrites": 10157,
+      "indexReads": 1945,
+      "indexWrites": 2116,
+      "stage": 0,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57798.98046875
+    }
+  ],
+  "gcSegments": [],
+  "idleWindows": [
+    {
+      "label": "final",
+      "durationMs": 0,
+      "samples": [],
+      "beforeGc": {
+        "phase": "drain",
+        "created": 10000,
+        "live": 9999,
+        "elapsedMs": 12135.396603,
+        "rssMiB": 216.19140625,
+        "heapMiB": 51.44615173339844,
+        "peakRssMiB": 226.40625,
+        "residency": "disk-first",
+        "hotArtifacts": 4,
+        "totalArtifacts": 10003,
+        "hotPartitions": 241,
+        "coldArtifacts": 9999,
+        "coldPartitions": 171,
+        "artifactReads": 189,
+        "artifactWrites": 10188,
+        "indexReads": 1977,
+        "indexWrites": 2148,
+        "stage": 0,
+        "pendingIndex": 0
+      },
+      "afterGc": {
+        "phase": "drain",
+        "created": 10000,
+        "live": 9999,
+        "elapsedMs": 12135.495756,
+        "rssMiB": 216.19140625,
+        "heapMiB": 51.44793701171875,
+        "peakRssMiB": 226.40625,
+        "residency": "disk-first",
+        "hotArtifacts": 4,
+        "totalArtifacts": 10003,
+        "hotPartitions": 241,
+        "coldArtifacts": 9999,
+        "coldPartitions": 171,
+        "artifactReads": 189,
+        "artifactWrites": 10188,
+        "indexReads": 1977,
+        "indexWrites": 2148,
+        "stage": 0,
+        "pendingIndex": 0
+      },
+      "disk": {
+        "type": 61267,
+        "bsize": 4096,
+        "frsize": 4096,
+        "blocks": 32229372,
+        "bfree": 14800631,
+        "bavail": 14796535,
+        "files": 16646144,
+        "ffree": 14893080
+      },
+      "indexResidency": {
+        "name": {
+          "leaves": 1,
+          "cold": 1,
+          "zeroViewLeaves": 1,
+          "entries": 4,
+          "coldEntries": 4
+        },
+        "scope": {
+          "leaves": 19,
+          "cold": 0,
+          "zeroViewLeaves": 19,
+          "entries": 10003,
+          "coldEntries": 0
+        },
+        "parent": {
+          "leaves": 19,
+          "cold": 0,
+          "zeroViewLeaves": 19,
+          "entries": 10002,
+          "coldEntries": 0
+        },
+        "revision": {
+          "leaves": 19,
+          "cold": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9999,
+          "coldEntries": 0
+        },
+        "payload": {
+          "leaves": 18,
+          "cold": 0,
+          "zeroViewLeaves": 18,
+          "entries": 9999,
+          "coldEntries": 0
+        },
+        "rank": {
+          "leaves": 19,
+          "cold": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9999,
+          "coldEntries": 0
+        },
+        "reference": {
+          "leaves": 19,
+          "cold": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9999,
+          "coldEntries": 0
+        },
+        "score": {
+          "leaves": 19,
+          "cold": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9999,
+          "coldEntries": 0
+        },
+        "sequence": {
+          "leaves": 19,
+          "cold": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9999,
+          "coldEntries": 0
+        },
+        "_id": {
+          "leaves": 19,
+          "cold": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9999,
+          "coldEntries": 0
+        }
+      }
+    }
+  ],
+  "queryCounts": {
+    "growth": {
+      "rank": 79,
+      "reference": 78
+    },
+    "steady": {
+      "reference": 7,
+      "rank": 6
+    }
+  },
+  "indexDrainMs": 0.038522000000739354,
+  "growth": {
+    "phase": "growth",
+    "created": 10000,
+    "live": 10000,
+    "elapsedMs": 12034.631314,
+    "rssMiB": 216.4375,
+    "heapMiB": 36.61518096923828,
+    "peakRssMiB": 226.40625,
+    "residency": "disk-first",
+    "hotArtifacts": 4,
+    "totalArtifacts": 10004,
+    "hotPartitions": 226,
+    "coldArtifacts": 10000,
+    "coldPartitions": 171,
+    "artifactReads": 157,
+    "artifactWrites": 10157,
+    "indexReads": 1945,
+    "indexWrites": 2116,
+    "stage": 0,
+    "pendingIndex": 0
+  },
+  "growthFields": {
+    "name": {
+      "leaves": 1,
+      "cold": 1,
+      "zeroViewLeaves": 1,
+      "entries": 4,
+      "coldEntries": 4
+    },
+    "scope": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10004,
+      "coldEntries": 0
+    },
+    "parent": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10003,
+      "coldEntries": 0
+    },
+    "revision": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "coldEntries": 0
+    },
+    "payload": {
+      "leaves": 18,
+      "cold": 0,
+      "zeroViewLeaves": 18,
+      "entries": 10000,
+      "coldEntries": 0
+    },
+    "rank": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "coldEntries": 0
+    },
+    "reference": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "coldEntries": 0
+    },
+    "score": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "coldEntries": 0
+    },
+    "sequence": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "coldEntries": 0
+    },
+    "_id": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "coldEntries": 0
+    }
+  },
+  "steadyMs": 78.21234700000059,
+  "steady": {
+    "phase": "steady",
+    "created": 10000,
+    "live": 9999,
+    "elapsedMs": 12113.558055,
+    "rssMiB": 216.19140625,
+    "heapMiB": 47.10169219970703,
+    "peakRssMiB": 226.40625,
+    "residency": "disk-first",
+    "hotArtifacts": 4,
+    "totalArtifacts": 10003,
+    "hotPartitions": 239,
+    "coldArtifacts": 9999,
+    "coldPartitions": 171,
+    "artifactReads": 189,
+    "artifactWrites": 10188,
+    "indexReads": 1968,
+    "indexWrites": 2139,
+    "stage": 0,
+    "pendingIndex": 1
+  },
+  "finalDrainMs": 21.028511000000435,
+  "beforeProbeFields": {
+    "name": {
+      "leaves": 1,
+      "cold": 1,
+      "zeroViewLeaves": 1,
+      "entries": 4,
+      "coldEntries": 4
+    },
+    "scope": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10003,
+      "coldEntries": 0
+    },
+    "parent": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10002,
+      "coldEntries": 0
+    },
+    "revision": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9999,
+      "coldEntries": 0
+    },
+    "payload": {
+      "leaves": 18,
+      "cold": 0,
+      "zeroViewLeaves": 18,
+      "entries": 9999,
+      "coldEntries": 0
+    },
+    "rank": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9999,
+      "coldEntries": 0
+    },
+    "reference": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9999,
+      "coldEntries": 0
+    },
+    "score": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9999,
+      "coldEntries": 0
+    },
+    "sequence": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9999,
+      "coldEntries": 0
+    },
+    "_id": {
+      "leaves": 19,
+      "cold": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9999,
+      "coldEntries": 0
+    }
+  },
+  "final": {
+    "phase": "drain",
+    "created": 10000,
+    "live": 9999,
+    "elapsedMs": 12138.962022,
+    "rssMiB": 216.19140625,
+    "heapMiB": 51.560760498046875,
+    "peakRssMiB": 226.40625,
+    "residency": "disk-first",
+    "hotArtifacts": 4,
+    "totalArtifacts": 10003,
+    "hotPartitions": 241,
+    "coldArtifacts": 9999,
+    "coldPartitions": 171,
+    "artifactReads": 189,
+    "artifactWrites": 10188,
+    "indexReads": 1977,
+    "indexWrites": 2148,
+    "stage": 0,
+    "pendingIndex": 0
+  },
+  "finishedAt": "2026-11-21T14:40:33.204Z",
+  "policySamples": [],
+  "artifactPolicySamples": [],
+  "byKey": {
+    "_id": {
+      "cold": 19,
+      "writes": {
+        "growth": 175,
+        "steady": 1,
+        "drain": 1
+      },
+      "reads": {
+        "growth.background": 16
+      }
+    },
+    "name": {
+      "cold": 1,
+      "writes": {
+        "growth": 1
+      },
+      "reads": {}
+    },
+    "parent": {
+      "cold": 19,
+      "writes": {
+        "growth": 175,
+        "steady": 1,
+        "drain": 1
+      },
+      "reads": {
+        "growth.background": 15
+      }
+    },
+    "payload": {
+      "cold": 18,
+      "writes": {
+        "growth": 558,
+        "steady": 1,
+        "drain": 1
+      },
+      "reads": {
+        "growth.background": 16
+      }
+    },
+    "rank": {
+      "cold": 19,
+      "writes": {
+        "growth": 254,
+        "steady": 7,
+        "drain": 1
+      },
+      "reads": {
+        "growth.background": 24
+      }
+    },
+    "reference": {
+      "cold": 19,
+      "writes": {
+        "growth": 253,
+        "steady": 8,
+        "drain": 1
+      },
+      "reads": {
+        "growth.background": 24
+      }
+    },
+    "revision": {
+      "cold": 19,
+      "writes": {
+        "growth": 175,
+        "steady": 2,
+        "drain": 1
+      },
+      "reads": {
+        "growth.background": 16
+      }
+    },
+    "scope": {
+      "cold": 19,
+      "writes": {
+        "growth": 175,
+        "steady": 1,
+        "drain": 1
+      },
+      "reads": {
+        "growth.background": 15
+      }
+    },
+    "score": {
+      "cold": 19,
+      "writes": {
+        "growth": 175,
+        "steady": 1,
+        "drain": 1
+      },
+      "reads": {
+        "growth.background": 16
+      }
+    },
+    "sequence": {
+      "cold": 19,
+      "writes": {
+        "growth": 175,
+        "steady": 1,
+        "drain": 1
+      },
+      "reads": {
+        "growth.background": 16
+      }
+    }
+  },
+  "operations": {
+    "growth.create": {
+      "count": 157,
+      "p50Ms": 10.474048999999923,
+      "p95Ms": 18.553808000000117
+    },
+    "growth.equality": {
+      "count": 157,
+      "p50Ms": 47.60518699999966,
+      "p95Ms": 75.94423099999995
+    },
+    "steady.equality": {
+      "count": 10,
+      "p50Ms": 2.8751260000008187,
+      "p95Ms": 4.73526800000036
+    },
+    "steady.range": {
+      "count": 3,
+      "p50Ms": 5.498172999999952,
+      "p95Ms": 5.519264000000476
+    },
+    "steady.uuidRead": {
+      "count": 5,
+      "p50Ms": 1.2112899999992806,
+      "p95Ms": 5.089969999999084
+    },
+    "steady.update": {
+      "count": 1,
+      "p50Ms": 6.635211000000709,
+      "p95Ms": 6.635211000000709
+    },
+    "steady.delete": {
+      "count": 1,
+      "p50Ms": 15.158325000000332,
+      "p95Ms": 15.158325000000332
+    }
+  }
+}

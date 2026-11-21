@@ -8,7 +8,9 @@ import { availableParallelism, cpus, freemem, release as osRelease, tmpdir, tota
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createClient } from 'redis'
-import { benchmarkUuid, createBenchmarkRecord, lifecycleScope } from '../../../fixtures/lifecycle.mjs'
+import { benchmarkUuid, createBenchmarkRecord, lifecycleRoot } from '../../../fixtures/lifecycle.mjs'
+import { launch as launchChild } from '../../shared/child-process.mjs'
+import { createProgressReporter, expectedCount as countExpected, expectedUuids as getExpectedUuids, parseStandardSizes, standardWorkloads } from '../../shared/workloads.mjs'
 
 const script = fileURLToPath(import.meta.url)
 const here = dirname(script)
@@ -51,16 +53,8 @@ const readProcess = pid => {
         return fields
     } catch { return null }
 }
-const expectedIds = (size, predicate, limit = 100) => {
-    const result = []
-    for (let rank = 0; rank < size && result.length < limit; rank++) if (predicate(rank)) result.push(benchmarkUuid(rank))
-    return result
-}
-const expectedCount = (size, predicate) => {
-    let count = 0
-    for (let rank = 0; rank < size; rank++) if (predicate(rank)) count++
-    return count
-}
+const expectedIds = (size, predicate, limit = 100) => getExpectedUuids(size, predicate, limit)
+const expectedCount = countExpected
 const compareIds = (documents, expected, label) => assert.deepEqual(documents.map(document => document.uuid), expected, `${label} UUIDs`)
 async function measure(operation, validate, { samples, warmups }) {
     let before = performance.now()
@@ -185,7 +179,7 @@ async function sustained(client, mode, ids, { durationMs, concurrency, type, pid
 }
 
 async function runOne(size, runIndex, mode, outputFile, settings) {
-    const environment = recordEnvironment(), scope = lifecycleScope(size)
+    const environment = recordEnvironment(), root = lifecycleRoot(size)
     const result = { status: 'running', benchmark: `redis-${mode}-standard-single-node-local-loopback`, benchmarkVersion: 1,
         fixture: 'shared lifecycle fixture v3', fixtureVersion: '3.0.0', runIndex, datasetSize: size, mode,
         sampleCount: settings.samples, warmupCount: settings.warmups, sustainedDurationMs: settings.sustainMs,
@@ -214,16 +208,18 @@ async function runOne(size, runIndex, mode, outputFile, settings) {
         result.clientMemory = { idle: process.memoryUsage() }
         const hash = createHash('sha256'); hash.update('['); let first = true, createAndIndexMs = 0
         const chunkSize = 500
+        const reportProgress = createProgressReporter(`redis-${mode}`, size)
         for (let offset = 0; offset < size; offset += chunkSize) {
             const commands = []
             for (let rank = offset; rank < Math.min(size, offset + chunkSize); rank++) {
-                const record = createBenchmarkRecord(rank, size, scope.organization_id)
+                const record = createBenchmarkRecord(rank, size, root.organization_id)
                 if (!first) hash.update(','); first = false; hash.update(JSON.stringify(record))
                 commands.push(command(client, mode, record.uuid, record))
             }
             const started = performance.now()
             await Promise.all(commands)
             createAndIndexMs += performance.now() - started
+            reportProgress(Math.min(size, offset + chunkSize))
         }
         hash.update(']')
         result.fixtureHash = hash.digest('hex'); result.createAndIndexMs = createAndIndexMs
@@ -237,29 +233,25 @@ async function runOne(size, runIndex, mode, outputFile, settings) {
         assert.equal(result.redisKeyCount, size + 1)
         const middle = benchmarkUuid(Math.floor(size / 2))
         assert.equal((await fetchUuid(client, mode, middle)).uuid, middle)
+        const workload = standardWorkloads(size)
         const expected = {
-            equality: expectedIds(size, rank => rank % 10 === 3),
-            nestedEquality: expectedIds(size, rank => rank % 20 === 7),
-            numericRange: expectedIds(size, rank => rank >= Math.floor(size * .4) && rank < Math.floor(size * .6)),
-            and: expectedIds(size, rank => rank % 10 === 4 && rank % 2 === 0),
-            or: expectedIds(size, rank => rank % 10 === 1 || rank % 10 === 8)
+            equality: expectedIds(size, workload.equality.matches),
+            nestedEquality: expectedIds(size, workload.nestedEquality.matches),
+            numericRange: expectedIds(size, workload.numericRange.matches),
+            and: expectedIds(size, workload.and.matches),
+            or: expectedIds(size, workload.or.matches)
         }
         result.operations = {}
         result.operations.uuidRead = await measure(() => fetchUuid(client, mode, middle), value => assert.equal(value?.uuid, middle), settings)
         if (mode === 'json-search') {
-            const queries = { equality: '@group:{group\\-3}', nestedEquality: '@team:{team\\-7}',
-                numericRange: `@rank:[${Math.floor(size * .4)} ${Math.floor(size * .6) - 1}]`,
-                and: '@group:{group\\-4} @active:{true}', or: '(@group:{group\\-1}|@group:{group\\-8})' }
+            const tag = value => value.replaceAll('-', '\\-')
+            const queries = { equality: `@group:{${tag(workload.equality.value)}}`, nestedEquality: `@team:{${tag(workload.nestedEquality.value)}}`,
+                numericRange: `@rank:[${workload.numericRange.lower} ${workload.numericRange.upper - 1}]`,
+                and: `@group:{${tag(workload.and.group)}} @active:{${workload.and.active}}`,
+                or: `(${workload.or.groups.map(group => `@group:{${tag(group)}}`).join('|')})` }
             for (const [name, query] of Object.entries(queries)) {
                 const value = await search(client, query)
-                const predicates = {
-                    equality: rank => rank % 10 === 3,
-                    nestedEquality: rank => rank % 20 === 7,
-                    numericRange: rank => rank >= Math.floor(size * .4) && rank < Math.floor(size * .6),
-                    and: rank => rank % 10 === 4 && rank % 2 === 0,
-                    or: rank => rank % 10 === 1 || rank % 10 === 8
-                }
-                assert.equal(value.total, expectedCount(size, predicates[name]), `correctness ${name} count`)
+                assert.equal(value.total, countExpected(size, workload[name].matches), `correctness ${name} count`)
                 compareIds(value.documents, expected[name], `correctness ${name}`)
                 result.operations[name] = await measure(async () => (await search(client, query)).documents,
                     documents => compareIds(documents, expected[name], name), settings)
@@ -268,7 +260,7 @@ async function runOne(size, runIndex, mode, outputFile, settings) {
 
         let createRank = size + 1000 + runIndex * (settings.warmups + settings.samples + 100)
         result.operations.singleCreate = await measure(async () => {
-            const record = createBenchmarkRecord(createRank++, size, scope.organization_id)
+            const record = createBenchmarkRecord(createRank++, size, root.organization_id)
             return command(client, mode, record.uuid, record)
         }, value => assert.equal(value, mode === 'string' ? 'OK' : 'OK'), settings)
         let updateRank = 0
@@ -329,22 +321,15 @@ async function runOne(size, runIndex, mode, outputFile, settings) {
         await rm(directory, { recursive: true, force: true }).catch(() => {})
     }
 }
-const launch = args => new Promise(resolvePromise => {
-    const child = spawn(process.execPath, args, { cwd: here, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
-    let stdout = '', stderr = ''
-    child.stdout.on('data', chunk => { stdout += chunk.toString() })
-    child.stderr.on('data', chunk => { stderr = (stderr + chunk.toString()).slice(-10000) })
-    child.on('error', error => resolvePromise({ code: null, stdout, stderr: `${stderr}\n${error.message}` }))
-    child.on('close', (code, signal) => resolvePromise({ code, signal, stdout, stderr }))
-})
+const launch = args => launchChild(args, { cwd: here })
 async function orchestrate() {
-    const sizes = (process.argv[2] ?? '1000,10000,100000').split(',').map(Number)
+    const sizes = parseStandardSizes(process.argv[2])
     const runs = Number(process.env.BENCH_RUNS ?? 5), samples = Math.max(40, Number(process.env.BENCH_SAMPLES ?? 40))
     const warmups = Math.max(10, Number(process.env.BENCH_WARMUPS ?? 10)), sustainMs = Math.max(1000, Number(process.env.BENCH_SUSTAIN_MS ?? 5000))
     const concurrency = (process.env.BENCH_CONCURRENCY ?? '1,8').split(',').map(Number)
     const modes = (process.env.REDIS_BENCH_MODES ?? 'string,json-search').split(',')
     const started = new Date(), runId = started.toISOString().replaceAll(':', '-')
-    const output = resolve(process.env.BENCH_OUTPUT_DIR ?? join(benchmarkRoot, 'runs', `redis-standard-${runId}`))
+    const output = resolve(process.env.BENCH_OUTPUT_DIR ?? join(here, 'results', `standard-${runId}`))
     await mkdir(output, { recursive: true })
     const manifest = { suite: 'Redis comparison benchmark v1', provider: 'Redis', serverVersion: redisVersion, driverVersion,
         runId, startedAt: started.toISOString(), sizes, modes, independentRunsRequested: runs,

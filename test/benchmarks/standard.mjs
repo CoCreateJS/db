@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { spawn } from 'node:child_process'
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { availableParallelism, cpus, freemem, release as osRelease, totalmem, version as osVersion } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createDB } from '../../src/index.js'
-import { benchmarkRecords, benchmarkUuid, createBenchmarkRecord, lifecycleScope } from '../fixtures/lifecycle.mjs'
+import { benchmarkUuid, createBenchmarkRecord, lifecycleRoot } from '../fixtures/lifecycle.mjs'
+import { launch } from './shared/child-process.mjs'
+import { createProgressReporter, expectedUuids, parseStandardSizes, STANDARD_SIZES, standardWorkloads } from './shared/workloads.mjs'
 
 const script = fileURLToPath(import.meta.url)
 const root = resolve(dirname(script), '../..')
@@ -68,12 +69,6 @@ const assertResponse = (response, label) => {
     return response
 }
 const uuidFor = benchmarkUuid
-const buildExpected = (size, predicate, limit) => {
-    const result = []
-    for (let rank = 0; rank < size && result.length < limit; rank++)
-        if (predicate(rank)) result.push(uuidFor(rank))
-    return result
-}
 const verifyIds = (response, expected, label) => {
     assertResponse(response, label)
     assert.deepEqual(response.object.map(value => value.uuid), expected, `${label} result ids`)
@@ -95,15 +90,15 @@ const measure = async (fn, validate, { warmups, samples }) => {
     const elapsedMs = performance.now() - start
     return { firstOperationMs, warmups, measured: stats(values, elapsedMs) }
 }
-const scopedRead = (send, scope, extra) => send({ ...scope, method: 'object.read', ...extra })
+const rootRead = (send, root, extra) => send({ ...root, method: 'object.read', ...extra })
 
-async function sustained(send, scope, ids, { durationMs, concurrency, mode }) {
+async function sustained(send, root, ids, { durationMs, concurrency, mode }) {
     const choose = sequence => ids[(sequence * 7919) % ids.length]
     const execute = async sequence => {
         const write = mode === 'write' || mode === 'mixed' && sequence % 2 === 1
         const request = write
-            ? { ...scope, method: 'object.update', object: { uuid: choose(sequence), '$inc.revision': 1 } }
-            : { ...scope, method: 'object.read', object: { uuid: choose(sequence) } }
+            ? { ...root, method: 'object.update', object: { uuid: choose(sequence), '$inc.revision': 1 } }
+            : { ...root, method: 'object.read', object: { uuid: choose(sequence) } }
         const before = performance.now()
         const response = await send(request)
         const elapsed = performance.now() - before
@@ -148,20 +143,20 @@ async function sustained(send, scope, ids, { durationMs, concurrency, mode }) {
 
 async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs, concurrency }) {
     const environment = recordEnvironment()
-    const scope = lifecycleScope(size)
+    const root = lifecycleRoot(size)
     const result = {
         status: 'running', benchmark: 'cocreatedb-standard-single-node-memory',
         benchmarkVersion: 1, fixture: 'shared lifecycle fixture v3', fixtureVersion: '3.0.0',
         runIndex, datasetSize: size, sampleCount: samples, warmupCount: warmups,
         sustainedDurationMs: sustainMs, concurrencyLevels: concurrency,
-        environment, configuration: { scopes: 'default', indexSize: 64, chunkSize: 1000 },
+        environment, configuration: { roots: 'default', indexSize: 64, chunkSize: 1000, deferIndex: false },
         startedAt: new Date().toISOString()
     }
     const cpuStart = process.cpuUsage()
     const wallStart = performance.now()
     try {
         const initStart = performance.now()
-        const db = await createDB.init(undefined, { prompt: false, config: {} })
+        const db = await createDB.init(undefined, { prompt: false, config: {}, size: 64, deferIndex: false })
         result.initializationMs = performance.now() - initStart
         const send = request => db.send(request)
         const idleMemory = process.memoryUsage()
@@ -177,7 +172,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             tags: [], payload: 'seed', bulkDelete: false, revision: 0
         }
         const firstCreateStart = performance.now()
-        const firstCreate = assertResponse(await send({ ...scope, method: 'object.create', object: seed }), 'first object create')
+        const firstCreate = assertResponse(await send({ ...root, method: 'object.create', object: seed }), 'first object create')
         result.firstObjectCreateMs = performance.now() - firstCreateStart
         assert.equal(firstCreate.object.length, 1)
 
@@ -187,27 +182,36 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         let indexEntriesPerObject
         let createAndIndexMs = 0
         const chunkSize = 1000
+        const reportProgress = createProgressReporter('cocreatedb', size)
         for (let offset = 0; offset < size; offset += chunkSize) {
             const batch = []
             const end = Math.min(size, offset + chunkSize)
             for (let rank = offset; rank < end; rank++) {
-                const object = createBenchmarkRecord(rank, size, scope.organization_id)
+                const object = createBenchmarkRecord(rank, size, root.organization_id)
                 if (!firstRecord) hash.update(',')
                 hash.update(JSON.stringify(object))
                 firstRecord = false
                 batch.push(object)
             }
             const createStart = performance.now()
-            const response = assertResponse(await send({ ...scope, method: 'object.create', object: batch }), `bulk create ${offset}-${end}`)
+            const response = assertResponse(await send({ ...root, method: 'object.create', object: batch }), `bulk create ${offset}-${end}`)
             createAndIndexMs += performance.now() - createStart
             assert.equal(response.object.length, batch.length)
             indexEntriesPerObject ??= Object.keys(batch[0].getIndex()).length
+            reportProgress(end)
         }
         hash.update(']')
         result.fixtureHash = hash.digest('hex')
         result.createAndIndexMs = createAndIndexMs
         result.createRecordsPerSecond = size / createAndIndexMs * 1000
-        result.indexCreationAndMaintenance = { synchronous: true, includedInCreateAndIndexMs: true, flushMs: 0 }
+        result.indexCreationAndMaintenance = {
+            synchronous: true,
+            deferredIndexing: false,
+            includedInCreateAndIndexMs: true,
+            flushMs: 0,
+            pendingAfterCreate: db.pendingIndexCount
+        }
+        assert.equal(db.pendingIndexCount, 0, 'standard run must complete index maintenance before timing proceeds')
         const loadedMemory = process.memoryUsage()
         const peakRssBytes = process.resourceUsage().maxRSS * 1024
         result.memory.loaded = loadedMemory
@@ -217,28 +221,29 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         result.memory.rssBytesPerObject = result.memory.incrementalRssBytes / size
         result.indexEntriesPerObject = indexEntriesPerObject ?? null
 
+        const workload = standardWorkloads(size)
         const queries = [
             { key: 'uuidRead', query: null, expected: [uuidFor(Math.floor(size / 2))] },
-            { key: 'equality', query: { group: 'group-3' }, expected: buildExpected(size, rank => rank % 10 === 3, 100) },
-            { key: 'nestedEquality', query: { 'profile.team': 'team-7' }, expected: buildExpected(size, rank => rank % 20 === 7, 100) },
-            { key: 'numericRange', query: { rank: { $gte: Math.floor(size * 0.4), $lt: Math.floor(size * 0.6) } }, expected: buildExpected(size, rank => rank >= Math.floor(size * 0.4) && rank < Math.floor(size * 0.6), 100) },
-            { key: 'and', query: { $and: [{ group: 'group-4' }, { active: true }] }, expected: buildExpected(size, rank => rank % 10 === 4 && rank % 2 === 0, 100) },
-            { key: 'or', query: { $or: [{ group: 'group-1' }, { group: 'group-8' }] }, expected: buildExpected(size, rank => rank % 10 === 1 || rank % 10 === 8, 100) }
+            { key: 'equality', query: { group: workload.equality.value }, expected: expectedUuids(size, workload.equality.matches) },
+            { key: 'nestedEquality', query: { 'profile.team': workload.nestedEquality.value }, expected: expectedUuids(size, workload.nestedEquality.matches) },
+            { key: 'numericRange', query: { rank: { $gte: workload.numericRange.lower, $lt: workload.numericRange.upper } }, expected: expectedUuids(size, workload.numericRange.matches) },
+            { key: 'and', query: { $and: [{ group: workload.and.group }, { active: workload.and.active }] }, expected: expectedUuids(size, workload.and.matches) },
+            { key: 'or', query: { $or: workload.or.groups.map(group => ({ group })) }, expected: expectedUuids(size, workload.or.matches) }
         ]
         for (const item of queries) {
             const request = item.key === 'uuidRead'
-                ? { ...scope, method: 'object.read', object: { uuid: item.expected[0] } }
-                : { ...scope, method: 'object.read', filter: { query: item.query, limit: 100 } }
+                ? { ...root, method: 'object.read', object: { uuid: item.expected[0] } }
+                : { ...root, method: 'object.read', filter: { query: item.query, limit: 100 } }
             verifyIds(await send(request), item.expected, `correctness ${item.key}`)
         }
 
         result.operations = {}
         result.operations.uuidRead = await measure(
-            () => scopedRead(send, scope, { object: { uuid: uuidFor(Math.floor(size / 2)) } }),
+            () => rootRead(send, root, { object: { uuid: uuidFor(Math.floor(size / 2)) } }),
             response => { assertResponse(response, 'UUID read'); assert.equal(response.object.length, 1) }, { warmups, samples })
         for (const item of queries.slice(1)) {
             result.operations[item.key] = await measure(
-                () => scopedRead(send, scope, { filter: { query: item.query, limit: 100 } }),
+                () => rootRead(send, root, { filter: { query: item.query, limit: 100 } }),
                 response => verifyIds(response, item.expected, item.key), { warmups, samples })
         }
 
@@ -246,61 +251,61 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         let createRank = createOffset
         result.operations.singleCreate = await measure(async (stage, i) => {
             const rank = stage === 'first' ? createRank++ : createRank++
-            return send({ ...scope, method: 'object.create', object: createBenchmarkRecord(rank, size, scope.organization_id) })
+            return send({ ...root, method: 'object.create', object: createBenchmarkRecord(rank, size, root.organization_id) })
         }, response => { assertResponse(response, 'single create'); assert.equal(response.object.length, 1) }, { warmups, samples })
 
         const updateStart = Math.floor(size / 4)
         let updateRank = updateStart
         result.operations.singleKeyUpdate = await measure((stage, i) => {
             const rank = updateRank++
-            return send({ ...scope, method: 'object.update', object: { uuid: uuidFor(rank), note: `note-${stage}-${i}` } })
+            return send({ ...root, method: 'object.update', object: { uuid: uuidFor(rank), note: `note-${stage}-${i}` } })
         }, response => { assertResponse(response, 'single key update'); assert.equal(response.object.length, 1) }, { warmups, samples })
         const indexedStart = Math.floor(size / 3)
         let indexedRank = indexedStart
         result.operations.indexedKeyUpdate = await measure((stage, i) => {
             const rank = indexedRank++
-            return send({ ...scope, method: 'object.update', object: { uuid: uuidFor(rank), group: `updated-group-${stage}-${i}` } })
+            return send({ ...root, method: 'object.update', object: { uuid: uuidFor(rank), group: `updated-group-${stage}-${i}` } })
         }, response => { assertResponse(response, 'indexed key update'); assert.equal(response.object.length, 1) }, { warmups, samples })
         result.operations.numericIncrement = await measure((stage, i) => {
             const rank = Math.floor(size / 2) + i
-            return send({ ...scope, method: 'object.update', object: { uuid: uuidFor(rank), '$inc.revision': 1 } })
+            return send({ ...root, method: 'object.update', object: { uuid: uuidFor(rank), '$inc.revision': 1 } })
         }, response => { assertResponse(response, 'numeric increment'); assert.equal(response.object.length, 1) }, { warmups, samples })
         const indexedCheckRank = indexedStart + warmups + samples
         const indexedValue = `updated-group-sample-${samples - 1}`
-        assert.equal((await scopedRead(send, scope, { filter: { query: { group: indexedValue }, limit: 1 } })).object[0]?.uuid, uuidFor(indexedCheckRank))
+        assert.equal((await rootRead(send, root, { filter: { query: { group: indexedValue }, limit: 1 } })).object[0]?.uuid, uuidFor(indexedCheckRank))
 
         const deleteOffset = size + 5000 + runIndex * (warmups + samples + 100)
         const deleteIds = []
         const deletePrep = []
         for (let i = 0; i < warmups + samples + 1; i++) {
-            const record = createBenchmarkRecord(deleteOffset + i, size, scope.organization_id)
+            const record = createBenchmarkRecord(deleteOffset + i, size, root.organization_id)
             deleteIds.push(record.uuid)
             deletePrep.push(record)
         }
-        assert.equal(assertResponse(await send({ ...scope, method: 'object.create', object: deletePrep }), 'delete prep').object.length, deletePrep.length)
+        assert.equal(assertResponse(await send({ ...root, method: 'object.create', object: deletePrep }), 'delete prep').object.length, deletePrep.length)
         let deleteIndex = 0
         result.operations.singleDelete = await measure(() => {
             const uuid = deleteIds[deleteIndex++]
-            return send({ ...scope, method: 'object.delete', object: { uuid } })
+            return send({ ...root, method: 'object.delete', object: { uuid } })
         }, response => { assertResponse(response, 'single delete'); assert.equal(response.object.length, 1) }, { warmups, samples })
-        for (const uuid of deleteIds) assert.equal((await scopedRead(send, scope, { object: { uuid } })).object.length, 0)
+        for (const uuid of deleteIds) assert.equal((await rootRead(send, root, { object: { uuid } })).object.length, 0)
 
         const deleteQuery = { bulkDelete: true }
         const expectedDelete = Math.min(size, 25)
-        const deletePrecheck = await scopedRead(send, scope, { filter: { query: deleteQuery, limit: 0 } })
+        const deletePrecheck = await rootRead(send, root, { filter: { query: deleteQuery, limit: 0 } })
         assert.equal(deletePrecheck.object.length, expectedDelete)
         const deleteStart = performance.now()
-        const deleted = assertResponse(await send({ ...scope, method: 'object.delete', filter: { query: deleteQuery, limit: 0 } }), 'filtered bulk delete')
+        const deleted = assertResponse(await send({ ...root, method: 'object.delete', filter: { query: deleteQuery, limit: 0 } }), 'filtered bulk delete')
         const filteredBulkDeleteMs = performance.now() - deleteStart
         assert.equal(deleted.object.length, expectedDelete)
-        assert.equal((await scopedRead(send, scope, { filter: { query: deleteQuery, limit: 0 } })).object.length, 0)
+        assert.equal((await rootRead(send, root, { filter: { query: deleteQuery, limit: 0 } })).object.length, 0)
         result.operations.filteredBulkDelete = { deleted: expectedDelete, elapsedMs: filteredBulkDeleteMs, opsPerSecond: expectedDelete / filteredBulkDeleteMs * 1000 }
 
         const sustainedIds = Array.from({ length: Math.min(size - expectedDelete, 10000) }, (_, i) => uuidFor(i))
         result.sustained = []
         for (const concurrencyLevel of concurrency) {
             for (const mode of ['read', 'write', 'mixed'])
-                result.sustained.push(await sustained(send, scope, sustainedIds, { durationMs: sustainMs, concurrency: concurrencyLevel, mode }))
+                result.sustained.push(await sustained(send, root, sustainedIds, { durationMs: sustainMs, concurrency: concurrencyLevel, mode }))
         }
 
         result.cpuUsageUs = process.cpuUsage(cpuStart)
@@ -324,34 +329,23 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
     }
 }
 
-function launch(args, env = {}) {
-    return new Promise(resolvePromise => {
-        const child = spawn(process.execPath, args, { cwd: root, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] })
-        let stdout = '', stderr = ''
-        child.stdout.on('data', chunk => { stdout += chunk.toString() })
-        child.stderr.on('data', chunk => { stderr = (stderr + chunk.toString()).slice(-8000) })
-        child.on('error', error => resolvePromise({ code: null, signal: null, stdout, stderr: `${stderr}\n${error.message}` }))
-        child.on('close', (code, signal) => resolvePromise({ code, signal, stdout, stderr }))
-    })
-}
-
 async function orchestrate() {
-    const sizes = (process.argv[2] ?? '1000,10000,100000').split(',').map(Number)
+    const sizes = parseStandardSizes(process.argv[2])
     const runs = Number(process.env.BENCH_RUNS ?? 5)
     const samples = Math.max(40, Number(process.env.BENCH_SAMPLES ?? 40))
     const warmups = Math.max(10, Number(process.env.BENCH_WARMUPS ?? 10))
     const sustainMs = Math.max(1000, Number(process.env.BENCH_SUSTAIN_MS ?? 5000))
     const concurrency = (process.env.BENCH_CONCURRENCY ?? '1,8').split(',').map(Number)
-    if (!sizes.length || sizes.some(size => !Number.isSafeInteger(size) || size < 1)) throw Error('Dataset sizes must be positive integers')
     const startedAt = new Date()
     const runId = startedAt.toISOString().replaceAll(':', '-')
-    const outputDirectory = resolve(process.env.BENCH_OUTPUT_DIR ?? `test/benchmarks/runs/standard-${runId}`)
+    const outputDirectory = resolve(process.env.BENCH_OUTPUT_DIR ?? join(root, 'test/benchmarks/providers/cocreatedb/results', `standard-${runId}`))
     await mkdir(outputDirectory, { recursive: true })
     const manifest = {
-        suite: 'CoCreateDB standard single-node benchmark v1', runId,
+        suite: 'CoCreateDB standard single-node benchmark v2', runId,
         startedAt: startedAt.toISOString(), sizes, independentRunsRequested: runs,
         sampleCount: samples, warmupCount: warmups, sustainedDurationMs: sustainMs,
         concurrencyLevels: concurrency, results: [],
+        stallTimeoutMs: Number(process.env.BENCH_STALL_MS ?? 10 * 60 * 1000),
         legacyCompatibility: { status: 'not-run', fixture: 'lifecycle fixture v2', runs: [] }
     }
     let stopLargerSizes = false
@@ -369,17 +363,18 @@ async function orchestrate() {
                 manifest.results.push({ ...skipped, file: basename(path) })
                 continue
             }
-            const childResult = await launch([script, '--child', String(size), String(runIndex), path], {
+            const childResult = await launch([script, '--child', String(size), String(runIndex), path], { cwd: root, env: { ...process.env,
                 BENCH_SAMPLES: String(samples), BENCH_WARMUPS: String(warmups),
                 BENCH_SUSTAIN_MS: String(sustainMs), BENCH_CONCURRENCY: concurrency.join(',')
-            })
+            } })
             let raw
             try { raw = JSON.parse(await readFile(path, 'utf8')) } catch {}
             const status = childResult.code === 0 && raw?.status === 'passed' ? 'passed' : 'failed'
             if (!raw) {
                 const failureMessage = /heap out of memory|JavaScript heap out of memory/i.test(childResult.stderr)
                     ? 'Node.js JavaScript heap out of memory'
-                    : 'Benchmark subprocess exited before writing results'
+                    : childResult.stalled ? `Benchmark made no progress for ${childResult.stallTimeoutMs} ms`
+                        : 'Benchmark subprocess exited before writing results'
                 raw = {
                     status, datasetSize: size, runIndex, startedAt: new Date().toISOString(),
                     environment: recordEnvironment(),
@@ -400,17 +395,18 @@ async function orchestrate() {
             }
         }
     }
-    if (sizes.includes(1000)) {
-        const legacyCount = Math.max(0, Number(process.env.BENCH_LEGACY_RUNS ?? runs))
+    {
+        const legacyCount = Math.max(0, Number(process.env.BENCH_LEGACY_RUNS ?? 0))
+        if (legacyCount > 0) {
         const legacyDirectory = join(outputDirectory, 'legacy-v2')
         await mkdir(legacyDirectory, { recursive: true })
         manifest.legacyCompatibility.requestedRuns = legacyCount
         for (let runIndex = 1; runIndex <= legacyCount; runIndex++) {
             const runDirectory = join(legacyDirectory, `run-${String(runIndex).padStart(2, '0')}`)
             await mkdir(runDirectory, { recursive: true })
-            const childResult = await launch([join(root, 'test/benchmarks/lifecycle.mjs'), '1000'], {
+            const childResult = await launch([join(root, 'test/benchmarks/lifecycle.mjs'), '1000'], { cwd: root, env: {
                 BENCH_SAMPLES: String(samples), BENCH_OUTPUT_DIR: runDirectory
-            })
+            } })
             const files = (await readdir(runDirectory)).filter(file => file.endsWith('.json'))
             const raw = files.length === 1 ? JSON.parse(await readFile(join(runDirectory, files[0]), 'utf8')) : undefined
             const status = childResult.code === 0 && raw?.sizes?.[0]?.fixtureHash ? 'passed' : 'failed'
@@ -421,6 +417,7 @@ async function orchestrate() {
             })
         }
         manifest.legacyCompatibility.status = manifest.legacyCompatibility.runs.every(run => run.status === 'passed') ? 'passed' : 'partial'
+        }
     }
     const complete = manifest.results.filter(run => run.status === 'passed').length
     const failed = manifest.results.filter(run => run.status === 'failed').length

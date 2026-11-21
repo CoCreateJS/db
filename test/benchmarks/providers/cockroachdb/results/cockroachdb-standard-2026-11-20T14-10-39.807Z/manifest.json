@@ -1,0 +1,38 @@
+{
+  "suite": "CockroachDB comparison benchmark v1",
+  "provider": "CockroachDB",
+  "serverVersion": "26.3.5",
+  "driverVersion": "8.23.1",
+  "runId": "2026-11-20T14-10-39.807Z",
+  "startedAt": "2026-11-20T14:10:39.807Z",
+  "sizes": [
+    1000
+  ],
+  "independentRunsRequested": 1,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 1000,
+  "concurrencyLevels": [
+    1
+  ],
+  "resourcePolicy": "single isolated CockroachDB process; fresh SQL database per independent trial; server stops after suite",
+  "results": [
+    {
+      "size": 1000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-1000-run-01.json",
+      "elapsedMs": 11967.520627
+    }
+  ],
+  "serverStartupMs": 1753.4015009999998,
+  "serverVersionReported": "CockroachDB CCL v26.3.5 (x86_64-pc-linux-gnu, built 2026/11/03 21:06:15, go1.26.10)",
+  "storePath": "/home/ubuntu/.cache/cocreate-db-cockroach/26.3.5/store",
+  "completedAt": "2026-11-20T14:10:55.987Z",
+  "summary": {
+    "successfulRuns": 1,
+    "failedRuns": 0,
+    "notAttempted": 0
+  },
+  "serverStoppedAfterSuite": true
+}

@@ -1,0 +1,137 @@
+{
+  "status": "passed",
+  "requestedMode": "disk-first",
+  "configuredModeOption": "disk-first",
+  "effectiveModeAtStart": "disk-first",
+  "acknowledgement": "memory",
+  "datasetSize": 10000,
+  "fixture": "shared lifecycle fixture v3",
+  "fixtureVersion": "3.0.0",
+  "fixtureHash": "767927150f41a6967e99ab0e05f11128ba4f408f1b9bfc5e1fc753a84119ac8f",
+  "configuration": {
+    "databaseOptions": {
+      "mode": "disk-first"
+    },
+    "allOtherDatabaseOptions": "defaults",
+    "batchSize": 1000,
+    "idleMs": 1000
+  },
+  "node": "v24.18.0",
+  "platform": "linux-x64",
+  "startedAt": "2026-11-21T17:22:39.574Z",
+  "phases": {
+    "createRequestsMs": 6357.671252,
+    "createAndIndexMs": 7032.260641,
+    "indexDrainMs": 641.1827600000006,
+    "idleWaitMs": 1000.4123420000005,
+    "reads": {
+      "uuid": {
+        "elapsedMs": 1.4615899999989779,
+        "returned": 1,
+        "correctness": true
+      },
+      "equality": {
+        "elapsedMs": 29.43857300000127,
+        "returned": 100,
+        "correctness": true
+      },
+      "nestedEquality": {
+        "elapsedMs": 62.74949900000138,
+        "returned": 100,
+        "correctness": true
+      },
+      "range": {
+        "elapsedMs": 64.32381199999872,
+        "returned": 100,
+        "correctness": true
+      }
+    }
+  },
+  "states": {
+    "afterCreate": {
+      "effectiveMode": "disk-first",
+      "residentRecords": 0,
+      "warmRecords": 10000,
+      "residentLeafObjects": 4,
+      "warmLeafFiles": 10000,
+      "residentBranches": 17,
+      "warmBranchFiles": 304,
+      "processRssBytes": 251547648,
+      "peakRssBytes": 251973632
+    },
+    "afterIdle": {
+      "effectiveMode": "disk-first",
+      "residentRecords": 0,
+      "warmRecords": 10000,
+      "residentLeafObjects": 4,
+      "warmLeafFiles": 10000,
+      "residentBranches": 17,
+      "warmBranchFiles": 304,
+      "processRssBytes": 252203008,
+      "peakRssBytes": 252203008
+    },
+    "afterReads": {
+      "effectiveMode": "disk-first",
+      "residentRecords": 0,
+      "warmRecords": 10000,
+      "residentLeafObjects": 4,
+      "warmLeafFiles": 10000,
+      "residentBranches": 17,
+      "warmBranchFiles": 304,
+      "processRssBytes": 256675840,
+      "peakRssBytes": 256921600
+    }
+  },
+  "io": {
+    "branchWrites": 780,
+    "leafWrites": 10301,
+    "branchReads": 476,
+    "leafReads": 301,
+    "branchBytes": 6645326,
+    "leafBytes": 5134467,
+    "totalBytes": 11780347
+  },
+  "memory": {
+    "totalMemoryBytes": 8218963968,
+    "availableMemoryAtStartBytes": 5562171392,
+    "requestedBudgetBytes": 2054740992,
+    "effectiveBudgetBytes": 2054740992,
+    "defaultMemoryPercent": 25,
+    "pressureStages": [
+      10,
+      20,
+      30,
+      40,
+      50,
+      60,
+      80,
+      90
+    ],
+    "diskFirstAtBudgetPercent": 90,
+    "start": {
+      "rss": 67579904,
+      "heapTotal": 17018880,
+      "heapUsed": 8023992,
+      "external": 2554217,
+      "arrayBuffers": 174359
+    },
+    "final": {
+      "rss": 261988352,
+      "heapTotal": 198467584,
+      "heapUsed": 110523344,
+      "external": 6059863,
+      "arrayBuffers": 3590531
+    },
+    "peakRssBytes": 261988352,
+    "workloadPeakRssBytes": 256921600,
+    "postMeasurementPeakRssBytes": 261988352
+  },
+  "pendingIndexCount": 0,
+  "cpuUsageUs": {
+    "user": 7324426,
+    "system": 4124764
+  },
+  "completedAt": "2026-11-21T17:22:49.913Z",
+  "sourceRevision": "7d9c347d0385de84d9aefa6acbb00dafec9edaa7",
+  "sourceWorkingTreeDirty": true
+}

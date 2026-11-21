@@ -89,7 +89,7 @@ The constraint determines the coordination boundary. It need not determine the e
 
 ## 5. Composable execution
 
-CoCreateDB owns living artifacts, scopes, indexes and local CRUD execution. It does not own distributed locks, peer inventories, persistence providers or transactional workflows.
+CoCreateDB owns living leaves, roots, indexes and local CRUD execution. It does not own distributed locks, peer inventories, persistence providers or transactional workflows.
 
 CoCreate CRUD and Workflow/AST compose the required behavior before, around and after execution:
 

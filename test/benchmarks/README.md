@@ -1,78 +1,69 @@
-# CoCreateDB benchmark suite
+# CoCreateDB benchmarks
 
-The standardized suite preserves CoCreateDB's original v2 lifecycle benchmark and historical results, and adds a v3 fixture shared with MongoDB and Redis provider benchmarks. Other database providers remain historical-only until their individual adapters are built and measured.
+The benchmark layout separates same-fixture provider comparisons from CoCreateDB-only diagnostics. The v3 provider fixture and historical results are retained unchanged.
 
-## Run
+```text
+test/
+├── fixtures/lifecycle.mjs                 Shared deterministic fixture definitions
+└── benchmarks/
+    ├── standard.mjs                       CoCreateDB standard provider-comparison runner
+    ├── standard-report.mjs                Standard CoCreateDB report/history writer
+    ├── lifecycle.mjs                      Legacy v2 comparison runner
+    ├── shared/                             Sizes, expected workloads, progress, child watchdog
+    ├── diagnostics/                       CoCreateDB-only range/residency diagnostics
+    │   ├── fixtures/residency.mjs          Diagnostic-only fixture; separate from v3
+    │   └── results/                        Diagnostic result files and prior diagnostic logs
+    ├── baselines/                          Preserved historical baselines
+    └── providers/<provider>/               Adapter, configuration, summary and raw results
+```
 
-From the module root:
+## Standard benchmark
+
+The standard dataset sizes are **10,000, 100,000, and 1,000,000 leaves**. The default is five independent runs per size, 40 measured samples and 10 warmups per latency operation, five-second sustained read/write/mixed windows, and concurrency levels 1 and 8. The v3 fixture, CRUD operations, query predicates, index coverage, validation, and sustained workload definitions are shared across providers and have not been changed by this reorganization.
+
+Run CoCreateDB:
 
 ```sh
-npm test
 npm run benchmark:standard
 ```
 
-The standard runner defaults to 1,000, 10,000 and 100,000 objects, five independent child processes per size, 10 warmups and 40 timed samples per individual operation. It also runs five v2 compatibility samples at 1,000 records so the retained historical summary has an equivalent-workload reference. Each child starts with a fresh DB and configuration. The runner stops repeating a size after a failed attempt, records the failure, and marks unattempted runs explicitly.
-
-Choose sizes or tune duration for a smoke run:
+Run one standard size for a smoke/correctness pass:
 
 ```sh
-npm run benchmark:standard -- 1000,10000
-BENCH_RUNS=1 BENCH_SUSTAIN_MS=1000 BENCH_CONCURRENCY=1,2 npm run benchmark:standard -- 1000
+BENCH_RUNS=1 BENCH_SUSTAIN_MS=1000 BENCH_CONCURRENCY=1 \
+  npm run benchmark:standard -- 10000
 ```
 
-The standard policy floors individual latency measurements at 40 samples and 10 warmups. Environment controls:
+Completion-based work (bulk create/index and finite CRUD samples) runs until all requested records or operations finish. There is no total elapsed-time cutoff. `BENCH_STALL_MS` is an inactivity watchdog, reset by child-process output; it terminates a genuinely stalled run while allowing a slow but progressing 1M workload to complete. Bulk-load progress is emitted in bounded intervals. Sustained throughput remains a separate fixed-duration measurement.
 
-- `BENCH_RUNS`: independent runs per dataset size; default 5.
-- `BENCH_SAMPLES`: measured samples per individual operation; default 40, minimum 40.
-- `BENCH_WARMUPS`: warmup operations per individual operation; default 10, minimum 10.
-- `BENCH_SUSTAIN_MS`: duration of each sustained workload/concurrency pair; default 5,000 ms, minimum 1,000 ms.
-- `BENCH_CONCURRENCY`: comma-separated outstanding request levels; default `1,8`.
-- `BENCH_LEGACY_RUNS`: independent v2 comparison runs at 1,000 records; defaults to `BENCH_RUNS`.
-- `BENCH_OUTPUT_DIR`: override the dated run directory.
+Common settings are `BENCH_RUNS`, `BENCH_SAMPLES`, `BENCH_WARMUPS`, `BENCH_SUSTAIN_MS`, `BENCH_CONCURRENCY`, `BENCH_STALL_MS`, and `BENCH_OUTPUT_DIR`. The standard sizes are enforced by the standard runner; smaller fixture sizes remain available to correctness tests and the separate legacy v2 comparison lane (`BENCH_LEGACY_RUNS`).
 
-To regenerate the Markdown report and append a CoCreateDB provider summary without replacing historical measurements:
+Raw trial JSON, manifests and reports are written inside that provider's `results/` directory. Historical runs that used the former shared `runs/` path have been moved without changing their raw measurements. Provider summary history remains append-only in each provider's `results/summary.json`. The provider adapters keep their own database setup and configuration; those differences are documented in each provider README.
+
+## Measurements and comparability
+
+The suite records initialization/readiness, first and bulk creation, create/index throughput, UUID/equality/nested/range/complex-filter reads, updates, deletion, latency percentiles, sustained read/write/mixed throughput, total time, memory, CPU, fixture hash, source revision, correctness status, and provider-specific outstanding work when the adapter exposes it. Sustained concurrency is outstanding requests; a single-process CoCreateDB result does not imply parallel database threads.
+
+The standard CoCreateDB lane is memory-only and in-process. Provider lanes use their documented transport, indexing, durability and process boundaries. Compare only matching fixture hashes and operation semantics; retain the provider-specific costs rather than treating the output as a direct ranking. The one-million case is included in standard runs and may fail under a host's memory limit; the manifest preserves failures and stops later sizes only when resource exhaustion makes continuing unsafe.
+
+## CoCreateDB diagnostics
+
+Diagnostic benchmarks are separate from provider summaries and do not alter the standard fixture or its results.
 
 ```sh
-npm run benchmark:report -- test/benchmarks/runs/standard-<run-id>
+npm run benchmark:ranges
+npm run benchmark:weighted-eviction -- 10000 0.5
+npm run benchmark:deferred-indexing -- 10000
+npm run benchmark:continuous -- 10000
 ```
 
-## Dataset and correctness
+The diagnostics use `diagnostics/fixtures/residency.mjs`, a richer nested and variable-size fixture that is deliberately separate from the standard provider fixture. Weighted eviction measures index-branch and leaf eviction, disk bytes, hydration, memory and correctness. Deferred indexing measures create/update/delete acknowledgement, pending index work and index drain separately. Continuous diagnostics collect mixed CRUD latency, memory samples, policy state, disk usage, swap counters and GC events. `test/weights.test.js` checks ordered weight buckets, lowest-weight selection and skips for candidates touched during an asynchronous eviction. Diagnostic outputs are timestamped under `diagnostics/results/`.
 
-`test/fixtures/lifecycle.mjs` retains the original v2 fixture unchanged and adds a programmatic v3 record generator. V3 includes IDs, nested objects, arrays, strings, variable-size payloads, numbers, booleans and timestamps. Fixture data is created in batches of 1,000; no generated dataset is stored in Git. Each raw run records a canonical fixture SHA-256.
+The default requested memory budget is 25% of detected system RAM, capped at startup by memory available to the OS. It is an adaptive pressure target, not a hard RSS cap: eviction is asynchronous and may lag the workload. The DB mode and response acknowledgement are configured independently. Modes are `adaptive` (default), `disk-first`, and `disk-cache`; acknowledgements are `memory` (default) and `disk`. `disk-first` hydrates and processes requests from local Warm state, then writes and prunes it. `disk-cache` uses adaptive Hot/Warm behavior but clears only its managed Warm cache on startup. A `disk` acknowledgement waits for local writes; it does not select or change the mode. External Persistence acknowledgement is not implemented yet. The query-locality diagnostic accepts `--database-mode=adaptive|disk-first|disk-cache` and `--acknowledgement=memory|disk`. These measurements remain separate from standardized provider timings.
 
-Before collecting latency samples, the runner checks UUID lookup, equality, nested equality, numeric range, indexed AND/OR selections, index-updating mutations, individual deletion and filtered bulk deletion against expected UUIDs/counts. Query measurements use the same 100-result limit. The legacy v2 lane uses the unchanged `test/benchmarks/lifecycle.mjs` workload and its existing predicates.
+## Historical results
 
-Individual latency results include first operation, warm min/max/mean, p50/p95/p99, total sample time and operations/second. The suite also measures initialization/readiness, first and warm single creates, bulk create plus synchronous indexing, single and indexed-key updates, numeric increments, individual and filtered deletion, and sustained read/write/mixed traffic at each concurrency level.
-
-## Measurement boundaries
-
-The initial phase is single-process, in-memory CoCreateDB. Benchmark client and DB share the same Node process; concurrency is outstanding requests, not parallel database threads. There is no persistence provider, disk activity, IPC, network, durability guarantee, transaction coordination, replication or sharding in these measurements. Disk usage and I/O are reported as not applicable. Create-and-index includes all synchronous index work; there is no separate flush.
-
-Raw results include package/source revision, runtime, OS, CPU model/count, RAM and detected memory limit, configuration, sample policy, fixture version/hash, dataset size, CPU time/utilization, idle/loaded/peak RSS, incremental memory per object and failure metadata. A failed/oom-killed subprocess is retained in the run manifest rather than silently omitted. Run directories include raw JSON, a manifest and generated report. `providers/cocreatedb.json` appends standardized summaries while keeping the prior v2 baseline; provider references should be compared by operation and execution boundary.
-
-## MongoDB, Redis and subsequent providers
-
-MongoDB's isolated adapter in `test/benchmarks/providers/mongodb/` creates a standalone temporary WiredTiger database and records its index definitions, server/client resource use, and raw results. Redis's isolated adapter in `test/benchmarks/providers/redis/` measures Redis String JSON-text GET/SET and RedisJSON plus RediSearch as separate lanes, with a pinned Redis 8.10.3 server. It stores the same full fixture in each lane; the String lane has no secondary-query index, while the JSON/Search lane indexes the fixture paths. Both providers have independent dated reports and raw runs. Couchbase, CouchDB and CockroachDB have not been run under this suite. Match dataset hash, result count, selected fields, index coverage, concurrency, process/network boundary, durability and acknowledgment semantics. Keep server and client resource use separate when they run in separate processes. Do not rank operations whose guarantees differ.
-
-Run the MongoDB baseline from the module root:
-
-```sh
-npm ci --prefix test/benchmarks/providers/mongodb
-npm run benchmark --prefix test/benchmarks/providers/mongodb
-```
-
-Run the Redis baseline from the module root:
-
-```sh
-npm ci --prefix test/benchmarks/providers/redis
-npm run benchmark --prefix test/benchmarks/providers/redis
-```
-
-Distributed synchronization, replication, sharding, recovery and transactional coordination are reserved for later phases. Historical snapshots in `baselines/2026-11-19-final` and previous dated results are retained; they are references, not substitutes for same-host standardized runs.
-
-## Current scale results
-
-The latest five-second sustained CoCreateDB run is [2026-11-20T06-10-08.681Z](runs/standard-2026-11-20T06-10-08.681Z/report.md). Five 1,000-, 10,000- and 100,000-object runs passed at each size. A prior 1,000,000-object attempt hit Node.js's JavaScript heap limit at about 2 GiB; it is recorded in [2026-11-20T01-04-18.943Z](runs/standard-2026-11-20T01-04-18.943Z/report.md) and excluded from the default run sizes for now. The MongoDB same-fixture baseline is [2026-11-20T04-08-28.702Z](runs/mongodb-standard-2026-11-20T04-08-28.702Z/report.md); Redis String and RedisJSON/RediSearch results are in [2026-11-20T04-58-00.174Z](runs/redis-standard-2026-11-20T04-58-00.174Z/report.md).
+Previous CoCreateDB and provider measurements remain in their provider-specific `results/` folders, and the November 19 baselines remain in `baselines/2026-11-19-final`. No historical measurement was overwritten or recalculated. A report should be regenerated only from its raw run manifest and result files.
 
 ### Query field locality
 
@@ -85,4 +76,4 @@ node test/benchmarks/diagnostics/query-locality.mjs --mode=scattered --records=1
 
 By default, each record has 40 queryable fields plus a revision and a variable size payload, and both modes run one equality read per create batch, followed by 12,000 mixed requests after loading. Focused mode queries four fixed fields. Scattered mode selects from all 40. Both modes select records from the same broad set so the comparison isolates field choice. Set `--focused-fields` to 1–4, `--fields` to change fixture width, `--requests` to change the steady phase length, or `--leaf-size` to compare leaf capacities with branch capacity fixed at 1,024.
 
-Both modes use the engine’s automatic offload at `--memory=25`. Results contain RSS, operation latency, and index partition reads, writes, and remaining cold partitions by field. It also reports total and cold index entries per field after growth and before a final point query that verifies a previously unused cold leaf can reload. Reads are attributed to the synchronous CRUD path or background processing. Use `BENCH_OUTPUT_DIR` to place the result and temporary DB files outside the checkout. Run Node with `--expose-gc` to sample whether offloaded entries are still reachable and report heap and RSS after a final forced collection. The forced collection runs after the timed workload.
+The diagnostic defaults to the engine’s 25% memory budget and reports Hot leaves, Warm leaves, and Warm index branches with their read/write counts. Adaptive mode offloads under memory pressure; disk-first uses local Warm state per request and prunes it after processing. The independent acknowledgement setting controls whether the call returns after the Hot mutation or waits for local Warm writes. Results contain RSS, operation latency, and index branch reads and writes by field. The diagnostic also reports total and Warm index entries per field after growth and before a point query verifies that a previously unused Warm index branch can reload. Reads are attributed to the synchronous CRUD path or background processing. Use `BENCH_OUTPUT_DIR` to place the result and temporary DB files outside the checkout. Run Node with `--expose-gc` to sample whether offloaded entries are still reachable and report heap and RSS after a final forced collection. The forced collection runs after the timed workload.

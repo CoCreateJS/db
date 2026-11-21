@@ -1,0 +1,1622 @@
+{
+  "status": "passed",
+  "mode": "focused",
+  "databaseMode": "disk-cache",
+  "acknowledgement": "memory",
+  "records": 10000,
+  "requests": 2000,
+  "fieldCount": 42,
+  "selectedFields": [
+    "rank",
+    "reference",
+    "score",
+    "sequence"
+  ],
+  "batchSize": 64,
+  "branchSize": 1024,
+  "leafSize": 1024,
+  "memoryPercent": 12.5,
+  "budgetBytes": 1027370496,
+  "systemMemoryBytes": 8218963968,
+  "node": "v24.18.0",
+  "engineRevision": "7d9c347d0385de84d9aefa6acbb00dafec9edaa7",
+  "startedAt": "2026-11-21T15:31:19.258Z",
+  "checkpoints": [
+    {
+      "phase": "growth",
+      "created": 10000,
+      "live": 10000,
+      "elapsedMs": 9711.123684999999,
+      "rssMiB": 383.65234375,
+      "heapMiB": 242.3675079345703,
+      "peakRssMiB": 383.65234375,
+      "databaseMode": "disk-cache",
+      "hotArtifacts": 10004,
+      "totalArtifacts": 10004,
+      "hotPartitions": 654,
+      "warmArtifacts": 0,
+      "warmPartitions": 248,
+      "artifactReads": 0,
+      "artifactWrites": 0,
+      "indexReads": 2,
+      "indexWrites": 248,
+      "stage": 3,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57832.33203125
+    },
+    {
+      "phase": "steady",
+      "created": 10000,
+      "live": 9900,
+      "elapsedMs": 11566.233051,
+      "rssMiB": 432.62890625,
+      "heapMiB": 267.8054656982422,
+      "peakRssMiB": 432.62890625,
+      "databaseMode": "disk-cache",
+      "hotArtifacts": 9904,
+      "totalArtifacts": 9904,
+      "hotPartitions": 676,
+      "warmArtifacts": 0,
+      "warmPartitions": 770,
+      "artifactReads": 0,
+      "artifactWrites": 0,
+      "indexReads": 546,
+      "indexWrites": 770,
+      "stage": 4,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57819.60546875
+    }
+  ],
+  "gcSegments": [],
+  "idleWindows": [
+    {
+      "label": "final",
+      "durationMs": 0,
+      "samples": [],
+      "beforeGc": {
+        "phase": "drain",
+        "created": 10000,
+        "live": 9900,
+        "elapsedMs": 11569.779359,
+        "rssMiB": 432.62890625,
+        "heapMiB": 268.4518280029297,
+        "peakRssMiB": 432.62890625,
+        "databaseMode": "disk-cache",
+        "hotArtifacts": 9904,
+        "totalArtifacts": 9904,
+        "hotPartitions": 676,
+        "warmArtifacts": 0,
+        "warmPartitions": 770,
+        "artifactReads": 0,
+        "artifactWrites": 0,
+        "indexReads": 546,
+        "indexWrites": 770,
+        "stage": 4,
+        "pendingIndex": 0
+      },
+      "afterGc": {
+        "phase": "drain",
+        "created": 10000,
+        "live": 9900,
+        "elapsedMs": 11569.922483999999,
+        "rssMiB": 432.62890625,
+        "heapMiB": 268.4572525024414,
+        "peakRssMiB": 432.62890625,
+        "databaseMode": "disk-cache",
+        "hotArtifacts": 9904,
+        "totalArtifacts": 9904,
+        "hotPartitions": 676,
+        "warmArtifacts": 0,
+        "warmPartitions": 770,
+        "artifactReads": 0,
+        "artifactWrites": 0,
+        "indexReads": 546,
+        "indexWrites": 770,
+        "stage": 4,
+        "pendingIndex": 0
+      },
+      "disk": {
+        "type": 61267,
+        "bsize": 4096,
+        "frsize": 4096,
+        "blocks": 32229372,
+        "bfree": 14805916,
+        "bavail": 14801820,
+        "files": 16646144,
+        "ffree": 14902472
+      },
+      "indexResidency": {
+        "name": {
+          "leaves": 1,
+          "warm": 1,
+          "zeroViewLeaves": 1,
+          "entries": 4,
+          "warmEntries": 4
+        },
+        "scope": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9904,
+          "warmEntries": 0
+        },
+        "parent": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9903,
+          "warmEntries": 0
+        },
+        "revision": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "payload": {
+          "leaves": 18,
+          "warm": 0,
+          "zeroViewLeaves": 18,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "rank": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 0,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "reference": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 0,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "score": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 0,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "sequence": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 0,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field04": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field05": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field06": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field07": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field08": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field09": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field10": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field11": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field12": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field13": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field14": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field15": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field16": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field17": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field18": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field19": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field20": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field21": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field22": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field23": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field24": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field25": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field26": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field27": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field28": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field29": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field30": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field31": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field32": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field33": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field34": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field35": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field36": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field37": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field38": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "field39": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        },
+        "_id": {
+          "leaves": 19,
+          "warm": 0,
+          "zeroViewLeaves": 19,
+          "entries": 9900,
+          "warmEntries": 0
+        }
+      }
+    }
+  ],
+  "queryCounts": {
+    "growth": {
+      "rank": 40,
+      "sequence": 39,
+      "score": 39,
+      "reference": 39
+    },
+    "steady": {
+      "sequence": 325,
+      "score": 325,
+      "reference": 325,
+      "rank": 325
+    }
+  },
+  "indexDrainMs": 0.022761000000173226,
+  "growth": {
+    "phase": "growth",
+    "created": 10000,
+    "live": 10000,
+    "elapsedMs": 9715.245282,
+    "rssMiB": 383.65234375,
+    "heapMiB": 242.44768524169922,
+    "peakRssMiB": 383.65234375,
+    "databaseMode": "disk-cache",
+    "hotArtifacts": 10004,
+    "totalArtifacts": 10004,
+    "hotPartitions": 654,
+    "warmArtifacts": 0,
+    "warmPartitions": 248,
+    "artifactReads": 0,
+    "artifactWrites": 0,
+    "indexReads": 2,
+    "indexWrites": 248,
+    "stage": 3,
+    "pendingIndex": 0
+  },
+  "growthFields": {
+    "name": {
+      "leaves": 1,
+      "warm": 1,
+      "zeroViewLeaves": 1,
+      "entries": 4,
+      "warmEntries": 4
+    },
+    "scope": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10004,
+      "warmEntries": 0
+    },
+    "parent": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10003,
+      "warmEntries": 0
+    },
+    "revision": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "payload": {
+      "leaves": 18,
+      "warm": 0,
+      "zeroViewLeaves": 18,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "rank": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 5,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "reference": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 6,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "score": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 6,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "sequence": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 5,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field04": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field05": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field06": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field07": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field08": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field09": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field10": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field11": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field12": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field13": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field14": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field15": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field16": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field17": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field18": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field19": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field20": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field21": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field22": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field23": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field24": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field25": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field26": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field27": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field28": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field29": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field30": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field31": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field32": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field33": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field34": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field35": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field36": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field37": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field38": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "field39": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    },
+    "_id": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 10000,
+      "warmEntries": 0
+    }
+  },
+  "steadyMs": 1850.807311999999,
+  "steady": {
+    "phase": "steady",
+    "created": 10000,
+    "live": 9900,
+    "elapsedMs": 11567.826213999999,
+    "rssMiB": 432.62890625,
+    "heapMiB": 267.8468780517578,
+    "peakRssMiB": 432.62890625,
+    "databaseMode": "disk-cache",
+    "hotArtifacts": 9904,
+    "totalArtifacts": 9904,
+    "hotPartitions": 676,
+    "warmArtifacts": 0,
+    "warmPartitions": 770,
+    "artifactReads": 0,
+    "artifactWrites": 0,
+    "indexReads": 546,
+    "indexWrites": 770,
+    "stage": 4,
+    "pendingIndex": 0
+  },
+  "finalDrainMs": 0.017329999998764833,
+  "beforeProbeFields": {
+    "name": {
+      "leaves": 1,
+      "warm": 1,
+      "zeroViewLeaves": 1,
+      "entries": 4,
+      "warmEntries": 4
+    },
+    "scope": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9904,
+      "warmEntries": 0
+    },
+    "parent": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9903,
+      "warmEntries": 0
+    },
+    "revision": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "payload": {
+      "leaves": 18,
+      "warm": 0,
+      "zeroViewLeaves": 18,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "rank": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 0,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "reference": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 0,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "score": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 0,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "sequence": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 0,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field04": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field05": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field06": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field07": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field08": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field09": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field10": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field11": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field12": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field13": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field14": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field15": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field16": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field17": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field18": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field19": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field20": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field21": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field22": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field23": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field24": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field25": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field26": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field27": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field28": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field29": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field30": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field31": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field32": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field33": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field34": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field35": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field36": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field37": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field38": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "field39": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    },
+    "_id": {
+      "leaves": 19,
+      "warm": 0,
+      "zeroViewLeaves": 19,
+      "entries": 9900,
+      "warmEntries": 0
+    }
+  },
+  "final": {
+    "phase": "drain",
+    "created": 10000,
+    "live": 9900,
+    "elapsedMs": 11573.654438,
+    "rssMiB": 432.62890625,
+    "heapMiB": 268.8608627319336,
+    "peakRssMiB": 432.62890625,
+    "databaseMode": "disk-cache",
+    "hotArtifacts": 9904,
+    "totalArtifacts": 9904,
+    "hotPartitions": 676,
+    "warmArtifacts": 0,
+    "warmPartitions": 770,
+    "artifactReads": 0,
+    "artifactWrites": 0,
+    "indexReads": 546,
+    "indexWrites": 770,
+    "stage": 4,
+    "pendingIndex": 0
+  },
+  "finishedAt": "2026-11-21T15:31:30.834Z",
+  "policySamples": [
+    {
+      "rss": 68562944,
+      "stage": 1,
+      "threshold": 0.05,
+      "weight": 0,
+      "target": 3,
+      "candidates": 3,
+      "count": 1,
+      "skipped": 2,
+      "elapsedMs": 227.76213499999997,
+      "afterRss": 90726400
+    },
+    {
+      "rss": 90726400,
+      "stage": 1,
+      "threshold": 0.05,
+      "weight": 0,
+      "target": 41,
+      "candidates": 41,
+      "count": 25,
+      "skipped": 16,
+      "elapsedMs": 2897.051204,
+      "afterRss": 254337024
+    },
+    {
+      "rss": 254992384,
+      "stage": 3,
+      "threshold": 0.2,
+      "weight": 0,
+      "target": 228,
+      "candidates": 228,
+      "count": 222,
+      "skipped": 6,
+      "elapsedMs": 6409.423487,
+      "afterRss": 402288640
+    },
+    {
+      "rss": 402288640,
+      "stage": 3,
+      "threshold": 0.2,
+      "weight": 0,
+      "target": 554,
+      "candidates": 554,
+      "count": 522,
+      "skipped": 32,
+      "elapsedMs": 1848.7764450000013,
+      "afterRss": 453644288
+    }
+  ],
+  "artifactPolicySamples": [],
+  "byKey": {
+    "_id": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field04": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field05": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field06": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field07": {
+      "warm": 18,
+      "writes": {
+        "growth": 6,
+        "steady": 12
+      },
+      "reads": {}
+    },
+    "field08": {
+      "warm": 18,
+      "writes": {
+        "growth": 6,
+        "steady": 12
+      },
+      "reads": {}
+    },
+    "field09": {
+      "warm": 18,
+      "writes": {
+        "growth": 6,
+        "steady": 12
+      },
+      "reads": {}
+    },
+    "field10": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field11": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field12": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field13": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field14": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field15": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field16": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field17": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field18": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field19": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field20": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field21": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field22": {
+      "warm": 18,
+      "writes": {
+        "growth": 6,
+        "steady": 12
+      },
+      "reads": {}
+    },
+    "field23": {
+      "warm": 18,
+      "writes": {
+        "growth": 6,
+        "steady": 12
+      },
+      "reads": {}
+    },
+    "field24": {
+      "warm": 18,
+      "writes": {
+        "growth": 6,
+        "steady": 12
+      },
+      "reads": {}
+    },
+    "field25": {
+      "warm": 18,
+      "writes": {
+        "growth": 6,
+        "steady": 12
+      },
+      "reads": {}
+    },
+    "field26": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field27": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field28": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field29": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field30": {
+      "warm": 18,
+      "writes": {
+        "growth": 6,
+        "steady": 12
+      },
+      "reads": {}
+    },
+    "field31": {
+      "warm": 18,
+      "writes": {
+        "growth": 6,
+        "steady": 12
+      },
+      "reads": {}
+    },
+    "field32": {
+      "warm": 18,
+      "writes": {
+        "growth": 6,
+        "steady": 12
+      },
+      "reads": {}
+    },
+    "field33": {
+      "warm": 18,
+      "writes": {
+        "growth": 6,
+        "steady": 12
+      },
+      "reads": {}
+    },
+    "field34": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field35": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field36": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field37": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field38": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "field39": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "name": {
+      "warm": 1,
+      "writes": {
+        "growth": 1
+      },
+      "reads": {}
+    },
+    "parent": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "payload": {
+      "warm": 18,
+      "writes": {
+        "growth": 5,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "rank": {
+      "warm": 1,
+      "writes": {
+        "growth": 1
+      },
+      "reads": {}
+    },
+    "revision": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "scope": {
+      "warm": 19,
+      "writes": {
+        "growth": 6,
+        "steady": 13
+      },
+      "reads": {}
+    },
+    "score": {
+      "warm": 1,
+      "writes": {
+        "growth": 1
+      },
+      "reads": {}
+    }
+  },
+  "operations": {
+    "growth.create": {
+      "count": 157,
+      "p50Ms": 11.53070499999967,
+      "p95Ms": 18.737595000000056
+    },
+    "growth.equality": {
+      "count": 157,
+      "p50Ms": 0.25584800000069663,
+      "p95Ms": 0.4459550000000263
+    },
+    "steady.equality": {
+      "count": 1000,
+      "p50Ms": 0.10601300000053016,
+      "p95Ms": 0.20561600000110047
+    },
+    "steady.range": {
+      "count": 300,
+      "p50Ms": 0.142214999999851,
+      "p95Ms": 0.23189800000000105
+    },
+    "steady.uuidRead": {
+      "count": 500,
+      "p50Ms": 0.05390199999965262,
+      "p95Ms": 0.10558299999865994
+    },
+    "steady.update": {
+      "count": 100,
+      "p50Ms": 0.37479200000052515,
+      "p95Ms": 37.98574699999881
+    },
+    "steady.delete": {
+      "count": 100,
+      "p50Ms": 1.553592000000208,
+      "p95Ms": 2.824263999998948
+    }
+  }
+}

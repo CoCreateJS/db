@@ -1,27 +1,25 @@
-# Provider specs
+# Benchmark providers
 
-Reference data, not executable tests. Keep historical measurements and published examples distinct from same-fixture measurements. Unknown values are null; do not infer zero.
+Each provider directory owns its adapter, database-specific configuration, report generator, append-only `results/summary.json`, and raw dated result directories. Historical runs are retained alongside new runs. CoCreateDB's standard runner and shared fixture/workload definitions remain directly accessible from `test/benchmarks/` and `test/fixtures/`.
 
-- `cocreatedb.json`: medians across five raw runs per scenario, 2026-11-19.
-- `mongodb.json`: historical project measurements plus the new standardized MongoDB 9.0.8 baseline; historical raw provider output remains unavailable.
-- `redis.json`: provisional historical numbers and official examples, plus the new standardized Redis 8.10.3 baseline.
+The standardized dataset sizes are 10,000, 100,000 and 1,000,000 records. The standard lifecycle fixture v3 and logical workload definitions are shared across providers; database query syntax, indexes, transport, process model and durability are documented per adapter. Historical measurements remain distinct where fixture hashes or methodology differ.
 
-Future provider runs should append dated raw results (do not overwrite history), record versions, hardware, dataset hash and bytes, indexes, result counts, concurrency, transport, durability, latency p50/p95/p99/mean, throughput, CPU, idle/loaded/peak RSS and client memory.
+## Provider lanes
 
-Use the same lifecycle fixture, object projection and index maintenance semantics. Redis String SET/GET and RedisJSON/RediSearch are measured as separate lanes in `redis/`; the String lane is a direct JSON-text key-value model without secondary query indexes. The JSON/Search lane records its field indexes and covers indexed query operations. MongoDB's standalone adapter is in `mongodb/` and records its explicit indexes, WiredTiger cache, server and client costs. Measure in-process CoCreateDB and a transport-inclusive CoCreateDB variant separately. Match durability and concurrency before ranking. Compare batch creation separately from single writes. WiredTiger cache capacity, Redis allocator memory, and Node RSS are distinct metrics.
+- [CoCreateDB](cocreatedb/): in-process, memory-only standard implementation.
+- [MongoDB](mongodb/): standalone local MongoDB with its explicit secondary indexes.
+- [Redis](redis/): separate String and RedisJSON/RediSearch modes.
+- [CouchDB](couchdb/): local isolated server using Mango indexes and query plans.
+- [Couchbase](couchbase/): one-node local Community server with a fresh bucket per trial.
+- [CockroachDB](cockroachdb/): local single-node SQL lane with typed columns and indexes.
 
-Redis's server package and modules are checksum-verified and extracted by the isolated adapter into the user cache; MongoDB's server binary is downloaded by its isolated test adapter into the user cache. Neither adapter installs database software system-wide or changes production dependencies. Couchbase, CouchDB and CockroachDB have not been run under the standardized suite.
+Each summary history is stored at `<provider>/results/summary.json`; raw runs, manifests and generated reports live in timestamped subdirectories beside it. Do not replace prior results. Report comparisons must check fixture hash and account for provider-specific durability, index, process and transport costs.
 
-From the module root, install the isolated benchmark dependencies and run MongoDB once to produce its dated baseline:
+Install isolated provider dependencies and run a lane from the module root:
 
 ```sh
 npm ci --prefix test/benchmarks/providers/mongodb
 npm run benchmark --prefix test/benchmarks/providers/mongodb
 ```
 
-Run the Redis baseline in both storage modes:
-
-```sh
-npm ci --prefix test/benchmarks/providers/redis
-npm run benchmark --prefix test/benchmarks/providers/redis
-```
+Repeat for `redis`, `couchdb`, `couchbase`, or `cockroachdb` as needed. Provider-specific system setup and resource constraints are documented in each adapter README. Completion-based ingestion runs until all records complete; `BENCH_STALL_MS` is an inactivity watchdog, not a total runtime limit. Fixed-duration throughput tests remain separate.

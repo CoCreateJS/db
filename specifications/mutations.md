@@ -2,18 +2,18 @@
 
 ## Current
 
-Update uses shared createUpdate on a cloned object, validates identity and values, removes affected index entries, reconciles object fields in place, then attaches changed entries. It preserves the original artifact object. Direct scalar setValue can move an entry without replacing the artifact. No atomic batch or conflict reconciliation guarantee is made.
+Update uses shared createUpdate on a cloned object, validates identity and values, removes affected index entries, reconciles object fields in place, then attaches changed entries. It preserves the original leaf object. Direct scalar setValue can move an entry without replacing the leaf. No atomic batch or conflict reconciliation guarantee is made.
 
 ```js
 {
     method: 'object.update',
     object: [{ uuid: 'uuid8', '$inc.quantity': 5 }],
-    updated: [{ uuid: 'uuid8', scope: 'object', quantity: 15 }],
+    updated: [{ uuid: 'uuid8', root: 'object', quantity: 15 }],
     success: true
 }
 ```
 
-The snapshot is abbreviated; actual updated entries contain the complete resulting artifact, including parent and other fields when present. Existing updates preserve request patch operators for communication and return independent structuredClone snapshots for persistence. The same envelope can be used externally; no second mutation or DB persistence callback is required. Upsert creation returns a created artifact, not necessarily an updated snapshot. Deletes identify removed artifacts.
+The snapshot is abbreviated; actual updated entries contain the complete resulting leaf, including parent and other fields when present. Existing updates preserve request patch operators for communication and return independent structuredClone snapshots for persistence. The same envelope can be used externally; no second mutation or DB persistence callback is required. Upsert creation returns a created leaf, not necessarily an updated snapshot. Deletes identify removed leaves.
 
 ## Planned
 

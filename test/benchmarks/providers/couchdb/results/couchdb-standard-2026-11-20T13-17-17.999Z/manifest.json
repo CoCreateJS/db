@@ -1,0 +1,144 @@
+{
+  "suite": "CouchDB comparison benchmark v1",
+  "provider": "CouchDB",
+  "serverVersion": "3.5.3",
+  "runId": "2026-11-20T13-17-17.999Z",
+  "startedAt": "2026-11-20T13:17:17.999Z",
+  "sizes": [
+    1000,
+    10000,
+    100000
+  ],
+  "independentRunsRequested": 5,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "resourcePolicy": "one isolated CouchDB server process; fresh database per independent run; CouchDB stops after suite",
+  "results": [
+    {
+      "size": 1000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-1000-run-01.json",
+      "elapsedMs": 41486.763831000004
+    },
+    {
+      "size": 1000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-1000-run-02.json",
+      "elapsedMs": 41253.922283
+    },
+    {
+      "size": 1000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-1000-run-03.json",
+      "elapsedMs": 41240.078976
+    },
+    {
+      "size": 1000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-1000-run-04.json",
+      "elapsedMs": 41350.791538
+    },
+    {
+      "size": 1000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-1000-run-05.json",
+      "elapsedMs": 41712.474905999996
+    },
+    {
+      "size": 10000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-10000-run-01.json",
+      "elapsedMs": 48400.189908
+    },
+    {
+      "size": 10000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-10000-run-02.json",
+      "elapsedMs": 48384.022979999994
+    },
+    {
+      "size": 10000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-10000-run-03.json",
+      "elapsedMs": 48346.840148999996
+    },
+    {
+      "size": 10000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-10000-run-04.json",
+      "elapsedMs": 48557.747434
+    },
+    {
+      "size": 10000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-10000-run-05.json",
+      "elapsedMs": 48378.093039
+    },
+    {
+      "size": 100000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-100000-run-01.json",
+      "elapsedMs": 129167.297706
+    },
+    {
+      "size": 100000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-100000-run-02.json",
+      "elapsedMs": 128012.791361
+    },
+    {
+      "size": 100000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-100000-run-03.json",
+      "elapsedMs": 127998.418565
+    },
+    {
+      "size": 100000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-100000-run-04.json",
+      "elapsedMs": 130047.448242
+    },
+    {
+      "size": 100000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-100000-run-05.json",
+      "elapsedMs": 128509.00185300001
+    }
+  ],
+  "serverStartupMs": 2382.975673,
+  "serverVersionReported": "3.5.3",
+  "serverConfiguration": {
+    "systemDatabases": [
+      "_users",
+      "_replicator",
+      "_global_changes"
+    ]
+  },
+  "completedAt": "2026-11-20T13:35:37.014Z",
+  "summary": {
+    "successfulRuns": 15,
+    "failedRuns": 0,
+    "notAttempted": 0
+  },
+  "serverStoppedAfterSuite": true
+}

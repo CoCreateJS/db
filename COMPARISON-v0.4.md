@@ -1,7 +1,7 @@
 # CoCreateDB — Architectural Comparison
 
 **Version 0.4 — Living research and architectural positioning document**
-**Scope:** Architecture, terminology, data lifecycle and infrastructure convergence; not a performance ranking.
+**Root:** Architecture, terminology, data lifecycle and infrastructure convergence; not a performance ranking.
 
 ## 1. Purpose
 
@@ -11,7 +11,7 @@ CoCreateDB is an evolving architectural design. Its proposed features are not cl
 
 ### 1.1 Architectural positioning
 
-CoCreateDB proposes a storage-independent, memory-accelerated document database in which application objects, scope catalogs and index segments share a unified addressing and value architecture. Rather than treating database records, files and distributed content as unrelated application resources, it aims to connect them through the same logical relationships.
+CoCreateDB proposes a storage-independent, memory-accelerated document database in which application objects, root catalogs and index segments share a unified addressing and value architecture. Rather than treating database records, files and distributed content as unrelated application resources, it aims to connect them through the same logical relationships.
 
 Its value proposition is the combination of independently accessible indexing, lossless preservation of supported JavaScript values, demand-driven working sets, mesh synchronization and flexible persistence. CDN-assisted retrieval extends this vision as an emerging capability. The comparison also examines identity-independent addressing, ordered key-path indexes, and consolidation of application memory and execution responsibilities.
 
@@ -27,7 +27,7 @@ Its value proposition is the combination of independently accessible indexing, l
 | Apache Ignite 2 | Distributed database and data grid | Disk-backed memory and partition distribution |
 | IPFS | Content-addressed peer-to-peer protocols | Independently addressed blocks and retrieval |
 | SlateDB | Embedded object-storage database engine | Storage-independent compute and object-store persistence |
-| CoCreateDB | Proposed storage-independent document database | UUID-addressed artifacts, unified values, programmable persistence and demand-driven distribution |
+| CoCreateDB | Proposed storage-independent document database | UUID-addressed leaves, unified values, programmable persistence and demand-driven distribution |
 
 IPFS and SlateDB are architectural references rather than direct equivalents to a general-purpose distributed document database.
 
@@ -41,7 +41,7 @@ IPFS and SlateDB are architectural references rather than direct equivalents to 
 | Ignite 2 | Cache entry | Key-value data, typed objects or binary objects; internal pages | Cache key | Partition |
 | IPFS | Block, DAG node | Raw bytes or codec-encoded structured data | Content identifier (CID) | Block |
 | SlateDB | Key-value entry | Byte keys and values organized into LSM structures | Key | Application-defined partitioning; not a native distributed shard system |
-| CoCreateDB | Storage, database, array, object, key, index, index segment | Shared lossless serialization of supported JavaScript values | Organization scope, optional application identity and stable UUIDv7 artifact address | Independently addressable complete objects, catalogs and index segments |
+| CoCreateDB | Storage, database, array, object, key, index, index segment | Shared lossless serialization of supported JavaScript values | Organization root, optional application identity and stable UUIDv7 leaf address | Independently addressable complete objects, catalogs and index segments |
 
 ### 3.1 Understanding the distribution primitives
 
@@ -57,31 +57,31 @@ These terms overlap in their purpose of organizing or locating data, but do not 
 
 ### 3.2 Identity and addressing compared
 
-Application identity, lookup keys and physical addressing are distinct concerns. CoCreateDB reserves `uuid` as a database-managed, immutable artifact address; application keys such as `_id`, `id` or `token` remain optional, with no privileged indexed lookup path. The designated generator is UUIDv7 ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562.html#section-5.7)), adopted through the shared UUID library. Its 48-bit Unix-millisecond timestamp permits chronological ordering of generated addresses, subject to clock behavior and within-millisecond generation policy. Updating an artifact does not change its address or generation timestamp.
+Application identity, lookup keys and physical addressing are distinct concerns. CoCreateDB reserves `uuid` as a database-managed, immutable leaf address; application keys such as `_id`, `id` or `token` remain optional, with no privileged indexed lookup path. The designated generator is UUIDv7 ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562.html#section-5.7)), adopted through the shared UUID library. Its 48-bit Unix-millisecond timestamp permits chronological ordering of generated addresses, subject to clock behavior and within-millisecond generation policy. Updating a leaf does not change its address or generation timestamp.
 
 | System | Identity or lookup convention | Comparison with CoCreateDB |
 |---|---|---|
 | CockroachDB | SQL primary key, including an automatically generated key when needed | Separates SQL access from internal encoded KV representation; primary-key identity remains part of the relational model |
 | CouchDB | Document `_id` and revision | Direct document addressing exists, but document identity is defined by the document ID convention |
 | Redis | Application-supplied key | Direct key access is a close analogue; CoCreateDB additionally maintains property indexes over complete objects |
-| Ignite 2 | Cache entry key | Direct keyed access and secondary SQL access coexist; CoCreateDB proposes a separate universal artifact address |
+| Ignite 2 | Cache entry key | Direct keyed access and secondary SQL access coexist; CoCreateDB proposes a separate universal leaf address |
 | IPFS | Content-derived CID | Both support independent addressing; changed bytes generally imply a new CID, while a CoCreateDB address remains stable across updates |
-| SlateDB | Application-supplied byte key | Direct key and range access at the storage-engine level; CoCreateDB adds document paths and separately addressed index artifacts |
-| CoCreateDB | Optional logical identity and reserved `uuid` | Application-defined identity is independent of database-managed artifact addressing |
+| SlateDB | Application-supplied byte key | Direct key and range access at the storage-engine level; CoCreateDB adds document paths and separately addressed index leaves |
+| CoCreateDB | Optional logical identity and reserved `uuid` | Application-defined identity is independent of database-managed leaf addressing |
 
 The distinction is not whether competitors can store UUIDv7 values; many can. It is which layer owns the address, whether a separate application identifier is required, and whether that address remains stable as content changes. UUIDv7 is not a security credential or guarantee of collision-free generation; allocation must guard against overwrite. The timestamp reveals generation time and is not a global mutation order.
 
 ## 4. CoCreateDB data model
 
-CoCreateDB separates logical values from their physical representation. The caller supplies `organization_id` as the top-level tenancy context; storage, database, array, object and key identify logical scopes and paths. An array corresponds broadly to a document collection; a key corresponds to a property or nested path.
+CoCreateDB separates logical values from their physical representation. The caller supplies `organization_id` as the top-level tenancy context; storage, database, array, object and key identify logical roots and paths. An array corresponds broadly to a document collection; a key corresponds to a property or nested path.
 
 | Layer | Logical representation | Persistence representation |
 |---|---|---|
 | Organization bootstrap | Root reference and informational package version | Externally provisioned `index.json` |
-| Scope catalogs | References to logical scopes | UUID-addressed serialized artifacts |
-| Index root and index of indexes | References and index metadata | UUID-addressed serialized artifacts |
-| Index segment | Ordered values, object references and boundaries | UUID-addressed serialized artifact |
-| Application object | Complete object, including nested values | UUID-addressed serialized artifact |
+| Root catalogs | References to logical roots | UUID-addressed serialized leaves |
+| Index root and index of indexes | References and index metadata | UUID-addressed serialized leaves |
+| Index segment | Ordered values, object references and boundaries | UUID-addressed serialized leaf |
+| Application object | Complete object, including nested values | UUID-addressed serialized leaf |
 | Nested key | Supported JavaScript value | Part of the containing object |
 | Textual or binary content | String or supported binary value, as supplied | Part of the containing object |
 
@@ -113,11 +113,11 @@ Here `videoBytes` represents a supported binary value, not a filename or a refer
   distribution/
 ```
 
-All database-owned durable artifacts reside under `data/` with extensionless UUID addresses. Only `data/` participates in database-managed cloud persistence. The externally provisioned bootstrap manifest and local distribution inventory have separate ownership and are excluded from that persistence boundary.
+All database-owned durable leaves reside under `data/` with extensionless UUID addresses. Only `data/` participates in database-managed cloud persistence. The externally provisioned bootstrap manifest and local distribution inventory have separate ownership and are excluded from that persistence boundary.
 
-One shared serialization/deserialization contract applies to all data artifacts. Logical values are decoded in memory; persisted content is serialized bytes, not directly usable source files or media files. The serialization implementation is an architectural boundary, but a deployment uses a consistent compatible codec rather than choosing encodings independently for each artifact. Encryption is a separate protection layer.
+One shared serialization/deserialization contract applies to all data leaves. Logical values are decoded in memory; persisted content is serialized bytes, not directly usable source files or media files. The serialization implementation is an architectural boundary, but a deployment uses a consistent compatible codec rather than choosing encodings independently for each leaf. Encryption is a separate protection layer.
 
-Deep indexing does not split application objects into independently stored keys. Index roots and segments are independently addressable, while reads resolve and verify complete application objects. A small update to a large object may consequently rewrite that artifact.
+Deep indexing does not split application objects into independently stored keys. Index roots and segments are independently addressable, while reads resolve and verify complete application objects. A small update to a large object may consequently rewrite that leaf.
 
 ## 5. Indexing and querying
 
@@ -143,7 +143,7 @@ CoCreateDB treats `token`, `_id`, `name` and `company.address.office.number` as 
 | Secondary property access | CockroachDB secondary indexes, CouchDB Mango, Ignite SQL indexes, optional Redis search | Flattened key paths refer to independently addressable segments; nested path depth is not itself index depth |
 | Content addressing | IPFS CID retrieval | Assigned stable UUID rather than a content-derived digest |
 
-The proposed direct UUID access path bypasses ordinary application-key indexes and resolves the organization-scoped artifact directly. A resident artifact uses a Map lookup (expected constant-time internal access, not guaranteed end-to-end latency); a nonresident artifact follows normal acquisition. Scope, authorization, artifact type and availability checks still apply. The reserved UUID need not be indexed again. How it is exposed in the result and the exact public payload selector remain open contracts.
+The proposed direct UUID access path bypasses ordinary application-key indexes and resolves the organization-scoped leaf directly. A resident leaf uses a Map lookup (expected constant-time internal access, not guaranteed end-to-end latency); a nonresident leaf follows normal acquisition. Root, authorization, leaf type and availability checks still apply. The reserved UUID need not be indexed again. How it is exposed in the result and the exact public payload selector remain open contracts.
 
 ### 5.2 Cardinality-aware routing and ordered boundaries
 
@@ -163,13 +163,13 @@ Where logical semantics permit, the planner begins with a smaller candidate popu
 | Ignite 2 | Native partition files, WAL and checkpoints when enabled | Disk-backed pages loaded into memory as needed |
 | IPFS | Blocks persisted through node blockstores; pinning or other retention mechanisms | Retrieval and caching depend on implementation |
 | SlateDB | LSM structures persisted in object storage | In-memory and optional local disk read caches |
-| CoCreateDB | Independent serialized UUID artifacts on local or remote persistence | Demand-driven working sets with durable backing |
+| CoCreateDB | Independent serialized UUID leaves on local or remote persistence | Demand-driven working sets with durable backing |
 
 ### 6.1 Storage independence and programmable persistence
 
-CoCreateDB separates artifact identity and logical traversal from physical placement. A UUID is resolved within its organization namespace regardless of which configured storage destination holds the artifact. References do not encode provider-specific paths.
+CoCreateDB separates leaf identity and logical traversal from physical placement. A UUID is resolved within its organization namespace regardless of which configured storage destination holds the leaf. References do not encode provider-specific paths.
 
-The persistence boundary is a programmable function or workflow. Its logical operations are create, read, update and delete of a UUID artifact in authorized organization context. The following is illustrative, not a finalized public signature:
+The persistence boundary is a programmable function or workflow. Its logical operations are create, read, update and delete of a UUID leaf in authorized organization context. The following is illustrative, not a finalized public signature:
 
 ```js
 persistence({ organization_id, method, uuid, content })
@@ -180,26 +180,26 @@ The workflow decides where and how to perform the operation; CoCreateDB does not
 | Policy | Example workflow behavior |
 |---|---|
 | Parallel retrieval | Query several destinations concurrently and return an acceptable valid revision |
-| Sequential fallback | Try configured destinations in order until the artifact is found or the search is exhausted |
-| Redundant writes | Write the same artifact to multiple destinations according to durability policy |
-| Partitioned placement | Store distinct subsets of UUID artifacts at different destinations |
+| Sequential fallback | Try configured destinations in order until the leaf is found or the search is exhausted |
+| Redundant writes | Write the same leaf to multiple destinations according to durability policy |
+| Partitioned placement | Store distinct subsets of UUID leaves at different destinations |
 | Tiered or offline storage | Retrieve from local, remote, archival or removable media as appropriate |
 
-These are examples of programmable workflow policies, not claims that the engine supplies built-in implementations of all such policies. The workflow must respect revision freshness, integrity, authorization, failure and durability requirements. An absent artifact is distinct from an unavailable provider, a corrupt artifact or an unauthorized request. The fastest response is not necessarily the correct revision.
+These are examples of programmable workflow policies, not claims that the engine supplies built-in implementations of all such policies. The workflow must respect revision freshness, integrity, authorization, failure and durability requirements. An absent leaf is distinct from an unavailable provider, a corrupt leaf or an unauthorized request. The fastest response is not necessarily the correct revision.
 
-### 6.2 Artifact-level portability and partial availability
+### 6.2 Leaf-level portability and partial availability
 
-A subset of UUID artifacts can be transferred, copied or relocated without rewriting its references, provided identities and valid content are preserved. Different subsets can reside on different disks, cloud providers or removable drives and can be reunited or retrieved through the same persistence interface. The database does not need to occupy a single physical location.
+A subset of UUID leaves can be transferred, copied or relocated without rewriting its references, provided identities and valid content are preserved. Different subsets can reside on different disks, cloud providers or removable drives and can be reunited or retrieved through the same persistence interface. The database does not need to occupy a single physical location.
 
-Traversal resolves references as needed. If required artifacts are unavailable, the affected traversal is incomplete; their absence does not inherently corrupt the remaining artifacts. Conversely, missing required data must not be silently treated as an empty result, and an inconsistent or malformed artifact is a separate integrity failure. Complete reconstruction requires a valid bootstrap reference, compatible serialization, authorized access and a consistent reachable set of required artifacts.
+Traversal resolves references as needed. If required leaves are unavailable, the affected traversal is incomplete; their absence does not inherently corrupt the remaining leaves. Conversely, missing required data must not be silently treated as an empty result, and an inconsistent or malformed leaf is a separate integrity failure. Complete reconstruction requires a valid bootstrap reference, compatible serialization, authorized access and a consistent reachable set of required leaves.
 
-The transferable unit is an artifact, not an arbitrary fragment of a serialized object. Individual index segments and complete objects may be relocated independently; a subset is not necessarily a self-contained database or consistent backup. Snapshot consistency and safe publication remain explicit responsibilities.
+The transferable unit is a leaf, not an arbitrary fragment of a serialized object. Individual index segments and complete objects may be relocated independently; a subset is not necessarily a self-contained database or consistent backup. Snapshot consistency and safe publication remain explicit responsibilities.
 
 ### 6.3 Encoding, protection and durability
 
 One lossless codec serializes supported values into bytes and reconstructs them on read. Optional encryption operates separately, after serialization and before storage; decryption precedes deserialization. Provider selection does not alter the value contract. Neither serialization nor addressing is a security control.
 
-The persistence workflow owns durable I/O; client response and immediate peer propagation are initiated after the in-memory result is ready, without awaiting the durable write. A response does not imply persistence or replica acknowledgment. Recovery, retries, stale-write protection and multi-artifact consistency require explicit guarantees.
+The persistence workflow owns durable I/O; client response and immediate peer propagation are initiated after the in-memory result is ready, without awaiting the durable write. A response does not imply persistence or replica acknowledgment. Recovery, retries, stale-write protection and multi-leaf consistency require explicit guarantees.
 
 ## 7. Distributed execution and data placement
 
@@ -230,16 +230,16 @@ These are illustrative working sets, not finalized shard assignments. Any author
 
 ### 7.2 Memory ownership and application cache consolidation
 
-Memory-first access is not unique to CoCreateDB. Redis is an in-memory data structure store with persistence options; Ignite combines distributed data and memory access with optional persistence and near caching. CockroachDB, CouchDB and SlateDB also employ storage-engine or read caching mechanisms. IPFS nodes may retain retrieved blocks locally. These mechanisms differ in scope and guarantees and should not be equated with a worker's application-level object cache.
+Memory-first access is not unique to CoCreateDB. Redis is an in-memory data structure store with persistence options; Ignite combines distributed data and memory access with optional persistence and near caching. CockroachDB, CouchDB and SlateDB also employ storage-engine or read caching mechanisms. IPFS nodes may retain retrieved blocks locally. These mechanisms differ in root and guarantees and should not be equated with a worker's application-level object cache.
 
 | Responsibility | Existing architectural alternatives | CoCreateDB design direction |
 |---|---|---|
 | Repeated lookup | Direct keys, indexed document queries, application caches | Reuse the indexed value already available, or retain a UUID for direct resolution |
 | Cache coherence | Redis client tracking, Ignite near-cache coordination, application invalidation | Database-owned decoded working set with subscription-driven synchronization |
-| Worker memory | Shared cache services, process-local caches, thread-shared state | One authoritative decoded artifact Map per organization at the node primary |
+| Worker memory | Shared cache services, process-local caches, thread-shared state | One authoritative decoded leaf Map per organization at the node primary |
 | Execution | Database servers, client workers, distributed compute facilities | Primary owns authoritative state and mutation order; workers may prepare operations, deliver results or execute eligible persistence work |
 
-A token-based application need not maintain a token-to-ID Map simply to repeat a lookup. A query using the original token path resolves to the same artifact through the database's index; if faster repeated direct access is justified, the application may retain the UUID instead. This contrasts with a composed architecture that introduces additional reference maps or object caches, not with a claim that competitors require such maps. Redis key access and other indexed database queries may likewise eliminate redundant application mappings.
+A token-based application need not maintain a token-to-ID Map simply to repeat a lookup. A query using the original token path resolves to the same leaf through the database's index; if faster repeated direct access is justified, the application may retain the UUID instead. This contrasts with a composed architecture that introduces additional reference maps or object caches, not with a claim that competitors require such maps. Redis key access and other indexed database queries may likewise eliminate redundant application mappings.
 
 For illustration, ten workers each retaining the same 50 MB cache consume 500 MB of cached values. A single 50 MB authoritative working set removes up to 450 MB of duplicated cache contents, before accounting for index memory, IPC, transient copies and coordination. This is a hypothetical workload, not a competitor benchmark or a promised cost saving. A fair comparison should include shared-cache and native database alternatives, equivalent freshness guarantees, and total memory across all participating processes.
 
@@ -258,7 +258,7 @@ Replication, partitioning, caching and subscription are separate mechanisms that
 
 CouchDB already demonstrates selective document replication. Redis Tracking already demonstrates access-driven cache invalidation. Ignite demonstrates persistent partitioning with on-demand memory access. IPFS demonstrates independent peer retrieval.
 
-CoCreateDB proposes combining those general ideas at the level of independently resolved complete objects and index artifacts, with durability independent of the lifecycle of a compute node. Whether this combination yields a meaningful advantage remains a research question.
+CoCreateDB proposes combining those general ideas at the level of independently resolved complete objects and index leaves, with durability independent of the lifecycle of a compute node. Whether this combination yields a meaningful advantage remains a research question.
 
 > Data should live where it is needed, when it is needed, for as long as it is needed.
 
@@ -268,7 +268,7 @@ CoCreateDB proposes combining those general ideas at the level of independently 
 
 A common distributed application architecture combines a database for structured records, a filesystem or object store for files, and a CDN for geographically distributed delivery. The application must maintain relationships between those resources, often coordinating separate identifiers, metadata, access policies and invalidation mechanisms.
 
-CoCreateDB proposes bringing these relationships into one logical database architecture. Scope catalogs, index segments and complete application objects share independently resolvable addresses. Textual and binary content are ordinary values within objects. The underlying persistence and delivery services can remain independent while the application manages them through one coherent data model.
+CoCreateDB proposes bringing these relationships into one logical database architecture. Root catalogs, index segments and complete application objects share independently resolvable addresses. Textual and binary content are ordinary values within objects. The underlying persistence and delivery services can remain independent while the application manages them through one coherent data model.
 
 | Responsibility | Common composed architecture | CoCreateDB design direction |
 |---|---|---|
@@ -371,7 +371,7 @@ A stable UUID is not an immutable content identifier. Updating content under a s
 
 Potential strategies include CDN purge APIs, expiration, conditional requests, version-specific cache keys, origin revalidation, authenticated retrieval and selective cache bypass. Provider invalidation is not necessarily instantaneous or atomic across related objects and indexes.
 
-Delivery metadata and content may be cached independently at the serving layer or when modeled as separate artifacts, but serving must evaluate applicable authorization and policy freshness. Revocation, deletion, residency requirements and security-sensitive decisions may require authoritative coordination. Encrypted content may be distributed without granting the CDN decryption capability, provided cache isolation, access controls and key management are appropriate.
+Delivery metadata and content may be cached independently at the serving layer or when modeled as separate leaves, but serving must evaluate applicable authorization and policy freshness. Revocation, deletion, residency requirements and security-sensitive decisions may require authoritative coordination. Encrypted content may be distributed without granting the CDN decryption capability, provided cache isolation, access controls and key management are appropriate.
 
 A CDN is not an authoritative database replica, write coordinator or durability guarantee. CDN-assisted database distribution is an emerging capability requiring implementation and workload evaluation.
 
@@ -413,7 +413,7 @@ Future tests should measure indexed top-level and nested equality queries, selec
 
 ## 13. Open architectural questions
 
-- Finalizing direct UUID payload selection, response representation, and scope/type validation.
+- Finalizing direct UUID payload selection, response representation, and root/type validation.
 - Evaluating UUIDv7 generator clock behavior, collision handling and shared-library compatibility.
 - Measuring index routing selectivity, memory consolidation and worker delegation against equivalent native and composed alternatives.
 - Discovering which peers or providers hold a particular UUID and version.
@@ -461,4 +461,4 @@ The convergence of structured values, textual and binary content and distributed
 - [IPFS data lifecycle](https://docs.ipfs.tech/concepts/lifecycle/)
 - [SlateDB introduction](https://slatedb.io/docs/get-started/introduction/)
 
-*Initial research snapshot: November 2026. Version 0.4 extends the comparison using WHITEPAPER.md v0.5, retaining the original competitor scope and references. New comparative observations are architectural analysis based on that research and established access models; competitor documentation has not been independently reverified for this revision. Product editions, newer architectures and detailed configuration-dependent behavior require further verification as this comparison evolves.*
+*Initial research snapshot: November 2026. Version 0.4 extends the comparison using WHITEPAPER.md v0.5, retaining the original competitor root and references. New comparative observations are architectural analysis based on that research and established access models; competitor documentation has not been independently reverified for this revision. Product editions, newer architectures and detailed configuration-dependent behavior require further verification as this comparison evolves.*

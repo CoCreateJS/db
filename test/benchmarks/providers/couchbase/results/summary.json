@@ -1,0 +1,750 @@
+{
+  "provider": "Couchbase Server Community",
+  "historical": null,
+  "standardized": {
+    "runs": [
+      {
+        "runId": "2026-11-20T12-30-38.921Z",
+        "date": "2026-11-20T12:30:38.921Z",
+        "serverVersion": "8.0.2",
+        "driverVersion": "4.7.2",
+        "fixtureVersion": "3.0.0",
+        "benchmarkSourceSha256": {
+          "test/benchmarks/providers/couchbase/run.mjs": "21379665224c2b9633278fbe7c5ae502cb83775b2e73ce099884f44f5afc5467",
+          "test/benchmarks/providers/couchbase/package.json": "f2518ba0e53533443cc123eea035bdec491d95c4f7ee2f14930b259f487ac9ff",
+          "test/benchmarks/providers/couchbase/package-lock.json": "24673c96f6115e22be32fd91ac95d63133e4073c13790de2fd2022efc650164d",
+          "test/fixtures/lifecycle.mjs": "2ff5b97e752055c05b46cb95644febc80b57ebe2c8f7398afcf8343401cd3a69"
+        },
+        "sizes": {
+          "1000": {
+            "requestedRuns": 5,
+            "successfulRuns": 5,
+            "failures": [],
+            "fixtureHash": "bc4f84465e1e80b84bf541e527e39516776dc4bc07afb233c45b825b29a846ac",
+            "serverStartupMs": null,
+            "readinessMs": 18.242936999999984,
+            "indexSetupMs": 14326.207752,
+            "indexReadyMs": 15.372534000000087,
+            "indexCatchupMs": 315.6918659999992,
+            "firstObjectCreateMs": 4.65620300000046,
+            "createAndIndexMs": 509.6610760000003,
+            "createRecordsPerSecond": 1962.0882329259914,
+            "totalElapsedMs": 51859.904056,
+            "operations": {
+              "singleCreate": {
+                "firstOperationMs": 1.03424399999858,
+                "minMs": 0.49423599999863654,
+                "maxMs": 1.443106999999145,
+                "meanMs": 0.8208513499997026,
+                "p50Ms": 0.8059959999991406,
+                "p95Ms": 1.2232500000027358,
+                "p99Ms": 1.443106999999145,
+                "opsPerSecond": 1214.1399589517343
+              },
+              "uuidRead": {
+                "firstOperationMs": 0.8173470000001544,
+                "minMs": 0.40571299999646726,
+                "maxMs": 0.8556480000006559,
+                "meanMs": 0.4537966750002852,
+                "p50Ms": 0.42733399999997346,
+                "p95Ms": 0.6080000000001746,
+                "p99Ms": 0.8556480000006559,
+                "opsPerSecond": 2164.6784546036533
+              },
+              "equality": {
+                "firstOperationMs": 19.6866050000026,
+                "minMs": 16.576983999999356,
+                "maxMs": 26.452425999999832,
+                "meanMs": 19.362752250000177,
+                "p50Ms": 18.641073000002507,
+                "p95Ms": 23.721387000001414,
+                "p99Ms": 26.452425999999832,
+                "opsPerSecond": 51.538816808410665
+              },
+              "nestedEquality": {
+                "firstOperationMs": 11.923289999998815,
+                "minMs": 10.54548700000305,
+                "maxMs": 18.79465700000219,
+                "meanMs": 11.839738724999643,
+                "p50Ms": 11.543728000000556,
+                "p95Ms": 13.365860000001703,
+                "p99Ms": 18.79465700000219,
+                "opsPerSecond": 84.30539402203
+              },
+              "numericRange": {
+                "firstOperationMs": 18.126334000000497,
+                "minMs": 15.989015999999538,
+                "maxMs": 26.995334999999614,
+                "meanMs": 18.763003299999582,
+                "p50Ms": 18.047270999999455,
+                "p95Ms": 25.980071999998472,
+                "p99Ms": 26.995334999999614,
+                "opsPerSecond": 53.19052521270045
+              },
+              "and": {
+                "firstOperationMs": 20.09496399999989,
+                "minMs": 16.99773699999787,
+                "maxMs": 26.642047000001185,
+                "meanMs": 18.830826924999837,
+                "p50Ms": 18.27733399999852,
+                "p95Ms": 23.37137900000016,
+                "p99Ms": 26.642047000001185,
+                "opsPerSecond": 53.03299166236255
+              },
+              "or": {
+                "firstOperationMs": 20.678420000000187,
+                "minMs": 18.360623000000487,
+                "maxMs": 55.74118299999827,
+                "meanMs": 22.86167184999986,
+                "p50Ms": 20.734070000002248,
+                "p95Ms": 29.67614500000127,
+                "p99Ms": 55.74118299999827,
+                "opsPerSecond": 43.686314616153595
+              },
+              "singleKeyUpdate": {
+                "firstOperationMs": 3.212875000001077,
+                "minMs": 0.5351169999994454,
+                "maxMs": 1.9574739999989106,
+                "meanMs": 0.8182485500000439,
+                "p50Ms": 0.686282000002393,
+                "p95Ms": 1.232070999998541,
+                "p99Ms": 1.9574739999989106,
+                "opsPerSecond": 1217.788133848075
+              },
+              "indexedKeyUpdate": {
+                "firstOperationMs": 1.2582509999992908,
+                "minMs": 0.5548989999988407,
+                "maxMs": 2.9939269999995304,
+                "meanMs": 0.9979938999999831,
+                "p50Ms": 0.8507979999994859,
+                "p95Ms": 1.6363230000024487,
+                "p99Ms": 2.9939269999995304,
+                "opsPerSecond": 998.0731698419643
+              },
+              "numericIncrement": {
+                "firstOperationMs": 1.3708549999973911,
+                "minMs": 0.5304969999997411,
+                "maxMs": 1.8494009999994887,
+                "meanMs": 0.894363125000018,
+                "p50Ms": 0.8018859999974666,
+                "p95Ms": 1.4137659999978496,
+                "p99Ms": 1.8494009999994887,
+                "opsPerSecond": 1113.9818112948674
+              },
+              "singleDelete": {
+                "firstOperationMs": 1.6246630000023288,
+                "minMs": 0.42562399999951595,
+                "maxMs": 2.5633340000022145,
+                "meanMs": 0.8528014000001349,
+                "p50Ms": 0.7476339999993797,
+                "p95Ms": 1.336063999999169,
+                "p99Ms": 2.5633340000022145,
+                "opsPerSecond": 1167.9027506066413
+              }
+            },
+            "sustained": [
+              {
+                "mode": "read",
+                "concurrency": 1,
+                "opsPerSecond": 2354.6007833496824,
+                "p50Ms": 0.39544300000125077,
+                "p95Ms": 0.510827000001882,
+                "p99Ms": 0.906859999999142,
+                "serverCpuPercent": 27.39847653511073,
+                "clientCpuPercent": 86.32991402756723,
+                "serverRssBytes": 1062436864
+              },
+              {
+                "mode": "write",
+                "concurrency": 1,
+                "opsPerSecond": 1203.8343247087314,
+                "p50Ms": 0.7088539999967907,
+                "p95Ms": 1.4436580000001413,
+                "p99Ms": 2.5239929999988817,
+                "serverCpuPercent": 123.58801013391445,
+                "clientCpuPercent": 55.68129690173919,
+                "serverRssBytes": 1051422720
+              },
+              {
+                "mode": "mixed",
+                "concurrency": 1,
+                "opsPerSecond": 1478.549700922014,
+                "p50Ms": 0.5892490000005637,
+                "p95Ms": 1.1200259999968694,
+                "p99Ms": 2.0597779999989143,
+                "serverCpuPercent": 103.3990576209888,
+                "clientCpuPercent": 64.49173253413754,
+                "serverRssBytes": 1044676608
+              },
+              {
+                "mode": "read",
+                "concurrency": 8,
+                "opsPerSecond": 5021.253805423588,
+                "p50Ms": 0.8813690000024508,
+                "p95Ms": 1.3685350000014296,
+                "p99Ms": 1.8764010000013513,
+                "serverCpuPercent": 30.792970931635576,
+                "clientCpuPercent": 110.38570241025074,
+                "serverRssBytes": 1045291008
+              },
+              {
+                "mode": "write",
+                "concurrency": 8,
+                "opsPerSecond": 1839.3655800033225,
+                "p50Ms": 2.440419999998994,
+                "p95Ms": 4.691563000000315,
+                "p99Ms": 6.888016000004427,
+                "serverCpuPercent": 126.31915109475457,
+                "clientCpuPercent": 61.874202297871314,
+                "serverRssBytes": 1045270528
+              },
+              {
+                "mode": "mixed",
+                "concurrency": 8,
+                "opsPerSecond": 2302.3530117378546,
+                "p50Ms": 1.9310330000007525,
+                "p95Ms": 3.6727410000021337,
+                "p99Ms": 5.6449849999989965,
+                "serverCpuPercent": 113.59768160763562,
+                "clientCpuPercent": 70.05132688619857,
+                "serverRssBytes": 1045061632
+              }
+            ],
+            "resources": {
+              "clientIdleRssBytes": 132550656,
+              "clientLoadedRssBytes": 132775936,
+              "clientFinalRssBytes": 156958720,
+              "clientPeakRssBytes": 156958720,
+              "serverIdleRssBytes": 1044008960,
+              "serverLoadedRssBytes": 1060003840,
+              "serverPeakRssBytes": 1130184704
+            }
+          },
+          "10000": {
+            "requestedRuns": 5,
+            "successfulRuns": 5,
+            "failures": [],
+            "fixtureHash": "767927150f41a6967e99ab0e05f11128ba4f408f1b9bfc5e1fc753a84119ac8f",
+            "serverStartupMs": null,
+            "readinessMs": 19.055612999999994,
+            "indexSetupMs": 14368.426286,
+            "indexReadyMs": 14.296517999999196,
+            "indexCatchupMs": 318.6092710000012,
+            "firstObjectCreateMs": 4.082253999999011,
+            "createAndIndexMs": 4437.135552999991,
+            "createRecordsPerSecond": 2253.7062211766106,
+            "totalElapsedMs": 57639.695316,
+            "operations": {
+              "singleCreate": {
+                "firstOperationMs": 1.2681210000009742,
+                "minMs": 0.5026270000016666,
+                "maxMs": 1.2458709999991697,
+                "meanMs": 0.8150514499997371,
+                "p50Ms": 0.7529950000025565,
+                "p95Ms": 1.195758999998361,
+                "p99Ms": 1.2458709999991697,
+                "opsPerSecond": 1220.1631596075654
+              },
+              "uuidRead": {
+                "firstOperationMs": 0.8197670000008657,
+                "minMs": 0.4092229999987467,
+                "maxMs": 0.9105799999997544,
+                "meanMs": 0.4437463250001201,
+                "p50Ms": 0.43180500000016764,
+                "p95Ms": 0.5035669999997481,
+                "p99Ms": 0.9105799999997544,
+                "opsPerSecond": 2215.3493470232224
+              },
+              "equality": {
+                "firstOperationMs": 21.095852999998897,
+                "minMs": 16.768369999997958,
+                "maxMs": 30.178359000001365,
+                "meanMs": 19.399253449999925,
+                "p50Ms": 18.608210000002146,
+                "p95Ms": 25.001241000001755,
+                "p99Ms": 30.178359000001365,
+                "opsPerSecond": 51.45003518519989
+              },
+              "nestedEquality": {
+                "firstOperationMs": 18.00347899999906,
+                "minMs": 17.049496999999974,
+                "maxMs": 26.116077999999106,
+                "meanMs": 19.226326700000207,
+                "p50Ms": 18.325271999998222,
+                "p95Ms": 24.818943000002037,
+                "p99Ms": 26.116077999999106,
+                "opsPerSecond": 51.93799250323123
+              },
+              "numericRange": {
+                "firstOperationMs": 18.40268400000059,
+                "minMs": 16.62375400000019,
+                "maxMs": 26.481121000000712,
+                "meanMs": 18.478982374999486,
+                "p50Ms": 18.039002999998047,
+                "p95Ms": 22.210275999997975,
+                "p99Ms": 26.481121000000712,
+                "opsPerSecond": 54.03699880886239
+              },
+              "and": {
+                "firstOperationMs": 18.29859099999885,
+                "minMs": 17.031888999998046,
+                "maxMs": 27.74670100000003,
+                "meanMs": 19.168123225000272,
+                "p50Ms": 18.538777000001573,
+                "p95Ms": 24.872693000001163,
+                "p99Ms": 27.74670100000003,
+                "opsPerSecond": 52.09500783815647
+              },
+              "or": {
+                "firstOperationMs": 41.38871400000062,
+                "minMs": 35.64128500000152,
+                "maxMs": 55.908009999999194,
+                "meanMs": 41.33764677499967,
+                "p50Ms": 39.68606700000237,
+                "p95Ms": 48.77903299999889,
+                "p99Ms": 55.908009999999194,
+                "opsPerSecond": 24.175390163811468
+              },
+              "singleKeyUpdate": {
+                "firstOperationMs": 3.1260029999975814,
+                "minMs": 0.5350780000007944,
+                "maxMs": 1.5955319999993662,
+                "meanMs": 0.8831443000004583,
+                "p50Ms": 0.7750950000008743,
+                "p95Ms": 1.3186130000030971,
+                "p99Ms": 1.5955319999993662,
+                "opsPerSecond": 1128.7661423435754
+              },
+              "indexedKeyUpdate": {
+                "firstOperationMs": 0.7688349999989441,
+                "minMs": 0.5116369999996095,
+                "maxMs": 3.6889400000000023,
+                "meanMs": 1.0234475499999462,
+                "p50Ms": 0.7971969999998691,
+                "p95Ms": 1.6135430000031192,
+                "p99Ms": 3.6889400000000023,
+                "opsPerSecond": 973.4940922536947
+              },
+              "numericIncrement": {
+                "firstOperationMs": 1.6679850000000442,
+                "minMs": 0.510255999997753,
+                "maxMs": 4.196947000000364,
+                "meanMs": 1.0075587750002342,
+                "p50Ms": 0.7605750000002445,
+                "p95Ms": 1.9053119999989576,
+                "p99Ms": 4.196947000000364,
+                "opsPerSecond": 989.5533349208621
+              },
+              "singleDelete": {
+                "firstOperationMs": 1.4722379999984696,
+                "minMs": 0.42086399999971036,
+                "maxMs": 2.976054999999178,
+                "meanMs": 0.8043736500001615,
+                "p50Ms": 0.6591420000004291,
+                "p95Ms": 2.0802179999991495,
+                "p99Ms": 2.976054999999178,
+                "opsPerSecond": 1238.1885326530933
+              }
+            },
+            "sustained": [
+              {
+                "mode": "read",
+                "concurrency": 1,
+                "opsPerSecond": 2356.9793533322613,
+                "p50Ms": 0.39056300000083866,
+                "p95Ms": 0.5112469999985478,
+                "p99Ms": 0.827357000001939,
+                "serverCpuPercent": 28.79965873556384,
+                "clientCpuPercent": 84.7855278644166,
+                "serverRssBytes": 1133432832
+              },
+              {
+                "mode": "write",
+                "concurrency": 1,
+                "opsPerSecond": 1241.8598119100163,
+                "p50Ms": 0.6918129999976372,
+                "p95Ms": 1.355634999999893,
+                "p99Ms": 2.4546809999956167,
+                "serverCpuPercent": 124.78591346728666,
+                "clientCpuPercent": 57.67398943709799,
+                "serverRssBytes": 1126285312
+              },
+              {
+                "mode": "mixed",
+                "concurrency": 1,
+                "opsPerSecond": 1481.478218342314,
+                "p50Ms": 0.578918999999587,
+                "p95Ms": 1.1197069999980158,
+                "p99Ms": 1.9620040000008885,
+                "serverCpuPercent": 107.98809146203058,
+                "clientCpuPercent": 65.22240805187596,
+                "serverRssBytes": 1124667392
+              },
+              {
+                "mode": "read",
+                "concurrency": 8,
+                "opsPerSecond": 5018.9556089831585,
+                "p50Ms": 0.9229909999994561,
+                "p95Ms": 1.3309040000021923,
+                "p99Ms": 1.6813249999977415,
+                "serverCpuPercent": 28.398617169095015,
+                "clientCpuPercent": 112.0129747356619,
+                "serverRssBytes": 1125367808
+              },
+              {
+                "mode": "write",
+                "concurrency": 8,
+                "opsPerSecond": 1879.2078026620748,
+                "p50Ms": 2.3619269999981043,
+                "p95Ms": 4.667062000000442,
+                "p99Ms": 7.262688000002527,
+                "serverCpuPercent": 129.14555750209576,
+                "clientCpuPercent": 59.8703465447893,
+                "serverRssBytes": 1128456192
+              },
+              {
+                "mode": "mixed",
+                "concurrency": 8,
+                "opsPerSecond": 2360.1345754491354,
+                "p50Ms": 1.9107130000047619,
+                "p95Ms": 3.341730000000098,
+                "p99Ms": 5.913583000001381,
+                "serverCpuPercent": 112.92988102377721,
+                "clientCpuPercent": 70.62113083139465,
+                "serverRssBytes": 1129566208
+              }
+            ],
+            "resources": {
+              "clientIdleRssBytes": 211881984,
+              "clientLoadedRssBytes": 211881984,
+              "clientFinalRssBytes": 265003008,
+              "clientPeakRssBytes": 265003008,
+              "serverIdleRssBytes": 1118797824,
+              "serverLoadedRssBytes": 1138335744,
+              "serverPeakRssBytes": 1233711104
+            }
+          },
+          "100000": {
+            "requestedRuns": 5,
+            "successfulRuns": 5,
+            "failures": [],
+            "fixtureHash": "79fd345261896883833b8e006eaf41bf1f1d8e5239f8eb8c24e3fc43abcaac6b",
+            "serverStartupMs": null,
+            "readinessMs": 17.449343,
+            "indexSetupMs": 14430.29766,
+            "indexReadyMs": 15.672264999999243,
+            "indexCatchupMs": 320.4311289999969,
+            "firstObjectCreateMs": 5.688947000000553,
+            "createAndIndexMs": 40726.827057999966,
+            "createRecordsPerSecond": 2455.384011565345,
+            "totalElapsedMs": 105835.14112599999,
+            "operations": {
+              "singleCreate": {
+                "firstOperationMs": 2.3669579999987036,
+                "minMs": 0.5342669999954524,
+                "maxMs": 1.6587339999969117,
+                "meanMs": 0.8426679749994946,
+                "p50Ms": 0.7833859999955166,
+                "p95Ms": 1.2744219999876805,
+                "p99Ms": 1.6587339999969117,
+                "opsPerSecond": 1181.4763994919203
+              },
+              "uuidRead": {
+                "firstOperationMs": 0.8511279999947874,
+                "minMs": 0.4032630000001518,
+                "maxMs": 1.1845590000011725,
+                "meanMs": 0.4534261000000697,
+                "p50Ms": 0.42483399999764515,
+                "p95Ms": 0.5179270000007818,
+                "p99Ms": 1.1845590000011725,
+                "opsPerSecond": 2166.548309938475
+              },
+              "equality": {
+                "firstOperationMs": 20.3056660000002,
+                "minMs": 16.398427000000083,
+                "maxMs": 30.168997000000672,
+                "meanMs": 19.146931525000763,
+                "p50Ms": 18.199916000005032,
+                "p95Ms": 24.54299699999683,
+                "p99Ms": 30.168997000000672,
+                "opsPerSecond": 52.11469083781114
+              },
+              "nestedEquality": {
+                "firstOperationMs": 18.09681300000375,
+                "minMs": 16.580995999996958,
+                "maxMs": 25.707525999998325,
+                "meanMs": 18.61935895000006,
+                "p50Ms": 18.02827999999863,
+                "p95Ms": 23.298405000001367,
+                "p99Ms": 25.707525999998325,
+                "opsPerSecond": 53.62508913930949
+              },
+              "numericRange": {
+                "firstOperationMs": 19.758670000002894,
+                "minMs": 17.014805999999226,
+                "maxMs": 26.653102000003855,
+                "meanMs": 19.043778974999988,
+                "p50Ms": 18.256960000006075,
+                "p95Ms": 24.06724099999701,
+                "p99Ms": 26.653102000003855,
+                "opsPerSecond": 52.429214527751434
+              },
+              "and": {
+                "firstOperationMs": 18.96916099999362,
+                "minMs": 16.355867999998736,
+                "maxMs": 29.164056000001437,
+                "meanMs": 19.79714402500067,
+                "p50Ms": 18.47121500000503,
+                "p95Ms": 26.712523999995028,
+                "p99Ms": 29.164056000001437,
+                "opsPerSecond": 50.43598498284158
+              },
+              "or": {
+                "firstOperationMs": 253.26692799999728,
+                "minMs": 219.30109899998934,
+                "maxMs": 297.86718500001007,
+                "meanMs": 242.85181750000083,
+                "p50Ms": 236.50072199999704,
+                "p95Ms": 279.1170080000011,
+                "p99Ms": 297.86718500001007,
+                "opsPerSecond": 4.117217944205188
+              },
+              "singleKeyUpdate": {
+                "firstOperationMs": 3.452492999989772,
+                "minMs": 0.5965700000087963,
+                "maxMs": 2.8713040000002366,
+                "meanMs": 1.2168377999994846,
+                "p50Ms": 1.12837700000091,
+                "p95Ms": 2.104598999998416,
+                "p99Ms": 2.8713040000002366,
+                "opsPerSecond": 816.4922785447669
+              },
+              "indexedKeyUpdate": {
+                "firstOperationMs": 1.0470539999951143,
+                "minMs": 0.5548879999987548,
+                "maxMs": 2.900584999995772,
+                "meanMs": 1.1087040000013075,
+                "p50Ms": 1.0378639999980805,
+                "p95Ms": 1.8211999999912223,
+                "p99Ms": 2.900584999995772,
+                "opsPerSecond": 893.2264960009346
+              },
+              "numericIncrement": {
+                "firstOperationMs": 1.6181130000040866,
+                "minMs": 0.52328700000362,
+                "maxMs": 2.945346000007703,
+                "meanMs": 0.8862262499987992,
+                "p50Ms": 0.7950359999958891,
+                "p95Ms": 1.4763079999975162,
+                "p99Ms": 2.945346000007703,
+                "opsPerSecond": 1124.4409209464804
+              },
+              "singleDelete": {
+                "firstOperationMs": 1.8457110000017565,
+                "minMs": 0.43434399999387097,
+                "maxMs": 1.6041629999963334,
+                "meanMs": 0.7329444499995589,
+                "p50Ms": 0.6764419999963138,
+                "p95Ms": 1.32493400000385,
+                "p99Ms": 1.6041629999963334,
+                "opsPerSecond": 1355.5883894125157
+              }
+            },
+            "sustained": [
+              {
+                "mode": "read",
+                "concurrency": 1,
+                "opsPerSecond": 2277.432351827774,
+                "p50Ms": 0.4029630000004545,
+                "p95Ms": 0.5316469999961555,
+                "p99Ms": 1.0534149999875808,
+                "serverCpuPercent": 27.598470029136656,
+                "clientCpuPercent": 86.29900728843637,
+                "serverRssBytes": 1386459136
+              },
+              {
+                "mode": "write",
+                "concurrency": 1,
+                "opsPerSecond": 1228.7884088389403,
+                "p50Ms": 0.676342000006116,
+                "p95Ms": 1.441437000001315,
+                "p99Ms": 2.779762000005576,
+                "serverCpuPercent": 125.9949910187341,
+                "clientCpuPercent": 57.71440554072199,
+                "serverRssBytes": 1383084032
+              },
+              {
+                "mode": "mixed",
+                "concurrency": 1,
+                "opsPerSecond": 1417.751303921185,
+                "p50Ms": 0.595249000005424,
+                "p95Ms": 1.2005089999875054,
+                "p99Ms": 2.30188499999349,
+                "serverCpuPercent": 111.38992431350812,
+                "clientCpuPercent": 65.07860431901418,
+                "serverRssBytes": 1382649856
+              },
+              {
+                "mode": "read",
+                "concurrency": 8,
+                "opsPerSecond": 4764.643303269829,
+                "p50Ms": 0.8810789999988629,
+                "p95Ms": 1.5275200000032783,
+                "p99Ms": 2.6788779999915278,
+                "serverCpuPercent": 48.79839514765942,
+                "clientCpuPercent": 113.79185768165969,
+                "serverRssBytes": 1381711872
+              },
+              {
+                "mode": "write",
+                "concurrency": 8,
+                "opsPerSecond": 1756.123907749406,
+                "p50Ms": 2.4754720000055386,
+                "p95Ms": 4.903699000002234,
+                "p99Ms": 8.469619000010425,
+                "serverCpuPercent": 128.3831980030209,
+                "clientCpuPercent": 61.92521561171694,
+                "serverRssBytes": 1384112128
+              },
+              {
+                "mode": "mixed",
+                "concurrency": 8,
+                "opsPerSecond": 2195.937224169993,
+                "p50Ms": 1.994578999991063,
+                "p95Ms": 3.7801699999981793,
+                "p99Ms": 6.873775999993086,
+                "serverCpuPercent": 115.78652140682948,
+                "clientCpuPercent": 72.85011959042855,
+                "serverRssBytes": 1381285888
+              }
+            ],
+            "resources": {
+              "clientIdleRssBytes": 316469248,
+              "clientLoadedRssBytes": 316862464,
+              "clientFinalRssBytes": 197394432,
+              "clientPeakRssBytes": 317460480,
+              "serverIdleRssBytes": 1373663232,
+              "serverLoadedRssBytes": 1376178176,
+              "serverPeakRssBytes": 1482317824
+            }
+          }
+        },
+        "methodology": "one persistent local Couchbase server; fresh bucket per independent run; 512 MiB bucket quota; no replicas",
+        "failures": [],
+        "comparisonsToExistingLanes": [
+          {
+            "size": 1000,
+            "couchbase": {
+              "fixtureHashMatches": true,
+              "createAndIndexMs": 14835.868828,
+              "uuidReadP50Ms": 0.42733399999997346,
+              "equalityP50Ms": 18.641073000002507,
+              "numericRangeP50Ms": 18.047270999999455
+            },
+            "prior": {
+              "cocreatedb": {
+                "runId": "2026-11-20T06-10-08.681Z",
+                "fixtureHashMatches": true,
+                "createAndIndexMs": 317.41601,
+                "uuidReadP50Ms": 0.029450999999994565,
+                "equalityP50Ms": 0.27048899999999776,
+                "numericRangeP50Ms": 0.2479079999999385
+              },
+              "mongodb": {
+                "runId": "2026-11-20T04-08-28.702Z",
+                "fixtureHashMatches": true,
+                "createAndIndexMs": 260.9480470000001,
+                "uuidReadP50Ms": 0.8460580000000846,
+                "equalityP50Ms": 2.4328709999999774,
+                "numericRangeP50Ms": 2.506112999999914
+              },
+              "redis": {
+                "runId": "2026-11-20T04-58-00.174Z",
+                "fixtureHashMatches": true,
+                "createAndIndexMs": 134.74069900000006,
+                "uuidReadP50Ms": 0.24009699999999157,
+                "equalityP50Ms": 2.2625739999999723,
+                "numericRangeP50Ms": 1.9922229999999672
+              }
+            }
+          },
+          {
+            "size": 10000,
+            "couchbase": {
+              "fixtureHashMatches": true,
+              "createAndIndexMs": 18805.56183899999,
+              "uuidReadP50Ms": 0.43180500000016764,
+              "equalityP50Ms": 18.608210000002146,
+              "numericRangeP50Ms": 18.039002999998047
+            },
+            "prior": {
+              "cocreatedb": {
+                "runId": "2026-11-20T06-10-08.681Z",
+                "fixtureHashMatches": true,
+                "createAndIndexMs": 3572.9696630000003,
+                "uuidReadP50Ms": 0.027480999999625055,
+                "equalityP50Ms": 0.2814899999998488,
+                "numericRangeP50Ms": 0.1812059999997473
+              },
+              "mongodb": {
+                "runId": "2026-11-20T04-08-28.702Z",
+                "fixtureHashMatches": true,
+                "createAndIndexMs": 893.1883679999996,
+                "uuidReadP50Ms": 0.855967999999848,
+                "equalityP50Ms": 2.6880879999998797,
+                "numericRangeP50Ms": 2.1562309999999343
+              },
+              "redis": {
+                "runId": "2026-11-20T04-58-00.174Z",
+                "fixtureHashMatches": true,
+                "createAndIndexMs": 1275.4784390000002,
+                "uuidReadP50Ms": 0.23587799999995696,
+                "equalityP50Ms": 2.320184000000154,
+                "numericRangeP50Ms": 2.2063499999999294
+              }
+            }
+          },
+          {
+            "size": 100000,
+            "couchbase": {
+              "fixtureHashMatches": true,
+              "createAndIndexMs": 55157.12471799996,
+              "uuidReadP50Ms": 0.42483399999764515,
+              "equalityP50Ms": 18.199916000005032,
+              "numericRangeP50Ms": 18.256960000006075
+            },
+            "prior": {
+              "cocreatedb": {
+                "runId": "2026-11-20T06-10-08.681Z",
+                "fixtureHashMatches": true,
+                "createAndIndexMs": 47243.97046699999,
+                "uuidReadP50Ms": 0.018720000000030268,
+                "equalityP50Ms": 0.2861999999950058,
+                "numericRangeP50Ms": 0.2071970000033616
+              },
+              "mongodb": {
+                "runId": "2026-11-20T04-08-28.702Z",
+                "fixtureHashMatches": true,
+                "createAndIndexMs": 7249.127481,
+                "uuidReadP50Ms": 0.8221979999998439,
+                "equalityP50Ms": 2.4502400000001217,
+                "numericRangeP50Ms": 2.1536209999994753
+              },
+              "redis": {
+                "runId": "2026-11-20T04-58-00.174Z",
+                "fixtureHashMatches": true,
+                "createAndIndexMs": 12845.134715999997,
+                "uuidReadP50Ms": 0.20574699999997392,
+                "equalityP50Ms": 6.1233310000006895,
+                "numericRangeP50Ms": 7.792975999998816
+              }
+            }
+          }
+        ],
+        "observations": [
+          "At 100,000 documents, OR equality p50 was 236.501 ms. EXPLAIN shows an explicit Order operator after the two GSI spans."
+        ]
+      }
+    ]
+  }
+}

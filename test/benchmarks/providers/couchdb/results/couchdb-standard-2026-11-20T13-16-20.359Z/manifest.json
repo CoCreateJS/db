@@ -1,0 +1,43 @@
+{
+  "suite": "CouchDB comparison benchmark v1",
+  "provider": "CouchDB",
+  "serverVersion": "3.5.3",
+  "runId": "2026-11-20T13-16-20.359Z",
+  "startedAt": "2026-11-20T13:16:20.359Z",
+  "sizes": [
+    1000
+  ],
+  "independentRunsRequested": 1,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 1000,
+  "concurrencyLevels": [
+    1
+  ],
+  "resourcePolicy": "one isolated CouchDB server process; fresh database per independent run; CouchDB stops after suite",
+  "results": [
+    {
+      "size": 1000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-1000-run-01.json",
+      "elapsedMs": 14127.316454
+    }
+  ],
+  "serverStartupMs": 2012.2646340000001,
+  "serverVersionReported": "3.5.3",
+  "serverConfiguration": {
+    "systemDatabases": [
+      "_users",
+      "_replicator",
+      "_global_changes"
+    ]
+  },
+  "completedAt": "2026-11-20T13:16:37.910Z",
+  "summary": {
+    "successfulRuns": 1,
+    "failedRuns": 0,
+    "notAttempted": 0
+  },
+  "serverStoppedAfterSuite": true
+}

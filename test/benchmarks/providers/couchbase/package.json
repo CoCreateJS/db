@@ -1,0 +1,13 @@
+{
+  "name": "@cocreate/db-benchmark-couchbase",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "benchmark": "node run.mjs",
+    "report": "node report.mjs"
+  },
+  "dependencies": {
+    "couchbase": "4.7.2"
+  }
+}

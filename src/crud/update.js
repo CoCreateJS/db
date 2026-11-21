@@ -1,4 +1,4 @@
-import { updateArtifact } from '../artifact.js'
+import { updateLeaf } from '../leaf.js'
 
 const record = value => value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype
 const operators = new Set(['$set', '$rename', '$inc', '$push', '$each', '$splice', '$unset', '$delete', '$slice', '$pop', '$shift', '$addToSet', '$pull'])
@@ -28,7 +28,7 @@ function missing(object, parts) {
 
 function retainMissing(object, path, value, accepted, prefix = '') {
     const parts = pathParts(path)
-    if (['uuid', '_id', 'scope', 'parent', 'updated'].includes(parts[0])) return
+    if (['uuid', '_id', 'root', 'parent', 'updated'].includes(parts[0])) return
     if (parts.some(key => /[\[\]]/.test(key) || /^\d+$/.test(key))) return
     if (value === undefined || typeof value === 'string' && operators.has(value)) return
     if (record(value) && Object.keys(value).length) {
@@ -60,6 +60,6 @@ export function update(object, input, global = {}) {
     const by = patch['updated.by'] ?? patch.updated?.by ?? patch['$set.updated.by'] ?? patch['$set.updated']?.by ?? patch.$set?.['updated.by'] ?? patch.$set?.updated?.by
     const audit = stale ? { 'updated.on': supplied[0], ...(by !== undefined ? { 'updated.by': by } : {}) } : {}
     const mutation = Object.keys(applied).length ? structuredClone({ ...applied, ...audit, uuid: object.uuid, ...(object._id !== undefined ? { _id: object._id } : {}) }) : undefined
-    if (mutation) updateArtifact(object, applied)
+    if (mutation) updateLeaf(object, applied)
     return { object: structuredClone(object), mutation }
 }

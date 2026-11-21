@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const directory = resolve(process.argv[2] ?? '')
 if (!process.argv[2]) throw Error('Usage: node test/benchmarks/standard-report.mjs <run-directory>')
@@ -111,7 +112,8 @@ for (const size of sizes) {
     ].join('\n'))
 }
 
-const providerFile = join(dirname(directory), '..', 'providers', 'cocreatedb.json')
+const benchmarkRoot = dirname(fileURLToPath(import.meta.url))
+const providerFile = join(benchmarkRoot, 'providers/cocreatedb/results/summary.json')
 const providerPath = resolve(providerFile)
 const provider = JSON.parse(await readFile(providerPath, 'utf8'))
 const legacyFiles = manifest.legacyCompatibility?.runs?.filter(run => run.status === 'passed' && run.file) ?? []
@@ -180,7 +182,7 @@ const lines = [
     '## Historical v2 lifecycle comparison', '',
     historicalV2 && compatibility
         ? `The retained historical baseline and the current compatibility lane both use fixture v2 hash \`${historicalV2.fixtureHash}\` / \`${compatibility.fixtureHash}\`. Historical: ${historicalV2.runtime.node}, ${historicalV2.runtime.cpus} CPUs, ${historicalV2.samples} samples, ${historicalV2.runs ?? 5} independent runs. Current compatibility: ${compatibility.runtime.node}, ${compatibility.runtime.cpuCount} reported CPUs, ${compatibility.samples} samples, ${compatibility.runs} independent runs. The datasets and lifecycle query/update operations are equivalent, but runtime and hardware metadata differ, so this is a historical comparison rather than a controlled same-host comparison.`
-        : 'No v2 compatibility runs completed; historical results remain preserved in `providers/cocreatedb.json` and `baselines/2026-11-19-final`.',
+        : 'No v2 compatibility runs completed; historical results remain preserved in `providers/cocreatedb/results/summary.json` and `baselines/2026-11-19-final`.',
     '',
     '| v2 metric | Historical summary | Current compatibility median |', '| --- | ---: | ---: |',
     ...(historicalV2 && compatibility ? [
@@ -194,7 +196,7 @@ const lines = [
         `| RSS | ${miB(historicalV2.rssBytes)} | ${miB(compatibility.rssBytes)} |`
     ] : ['| n/a | retained only in the historical provider summary | n/a |']), '',
     '## Raw results and failures', '',
-    `Raw independent runs and the manifest are stored under \`${directory}\`. Status counts: ${JSON.stringify(manifest.summary)}. Provider summary appended to [cocreatedb.json](../providers/cocreatedb.json) without replacing historical data.`,
+    `Raw independent runs and the manifest are stored under \`${directory}\`. Status counts: ${JSON.stringify(manifest.summary)}. Provider summary appended to [summary.json](../summary.json) without replacing historical data.`,
     '',
     '## Limits and follow-up', '',
     'This report measures the in-memory CoCreateDB prototype. MongoDB and Redis have separate provider adapters and reports; compare their results by operation while accounting for transport, indexing and durability differences. Distributed synchronization, replication, sharding, recovery, persistence durability, server/client separation, and transaction guarantees are out of scope for this in-memory CoCreateDB run.'

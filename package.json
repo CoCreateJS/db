@@ -19,9 +19,12 @@
     "start": "webpack --config webpack.config.js --watch",
     "build": "NODE_ENV=production webpack --config webpack.config.js",
     "benchmark": "node test/benchmarks/lifecycle.mjs",
-    "benchmark:ranges": "node test/benchmarks/ranges.mjs",
+    "benchmark:ranges": "node test/benchmarks/diagnostics/ranges.mjs",
     "benchmark:standard": "node test/benchmarks/standard.mjs",
-    "benchmark:report": "node test/benchmarks/standard-report.mjs"
+    "benchmark:report": "node test/benchmarks/standard-report.mjs",
+    "benchmark:weighted-eviction": "node test/benchmarks/diagnostics/weighted-eviction.mjs",
+    "benchmark:deferred-indexing": "node test/benchmarks/diagnostics/deferred-indexing.mjs",
+    "benchmark:continuous": "node test/benchmarks/diagnostics/continuous.mjs"
   },
   "publishConfig": {
     "access": "public"

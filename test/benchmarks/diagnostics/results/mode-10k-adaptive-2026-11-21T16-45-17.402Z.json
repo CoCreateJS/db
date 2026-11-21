@@ -1,0 +1,72 @@
+{
+  "status": "passed",
+  "mode": "adaptive",
+  "acknowledgement": "memory",
+  "datasetSize": 10000,
+  "fixture": "shared lifecycle fixture v3",
+  "fixtureVersion": "3.0.0",
+  "fixtureHash": "767927150f41a6967e99ab0e05f11128ba4f408f1b9bfc5e1fc753a84119ac8f",
+  "configuration": {
+    "indexSize": 64,
+    "leafSize": 64,
+    "batchSize": 1000,
+    "deferIndex": false
+  },
+  "node": "v24.18.0",
+  "startedAt": "2026-11-21T16:45:17.491Z",
+  "phases": {
+    "createAndIndexMs": 3075.418841,
+    "reads": {
+      "uuid": {
+        "elapsedMs": 2.5653959999999643,
+        "returned": 1,
+        "correctness": true
+      },
+      "equality": {
+        "elapsedMs": 4.204499999999825,
+        "returned": 100,
+        "correctness": true
+      },
+      "nestedEquality": {
+        "elapsedMs": 1.926205000000209,
+        "returned": 100,
+        "correctness": true
+      },
+      "range": {
+        "elapsedMs": 2.197994000000108,
+        "returned": 100,
+        "correctness": true
+      }
+    },
+    "update": {
+      "elapsedMs": 4.854713000000174,
+      "correctness": true
+    },
+    "delete": {
+      "elapsedMs": 1.6935770000000048,
+      "correctness": true
+    }
+  },
+  "io": {
+    "branchWrites": 5107,
+    "leafWrites": 0,
+    "branchReads": 18,
+    "leafReads": 0,
+    "branchFiles": 5107,
+    "leafFiles": 0,
+    "branchBytes": 8295837,
+    "leafBytes": 0,
+    "totalBytes": 8296391,
+    "hotLeaves": 10003,
+    "hotBranches": 181
+  },
+  "pendingIndexCount": 0,
+  "memory": {
+    "rss": 259678208,
+    "heapTotal": 201687040,
+    "heapUsed": 98847360,
+    "external": 5343135,
+    "arrayBuffers": 2873843
+  },
+  "completedAt": "2026-11-21T16:45:22.982Z"
+}

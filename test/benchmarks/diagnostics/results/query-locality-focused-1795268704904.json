@@ -1,0 +1,2876 @@
+{
+  "status": "passed",
+  "mode": "focused",
+  "residency": "adaptive",
+  "records": 100000,
+  "requests": 12000,
+  "fieldCount": 42,
+  "selectedFields": [
+    "rank",
+    "reference",
+    "score",
+    "sequence"
+  ],
+  "batchSize": 64,
+  "branchSize": 1024,
+  "leafSize": 1024,
+  "memoryPercent": 12.5,
+  "budgetBytes": 1027370496,
+  "systemMemoryBytes": 8218963968,
+  "node": "v24.18.0",
+  "engineRevision": "7d9c347d0385de84d9aefa6acbb00dafec9edaa7",
+  "startedAt": "2026-11-21T13:45:04.914Z",
+  "checkpoints": [
+    {
+      "phase": "growth",
+      "created": 10048,
+      "live": 10048,
+      "elapsedMs": 9413.203589,
+      "rssMiB": 381.40625,
+      "heapMiB": 244.38033294677734,
+      "peakRssMiB": 381.53125,
+      "residency": "adaptive",
+      "hotArtifacts": 10052,
+      "totalArtifacts": 10052,
+      "hotPartitions": 765,
+      "coldArtifacts": 0,
+      "coldPartitions": 134,
+      "artifactReads": 0,
+      "artifactWrites": 0,
+      "indexReads": 2,
+      "indexWrites": 137,
+      "stage": 3,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57850.24609375
+    },
+    {
+      "phase": "growth",
+      "created": 20032,
+      "live": 20032,
+      "elapsedMs": 18548.242194,
+      "rssMiB": 594.45703125,
+      "heapMiB": 459.73999786376953,
+      "peakRssMiB": 594.45703125,
+      "residency": "adaptive",
+      "hotArtifacts": 20036,
+      "totalArtifacts": 20036,
+      "hotPartitions": 1509,
+      "coldArtifacts": 0,
+      "coldPartitions": 292,
+      "artifactReads": 0,
+      "artifactWrites": 0,
+      "indexReads": 2,
+      "indexWrites": 292,
+      "stage": 5,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57846.60546875
+    },
+    {
+      "phase": "growth",
+      "created": 30016,
+      "live": 30016,
+      "elapsedMs": 28942.788129999997,
+      "rssMiB": 762.0859375,
+      "heapMiB": 605.4472503662109,
+      "peakRssMiB": 762.0859375,
+      "residency": "adaptive",
+      "hotArtifacts": 30020,
+      "totalArtifacts": 30020,
+      "hotPartitions": 2205,
+      "coldArtifacts": 0,
+      "coldPartitions": 452,
+      "artifactReads": 0,
+      "artifactWrites": 0,
+      "indexReads": 2,
+      "indexWrites": 452,
+      "stage": 5,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57842.82421875
+    },
+    {
+      "phase": "growth",
+      "created": 40000,
+      "live": 40000,
+      "elapsedMs": 38087.467143,
+      "rssMiB": 979.8359375,
+      "heapMiB": 803.6062774658203,
+      "peakRssMiB": 979.8359375,
+      "residency": "adaptive",
+      "hotArtifacts": 39868,
+      "totalArtifacts": 40004,
+      "hotPartitions": 2900,
+      "coldArtifacts": 136,
+      "coldPartitions": 609,
+      "artifactReads": 0,
+      "artifactWrites": 136,
+      "indexReads": 2,
+      "indexWrites": 612,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57838.49609375
+    },
+    {
+      "phase": "growth",
+      "created": 50048,
+      "live": 50048,
+      "elapsedMs": 47668.218868,
+      "rssMiB": 1191.4609375,
+      "heapMiB": 1030.6356048583984,
+      "peakRssMiB": 1191.4609375,
+      "residency": "adaptive",
+      "hotArtifacts": 49752,
+      "totalArtifacts": 50052,
+      "hotPartitions": 3641,
+      "coldArtifacts": 300,
+      "coldPartitions": 772,
+      "artifactReads": 0,
+      "artifactWrites": 300,
+      "indexReads": 3,
+      "indexWrites": 772,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57834.08203125
+    },
+    {
+      "phase": "growth",
+      "created": 60032,
+      "live": 60032,
+      "elapsedMs": 59105.308203,
+      "rssMiB": 1377.5703125,
+      "heapMiB": 1148.257667541504,
+      "peakRssMiB": 1377.5703125,
+      "residency": "adaptive",
+      "hotArtifacts": 59580,
+      "totalArtifacts": 60036,
+      "hotPartitions": 4379,
+      "coldArtifacts": 456,
+      "coldPartitions": 932,
+      "artifactReads": 0,
+      "artifactWrites": 456,
+      "indexReads": 3,
+      "indexWrites": 932,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57829.66015625
+    },
+    {
+      "phase": "growth",
+      "created": 70016,
+      "live": 70016,
+      "elapsedMs": 69111.120012,
+      "rssMiB": 1543.953125,
+      "heapMiB": 1375.5735168457031,
+      "peakRssMiB": 1543.953125,
+      "residency": "adaptive",
+      "hotArtifacts": 69405,
+      "totalArtifacts": 70020,
+      "hotPartitions": 5078,
+      "coldArtifacts": 615,
+      "coldPartitions": 1089,
+      "artifactReads": 1,
+      "artifactWrites": 616,
+      "indexReads": 6,
+      "indexWrites": 1092,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57825.26171875
+    },
+    {
+      "phase": "growth",
+      "created": 80000,
+      "live": 80000,
+      "elapsedMs": 81973.315077,
+      "rssMiB": 1728.515625,
+      "heapMiB": 1525.9193725585938,
+      "peakRssMiB": 1728.515625,
+      "residency": "adaptive",
+      "hotArtifacts": 79232,
+      "totalArtifacts": 80004,
+      "hotPartitions": 5776,
+      "coldArtifacts": 772,
+      "coldPartitions": 1248,
+      "artifactReads": 1,
+      "artifactWrites": 773,
+      "indexReads": 6,
+      "indexWrites": 1250,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57820.82421875
+    },
+    {
+      "phase": "growth",
+      "created": 90048,
+      "live": 90048,
+      "elapsedMs": 95736.460169,
+      "rssMiB": 1915.05078125,
+      "heapMiB": 1700.6807556152344,
+      "peakRssMiB": 1917.41796875,
+      "residency": "adaptive",
+      "hotArtifacts": 89117,
+      "totalArtifacts": 90052,
+      "hotPartitions": 6519,
+      "coldArtifacts": 935,
+      "coldPartitions": 1407,
+      "artifactReads": 1,
+      "artifactWrites": 936,
+      "indexReads": 6,
+      "indexWrites": 1407,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57816.4375
+    },
+    {
+      "phase": "growth",
+      "created": 100000,
+      "live": 100000,
+      "elapsedMs": 114448.890616,
+      "rssMiB": 2001.3203125,
+      "heapMiB": 1885.722068786621,
+      "peakRssMiB": 2088.3984375,
+      "residency": "adaptive",
+      "hotArtifacts": 98913,
+      "totalArtifacts": 100004,
+      "hotPartitions": 7214,
+      "coldArtifacts": 1091,
+      "coldPartitions": 1567,
+      "artifactReads": 2,
+      "artifactWrites": 1093,
+      "indexReads": 6,
+      "indexWrites": 1567,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57812.12890625
+    },
+    {
+      "phase": "steady",
+      "created": 100000,
+      "live": 99900,
+      "elapsedMs": 120240.595488,
+      "rssMiB": 2065.39453125,
+      "heapMiB": 1932.3913116455078,
+      "peakRssMiB": 2102.84375,
+      "residency": "adaptive",
+      "hotArtifacts": 98510,
+      "totalArtifacts": 99904,
+      "hotPartitions": 8095,
+      "coldArtifacts": 1394,
+      "coldPartitions": 1901,
+      "artifactReads": 38,
+      "artifactWrites": 1432,
+      "indexReads": 1222,
+      "indexWrites": 1903,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57802.8359375
+    },
+    {
+      "phase": "steady",
+      "created": 100000,
+      "live": 99800,
+      "elapsedMs": 124605.063887,
+      "rssMiB": 2075.8515625,
+      "heapMiB": 1934.2212524414062,
+      "peakRssMiB": 2121.59765625,
+      "residency": "adaptive",
+      "hotArtifacts": 98126,
+      "totalArtifacts": 99804,
+      "hotPartitions": 8260,
+      "coldArtifacts": 1678,
+      "coldPartitions": 2244,
+      "artifactReads": 96,
+      "artifactWrites": 1774,
+      "indexReads": 1729,
+      "indexWrites": 2245,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57793.45703125
+    },
+    {
+      "phase": "steady",
+      "created": 100000,
+      "live": 99700,
+      "elapsedMs": 128769.895608,
+      "rssMiB": 2051.37890625,
+      "heapMiB": 1888.131004333496,
+      "peakRssMiB": 2121.59765625,
+      "residency": "adaptive",
+      "hotArtifacts": 97751,
+      "totalArtifacts": 99704,
+      "hotPartitions": 8276,
+      "coldArtifacts": 1953,
+      "coldPartitions": 2573,
+      "artifactReads": 155,
+      "artifactWrites": 2108,
+      "indexReads": 2074,
+      "indexWrites": 2574,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57784.39453125
+    },
+    {
+      "phase": "steady",
+      "created": 100000,
+      "live": 99600,
+      "elapsedMs": 130343.517766,
+      "rssMiB": 2082.734375,
+      "heapMiB": 1926.5438385009766,
+      "peakRssMiB": 2121.59765625,
+      "residency": "adaptive",
+      "hotArtifacts": 97371,
+      "totalArtifacts": 99604,
+      "hotPartitions": 8375,
+      "coldArtifacts": 2233,
+      "coldPartitions": 2905,
+      "artifactReads": 208,
+      "artifactWrites": 2441,
+      "indexReads": 2504,
+      "indexWrites": 2905,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57775.3515625
+    },
+    {
+      "phase": "steady",
+      "created": 100000,
+      "live": 99500,
+      "elapsedMs": 134510.664524,
+      "rssMiB": 2028.46484375,
+      "heapMiB": 1851.239601135254,
+      "peakRssMiB": 2130.41015625,
+      "residency": "adaptive",
+      "hotArtifacts": 97016,
+      "totalArtifacts": 99504,
+      "hotPartitions": 8410,
+      "coldArtifacts": 2488,
+      "coldPartitions": 3237,
+      "artifactReads": 287,
+      "artifactWrites": 2775,
+      "indexReads": 2872,
+      "indexWrites": 3238,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57766.16796875
+    },
+    {
+      "phase": "steady",
+      "created": 100000,
+      "live": 99400,
+      "elapsedMs": 135967.83213999998,
+      "rssMiB": 2054.87890625,
+      "heapMiB": 1884.787010192871,
+      "peakRssMiB": 2130.41015625,
+      "residency": "adaptive",
+      "hotArtifacts": 96651,
+      "totalArtifacts": 99404,
+      "hotPartitions": 8395,
+      "coldArtifacts": 2753,
+      "coldPartitions": 3574,
+      "artifactReads": 361,
+      "artifactWrites": 3114,
+      "indexReads": 3194,
+      "indexWrites": 3576,
+      "stage": 8,
+      "pendingIndex": 0,
+      "diskFreeMiB": 57756.9375
+    }
+  ],
+  "gcSegments": [],
+  "idleWindows": [
+    {
+      "label": "final",
+      "durationMs": 180000,
+      "samples": [
+        {
+          "elapsedMs": 153423.481913,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.1166763305664,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 158424.39089799998,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.1336669921875,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 163429.91930799998,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.1402435302734,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 168434.960084,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.1466827392578,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 173440.79901999998,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.155143737793,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 178446.507579,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.1711730957031,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 183451.02739099998,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.1777420043945,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 188456.537624,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.18408203125,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 193462.412124,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.199203491211,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 198468.41212899997,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2067413330078,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 203473.98598099998,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2132186889648,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 208476.994695,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2195587158203,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 213482.49231799998,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2260284423828,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 218488.01916099997,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2323684692383,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 223493.616987,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2388458251953,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 228499.16429999997,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2451782226562,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 233504.64044299998,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2516555786133,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 238510.18141699999,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2579956054688,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 243515.678555,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2648162841797,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 248521.180435,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2711486816406,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 253526.653695,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2776184082031,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 258532.162387,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.283950805664,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 263537.642348,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2904205322266,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 268543.15293000004,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.2967529296875,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 273547.974132,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.3032302856445,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 278553.457857,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.3095626831055,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 283558.950908,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.316032409668,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 288564.02014000004,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.3344345092773,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 293568.95854900003,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.3410568237305,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 298573.94647100003,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.347511291504,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 303578.932182,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.354019165039,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 308579.482351,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.3603820800781,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 313584.98409700004,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.3668823242188,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 318590.474513,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.3732528686523,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 323592.979173,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.379753112793,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        },
+        {
+          "elapsedMs": 328422.384028,
+          "phase": "drain",
+          "created": 100000,
+          "live": 99400,
+          "rssMiB": 1764.32421875,
+          "heapMiB": 1211.3878173828125,
+          "peakRssMiB": 2130.41015625,
+          "residency": "adaptive",
+          "hotArtifacts": 95960,
+          "totalArtifacts": 99404,
+          "hotPartitions": 821,
+          "coldArtifacts": 3444,
+          "coldPartitions": 7967,
+          "artifactReads": 361,
+          "artifactWrites": 3805,
+          "indexReads": 3194,
+          "indexWrites": 11150,
+          "stage": 8,
+          "pendingIndex": 0
+        }
+      ],
+      "beforeGc": {
+        "phase": "drain",
+        "created": 100000,
+        "live": 99400,
+        "elapsedMs": 328422.660417,
+        "rssMiB": 1764.32421875,
+        "heapMiB": 1211.394515991211,
+        "peakRssMiB": 2130.41015625,
+        "residency": "adaptive",
+        "hotArtifacts": 95960,
+        "totalArtifacts": 99404,
+        "hotPartitions": 821,
+        "coldArtifacts": 3444,
+        "coldPartitions": 7967,
+        "artifactReads": 361,
+        "artifactWrites": 3805,
+        "indexReads": 3194,
+        "indexWrites": 11150,
+        "stage": 8,
+        "pendingIndex": 0
+      },
+      "afterGc": {
+        "phase": "drain",
+        "created": 100000,
+        "live": 99400,
+        "elapsedMs": 328422.712179,
+        "rssMiB": 1764.32421875,
+        "heapMiB": 1211.3963317871094,
+        "peakRssMiB": 2130.41015625,
+        "residency": "adaptive",
+        "hotArtifacts": 95960,
+        "totalArtifacts": 99404,
+        "hotPartitions": 821,
+        "coldArtifacts": 3444,
+        "coldPartitions": 7967,
+        "artifactReads": 361,
+        "artifactWrites": 3805,
+        "indexReads": 3194,
+        "indexWrites": 11150,
+        "stage": 8,
+        "pendingIndex": 0
+      },
+      "disk": {
+        "type": 61267,
+        "bsize": 4096,
+        "frsize": 4096,
+        "blocks": 32229372,
+        "bfree": 14763451,
+        "bavail": 14759355,
+        "files": 16646144,
+        "ffree": 14891497
+      },
+      "indexResidency": {
+        "name": {
+          "leaves": 1,
+          "cold": 1,
+          "zeroViewLeaves": 1,
+          "entries": 4,
+          "coldEntries": 4
+        },
+        "scope": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99404,
+          "coldEntries": 0
+        },
+        "parent": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99403,
+          "coldEntries": 0
+        },
+        "revision": {
+          "leaves": 196,
+          "cold": 0,
+          "zeroViewLeaves": 196,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "payload": {
+          "leaves": 193,
+          "cold": 0,
+          "zeroViewLeaves": 193,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "rank": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 0,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "reference": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 0,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "score": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 0,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "sequence": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 0,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field04": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field05": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field06": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field07": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field08": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field09": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field10": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field11": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field12": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field13": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field14": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field15": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field16": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field17": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field18": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field19": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field20": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field21": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field22": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field23": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field24": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field25": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field26": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field27": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field28": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field29": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field30": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field31": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field32": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field33": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field34": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field35": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field36": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field37": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field38": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "field39": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        },
+        "_id": {
+          "leaves": 194,
+          "cold": 0,
+          "zeroViewLeaves": 194,
+          "entries": 99400,
+          "coldEntries": 0
+        }
+      }
+    }
+  ],
+  "queryCounts": {
+    "growth": {
+      "rank": 391,
+      "sequence": 391,
+      "score": 391,
+      "reference": 390
+    },
+    "steady": {
+      "reference": 1950,
+      "rank": 1950,
+      "sequence": 1950,
+      "score": 1950
+    }
+  },
+  "indexDrainMs": 0.09066300000995398,
+  "growth": {
+    "phase": "growth",
+    "created": 100000,
+    "live": 100000,
+    "elapsedMs": 114454.544132,
+    "rssMiB": 2001.3203125,
+    "heapMiB": 1886.3308181762695,
+    "peakRssMiB": 2088.3984375,
+    "residency": "adaptive",
+    "hotArtifacts": 98909,
+    "totalArtifacts": 100004,
+    "hotPartitions": 7210,
+    "coldArtifacts": 1095,
+    "coldPartitions": 1570,
+    "artifactReads": 2,
+    "artifactWrites": 1097,
+    "indexReads": 6,
+    "indexWrites": 1571,
+    "stage": 8,
+    "pendingIndex": 0
+  },
+  "growthFields": {
+    "name": {
+      "leaves": 1,
+      "cold": 1,
+      "zeroViewLeaves": 1,
+      "entries": 4,
+      "coldEntries": 4
+    },
+    "scope": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100004,
+      "coldEntries": 0
+    },
+    "parent": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100003,
+      "coldEntries": 0
+    },
+    "revision": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "payload": {
+      "leaves": 193,
+      "cold": 0,
+      "zeroViewLeaves": 193,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "rank": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 66,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "reference": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 61,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "score": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 59,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "sequence": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 66,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field04": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field05": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field06": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field07": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field08": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field09": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field10": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field11": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field12": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field13": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field14": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field15": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field16": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field17": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field18": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field19": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field20": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field21": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field22": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field23": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field24": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field25": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field26": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field27": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field28": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field29": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field30": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field31": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field32": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field33": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field34": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field35": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field36": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field37": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field38": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "field39": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    },
+    "_id": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 100000,
+      "coldEntries": 0
+    }
+  },
+  "steadyMs": 21512.853293999986,
+  "steady": {
+    "phase": "steady",
+    "created": 100000,
+    "live": 99400,
+    "elapsedMs": 135974.21362999998,
+    "rssMiB": 2054.87890625,
+    "heapMiB": 1885.5737762451172,
+    "peakRssMiB": 2130.41015625,
+    "residency": "adaptive",
+    "hotArtifacts": 96647,
+    "totalArtifacts": 99404,
+    "hotPartitions": 8391,
+    "coldArtifacts": 2757,
+    "coldPartitions": 3578,
+    "artifactReads": 361,
+    "artifactWrites": 3118,
+    "indexReads": 3194,
+    "indexWrites": 3580,
+    "stage": 8,
+    "pendingIndex": 0
+  },
+  "finalDrainMs": 12430.899902000005,
+  "beforeProbeFields": {
+    "name": {
+      "leaves": 1,
+      "cold": 1,
+      "zeroViewLeaves": 1,
+      "entries": 4,
+      "coldEntries": 4
+    },
+    "scope": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99404,
+      "coldEntries": 0
+    },
+    "parent": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99403,
+      "coldEntries": 0
+    },
+    "revision": {
+      "leaves": 196,
+      "cold": 0,
+      "zeroViewLeaves": 196,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "payload": {
+      "leaves": 193,
+      "cold": 0,
+      "zeroViewLeaves": 193,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "rank": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 0,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "reference": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 0,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "score": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 0,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "sequence": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 0,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field04": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field05": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field06": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field07": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field08": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field09": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field10": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field11": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field12": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field13": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field14": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field15": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field16": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field17": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field18": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field19": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field20": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field21": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field22": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field23": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field24": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field25": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field26": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field27": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field28": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field29": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field30": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field31": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field32": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field33": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field34": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field35": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field36": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field37": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field38": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "field39": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    },
+    "_id": {
+      "leaves": 194,
+      "cold": 0,
+      "zeroViewLeaves": 194,
+      "entries": 99400,
+      "coldEntries": 0
+    }
+  },
+  "final": {
+    "phase": "drain",
+    "created": 100000,
+    "live": 99400,
+    "elapsedMs": 328430.98385200003,
+    "rssMiB": 1764.5859375,
+    "heapMiB": 1211.2034454345703,
+    "peakRssMiB": 2130.41015625,
+    "residency": "adaptive",
+    "hotArtifacts": 95960,
+    "totalArtifacts": 99404,
+    "hotPartitions": 821,
+    "coldArtifacts": 3444,
+    "coldPartitions": 7967,
+    "artifactReads": 361,
+    "artifactWrites": 3805,
+    "indexReads": 3194,
+    "indexWrites": 11150,
+    "stage": 8,
+    "pendingIndex": 0
+  },
+  "finishedAt": "2026-11-21T13:50:33.346Z",
+  "policySamples": [
+    {
+      "rss": 67653632,
+      "stage": 1,
+      "threshold": 0.05,
+      "weight": 0,
+      "target": 3,
+      "candidates": 3,
+      "count": 1,
+      "skipped": 2,
+      "elapsedMs": 252.39863,
+      "afterRss": 90329088
+    },
+    {
+      "rss": 91639808,
+      "stage": 1,
+      "threshold": 0.05,
+      "weight": 0,
+      "target": 41,
+      "candidates": 41,
+      "count": 29,
+      "skipped": 12,
+      "elapsedMs": 2829.2192760000003,
+      "afterRss": 244736000
+    },
+    {
+      "rss": 245297152,
+      "stage": 3,
+      "threshold": 0.2,
+      "weight": 0,
+      "target": 224,
+      "candidates": 224,
+      "count": 218,
+      "skipped": 6,
+      "elapsedMs": 12604.55559,
+      "afterRss": 562577408
+    },
+    {
+      "rss": 563363840,
+      "stage": 4,
+      "threshold": 0.4,
+      "weight": 0,
+      "target": 1147,
+      "candidates": 1147,
+      "count": 1115,
+      "skipped": 32,
+      "elapsedMs": 74046.119773,
+      "afterRss": 1953693696
+    },
+    {
+      "rss": 1953693696,
+      "stage": 8,
+      "threshold": 1,
+      "weight": 0,
+      "target": 5794,
+      "candidates": 5794,
+      "count": 5565,
+      "skipped": 229,
+      "elapsedMs": 50050.85748200002,
+      "afterRss": 2183659520
+    },
+    {
+      "rss": 2154696704,
+      "stage": 8,
+      "threshold": 1,
+      "weight": 0,
+      "target": 4222,
+      "candidates": 4222,
+      "count": 4222,
+      "skipped": 0,
+      "elapsedMs": 8233.146586999996,
+      "afterRss": 1849110528
+    }
+  ],
+  "artifactPolicySamples": [
+    {
+      "rss": 824270848,
+      "stage": 6,
+      "threshold": 0.8,
+      "target": 64,
+      "candidates": 64,
+      "count": 64,
+      "skipped": 0,
+      "elapsedMs": 3605.722058999996,
+      "afterRss": 918511616
+    },
+    {
+      "rss": 919035904,
+      "stage": 6,
+      "threshold": 0.8,
+      "target": 64,
+      "candidates": 64,
+      "count": 64,
+      "skipped": 0,
+      "elapsedMs": 3785.607090999998,
+      "afterRss": 1008558080
+    },
+    {
+      "rss": 1008951296,
+      "stage": 7,
+      "threshold": 0.9,
+      "target": 128,
+      "candidates": 128,
+      "count": 128,
+      "skipped": 0,
+      "elapsedMs": 7383.679108000004,
+      "afterRss": 1189568512
+    },
+    {
+      "rss": 1189568512,
+      "stage": 8,
+      "threshold": 1,
+      "target": 512,
+      "candidates": 512,
+      "count": 509,
+      "skipped": 3,
+      "elapsedMs": 36151.950126,
+      "afterRss": 1805033472
+    },
+    {
+      "rss": 1805033472,
+      "stage": 8,
+      "threshold": 1,
+      "target": 512,
+      "candidates": 512,
+      "count": 511,
+      "skipped": 1,
+      "elapsedMs": 34958.597826,
+      "afterRss": 2192523264
+    },
+    {
+      "rss": 2192523264,
+      "stage": 8,
+      "threshold": 1,
+      "target": 512,
+      "candidates": 512,
+      "count": 505,
+      "skipped": 7,
+      "elapsedMs": 8585.251131000012,
+      "afterRss": 2177081344
+    },
+    {
+      "rss": 2176950272,
+      "stage": 8,
+      "threshold": 1,
+      "target": 512,
+      "candidates": 512,
+      "count": 506,
+      "skipped": 6,
+      "elapsedMs": 5027.732388999997,
+      "afterRss": 2177495040
+    },
+    {
+      "rss": 2177495040,
+      "stage": 8,
+      "threshold": 1,
+      "target": 512,
+      "candidates": 512,
+      "count": 497,
+      "skipped": 15,
+      "elapsedMs": 4886.927215999996,
+      "afterRss": 2126999552
+    },
+    {
+      "rss": 2126999552,
+      "stage": 8,
+      "threshold": 1,
+      "target": 512,
+      "candidates": 512,
+      "count": 509,
+      "skipped": 3,
+      "elapsedMs": 1709.4926979999873,
+      "afterRss": 2173177856
+    },
+    {
+      "rss": 2154696704,
+      "stage": 8,
+      "threshold": 1,
+      "target": 512,
+      "candidates": 512,
+      "count": 512,
+      "skipped": 0,
+      "elapsedMs": 828.1520840000012,
+      "afterRss": 2180648960
+    }
+  ],
+  "byKey": {
+    "_id": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 47,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field04": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 50,
+        "drain": 184
+      },
+      "reads": {}
+    },
+    "field05": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 50,
+        "drain": 184
+      },
+      "reads": {}
+    },
+    "field06": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 50,
+        "drain": 184
+      },
+      "reads": {}
+    },
+    "field07": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 50,
+        "drain": 184
+      },
+      "reads": {}
+    },
+    "field08": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 50,
+        "drain": 184
+      },
+      "reads": {}
+    },
+    "field09": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 50,
+        "drain": 184
+      },
+      "reads": {}
+    },
+    "field10": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 50,
+        "drain": 184
+      },
+      "reads": {}
+    },
+    "field11": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 50,
+        "drain": 184
+      },
+      "reads": {}
+    },
+    "field12": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 50,
+        "drain": 184
+      },
+      "reads": {}
+    },
+    "field13": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field14": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field15": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field16": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field17": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field18": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field19": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 48,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field20": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 48,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field21": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 48,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field22": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 48,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field23": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field24": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field25": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field26": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field27": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field28": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field29": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field30": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field31": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field32": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field33": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 48,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field34": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 48,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field35": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 48,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field36": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field37": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field38": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 48,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "field39": {
+      "cold": 194,
+      "writes": {
+        "growth": 38,
+        "steady": 48,
+        "drain": 185
+      },
+      "reads": {}
+    },
+    "name": {
+      "cold": 1,
+      "writes": {
+        "growth": 1
+      },
+      "reads": {}
+    },
+    "parent": {
+      "cold": 194,
+      "writes": {
+        "growth": 39,
+        "steady": 49,
+        "drain": 184
+      },
+      "reads": {}
+    },
+    "payload": {
+      "cold": 193,
+      "writes": {
+        "growth": 37,
+        "steady": 49,
+        "drain": 182
+      },
+      "reads": {}
+    },
+    "rank": {
+      "cold": 4,
+      "writes": {
+        "growth": 4
+      },
+      "reads": {}
+    },
+    "reference": {
+      "cold": 3,
+      "writes": {
+        "growth": 3
+      },
+      "reads": {}
+    },
+    "revision": {
+      "cold": 196,
+      "writes": {
+        "growth": 38,
+        "steady": 49,
+        "drain": 186
+      },
+      "reads": {}
+    },
+    "scope": {
+      "cold": 194,
+      "writes": {
+        "growth": 39,
+        "steady": 49,
+        "drain": 184
+      },
+      "reads": {}
+    },
+    "score": {
+      "cold": 3,
+      "writes": {
+        "growth": 3
+      },
+      "reads": {}
+    },
+    "sequence": {
+      "cold": 1,
+      "writes": {
+        "steady": 1
+      },
+      "reads": {}
+    }
+  },
+  "operations": {
+    "growth.create": {
+      "count": 1563,
+      "p50Ms": 9.532633000002534,
+      "p95Ms": 14.088074000001143
+    },
+    "growth.equality": {
+      "count": 1563,
+      "p50Ms": 0.22475699999995413,
+      "p95Ms": 0.31740000000013424
+    },
+    "steady.equality": {
+      "count": 6000,
+      "p50Ms": 0.10927299999457318,
+      "p95Ms": 0.3269399999990128
+    },
+    "steady.range": {
+      "count": 1800,
+      "p50Ms": 0.14453499999945052,
+      "p95Ms": 0.8439980000111973
+    },
+    "steady.uuidRead": {
+      "count": 3000,
+      "p50Ms": 0.055881000007502735,
+      "p95Ms": 0.14846500000567175
+    },
+    "steady.update": {
+      "count": 600,
+      "p50Ms": 0.3269399999990128,
+      "p95Ms": 37.27934599999571
+    },
+    "steady.delete": {
+      "count": 600,
+      "p50Ms": 2.1360699999931967,
+      "p95Ms": 24.752135000002454
+    }
+  }
+}

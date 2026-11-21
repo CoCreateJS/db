@@ -1,0 +1,66 @@
+{
+  "benchmark": "cocreatedb-deferred-indexing-diagnostic",
+  "benchmarkVersion": 1,
+  "fixture": "residency diagnostic fixture v1",
+  "fixtureVersion": 1,
+  "runId": "2026-11-20T17-21-58.626Z",
+  "startedAt": "2026-11-20T17:21:58.626Z",
+  "sourceRevision": "3f3bb2f21f8fd2332b6f686bb50cfd8b1a553653",
+  "node": "v24.18.0",
+  "platform": "linux-x64",
+  "cpuCount": 2,
+  "datasetSize": 100,
+  "chunkSize": 250,
+  "deferIndex": true,
+  "updateCount": 100,
+  "deleteCount": 100,
+  "status": "passed",
+  "fixtureHash": "ea02329bb42f979a6f34adc85c17c39b8c9bf3bebce9878af340717004882110",
+  "createAcknowledgementMs": 78.609733,
+  "createChunkLatencyMs": {
+    "p50": 78.609733,
+    "p95": 78.609733,
+    "p99": 78.609733
+  },
+  "pendingAfterCreate": 100,
+  "createAcknowledgementMemory": {
+    "rss": 64212992,
+    "heapTotal": 17281024,
+    "heapUsed": 10190808,
+    "external": 2615608,
+    "arrayBuffers": 174151
+  },
+  "createIndexDrainMs": 245.28972999999996,
+  "pendingAfterCreateDrain": 0,
+  "updateAcknowledgementMs": 99.18188599999974,
+  "updateLatencyMs": {
+    "p50": 0.37602400000002945,
+    "p95": 3.469740999999999,
+    "p99": 5.302534000000037
+  },
+  "pendingAfterUpdate": 100,
+  "updateIndexDrainMs": 80.22784899999999,
+  "pendingAfterUpdateDrain": 0,
+  "deleteAcknowledgementMs": 173.0213410000007,
+  "deleteLatencyMs": {
+    "p50": 0.6350440000001072,
+    "p95": 6.478585000000066,
+    "p99": 8.712669000000005
+  },
+  "pendingAfterDelete": 1,
+  "deleteIndexDrainMs": 4.376684999999952,
+  "pendingAfterDeleteDrain": 0,
+  "totalElapsedMs": 734.765497,
+  "cpuUsageUs": {
+    "user": 321290,
+    "system": 38189
+  },
+  "memory": {
+    "rss": 78815232,
+    "heapTotal": 19116032,
+    "heapUsed": 13194720,
+    "external": 2627376,
+    "arrayBuffers": 185879
+  },
+  "completedAt": "2026-11-20T17:21:59.374Z"
+}

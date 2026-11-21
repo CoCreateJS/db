@@ -1,0 +1,993 @@
+{
+  "status": "passed",
+  "benchmark": "couchbase-standard-single-node-loopback",
+  "benchmarkVersion": 1,
+  "fixture": "shared lifecycle fixture v3",
+  "fixtureVersion": "3.0.0",
+  "runIndex": 3,
+  "datasetSize": 1000,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "environment": {
+    "date": "2026-11-20T12:32:25.132Z",
+    "node": "v24.18.0",
+    "platform": "linux-x64",
+    "release": "7.0.0-1017-aws",
+    "os": "#18~24.04.1-Ubuntu SMP PREEMPT Thu Oct 29 17:57:24 UTC 2026",
+    "cpuModel": "AMD EPYC 7571",
+    "cpuCount": 2,
+    "totalMemoryBytes": 8218963968,
+    "freeMemoryBytesAtStart": 5066854400,
+    "serverVersion": "8.0.2",
+    "driverVersion": "4.7.2",
+    "processModel": "single-node Couchbase Server plus Node SDK over loopback TCP",
+    "persistence": "Couchbase Couchstore bucket on local filesystem; benchmark bucket deleted after each run",
+    "durability": "single node, replicaNumber=0, default SDK durability (none), no transactions",
+    "transport": "Couchbase binary KV and SQL++ query protocols over loopback TCP"
+  },
+  "sourceRevision": "3f3bb2f21f8fd2332b6f686bb50cfd8b1a553653",
+  "startedAt": "2026-11-20T12:32:25.140Z",
+  "configuration": {
+    "deployment": "single local Couchbase Community node",
+    "storageBackend": "couchstore",
+    "bucketQuotaMiB": 512,
+    "replicaNumber": 0,
+    "durability": "none",
+    "maxParallelBulkOps": 1000,
+    "indexDefinitions": [
+      "group+uuid",
+      "profile.team+uuid",
+      "rank",
+      "group+active+uuid",
+      "bulkDelete"
+    ],
+    "uuidLookup": "Couchbase document key equals record.uuid; KV Get does not use a secondary index"
+  },
+  "bucketName": "cdb10003yljjq",
+  "readinessMs": 22.954921000000013,
+  "couchbaseServerVersion": "8.0.2-5503-community",
+  "indexStorageMode": "forestdb",
+  "serverMemory": {
+    "idle": {
+      "processes": 29,
+      "rssBytes": 1044684800,
+      "peakRssBytes": 1126494208,
+      "cpuTicks": 21193
+    },
+    "loaded": {
+      "processes": 29,
+      "rssBytes": 1060003840,
+      "peakRssBytes": 1130184704,
+      "cpuTicks": 21926
+    },
+    "peakRssBytes": 1130184704
+  },
+  "indexSetupMs": 14326.207752,
+  "indexReadyMs": 15.372534000000087,
+  "firstObjectCreateMs": 6.358077999999296,
+  "fixtureHash": "bc4f84465e1e80b84bf541e527e39516776dc4bc07afb233c45b825b29a846ac",
+  "createAndIndexMs": 473.9688330000008,
+  "createRecordsPerSecond": 2109.8433702285197,
+  "indexCreationAndMaintenance": {
+    "indexSetupMs": 14326.207752,
+    "indexReadyMs": 15.372534000000087,
+    "incrementalMaintainedDuringInsert": true,
+    "definitions": [
+      "CREATE INDEX group_uuid ON `cdb10003yljjq`.`bench_scope`.`records`(`group`, uuid)",
+      "CREATE INDEX profile_team_uuid ON `cdb10003yljjq`.`bench_scope`.`records`(profile.team, uuid)",
+      "CREATE INDEX rank_idx ON `cdb10003yljjq`.`bench_scope`.`records`(rank)",
+      "CREATE INDEX group_active_uuid ON `cdb10003yljjq`.`bench_scope`.`records`(`group`, active, uuid)",
+      "CREATE INDEX bulk_delete ON `cdb10003yljjq`.`bench_scope`.`records`(bulkDelete)"
+    ]
+  },
+  "databaseStats": {
+    "quotaPercentUsed": 1.014092564582825,
+    "opsPerSec": 0,
+    "diskFetches": 0,
+    "itemCount": 0,
+    "diskUsed": 0,
+    "dataUsed": 186112,
+    "memUsed": 5444368,
+    "vbActiveNumNonResident": 0
+  },
+  "clientMemory": {
+    "idle": {
+      "rss": 132644864,
+      "heapTotal": 34988032,
+      "heapUsed": 24039648,
+      "external": 5127858,
+      "arrayBuffers": 1210221
+    },
+    "loaded": {
+      "rss": 132775936,
+      "heapTotal": 33677312,
+      "heapUsed": 14568272,
+      "external": 4745044,
+      "arrayBuffers": 827367
+    },
+    "final": {
+      "rss": 159174656,
+      "heapTotal": 54374400,
+      "heapUsed": 23211768,
+      "external": 5533481,
+      "arrayBuffers": 1286130
+    },
+    "peakRssBytes": 159174656
+  },
+  "indexCatchupMs": 317.65965700000015,
+  "queryPlans": {
+    "equality": [
+      {
+        "plan": {
+          "#operator": "Sequence",
+          "~children": [
+            {
+              "#operator": "Sequence",
+              "~children": [
+                {
+                  "#operator": "IndexScan3",
+                  "as": "r",
+                  "bucket": "cdb10003yljjq",
+                  "index": "group_uuid",
+                  "index_id": "845a75d11b88aec9",
+                  "index_order": [
+                    {
+                      "keypos": 1
+                    }
+                  ],
+                  "index_projection": {
+                    "primary_key": true
+                  },
+                  "keyspace": "records",
+                  "limit": "100",
+                  "namespace": "default",
+                  "scope": "bench_scope",
+                  "spans": [
+                    {
+                      "exact": true,
+                      "range": [
+                        {
+                          "high": "$v",
+                          "inclusion": 3,
+                          "index_key": "`group`",
+                          "low": "$v"
+                        }
+                      ]
+                    }
+                  ],
+                  "using": "gsi"
+                },
+                {
+                  "#operator": "Fetch",
+                  "as": "r",
+                  "bucket": "cdb10003yljjq",
+                  "keyspace": "records",
+                  "namespace": "default",
+                  "scope": "bench_scope"
+                },
+                {
+                  "#operator": "Parallel",
+                  "maxParallelism": 1,
+                  "~child": {
+                    "#operator": "Sequence",
+                    "~children": [
+                      {
+                        "#operator": "Filter",
+                        "condition": "((`r`.`group`) = $v)"
+                      },
+                      {
+                        "#operator": "InitialProject",
+                        "preserve_order": true,
+                        "result_terms": [
+                          {
+                            "expr": "`r`",
+                            "star": true
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "#operator": "Limit",
+              "expr": "100"
+            }
+          ]
+        },
+        "text": "SELECT r.* FROM `cdb10003yljjq`.`bench_scope`.`records` AS r WHERE r.`group` = $v ORDER BY r.uuid LIMIT 100"
+      }
+    ],
+    "nestedEquality": [
+      {
+        "plan": {
+          "#operator": "Sequence",
+          "~children": [
+            {
+              "#operator": "Sequence",
+              "~children": [
+                {
+                  "#operator": "IndexScan3",
+                  "as": "r",
+                  "bucket": "cdb10003yljjq",
+                  "index": "profile_team_uuid",
+                  "index_id": "c2a0b4b11f6443ce",
+                  "index_order": [
+                    {
+                      "keypos": 1
+                    }
+                  ],
+                  "index_projection": {
+                    "primary_key": true
+                  },
+                  "keyspace": "records",
+                  "limit": "100",
+                  "namespace": "default",
+                  "scope": "bench_scope",
+                  "spans": [
+                    {
+                      "exact": true,
+                      "range": [
+                        {
+                          "high": "$v",
+                          "inclusion": 3,
+                          "index_key": "(`profile`.`team`)",
+                          "low": "$v"
+                        }
+                      ]
+                    }
+                  ],
+                  "using": "gsi"
+                },
+                {
+                  "#operator": "Fetch",
+                  "as": "r",
+                  "bucket": "cdb10003yljjq",
+                  "keyspace": "records",
+                  "namespace": "default",
+                  "scope": "bench_scope"
+                },
+                {
+                  "#operator": "Parallel",
+                  "maxParallelism": 1,
+                  "~child": {
+                    "#operator": "Sequence",
+                    "~children": [
+                      {
+                        "#operator": "Filter",
+                        "condition": "(((`r`.`profile`).`team`) = $v)"
+                      },
+                      {
+                        "#operator": "InitialProject",
+                        "preserve_order": true,
+                        "result_terms": [
+                          {
+                            "expr": "`r`",
+                            "star": true
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "#operator": "Limit",
+              "expr": "100"
+            }
+          ]
+        },
+        "text": "SELECT r.* FROM `cdb10003yljjq`.`bench_scope`.`records` AS r WHERE r.profile.team = $v ORDER BY r.uuid LIMIT 100"
+      }
+    ],
+    "numericRange": [
+      {
+        "plan": {
+          "#operator": "Sequence",
+          "~children": [
+            {
+              "#operator": "Sequence",
+              "~children": [
+                {
+                  "#operator": "IndexScan3",
+                  "as": "r",
+                  "bucket": "cdb10003yljjq",
+                  "index": "rank_idx",
+                  "index_id": "d26d5ff2d8bb667c",
+                  "index_order": [
+                    {
+                      "keypos": 0
+                    }
+                  ],
+                  "index_projection": {
+                    "primary_key": true
+                  },
+                  "keyspace": "records",
+                  "limit": "100",
+                  "namespace": "default",
+                  "scope": "bench_scope",
+                  "spans": [
+                    {
+                      "exact": true,
+                      "range": [
+                        {
+                          "high": "$hi",
+                          "inclusion": 1,
+                          "index_key": "`rank`",
+                          "low": "$lo"
+                        }
+                      ]
+                    }
+                  ],
+                  "using": "gsi"
+                },
+                {
+                  "#operator": "Fetch",
+                  "as": "r",
+                  "bucket": "cdb10003yljjq",
+                  "keyspace": "records",
+                  "namespace": "default",
+                  "scope": "bench_scope"
+                },
+                {
+                  "#operator": "Parallel",
+                  "maxParallelism": 1,
+                  "~child": {
+                    "#operator": "Sequence",
+                    "~children": [
+                      {
+                        "#operator": "Filter",
+                        "condition": "(($lo <= (`r`.`rank`)) and ((`r`.`rank`) < $hi))"
+                      },
+                      {
+                        "#operator": "InitialProject",
+                        "preserve_order": true,
+                        "result_terms": [
+                          {
+                            "expr": "`r`",
+                            "star": true
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "#operator": "Limit",
+              "expr": "100"
+            }
+          ]
+        },
+        "text": "SELECT r.* FROM `cdb10003yljjq`.`bench_scope`.`records` AS r WHERE r.rank >= $lo AND r.rank < $hi ORDER BY r.rank LIMIT 100"
+      }
+    ],
+    "and": [
+      {
+        "plan": {
+          "#operator": "Sequence",
+          "~children": [
+            {
+              "#operator": "Sequence",
+              "~children": [
+                {
+                  "#operator": "IndexScan3",
+                  "as": "r",
+                  "bucket": "cdb10003yljjq",
+                  "index": "group_active_uuid",
+                  "index_id": "cac678ea2ce0e0b1",
+                  "index_order": [
+                    {
+                      "keypos": 2
+                    }
+                  ],
+                  "index_projection": {
+                    "primary_key": true
+                  },
+                  "keyspace": "records",
+                  "limit": "100",
+                  "namespace": "default",
+                  "scope": "bench_scope",
+                  "spans": [
+                    {
+                      "exact": true,
+                      "range": [
+                        {
+                          "high": "$g",
+                          "inclusion": 3,
+                          "index_key": "`group`",
+                          "low": "$g"
+                        },
+                        {
+                          "high": "true",
+                          "inclusion": 3,
+                          "index_key": "`active`",
+                          "low": "true"
+                        }
+                      ]
+                    }
+                  ],
+                  "using": "gsi"
+                },
+                {
+                  "#operator": "Fetch",
+                  "as": "r",
+                  "bucket": "cdb10003yljjq",
+                  "keyspace": "records",
+                  "namespace": "default",
+                  "scope": "bench_scope"
+                },
+                {
+                  "#operator": "Parallel",
+                  "maxParallelism": 1,
+                  "~child": {
+                    "#operator": "Sequence",
+                    "~children": [
+                      {
+                        "#operator": "Filter",
+                        "condition": "(((`r`.`group`) = $g) and ((`r`.`active`) = true))"
+                      },
+                      {
+                        "#operator": "InitialProject",
+                        "preserve_order": true,
+                        "result_terms": [
+                          {
+                            "expr": "`r`",
+                            "star": true
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "#operator": "Limit",
+              "expr": "100"
+            }
+          ]
+        },
+        "text": "SELECT r.* FROM `cdb10003yljjq`.`bench_scope`.`records` AS r WHERE r.`group` = $g AND r.active = TRUE ORDER BY r.uuid LIMIT 100"
+      }
+    ],
+    "or": [
+      {
+        "plan": {
+          "#operator": "Sequence",
+          "~children": [
+            {
+              "#operator": "Sequence",
+              "~children": [
+                {
+                  "#operator": "IndexScan3",
+                  "as": "r",
+                  "bucket": "cdb10003yljjq",
+                  "index": "group_uuid",
+                  "index_id": "845a75d11b88aec9",
+                  "index_keys": [
+                    "_index_key ((`r`.`uuid`))",
+                    "_index_key ((meta(`r`).`id`))"
+                  ],
+                  "index_projection": {
+                    "entry_keys": [
+                      1
+                    ],
+                    "primary_key": true
+                  },
+                  "keyspace": "records",
+                  "namespace": "default",
+                  "scope": "bench_scope",
+                  "spans": [
+                    {
+                      "exact": true,
+                      "range": [
+                        {
+                          "high": "$a",
+                          "inclusion": 3,
+                          "index_key": "`group`",
+                          "low": "$a"
+                        }
+                      ]
+                    },
+                    {
+                      "exact": true,
+                      "range": [
+                        {
+                          "high": "$b",
+                          "inclusion": 3,
+                          "index_key": "`group`",
+                          "low": "$b"
+                        }
+                      ]
+                    }
+                  ],
+                  "using": "gsi"
+                },
+                {
+                  "#operator": "Order",
+                  "flags": 7,
+                  "limit": "100",
+                  "sort_terms": [
+                    {
+                      "expr": "_index_key ((`r`.`uuid`))"
+                    }
+                  ]
+                },
+                {
+                  "#operator": "Fetch",
+                  "as": "r",
+                  "bucket": "cdb10003yljjq",
+                  "keyspace": "records",
+                  "namespace": "default",
+                  "scope": "bench_scope"
+                },
+                {
+                  "#operator": "Parallel",
+                  "maxParallelism": 1,
+                  "~child": {
+                    "#operator": "Sequence",
+                    "~children": [
+                      {
+                        "#operator": "Filter",
+                        "condition": "(((`r`.`group`) = $a) or ((`r`.`group`) = $b))"
+                      },
+                      {
+                        "#operator": "InitialProject",
+                        "preserve_order": true,
+                        "result_terms": [
+                          {
+                            "expr": "`r`",
+                            "star": true
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "#operator": "Limit",
+              "expr": "100"
+            }
+          ]
+        },
+        "text": "SELECT r.* FROM `cdb10003yljjq`.`bench_scope`.`records` AS r WHERE (r.`group` = $a OR r.`group` = $b) ORDER BY r.uuid LIMIT 100"
+      }
+    ]
+  },
+  "operations": {
+    "uuidRead": {
+      "firstOperationMs": 1.0553839999993215,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.4103429999995569,
+        "maxMs": 0.8556480000006559,
+        "meanMs": 0.4537966750002852,
+        "p50Ms": 0.42702400000052876,
+        "p95Ms": 0.6080000000001746,
+        "p99Ms": 0.8556480000006559,
+        "totalMs": 18.478494999999384,
+        "opsPerSecond": 2164.6784546036533
+      }
+    },
+    "equality": {
+      "firstOperationMs": 19.12736700000096,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 17.268275999998878,
+        "maxMs": 26.396444999998494,
+        "meanMs": 19.790410450000035,
+        "p50Ms": 19.1875489999984,
+        "p95Ms": 24.197143000001233,
+        "p99Ms": 26.396444999998494,
+        "totalMs": 793.1965510000009,
+        "opsPerSecond": 50.428862744764956
+      }
+    },
+    "nestedEquality": {
+      "firstOperationMs": 11.984483000000182,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 10.663570000000618,
+        "maxMs": 18.545478000000003,
+        "meanMs": 11.839738724999643,
+        "p50Ms": 11.543728000000556,
+        "p95Ms": 12.837131000000227,
+        "p99Ms": 18.545478000000003,
+        "totalMs": 474.46548899999834,
+        "opsPerSecond": 84.30539402203
+      }
+    },
+    "numericRange": {
+      "firstOperationMs": 18.126334000000497,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 15.797977999998693,
+        "maxMs": 26.995334999999614,
+        "meanMs": 18.763003299999582,
+        "p50Ms": 18.20724699999846,
+        "p95Ms": 25.980071999998472,
+        "p99Ms": 26.995334999999614,
+        "totalMs": 752.0136310000016,
+        "opsPerSecond": 53.19052521270045
+      }
+    },
+    "and": {
+      "firstOperationMs": 19.032704000001104,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 16.18303999999989,
+        "maxMs": 24.002736999998888,
+        "meanMs": 18.397810800000116,
+        "p50Ms": 18.0128509999995,
+        "p95Ms": 21.30833899999925,
+        "p99Ms": 24.002736999998888,
+        "totalMs": 737.0246789999983,
+        "opsPerSecond": 54.2722667771076
+      }
+    },
+    "or": {
+      "firstOperationMs": 21.350440999998682,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 18.991213000001153,
+        "maxMs": 49.02285800000027,
+        "meanMs": 22.87289574999995,
+        "p50Ms": 20.734070000002248,
+        "p95Ms": 31.810162999998283,
+        "p99Ms": 49.02285800000027,
+        "totalMs": 916.2374149999996,
+        "opsPerSecond": 43.65680700782124
+      }
+    },
+    "singleCreate": {
+      "firstOperationMs": 1.5455300000030547,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.4965570000022126,
+        "maxMs": 1.4236469999996189,
+        "meanMs": 0.9197347250003987,
+        "p50Ms": 0.8592879999996512,
+        "p95Ms": 1.406275999997888,
+        "p99Ms": 1.4236469999996189,
+        "totalMs": 36.969411999998556,
+        "opsPerSecond": 1081.975553195208
+      }
+    },
+    "singleKeyUpdate": {
+      "firstOperationMs": 3.251317000002018,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.5238070000013977,
+        "maxMs": 1.9574739999989106,
+        "meanMs": 0.7961539000001722,
+        "p50Ms": 0.6717219999991357,
+        "p95Ms": 1.232070999998541,
+        "p99Ms": 1.9574739999989106,
+        "totalMs": 31.957518000002892,
+        "opsPerSecond": 1251.661659081171
+      }
+    },
+    "indexedKeyUpdate": {
+      "firstOperationMs": 0.8217269999986456,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.5189570000002277,
+        "maxMs": 2.6894979999997304,
+        "meanMs": 0.9572648000000299,
+        "p50Ms": 0.8361770000010438,
+        "p95Ms": 1.6363230000024487,
+        "p99Ms": 2.6894979999997304,
+        "totalMs": 38.41221999999834,
+        "opsPerSecond": 1041.3352834072523
+      }
+    },
+    "numericIncrement": {
+      "firstOperationMs": 1.3708549999973911,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.5278270000017073,
+        "maxMs": 1.641834000001836,
+        "meanMs": 0.7427724000001945,
+        "p50Ms": 0.6779019999994489,
+        "p95Ms": 1.0088329999998678,
+        "p99Ms": 1.641834000001836,
+        "totalMs": 29.831007999997382,
+        "opsPerSecond": 1340.8866371529755
+      }
+    },
+    "singleDelete": {
+      "firstOperationMs": 1.6406739999983984,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 0.42347399999925983,
+        "maxMs": 1.3437839999969583,
+        "meanMs": 0.6395179250000183,
+        "p50Ms": 0.587920000001759,
+        "p95Ms": 0.9654709999995248,
+        "p99Ms": 1.3437839999969583,
+        "totalMs": 25.739283999999316,
+        "opsPerSecond": 1554.0447822869146
+      }
+    },
+    "filteredBulkDelete": {
+      "deleted": 25,
+      "elapsedMs": 31.707629000000452
+    }
+  },
+  "sustained": [
+    {
+      "mode": "read",
+      "concurrency": 1,
+      "durationTargetMs": 5000,
+      "operations": 11774,
+      "elapsedMs": 5000.4230370000005,
+      "opsPerSecond": 2354.6007833496824,
+      "latency": {
+        "samples": 11774,
+        "minMs": 0.32588100000066333,
+        "maxMs": 4.042842999999266,
+        "meanMs": 0.41994405231866544,
+        "p50Ms": 0.39544300000125077,
+        "p95Ms": 0.5053760000009788,
+        "p99Ms": 0.8633279999994556
+      },
+      "serverCpuMs": 1360,
+      "serverCpuUtilizationPercent": 27.197698873412335,
+      "clientCpuUsageUs": {
+        "user": 3172652,
+        "system": 1144557
+      },
+      "clientCpuUtilizationPercent": 86.33687526146,
+      "clientMemory": {
+        "rss": 141033472,
+        "heapTotal": 33677312,
+        "heapUsed": 19611480,
+        "external": 5126607,
+        "arrayBuffers": 1084884
+      },
+      "serverMemory": {
+        "processes": 29,
+        "rssBytes": 1062436864,
+        "peakRssBytes": 1132118016,
+        "cpuTicks": 22765
+      }
+    },
+    {
+      "mode": "write",
+      "concurrency": 1,
+      "durationTargetMs": 5000,
+      "operations": 6020,
+      "elapsedMs": 5000.688114999997,
+      "opsPerSecond": 1203.8343247087314,
+      "latency": {
+        "samples": 6020,
+        "minMs": 0.43318400000134716,
+        "maxMs": 6.563474999999016,
+        "meanMs": 0.8240934450166201,
+        "p50Ms": 0.7088539999967907,
+        "p95Ms": 1.4346070000028703,
+        "p99Ms": 2.7660500000019965
+      },
+      "serverCpuMs": 6140,
+      "serverCpuUtilizationPercent": 122.7831022211231,
+      "clientCpuUsageUs": {
+        "user": 2204728,
+        "system": 551915
+      },
+      "clientCpuUtilizationPercent": 55.1252734944859,
+      "clientMemory": {
+        "rss": 141164544,
+        "heapTotal": 34201600,
+        "heapUsed": 17867592,
+        "external": 5204731,
+        "arrayBuffers": 1150206
+      },
+      "serverMemory": {
+        "processes": 29,
+        "rssBytes": 1051422720,
+        "peakRssBytes": 1132793856,
+        "cpuTicks": 23379
+      }
+    },
+    {
+      "mode": "mixed",
+      "concurrency": 1,
+      "durationTargetMs": 5000,
+      "operations": 7404,
+      "elapsedMs": 5000.048646999996,
+      "opsPerSecond": 1480.7855928446543,
+      "latency": {
+        "samples": 7404,
+        "minMs": 0.34427100000175415,
+        "maxMs": 7.596778999999515,
+        "meanMs": 0.6688959454349095,
+        "p50Ms": 0.5846089999977266,
+        "p95Ms": 1.1272469999967143,
+        "p99Ms": 2.0640370000037365
+      },
+      "serverCpuMs": 5200,
+      "serverCpuUtilizationPercent": 103.99898815224475,
+      "clientCpuUsageUs": {
+        "user": 2526486,
+        "system": 698132
+      },
+      "clientCpuUtilizationPercent": 64.49173253413754,
+      "clientMemory": {
+        "rss": 141688832,
+        "heapTotal": 34463744,
+        "heapUsed": 23620448,
+        "external": 5135603,
+        "arrayBuffers": 1187719
+      },
+      "serverMemory": {
+        "processes": 29,
+        "rssBytes": 1044676608,
+        "peakRssBytes": 1132810240,
+        "cpuTicks": 23900
+      }
+    },
+    {
+      "mode": "read",
+      "concurrency": 8,
+      "durationTargetMs": 5000,
+      "operations": 26256,
+      "elapsedMs": 5000.6421649999975,
+      "opsPerSecond": 5250.525659238009,
+      "latency": {
+        "samples": 26256,
+        "minMs": 0.5327370000013616,
+        "maxMs": 4.791886999999406,
+        "meanMs": 0.9134582456581232,
+        "p50Ms": 0.8813690000024508,
+        "p95Ms": 1.3144929999980377,
+        "p99Ms": 1.6345839999994496
+      },
+      "serverCpuMs": 1470,
+      "serverCpuUtilizationPercent": 29.39622455469178,
+      "clientCpuUsageUs": {
+        "user": 4599517,
+        "system": 1045618
+      },
+      "clientCpuUtilizationPercent": 112.88820142962585,
+      "clientMemory": {
+        "rss": 144363520,
+        "heapTotal": 36024320,
+        "heapUsed": 23387336,
+        "external": 5101499,
+        "arrayBuffers": 1153615
+      },
+      "serverMemory": {
+        "processes": 29,
+        "rssBytes": 1045291008,
+        "peakRssBytes": 1133096960,
+        "cpuTicks": 24048
+      }
+    },
+    {
+      "mode": "write",
+      "concurrency": 8,
+      "durationTargetMs": 5000,
+      "operations": 9568,
+      "elapsedMs": 5003.841480000003,
+      "opsPerSecond": 1912.1309174646346,
+      "latency": {
+        "samples": 9568,
+        "minMs": 0.830376999998407,
+        "maxMs": 11.687582999998995,
+        "meanMs": 2.5736730293687238,
+        "p50Ms": 2.3262460000041756,
+        "p95Ms": 4.455115999997361,
+        "p99Ms": 6.888016000004427
+      },
+      "serverCpuMs": 6370,
+      "serverCpuUtilizationPercent": 127.30219423337921,
+      "clientCpuUsageUs": {
+        "user": 2724011,
+        "system": 372076
+      },
+      "clientCpuUtilizationPercent": 61.874202297871314,
+      "clientMemory": {
+        "rss": 158912512,
+        "heapTotal": 54112256,
+        "heapUsed": 21896128,
+        "external": 5412955,
+        "arrayBuffers": 1221471
+      },
+      "serverMemory": {
+        "processes": 29,
+        "rssBytes": 1045270528,
+        "peakRssBytes": 1133105152,
+        "cpuTicks": 24685
+      }
+    },
+    {
+      "mode": "mixed",
+      "concurrency": 8,
+      "durationTargetMs": 5000,
+      "operations": 12232,
+      "elapsedMs": 5002.936520000003,
+      "opsPerSecond": 2444.9640628260445,
+      "latency": {
+        "samples": 12232,
+        "minMs": 0.6914029999970808,
+        "maxMs": 11.814888000000792,
+        "meanMs": 2.0070367012753443,
+        "p50Ms": 1.8556010000029346,
+        "p95Ms": 3.2576269999990473,
+        "p99Ms": 4.966962999998941
+      },
+      "serverCpuMs": 5660,
+      "serverCpuUtilizationPercent": 113.13355620990365,
+      "clientCpuUsageUs": {
+        "user": 3159830,
+        "system": 420512
+      },
+      "clientCpuUtilizationPercent": 71.56480970100331,
+      "clientMemory": {
+        "rss": 159174656,
+        "heapTotal": 54374400,
+        "heapUsed": 23209864,
+        "external": 5533481,
+        "arrayBuffers": 1286130
+      },
+      "serverMemory": {
+        "processes": 29,
+        "rssBytes": 1040388096,
+        "peakRssBytes": 1133027328,
+        "cpuTicks": 25252
+      }
+    }
+  ],
+  "clientCpuUsageUs": {
+    "user": 20238748,
+    "system": 4477081
+  },
+  "totalElapsedMs": 51859.904056,
+  "databaseStatsFinal": {
+    "quotaPercentUsed": 1.215988397598267,
+    "opsPerSec": 3560.8,
+    "diskFetches": 0,
+    "itemCount": 1027,
+    "diskUsed": 13476992,
+    "dataUsed": 570131,
+    "memUsed": 6528288,
+    "vbActiveNumNonResident": 0
+  },
+  "serverResourceUsage": {
+    "idle": {
+      "processes": 29,
+      "rssBytes": 1044684800,
+      "peakRssBytes": 1126494208,
+      "cpuTicks": 21193
+    },
+    "final": {
+      "processes": 29,
+      "rssBytes": 1040551936,
+      "peakRssBytes": 1133027328,
+      "cpuTicks": 25252
+    }
+  },
+  "completedAt": "2026-11-20T12:33:17.019Z"
+}

@@ -80,9 +80,9 @@ for (const mode of manifest.modes) {
         ].join('\n'))
     }
 }
-const providerPath = resolve(here, '../redis.json')
+const providerPath = resolve(here, 'results/summary.json')
 const provider = await readJson(providerPath)
-const standardPath = resolve(here, '../cocreatedb.json')
+const standardPath = resolve(here, '../cocreatedb/results/summary.json')
 const cdb = await readJson(standardPath)
 const latestCdb = [...(cdb.standardized?.runs ?? [])].sort((a, b) => String(a.date).localeCompare(String(b.date))).at(-1)
 const comparisons = Object.fromEntries(manifest.modes.map(mode => [mode, Object.fromEntries(manifest.sizes.map(size => {
@@ -125,11 +125,11 @@ const lines = [
     '', '| Lane | Size | Same fixture hash | Redis UUID p50 ms | CoCreateDB UUID p50 ms | Redis load/index ms | CoCreateDB create/index ms |', '| --- | ---: | --- | ---: | ---: | ---: | ---: |',
     ...manifest.modes.flatMap(mode => manifest.sizes.map(size => { const item = comparisons[mode][size]; return `| ${mode} | ${Number(size).toLocaleString()} | ${item.fixtureHashMatches} | ${fmt(item.redisUuidReadP50Ms)} | ${fmt(item.cocreatedbUuidReadP50Ms)} | ${fmt(item.redisCreateAndIndexMs)} | ${fmt(item.cocreatedbCreateAndIndexMs)} |` })),
     '', '## Historical Redis project numbers', '',
-    'Any pre-existing provider figures remain under `historical` in `redis.json`; they are not merged with the shared-fixture measurements because the prior dataset and raw output are not equivalent.',
-    '', '## Raw results', '', `Manifest and individual runs: \`${directory}\`. Status: \`${JSON.stringify(manifest.summary)}\`. Provider data appended to [redis.json](../../providers/redis.json).`,
+    'Any pre-existing provider figures remain under `historical` in `results/summary.json`; they are not merged with the shared-fixture measurements because the prior dataset and raw output are not equivalent.',
+    '', '## Raw results', '', `Manifest and individual runs: \`${directory}\`. Status: \`${JSON.stringify(manifest.summary)}\`. Provider data appended to [summary.json](../summary.json).`,
     '', '## Reproduce', '', '```sh', 'npm ci --prefix test/benchmarks/providers/redis',
     'npm run benchmark --prefix test/benchmarks/providers/redis', '```', '',
-    'Redis 8.10.3 server packages are downloaded and checksum-verified by the runner into `~/.cache/cocreate-db-redis/8.10.3`; nothing is installed system-wide. Defaults are 1K, 10K and 100K documents, five independent trials, 40 samples, 10 warmups, 5-second sustained workloads, and concurrency 1 and 8. Override with positional sizes, `BENCH_RUNS`, `BENCH_SAMPLES`, `BENCH_WARMUPS`, `BENCH_SUSTAIN_MS`, `BENCH_CONCURRENCY`, `REDIS_BENCH_MODES` and `BENCH_OUTPUT_DIR`.',
+    'Redis 8.10.3 server packages are downloaded and checksum-verified by the runner into `~/.cache/cocreate-db-redis/8.10.3`; nothing is installed system-wide. Defaults are 10K, 100K and 1M documents, five independent trials, 40 samples, 10 warmups, 5-second sustained workloads, and concurrency 1 and 8. Override with positional standard sizes, `BENCH_RUNS`, `BENCH_SAMPLES`, `BENCH_WARMUPS`, `BENCH_SUSTAIN_MS`, `BENCH_STALL_MS`, `BENCH_CONCURRENCY`, `REDIS_BENCH_MODES` and `BENCH_OUTPUT_DIR`.',
     '', '## Failures', '', failed.length ? failed.map(item => `- ${item.mode} ${item.size} run ${item.runIndex}: ${item.failure?.message ?? item.reason ?? item.status}`).join('\n') : 'No failed trials.'
 ]
 await writeFile(join(directory, 'report.md'), `${lines.join('\n')}\n`)

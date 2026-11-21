@@ -3,57 +3,57 @@ import test from 'node:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ArtifactTier } from '../src/tree/artifacts.js'
+import { LeafTier } from '../src/tree/leaves.js'
 import { LocalTier } from '../src/tree/local.js'
 import { queryData } from '@cocreate/utils'
-import { createArtifact, attach, updateArtifact, type } from '../src/artifact.js'
+import { createLeaf, attach, updateLeaf, type } from '../src/leaf.js'
 import { Tree } from '../src/tree/index.js'
 import { queryTree } from '../src/tree/query.js'
 
-function indexedScope(records, artifacts = new Map()) {
-    const scope = { artifacts, tree: new Map() }
+function indexedRoot(records, leaves = new Map()) {
+    const root = { leaves, tree: new Map() }
     for (const record of records) {
-        const artifact = createArtifact(structuredClone(record))
-        scope.artifacts.set(artifact.uuid, artifact)
-        attach(artifact, entry => {
-            let types = scope.tree.get(entry.key)
-            if (!types) scope.tree.set(entry.key, types = new Map())
+        const leaf = createLeaf(structuredClone(record))
+        root.leaves.set(leaf.uuid, leaf)
+        attach(leaf, entry => {
+            let types = root.tree.get(entry.key)
+            if (!types) root.tree.set(entry.key, types = new Map())
             let tree = types.get(type(entry.value))
             if (!tree) types.set(type(entry.value), tree = new Tree(3))
             tree.insert(entry)
         })
     }
-    return scope
+    return root
 }
 
-test('artifact creation omits undefined values and indexes null', () => {
-    const artifact = createArtifact({ uuid: 'a', value: undefined, nested: { missing: undefined, nil: null } })
-    assert.equal(Object.hasOwn(artifact, 'value'), false)
-    assert.equal(Object.hasOwn(artifact.nested, 'missing'), false)
-    assert.equal(artifact.getIndex('nested.nil')?.value, null)
+test('leaf creation omits undefined values and indexes null', () => {
+    const leaf = createLeaf({ uuid: 'a', value: undefined, nested: { missing: undefined, nil: null } })
+    assert.equal(Object.hasOwn(leaf, 'value'), false)
+    assert.equal(Object.hasOwn(leaf.nested, 'missing'), false)
+    assert.equal(leaf.getIndex('nested.nil')?.value, null)
 })
 
-test('artifact updates remove undefined indexes and move type-changed entries', () => {
-    const scope = indexedScope([{ uuid: 'a', value: 2 }])
-    const artifact = scope.artifacts.get('a')
-    const entry = artifact.getIndex('value')
-    const numberTree = scope.tree.get('value').get('number')
-    assert.equal(entry.partition !== null, true)
+test('leaf updates remove undefined indexes and move type-changed entries', () => {
+    const root = indexedRoot([{ uuid: 'a', value: 2 }])
+    const leaf = root.leaves.get('a')
+    const entry = leaf.getIndex('value')
+    const numberTree = root.tree.get('value').get('number')
+    assert.equal(entry.index !== null, true)
 
-    updateArtifact(artifact, { value: '2' })
-    assert.equal(artifact.getIndex('value'), entry)
+    updateLeaf(leaf, { value: '2' })
+    assert.equal(leaf.getIndex('value'), entry)
     assert.equal(entry.value, '2')
-    assert.equal(entry.tree, scope.tree.get('value').get('string'))
+    assert.equal(entry.tree, root.tree.get('value').get('string'))
     assert.equal(numberTree.root.length, 0)
 
-    updateArtifact(artifact, { value: undefined })
-    assert.equal(Object.hasOwn(artifact, 'value'), false)
-    assert.equal(artifact.getIndex('value'), undefined)
-    assert.equal(entry.partition, null)
+    updateLeaf(leaf, { value: undefined })
+    assert.equal(Object.hasOwn(leaf, 'value'), false)
+    assert.equal(leaf.getIndex('value'), undefined)
+    assert.equal(entry.index, null)
 })
 
 test('indexed and full-scan query results match Utils semantics', () => {
-    const scope = indexedScope([
+    const root = indexedRoot([
         { uuid: 'a', value: 2, data: { x: 1 }, rows: [{ n: 4 }] },
         { uuid: 'b', value: '2', data: { x: 2 }, rows: [{ n: 5 }] },
         { uuid: 'c', value: [2], data: { x: 3 }, rows: [{ n: 6 }] },
@@ -75,64 +75,66 @@ test('indexed and full-scan query results match Utils semantics', () => {
     ]
 
     for (const query of queries) {
-        const expected = [...scope.artifacts.values()].filter(artifact => queryData(artifact, query))
-            .map(artifact => artifact.uuid).sort()
-        const actual = queryTree(scope, query).map(artifact => artifact.uuid).sort()
+        const expected = [...root.leaves.values()].filter(leaf => queryData(leaf, query))
+            .map(leaf => leaf.uuid).sort()
+        const actual = queryTree(root, query).map(leaf => leaf.uuid).sort()
         assert.deepEqual(actual, expected, JSON.stringify(query))
     }
 })
 
 test('ranges match numeric strings and unindexed arrays even when a numeric index exists', () => {
-    const scope = indexedScope([
+    const root = indexedRoot([
         { uuid: 'number', score: 20, active: true },
         { uuid: 'string', score: '20', active: true },
         { uuid: 'array', score: [20], active: true },
         { uuid: 'low', score: 5, active: true },
         { uuid: 'inactive', score: '30', active: false }
     ])
-    assert.deepEqual(queryTree(scope, { score: { $gt: 10 } }).map(o => o.uuid).sort(),
+    assert.deepEqual(queryTree(root, { score: { $gt: 10 } }).map(o => o.uuid).sort(),
         ['array', 'inactive', 'number', 'string'])
-    assert.deepEqual(queryTree(scope, { active: true, score: { $gt: 10 } }).map(o => o.uuid).sort(),
+    assert.deepEqual(queryTree(root, { active: true, score: { $gt: 10 } }).map(o => o.uuid).sort(),
         ['array', 'number', 'string'])
 })
 
-test('range coverage counts cold artifacts and skips cold entries outside the bounds', async t => {
+test('range coverage counts warm leaves and skips warm entries outside the bounds', async t => {
     const directory = await mkdtemp(join(tmpdir(), 'cocreatedb-range-'))
     t.after(() => rm(directory, { recursive: true, force: true }))
-    const artifacts = new ArtifactTier(new LocalTier(directory))
-    const scope = indexedScope([
-        { uuid: 'number', scope: 'object', score: 15 },
-        { uuid: 'unrelated', scope: 'object', score: 50 },
-        { uuid: 'cold', scope: 'object', score: '15' }
-    ], artifacts)
-    const cold = artifacts.get('cold')
-    const unrelated = artifacts.get('unrelated')
+    const leaves = new LeafTier(new LocalTier(directory))
+    const root = indexedRoot([
+        { uuid: 'number', root: 'object', score: 15 },
+        { uuid: 'unrelated', root: 'object', score: 50 },
+        { uuid: 'warm', root: 'object', score: '15' }
+    ], leaves)
+    const warm = leaves.get('warm')
+    const unrelated = leaves.get('unrelated')
     const query = { score: { $gte: 10, $lt: 20 } }
-    assert.equal(await cold.toDisk(), true)
-    assert.equal(artifacts.size, scope.tree.get('score').get('number').root.length)
-    assert.equal(artifacts.totalSize, 3)
-    const matches = queryTree(scope, query)
-    assert.deepEqual(matches.map(object => object.uuid), ['number', 'cold'])
-    assert.equal(matches[1], cold)
+    assert.equal(await warm.toDisk(), true)
+    assert.equal(leaves.size, root.tree.get('score').get('number').root.length)
+    assert.equal(leaves.totalSize, 3)
+    assert.equal(leaves.warm instanceof Map, false)
+    const matches = queryTree(root, query)
+    assert.deepEqual(matches.map(object => object.uuid), ['number', 'warm'])
+    assert.notEqual(matches[1], warm)
+    assert.equal(matches[1].getValue('score'), '15')
 
-    assert.equal(await cold.toDisk(), true)
+    assert.equal(await leaves.get('warm').toDisk(), true)
     assert.equal(await unrelated.toDisk(), true)
-    const reads = artifacts.reads
-    assert.deepEqual(queryTree(scope, query).map(object => object.uuid), ['number', 'cold'])
-    assert.equal(artifacts.reads - reads, 1)
-    assert.equal(artifacts.cold.has('unrelated'), true)
+    const reads = leaves.reads
+    assert.deepEqual(queryTree(root, query).map(object => object.uuid), ['number', 'warm'])
+    assert.equal(leaves.reads - reads, 1)
+    assert.equal(leaves.warm.has('unrelated'), true)
 })
 
-test('pending deletes cannot make a range index appear to cover every artifact', () => {
-    const scope = indexedScope([
+test('pending deletes cannot make a range index appear to cover every leaf', () => {
+    const root = indexedRoot([
         { uuid: 'number', score: 15 },
         { uuid: 'deleted', score: 16 },
         { uuid: 'string', score: '17' }
     ])
-    const deleted = scope.artifacts.get('deleted')
-    scope.artifacts.delete('deleted')
-    scope.pendingIndex = new Set([deleted])
-    assert.equal(scope.artifacts.size, scope.tree.get('score').get('number').root.length)
-    assert.deepEqual(queryTree(scope, { score: { $gte: 10, $lt: 20 } }).map(object => object.uuid),
+    const deleted = root.leaves.get('deleted')
+    root.leaves.delete('deleted')
+    root.pendingIndex = new Set([deleted])
+    assert.equal(root.leaves.size, root.tree.get('score').get('number').root.length)
+    assert.deepEqual(queryTree(root, { score: { $gte: 10, $lt: 20 } }).map(object => object.uuid),
         ['number', 'string'])
 })

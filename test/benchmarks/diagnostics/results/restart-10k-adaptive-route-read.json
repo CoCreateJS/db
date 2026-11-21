@@ -1,0 +1,20 @@
+{
+  "phase": "read",
+  "rootUuidsUnchanged": true,
+  "routeCount": 18,
+  "routeUuidsReused": true,
+  "directRead": {
+    "success": true,
+    "uuid": "00000000000000000000000000001388",
+    "rank": 5000
+  },
+  "indexedRead": {
+    "success": true,
+    "returned": 100,
+    "expected": 100,
+    "correct": true
+  },
+  "leafReads": 1030,
+  "branchReads": 20,
+  "sourceWorkingTreeDirty": true
+}

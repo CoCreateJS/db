@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-export const lifecycleScope = (size = 1) => ({
+export const lifecycleRoot = (size = 1) => ({
     organization_id: size.toString(16).padStart(24, '0'),
     storage: 'bench',
     database: 'app',
@@ -8,11 +8,11 @@ export const lifecycleScope = (size = 1) => ({
 })
 
 export function createLifecycleFixture(size) {
-    const organization_id = lifecycleScope(size).organization_id
+    const organization_id = lifecycleRoot(size).organization_id
     return Array.from({ length: size }, (_, rank) => createLifecycleRecord(rank, organization_id))
 }
 
-export function createLifecycleRecord(rank, organization_id = lifecycleScope(rank).organization_id) {
+export function createLifecycleRecord(rank, organization_id = lifecycleRoot(rank).organization_id) {
     return {
         uuid: rank.toString(16).padStart(32, '0'),
         _id: `item-${String(rank).padStart(6, '0')}`,
@@ -27,7 +27,7 @@ export function createLifecycleRecord(rank, organization_id = lifecycleScope(ran
 
 export const benchmarkUuid = rank => rank.toString(16).padStart(32, '0')
 
-export function createBenchmarkRecord(rank, size, organization_id = lifecycleScope(size).organization_id) {
+export function createBenchmarkRecord(rank, size, organization_id = lifecycleRoot(size).organization_id) {
     return {
         uuid: benchmarkUuid(rank),
         _id: `item-${String(rank).padStart(7, '0')}`,
@@ -48,7 +48,7 @@ export function createBenchmarkRecord(rank, size, organization_id = lifecycleSco
     }
 }
 
-export function* benchmarkRecords(size, organization_id = lifecycleScope(size).organization_id) {
+export function* benchmarkRecords(size, organization_id = lifecycleRoot(size).organization_id) {
     for (let rank = 0; rank < size; rank++)
         yield createBenchmarkRecord(rank, size, organization_id)
 }

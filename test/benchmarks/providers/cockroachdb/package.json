@@ -1,0 +1,14 @@
+{
+  "name": "@cocreate/db-benchmark-cockroachdb",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prebenchmark": "node prepare.mjs",
+    "benchmark": "node run.mjs",
+    "report": "node report.mjs"
+  },
+  "dependencies": {
+    "pg": "8.23.1"
+  }
+}

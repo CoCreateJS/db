@@ -143,9 +143,9 @@ for (const size of sizes) {
     ].join('\n'))
 }
 
-const providerPath = resolve(here, '../mongodb.json')
+const providerPath = resolve(here, 'results/summary.json')
 const provider = await readJson(providerPath)
-const cdbProvider = await readJson(resolve(here, '../cocreatedb.json'))
+const cdbProvider = await readJson(resolve(here, '../cocreatedb/results/summary.json'))
 const latestCdb = [...(cdbProvider.standardized?.runs ?? [])].sort((a, b) => String(a.date).localeCompare(String(b.date))).at(-1)
 const comparisons = []
 if (latestCdb) for (const size of sizes) {
@@ -240,7 +240,7 @@ const lines = [
     `- Workload policy: ${manifest.independentRunsRequested} independent runs/size; ${manifest.warmupCount} warmups and ${manifest.sampleCount} samples per operation; ${manifest.sustainedDurationMs} ms per sustained mode/concurrency; concurrency ${manifest.concurrencyLevels.join(', ')}.`,
     '- The same programmatic lifecycle v3 fixture and canonical JSON hash used by CoCreateDB are used here. Input creation and fixture hashing are excluded from measured insert/index time.',
     '- Queries and updates are checked against fixture-derived UUIDs/counts before timings are accepted. Read queries return at most 100 results and sort by UUID (numeric range sorts by rank).',
-    '- MongoDB uses explicit indexes over the fixture paths and compound keys needed to preserve the ordered query semantics; `_id_` is MongoDB’s built-in identity index. CoCreateDB automatically indexes artifact paths. The report records MongoDB’s complete index list and each winning query plan so query coverage can be audited.',
+    '- MongoDB uses explicit indexes over the fixture paths and compound keys needed to preserve the ordered query semantics; `_id_` is MongoDB’s built-in identity index. CoCreateDB automatically indexes leaf paths. The report records MongoDB’s complete index list and each winning query plan so query coverage can be audited.',
     '- This is a standalone `mongod` child process with a 1 GiB WiredTiger cache and temporary local WiredTiger files, accessed by the Node driver over loopback TCP. Write acknowledgement is `w:1,j:false`, read preference `primary`, read concern `local`; there is no replica set or transaction workload. This differs from CoCreateDB’s in-process memory-only setup and must not be described as the same durability or transport guarantee.',
     '- Client process and `mongod` CPU/RSS are recorded separately, including loaded-minus-idle RSS per fixture document. This first captured run includes client idle/loaded/final RSS but predates client peak-RSS instrumentation; client peak is therefore reported as unavailable. `mongod` peak is read from its process high-water RSS. Disk usage is reported; OS disk I/O counters were unavailable. Temporary files are deleted after each run. No production dependencies are changed.', '',
     '| Size | Runs | Fixture hash | Index setup ms | Create/index ms | Documents stored | Data + indexes | mongod loaded RSS |', '| ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |',
@@ -253,12 +253,12 @@ const lines = [
     ...(comparisonSections.length ? comparisonSections.flatMap(section => [section, '']) : ['No matching CoCreateDB size/hash summary was available.', '']),
     '## Historical MongoDB project numbers', '',
     historical ? `The existing historical summary is from ${historical.date}, ${historical.records} records, ${historical.samples} samples reported as a mean, and lacks raw provider outputs and a fixture hash. Keep it distinct from the new p50 measurements; it is not a controlled comparison.` : 'No historical provider summary is available.', '',
-    '| Historical metric | Historical mean ms | New 1K warm p50 ms |', '| --- | ---: | ---: |', ...historyRows, '',
+    '| Historical metric | Historical mean ms | New 10K warm p50 ms |', '| --- | ---: | ---: |', ...historyRows, '',
     '## Raw results and failures', '',
-    `Raw runs and manifest: \`${directory}\`. Counts: \`${JSON.stringify(manifest.summary)}\`. Provider summary appended to [mongodb.json](../../providers/mongodb.json), retaining historical values.`, '',
+    `Raw runs and manifest: \`${directory}\`. Counts: \`${JSON.stringify(manifest.summary)}\`. Provider summary appended to [summary.json](../summary.json), retaining historical values.`, '',
     '## Reproduce', '',
     '```sh', 'npm ci --prefix test/benchmarks/providers/mongodb', 'npm run benchmark --prefix test/benchmarks/providers/mongodb', '```', '',
-    'The runner defaults to 1,000, 10,000 and 100,000 documents. Override sizes or run policy with positional sizes, `BENCH_RUNS`, `BENCH_SAMPLES`, `BENCH_WARMUPS`, `BENCH_SUSTAIN_MS`, `BENCH_CONCURRENCY` and `BENCH_OUTPUT_DIR`. MongoDB server 9.0.8 is pinned in the adapter; MongoDB binary downloads are cached outside the repository. This adapter is for the initial single-node baseline only; replication and durability comparisons are future work.'
+    'The standard runner defaults to 10,000, 100,000 and 1,000,000 documents. Override run policy with `BENCH_RUNS`, `BENCH_SAMPLES`, `BENCH_WARMUPS`, `BENCH_SUSTAIN_MS`, `BENCH_STALL_MS`, `BENCH_CONCURRENCY` and `BENCH_OUTPUT_DIR`. MongoDB server 9.0.8 is pinned in the adapter; MongoDB binary downloads are cached outside the repository. This adapter is for the initial single-node baseline only; replication and durability comparisons are future work.'
 ]
 await writeFile(join(directory, 'report.md'), `${lines.join('\n')}\n`)
 console.log(`report=${join(directory, 'report.md')}`)

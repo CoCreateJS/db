@@ -8,7 +8,9 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { MongoClient } from 'mongodb'
 import { MongoMemoryServer } from 'mongodb-memory-server'
-import { benchmarkUuid, createBenchmarkRecord, lifecycleScope } from '../../../fixtures/lifecycle.mjs'
+import { benchmarkUuid, createBenchmarkRecord, lifecycleRoot } from '../../../fixtures/lifecycle.mjs'
+import { launch as launchChild } from '../../shared/child-process.mjs'
+import { createProgressReporter, expectedUuids as getExpectedUuids, parseStandardSizes, standardWorkloads } from '../../shared/workloads.mjs'
 
 const script = fileURLToPath(import.meta.url)
 const here = dirname(script)
@@ -66,12 +68,7 @@ const median = values => {
     const mid = sorted.length >> 1
     return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
-const expectedIds = (size, predicate, limit = Infinity) => {
-    const ids = []
-    for (let rank = 0; rank < size && ids.length < limit; rank++)
-        if (predicate(rank)) ids.push(benchmarkUuid(rank))
-    return ids
-}
+const expectedIds = (size, predicate, limit = 100) => getExpectedUuids(size, predicate, limit)
 const verifyIds = (documents, expected, label) => {
     assert.deepEqual(documents.map(document => document.uuid), expected, `${label} result UUIDs`)
 }
@@ -182,7 +179,7 @@ async function sustained(collection, ids, { durationMs, concurrency, mode, pid }
 
 async function runOne(size, runIndex, outputFile, settings) {
     const environment = recordEnvironment()
-    const scope = lifecycleScope(size)
+    const root = lifecycleRoot(size)
     const result = {
         status: 'running', benchmark: 'mongodb-standard-single-node-local-loopback', benchmarkVersion: 1,
         fixture: 'shared lifecycle fixture v3', fixtureVersion: '3.0.0', runIndex, datasetSize: size,
@@ -238,11 +235,12 @@ async function runOne(size, runIndex, outputFile, settings) {
         let firstRecord = true
         let createAndIndexMs = 0
         const chunkSize = 1000
+        const reportProgress = createProgressReporter('mongodb', size)
         for (let offset = 0; offset < size; offset += chunkSize) {
             const records = []
             const end = Math.min(size, offset + chunkSize)
             for (let rank = offset; rank < end; rank++) {
-                const record = createBenchmarkRecord(rank, size, scope.organization_id)
+                const record = createBenchmarkRecord(rank, size, root.organization_id)
                 if (!firstRecord) fixtureHash.update(',')
                 fixtureHash.update(JSON.stringify(record))
                 firstRecord = false
@@ -251,6 +249,7 @@ async function runOne(size, runIndex, outputFile, settings) {
             const createStart = performance.now()
             await collection.insertMany(records, { ordered: true })
             createAndIndexMs += performance.now() - createStart
+            reportProgress(end)
         }
         fixtureHash.update(']')
         result.fixtureHash = fixtureHash.digest('hex')
@@ -273,12 +272,13 @@ async function runOne(size, runIndex, outputFile, settings) {
         result.clientMemory = { idle: clientMemoryIdle, loaded: process.memoryUsage() }
 
         const find = (query, sort = { uuid: 1 }, limit = 100) => collection.find(query).sort(sort).limit(limit).toArray()
+        const workload = standardWorkloads(size)
         const queries = [
-            { key: 'equality', query: { group: 'group-3' }, expected: expectedIds(size, rank => rank % 10 === 3, 100), sort: { uuid: 1 } },
-            { key: 'nestedEquality', query: { 'profile.team': 'team-7' }, expected: expectedIds(size, rank => rank % 20 === 7, 100), sort: { uuid: 1 } },
-            { key: 'numericRange', query: { rank: { $gte: Math.floor(size * 0.4), $lt: Math.floor(size * 0.6) } }, expected: expectedIds(size, rank => rank >= Math.floor(size * 0.4) && rank < Math.floor(size * 0.6), 100), sort: { rank: 1 } },
-            { key: 'and', query: { group: 'group-4', active: true }, expected: expectedIds(size, rank => rank % 10 === 4 && rank % 2 === 0, 100), sort: { uuid: 1 } },
-            { key: 'or', query: { $or: [{ group: 'group-1' }, { group: 'group-8' }] }, expected: expectedIds(size, rank => rank % 10 === 1 || rank % 10 === 8, 100), sort: { uuid: 1 } }
+            { key: 'equality', query: { group: workload.equality.value }, expected: expectedIds(size, workload.equality.matches), sort: { uuid: 1 } },
+            { key: 'nestedEquality', query: { 'profile.team': workload.nestedEquality.value }, expected: expectedIds(size, workload.nestedEquality.matches), sort: { uuid: 1 } },
+            { key: 'numericRange', query: { rank: { $gte: workload.numericRange.lower, $lt: workload.numericRange.upper } }, expected: expectedIds(size, workload.numericRange.matches), sort: { rank: 1 } },
+            { key: 'and', query: { group: workload.and.group, active: workload.and.active }, expected: expectedIds(size, workload.and.matches), sort: { uuid: 1 } },
+            { key: 'or', query: { $or: workload.or.groups.map(group => ({ group })) }, expected: expectedIds(size, workload.or.matches), sort: { uuid: 1 } }
         ]
         verifyIds(await find({ uuid: benchmarkUuid(Math.floor(size / 2)) }), [benchmarkUuid(Math.floor(size / 2))], 'correctness UUID lookup')
         for (const query of queries) verifyIds(await find(query.query, query.sort), query.expected, `correctness ${query.key}`)
@@ -302,7 +302,7 @@ async function runOne(size, runIndex, outputFile, settings) {
             () => find(query.query, query.sort), documents => verifyIds(documents, query.expected, query.key), settings)
 
         let createRank = size + 1000 + runIndex * (settings.warmups + settings.samples + 100)
-        result.operations.singleCreate = await measure(() => collection.insertOne(createBenchmarkRecord(createRank++, size, scope.organization_id)), value => assert.equal(value.insertedId != null, true), settings)
+        result.operations.singleCreate = await measure(() => collection.insertOne(createBenchmarkRecord(createRank++, size, root.organization_id)), value => assert.equal(value.insertedId != null, true), settings)
 
         let updateRank = Math.floor(size / 4)
         result.operations.singleKeyUpdate = await measure((stage, index) => collection.updateOne(
@@ -320,7 +320,7 @@ async function runOne(size, runIndex, outputFile, settings) {
         const deleteIds = []
         const deleteRecords = []
         for (let index = 0; index < settings.warmups + settings.samples + 1; index++) {
-            const record = createBenchmarkRecord(deleteOffset + index, size, scope.organization_id)
+            const record = createBenchmarkRecord(deleteOffset + index, size, root.organization_id)
             deleteIds.push(record.uuid)
             deleteRecords.push(record)
         }
@@ -376,19 +376,10 @@ async function runOne(size, runIndex, outputFile, settings) {
     }
 }
 
-function launch(args) {
-    return new Promise(resolvePromise => {
-        const child = spawn(process.execPath, args, { cwd: here, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
-        let stdout = '', stderr = ''
-        child.stdout.on('data', chunk => { stdout += chunk.toString() })
-        child.stderr.on('data', chunk => { stderr = (stderr + chunk.toString()).slice(-10000) })
-        child.on('error', error => resolvePromise({ code: null, signal: null, stdout, stderr: `${stderr}\n${error.message}` }))
-        child.on('close', (code, signal) => resolvePromise({ code, signal, stdout, stderr }))
-    })
-}
+const launch = args => launchChild(args, { cwd: here })
 
 async function orchestrate() {
-    const sizes = (process.argv[2] ?? '1000,10000,100000').split(',').map(Number)
+    const sizes = parseStandardSizes(process.argv[2])
     const runs = Number(process.env.BENCH_RUNS ?? 5)
     const samples = Math.max(40, Number(process.env.BENCH_SAMPLES ?? 40))
     const warmups = Math.max(10, Number(process.env.BENCH_WARMUPS ?? 10))
@@ -397,7 +388,7 @@ async function orchestrate() {
     if (!sizes.length || sizes.some(size => !Number.isSafeInteger(size) || size < 1)) throw Error('Dataset sizes must be positive integers')
     const started = new Date()
     const runId = started.toISOString().replaceAll(':', '-')
-    const output = resolve(process.env.BENCH_OUTPUT_DIR ?? join(benchmarkRoot, 'runs', `mongodb-standard-${runId}`))
+    const output = resolve(process.env.BENCH_OUTPUT_DIR ?? join(here, 'results', `standard-${runId}`))
     await mkdir(output, { recursive: true })
     const manifest = {
         suite: 'MongoDB comparison benchmark v1', provider: 'MongoDB', serverVersion,

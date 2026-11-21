@@ -1,0 +1,139 @@
+{
+  "suite": "CockroachDB comparison benchmark v1",
+  "provider": "CockroachDB",
+  "serverVersion": "26.3.5",
+  "driverVersion": "8.23.1",
+  "runId": "2026-11-20T14-11-38.139Z",
+  "startedAt": "2026-11-20T14:11:38.139Z",
+  "sizes": [
+    1000,
+    10000,
+    100000
+  ],
+  "independentRunsRequested": 5,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "resourcePolicy": "single isolated CockroachDB process; fresh SQL database per independent trial; server stops after suite",
+  "results": [
+    {
+      "size": 1000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-1000-run-01.json",
+      "elapsedMs": 38214.511429
+    },
+    {
+      "size": 1000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-1000-run-02.json",
+      "elapsedMs": 37699.897815
+    },
+    {
+      "size": 1000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-1000-run-03.json",
+      "elapsedMs": 38826.633716
+    },
+    {
+      "size": 1000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-1000-run-04.json",
+      "elapsedMs": 37923.772922000004
+    },
+    {
+      "size": 1000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-1000-run-05.json",
+      "elapsedMs": 37698.539697
+    },
+    {
+      "size": 10000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-10000-run-01.json",
+      "elapsedMs": 39472.102805
+    },
+    {
+      "size": 10000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-10000-run-02.json",
+      "elapsedMs": 39414.065184
+    },
+    {
+      "size": 10000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-10000-run-03.json",
+      "elapsedMs": 39263.019492
+    },
+    {
+      "size": 10000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-10000-run-04.json",
+      "elapsedMs": 38389.383089999996
+    },
+    {
+      "size": 10000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-10000-run-05.json",
+      "elapsedMs": 39476.688663
+    },
+    {
+      "size": 100000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-100000-run-01.json",
+      "elapsedMs": 55367.010969
+    },
+    {
+      "size": 100000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-100000-run-02.json",
+      "elapsedMs": 58318.664835
+    },
+    {
+      "size": 100000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-100000-run-03.json",
+      "elapsedMs": 58062.572909
+    },
+    {
+      "size": 100000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-100000-run-04.json",
+      "elapsedMs": 57404.258228
+    },
+    {
+      "size": 100000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-100000-run-05.json",
+      "elapsedMs": 57471.032832
+    }
+  ],
+  "serverStartupMs": 2917.4093810000004,
+  "serverVersionReported": "CockroachDB CCL v26.3.5 (x86_64-pc-linux-gnu, built 2026/11/03 21:06:15, go1.26.10)",
+  "storePath": "/home/ubuntu/.cache/cocreate-db-cockroach/26.3.5/store",
+  "completedAt": "2026-11-20T14:23:06.640Z",
+  "summary": {
+    "successfulRuns": 15,
+    "failedRuns": 0,
+    "notAttempted": 0
+  },
+  "serverStoppedAfterSuite": true
+}

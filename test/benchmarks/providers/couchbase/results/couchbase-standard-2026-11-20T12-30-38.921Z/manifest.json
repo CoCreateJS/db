@@ -1,0 +1,135 @@
+{
+  "suite": "Couchbase comparison benchmark v1",
+  "provider": "Couchbase",
+  "serverVersion": "8.0.2",
+  "driverVersion": "4.7.2",
+  "runId": "2026-11-20T12-30-38.921Z",
+  "startedAt": "2026-11-20T12:30:38.921Z",
+  "sizes": [
+    1000,
+    10000,
+    100000
+  ],
+  "independentRunsRequested": 5,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "resourcePolicy": "one persistent local Couchbase server; fresh bucket per independent run; 512 MiB bucket quota; no replicas",
+  "results": [
+    {
+      "size": 1000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-1000-run-01.json",
+      "elapsedMs": 51765.083455
+    },
+    {
+      "size": 1000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-1000-run-02.json",
+      "elapsedMs": 52252.366344
+    },
+    {
+      "size": 1000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-1000-run-03.json",
+      "elapsedMs": 51859.904056
+    },
+    {
+      "size": 1000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-1000-run-04.json",
+      "elapsedMs": 51627.790469
+    },
+    {
+      "size": 1000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-1000-run-05.json",
+      "elapsedMs": 52105.386798
+    },
+    {
+      "size": 10000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-10000-run-01.json",
+      "elapsedMs": 57421.091839
+    },
+    {
+      "size": 10000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-10000-run-02.json",
+      "elapsedMs": 57725.730817999996
+    },
+    {
+      "size": 10000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-10000-run-03.json",
+      "elapsedMs": 57551.433918
+    },
+    {
+      "size": 10000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-10000-run-04.json",
+      "elapsedMs": 57639.695316
+    },
+    {
+      "size": 10000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-10000-run-05.json",
+      "elapsedMs": 57673.075063000004
+    },
+    {
+      "size": 100000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-100000-run-01.json",
+      "elapsedMs": 106393.02849900001
+    },
+    {
+      "size": 100000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-100000-run-02.json",
+      "elapsedMs": 105108.347543
+    },
+    {
+      "size": 100000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-100000-run-03.json",
+      "elapsedMs": 107090.058758
+    },
+    {
+      "size": 100000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-100000-run-04.json",
+      "elapsedMs": 105835.14112599999
+    },
+    {
+      "size": 100000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-100000-run-05.json",
+      "elapsedMs": 105279.56694
+    }
+  ],
+  "completedAt": "2026-11-20T12:48:54.529Z",
+  "summary": {
+    "successfulRuns": 15,
+    "failedRuns": 0,
+    "notAttempted": 0
+  }
+}

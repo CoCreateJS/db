@@ -6,70 +6,70 @@
 
 ## Abstract
 
-CoCreateDB is a JavaScript-native database engine built around living artifacts, stable UUID identity and independently usable indexing primitives. It separates logical structure and in-memory execution from physical persistence, network distribution, security and ownership.
+CoCreateDB is a JavaScript-native database engine built around living leaves, stable UUID identity and independently usable indexing primitives. It separates logical structure and Hot/Warm local execution from external persistence, network distribution, security and ownership.
 
 Rather than requiring every deployment to adopt a fixed storage engine or replication topology, CoCreateDB enables applications to compose these capabilities through external workflows. A local engine can operate independently; a distributed application can use the same CRUD interface while acquiring, persisting and synchronizing data through authorized infrastructure.
 
-This architecture aims to reduce duplicated traversal, memory residency and application orchestration while allowing data to remain portable across providers and compute environments. The current engine implements local memory operations and runtime indexing. Durable persistence, distributed acquisition, reconciliation and cryptographic policies are integration designs or research directions, not claims of completed functionality or certification.
+This architecture aims to reduce duplicated traversal, memory residency and application orchestration while allowing data to remain portable across providers and compute environments. The current engine implements adaptive Hot memory, Warm local-disk storage and runtime indexing. Cool external Persistence, Cold archival storage, distributed acquisition, reconciliation and cryptographic policies are integration designs or research directions, not claims of completed functionality or certification.
 
 **Your data is not trapped inside a database. Your data is the database.**
 
 ## 1. Architectural philosophy
 
-A database should be defined by its logical relationships rather than the location of its bytes. CoCreateDB separates five responsibilities: logical structure, indexing, durable persistence, communication, and security. The engine owns the first two. The remaining responsibilities can be composed independently without introducing provider-specific behavior into the engine.
+A database should be defined by its logical relationships rather than the location of its bytes. CoCreateDB separates logical structure, indexing, local Hot/Warm residency, external persistence, communication and security. The engine owns local CRUD, indexes and Hot/Warm state; Cool Persistence and Cold archive providers are composed externally without provider-specific behavior in the engine.
 
 This separation permits an embedded application, a primary/worker runtime and a geographically distributed application to share the same data model. It does not eliminate the cost of persistence or consistency; it makes those policies explicit and independently selectable.
 
-## 2. Living artifacts and universal identity
+## 2. Living leaves and universal identity
 
-An artifact is a live JavaScript object addressed by an immutable UUID. The engine maintains a UUID-keyed Map. Index entries reference the original artifact directly rather than storing a second serialized copy or repeatedly resolving an address through the Map.
+An leaf is a live JavaScript object addressed by an immutable UUID. The engine maintains a UUID-keyed Map. Index entries reference the original leaf directly rather than storing a second serialized copy or repeatedly resolving an address through the Map.
 
-Application identity remains distinct from artifact identity. `_id`, `name`, or another application key can be indexed without replacing the UUID. A UUID is an address, not a credential, content hash or storage location. Creation must reject unrelated identity collisions.
+Application identity remains distinct from leaf identity. `_id`, `name`, or another application key can be indexed without replacing the UUID. A UUID is an address, not a credential, content hash or storage location. Creation must reject unrelated identity collisions.
 
 UUIDv7, standardized in [RFC 9562](https://www.rfc-editor.org/rfc/rfc9562.html#section-5.7), supplies time-ordered identifiers with a 48-bit millisecond timestamp and remaining version, variant and randomness/monotonicity fields. It is useful for ordering by encoded generation time, not a guarantee of global event ordering or conflict precedence. Generation and collision handling follow the shared utility contract; existing UUIDs must remain stable.
 
-A resident UUID resolves through an expected constant-time Map lookup, subject to request validation and any supplied scope constraints. Nonresident data must be acquired externally. Authorization must precede both paths.
+A Hot resident UUID resolves through an expected constant-time Map lookup, subject to request validation and supplied root constraints. If it is not Hot, the DB can hydrate it from Warm local disk; a local miss may then be handled by an external acquisition workflow. Authorization must precede each path.
 
 ## 3. Configurable logical structure
 
-Scopes define artifact categories, not physical directories. A default hierarchy is `$organization_id → storage → database → array → object/index`. The hierarchy is configurable; any `$`-prefixed scope obtains its name from the corresponding request property. No particular tenant model is hardcoded into the engine.
+Roots define leaf categories, not physical directories. A default hierarchy is `$organization_id → storage → database → array → object/index`. The hierarchy is configurable; any `$`-prefixed root obtains its name from the corresponding request property. No particular tenant model is hardcoded into the engine.
 
-Each structural artifact records its scope, name and immediate parent UUID. Configuration preserves these structural identities:
+Each structural leaf records its root, name and immediate parent UUID. Configuration preserves these structural identities:
 
 ```js
 {
     version: '1.0.0',
-    scopes: {
+    roots: {
         $organization_id: {
             storage: { database: { array: { object: {}, index: {} } } }
         }
     },
-    artifacts: {
-        uuid1: { scope: '$organization_id', name: 'organization-a' },
-        uuid2: { scope: 'storage', parent: 'uuid1', name: 'production' }
+    leaves: {
+        uuid1: { root: '$organization_id', name: 'organization-a' },
+        uuid2: { root: 'storage', parent: 'uuid1', name: 'production' }
     }
 }
 ```
 
-The UUID strings above are illustrative. Configuration transfer restores structural identities without a mandatory root index pointer or filesystem manifest. It is not a complete data backup. Consistent provisioning across nodes requires coordination when multiple nodes can independently create the same named structure. Full hydration remains an integration requirement.
+The UUID strings above are illustrative. Configuration transfer restores root definitions and structural leaf identities. It is not a complete data backup or a persisted index-branch catalog. Consistent provisioning across nodes requires coordination when multiple nodes can independently create the same named structure. Full hydration remains an integration requirement.
 
 ## 4. Independent indexing
 
 Indexing is a first-class primitive that can be used independently of higher-level CRUD and network behavior. Indexed keys are represented as flat paths; nested scalar fields use the same index access mechanism as top-level keys. The current implementation uses a type-specific tree per indexed key. A unified mixed-type tree remains an optimization/research direction.
 
-Runtime trees consist of ordered partitions with value boundaries and counts. Leaves group equal values and their live entries; branches group child partitions. Inserts split oversized partitions and removals prune empty partitions. Entries reference their owning objects and partitions, allowing maintenance without a separate durable segment lookup.
+Runtime trees begin at a root branch and contain child branches with ordered value boundaries and counts. Terminal branches group equal values and reference data leaves. Inserts split oversized branches and removals prune empty branches. Entries reference their owning leaves and branches, avoiding a separate durable segment lookup.
 
-**Runtime index partitions are not UUID-addressed persistent artifacts.** They are derived structures rebuilt from resident data. An explicitly modeled index-scope artifact is distinct from these internal partitions.
+**Index branches are separate from data leaves.** Branches organize references and ranges; leaves hold the complete records. The runtime root/parent branch catalog is not yet restored after restart.
 
 ### Query routing
 
-The engine uses compatible equality and range indexes, favors a smaller available candidate population and verifies candidates against actual object values. Boundaries can eliminate irrelevant partitions. Direct UUID requests bypass ordinary indexes. Nested keys do not require an equivalent depth of index traversal. Current planner behavior and limitations are described in [indexes](specifications/indexes.md).
+The engine uses compatible equality and range indexes, favors a smaller available candidate population and verifies candidates against actual object values. Boundaries can eliminate irrelevant branches. Direct UUID requests bypass ordinary indexes. Nested keys do not require an equivalent depth of index traversal. Current planner behavior and limitations are described in [indexes](specifications/indexes.md).
 
 Richer sorting, search, compound planning, mixed-type semantics and complete nested-array handling require further development. Partial local indexes cannot establish global query completeness.
 
 ## 5. Application value model
 
-A complete application object occupies one artifact. Keys participate in indexing without becoming separate durable objects. Applications can explicitly model independent referenced content when separate retention or acquisition is useful.
+A complete application object occupies one leaf. Keys participate in indexing without becoming separate durable objects. Applications can explicitly model independent referenced content when separate retention or acquisition is useful.
 
 ```js
 {
@@ -84,7 +84,7 @@ The target architecture preserves supported JavaScript values and binary content
 
 ## 6. Unified operation lifecycle
 
-The public operation interface is `db.send(request)`. A method such as `object.read` or `object.update` selects the configured scope and operation. Requests carry addressing, predicates and mutation instructions. Responses preserve the logical envelope and contain success or error information and the target scope result.
+The public operation interface is `db.send(request)`. A method such as `object.read` or `object.update` selects the configured root and operation. Requests carry addressing, predicates and mutation instructions. Responses preserve the logical envelope and contain success or error information and the target root result.
 
 Updates return applied changes and, for existing targets, resulting snapshots under `updated`. Persistence can consume the complete resulting object while communication uses the accepted operation. Create returns created objects; delete returns removed objects. See [CRUD](specifications/crud.md) for exact current semantics and exceptions.
 
@@ -100,9 +100,11 @@ This illustrates composition, not a built-in database callback or a finalized wo
 
 ## 7. Persistence and portability
 
-The current engine is memory-only. External workflows can persist complete objects and configuration to local filesystems, cloud object storage, databases, network storage or other compatible destinations. UUID identity is independent of filename, directory layout, provider or encoding. No provider-specific paths are mandated.
+The current engine uses Hot memory and Warm local disk. Adaptive mode is the default: its requested memory budget defaults to 25% of total system memory, capped by memory available at startup, and its weighted eviction policy moves eligible leaves and branches to Warm storage as pressure rises. This is a soft DB-residency target, not a hard cap on total process memory. `disk-first` remains available as an explicit mitigation mode and is also entered temporarily by adaptive handling at high pressure. `disk-cache` clears the DB-managed local base on startup. The default acknowledgement is `memory`; `disk` acknowledgement waits for affected Warm writes. Neither setting controls server ingress or guarantees transactional atomicity.
 
-A workflow can await durable completion or acknowledge an in-memory result and schedule persistence separately. Detached writes require stable snapshots, ordering, retry policy, backpressure, failure visibility and shutdown recovery. Late writes must not overwrite newer state. Reads need not trigger durable writes merely because they have been served.
+Warm local files are part of the DB's own working and recovery path. Cool external workflows can persist complete objects and configuration to cloud storage, databases, network storage or other compatible destinations; Cold archival storage is another external tier. UUID identity is independent of filename, directory layout, provider or encoding. No provider-specific paths are mandated.
+
+The default memory acknowledgement returns when the local Hot mutation is available while Warm writes continue separately. A workflow can await a Cool persistence provider when stronger external durability is required. Detached external writes require stable snapshots, ordering, retry policy, backpressure, failure visibility and shutdown recovery. Late writes must not overwrite newer state. Reads need not trigger external durable writes merely because they have been served.
 
 Portable exports require configuration, complete objects, necessary reconciliation metadata and a compatible codec. Moving durable bytes between providers does not itself ensure a consistent snapshot. Restoration must reconstruct the working set and runtime indexes while preserving UUIDs. See [persistence](specifications/persistence.md).
 
@@ -112,19 +114,19 @@ Storage independence creates opportunities to separate data custody from encrypt
 
 Granular protection may use object-specific keys or grouped security boundaries. A key-management service can enforce independent access rules. Portable keys must be transferred through authenticated, protected mechanisms; portability does not imply unrestricted export of secrets. Indexes, metadata, traffic patterns and identifiers may leak information even when persisted object contents are encrypted.
 
-NIST-aligned control mapping, encrypted querying, hardware-backed key management and multi-party recovery are research and deployment objectives, not certification or engine features. Authorization belongs before database access; dynamic scopes and UUIDs are not security boundaries on their own.
+NIST-aligned control mapping, encrypted querying, hardware-backed key management and multi-party recovery are research and deployment objectives, not certification or engine features. Authorization belongs before database access; dynamic roots and UUIDs are not security boundaries on their own.
 
 ## 9. Demand-driven distribution and acquisition
 
 Distributed deployment does not require the database engine to maintain peer inventories or advertise object locations. CRUD workflows choose sources using ordinary acquisition requests. IPC, Socket and Mesh own connection awareness, delivery and subscription lifecycle.
 
-Possible acquisition policies include local memory only, memory followed by persistence, memory followed by peers, persistence-first or peer-first after a local miss, and combinations of available sources. Selection can be sequential, parallel or recursive. Recursive routes must be bounded and prevent cycles; parallel requests need cancellation or safe late-response handling. First valid object responses can satisfy specific UUID lookups, but range and filter queries may require combining results or proving coverage.
+Possible acquisition policies include the local DB's Hot/Warm state, local state followed by Cool Persistence, local state followed by peers, Persistence-first or peer-first after a local miss, and combinations of available sources. Selection can be sequential, parallel or recursive. Recursive routes must be bounded and prevent cycles; parallel requests need cancellation or safe late-response handling. First valid object responses can satisfy specific UUID lookups, but range and filter queries may require combining results or proving coverage.
 
-An acquired artifact can be materialized locally without generating a second logical create. Intermediate peers may optionally retain results and establish interest. Full hydration and remote execution ownership remain integration requirements. See [distribution](specifications/distribution.md).
+An acquired leaf can be materialized locally without generating a second logical create. Intermediate peers may optionally retain results and establish interest. Full hydration and remote execution ownership remain integration requirements. See [distribution](specifications/distribution.md).
 
 ## 10. Distributed memory and ephemeral compute
 
-Memory-first execution allows the same live artifact to serve queries and application state without a separate application cache for every indexed value. In a primary/worker deployment the primary can own the artifact set while workers execute application computation and forward requests. A standalone instance can operate without IPC. Separate processes do not share ordinary JavaScript object references; transport introduces serialization, copies and latency.
+Hot execution allows the same live leaf to serve queries and application state without a separate application cache for every indexed value; Warm disk supplies recovery and offload. In a primary/worker deployment the primary can own the leaf set while workers execute application computation and forward requests. A standalone instance can operate without IPC. Separate processes do not share ordinary JavaScript object references; transport introduces serialization, copies and latency.
 
 Ephemeral nodes may eventually acquire their required working datasets from peers or durable sources without owning the entire database. Safe eviction must distinguish temporary working copies from required durable copies. A local miss is not evidence of global absence, and an interrupted acquisition is not a deletion.
 
@@ -138,9 +140,9 @@ Eventual consistency is a possible external deployment policy, not a guarantee o
 
 ## 12. Detachable data, recovery and storage tiering
 
-Stable artifact addresses allow an integration to move complete objects across physical locations without changing references. Cold data may be archived; frequently accessed data may remain in memory or nearby durable storage. Compute can be provisioned independently of storage ownership.
+Stable leaf addresses allow an integration to move complete objects across physical locations without changing references. Frequently accessed data may remain Hot in memory, Warm local-disk state supports recovery and offload, Cool external Persistence supplies provider-backed durability, and Cold storage can hold long-term archives. Compute can be provisioned independently of storage ownership.
 
-Reconnection of an unavailable object may restore an application relationship if identity, authorization and version are compatible. This is an architectural possibility, not automatic self-healing. Recovery must distinguish missing, deleted, stale and inaccessible artifacts. Backups must preserve structural identities and all data required by their recovery objective; index partitions can be rebuilt.
+Reconnection of an unavailable object may restore an application relationship if identity, authorization and version are compatible. This is an architectural possibility, not automatic self-healing. Recovery must distinguish missing, deleted, stale and inaccessible leaves. Backups must preserve structural identities and all data required by their recovery objective; index branches can be rebuilt.
 
 Tiering and archival policies must not discard the last required durable copy. Retention, jurisdiction, deletion, reference verification, garbage collection and key recovery are external lifecycle responsibilities.
 
@@ -168,13 +170,13 @@ Data sovereignty requires more than portable UUIDs: access control, legal jurisd
 
 Current limitations include complete hydration, sorting/search, richer value-type and nested-array semantics, atomic batches, concurrency and conflict handling, and external workflow integration. Update processing still clones and reconciles state; reducing traversal and allocation is an optimization target.
 
-Further work includes durable ordering, consistent snapshots, distributed deduplication, failure recovery, bounded acquisition, latency-aware routing, subscription cleanup, cryptographic control mapping, encrypted retrieval, large-content streaming and resource-aware placement. Evaluation should measure cold and warm operations, tail latency, throughput, memory per worker and node, failure scenarios and cost per equivalent workload.
+Further work includes durable ordering, consistent snapshots, distributed deduplication, failure recovery, bounded acquisition, latency-aware routing, subscription cleanup, cryptographic control mapping, encrypted retrieval, large-content streaming and resource-aware placement. Evaluation should measure Hot, Warm, Cool and Cold operations, tail latency, throughput, memory per worker and node, failure scenarios and cost per equivalent workload. DB eviction mitigates its own residency; server telemetry and network traffic management must control ingress pressure and whole-process OOM risk.
 
 The [specifications](specifications/README.md) define current contracts and outstanding requirements. This whitepaper explains their architectural motivation, not an alternative normative API.
 
 ## Conclusion
 
-CoCreateDB separates the database's logical structure from the infrastructure that persists, transports and protects it. Living artifacts and independent runtime indexing provide the foundation; external workflows enable deployments to choose how data is acquired, retained, synchronized and secured.
+CoCreateDB separates the database's logical structure from the infrastructure that persists, transports and protects it. Living leaves and independent runtime indexing provide the foundation; external workflows enable deployments to choose how data is acquired, retained, synchronized and secured.
 
 The objective is to make data available where it is needed without coupling its identity to a particular physical location or requiring every application to adopt the same distributed architecture.
 

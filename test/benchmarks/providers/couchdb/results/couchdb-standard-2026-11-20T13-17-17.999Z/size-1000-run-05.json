@@ -1,0 +1,827 @@
+{
+  "status": "passed",
+  "benchmark": "couchdb-mango-standard-single-node-loopback",
+  "benchmarkVersion": 1,
+  "fixture": "shared lifecycle fixture v3",
+  "fixtureVersion": "3.0.0",
+  "runIndex": 5,
+  "datasetSize": 1000,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "environment": {
+    "date": "2026-11-20T13:20:06.565Z",
+    "node": "v24.18.0",
+    "platform": "linux-x64",
+    "release": "7.0.0-1017-aws",
+    "os": "#18~24.04.1-Ubuntu SMP PREEMPT Thu Oct 29 17:57:24 UTC 2026",
+    "cpuModel": "AMD EPYC 7571",
+    "cpuCount": 2,
+    "totalMemoryBytes": 8218963968,
+    "freeMemoryBytesAtStart": 5434888192,
+    "couchdbServerVersion": "3.5.3",
+    "processModel": "single CouchDB server plus Node fetch client over loopback HTTP",
+    "persistence": "CouchDB database files under a user-cache directory; fresh database per trial",
+    "durability": "single standalone node; CouchDB default commit behavior; no replication or transactions",
+    "transport": "HTTP/1.1 JSON API over 127.0.0.1 loopback"
+  },
+  "sourceRevision": "3f3bb2f21f8fd2332b6f686bb50cfd8b1a553653",
+  "startedAt": "2026-11-20T13:20:06.573Z",
+  "processStartupMs": 2382.975673,
+  "configuration": {
+    "deployment": "single standalone CouchDB node",
+    "databasePath": "/home/ubuntu/.cache/cocreate-db-couchdb/3.5.3/data",
+    "appIdMapping": "fixture _id is stored as appId because CouchDB reserves _id for the document key; document key equals uuid",
+    "updateContract": "GET latest document revision then PUT the modified document; sustained updates likewise include the read",
+    "indexDefinitions": [
+      {
+        "name": "group_uuid",
+        "fields": [
+          "group",
+          "uuid"
+        ]
+      },
+      {
+        "name": "profile_team_uuid",
+        "fields": [
+          "profile.team",
+          "uuid"
+        ]
+      },
+      {
+        "name": "rank_idx",
+        "fields": [
+          "rank"
+        ]
+      },
+      {
+        "name": "group_active_uuid",
+        "fields": [
+          "group",
+          "active",
+          "uuid"
+        ]
+      },
+      {
+        "name": "bulk_delete",
+        "fields": [
+          "bulkDelete"
+        ]
+      },
+      {
+        "name": "fixture_uuid",
+        "fields": [
+          "uuid"
+        ]
+      }
+    ]
+  },
+  "database": "cdb-bench-1000-5-mwp0avfz",
+  "serverMemory": {
+    "idle": {
+      "processes": 5,
+      "rssBytes": 169287680,
+      "peakRssBytes": 189661184,
+      "cpuTicks": 19677
+    },
+    "loaded": {
+      "processes": 5,
+      "rssBytes": 187015168,
+      "peakRssBytes": 192688128,
+      "cpuTicks": 19771
+    },
+    "peakRssBytes": 192688128
+  },
+  "clientMemory": {
+    "idle": {
+      "rss": 56225792,
+      "heapTotal": 8368128,
+      "heapUsed": 6008792,
+      "external": 2463756,
+      "arrayBuffers": 143704
+    },
+    "loaded": {
+      "rss": 86290432,
+      "heapTotal": 19591168,
+      "heapUsed": 13142480,
+      "external": 5737085,
+      "arrayBuffers": 1767144
+    },
+    "final": {
+      "rss": 253308928,
+      "heapTotal": 174710784,
+      "heapUsed": 57588864,
+      "external": 5407172,
+      "arrayBuffers": 1407024
+    },
+    "peakRssBytes": 253308928
+  },
+  "indexSetupMs": 314.349093,
+  "firstObjectCreateMs": 15.53391099999999,
+  "fixtureHash": "bc4f84465e1e80b84bf541e527e39516776dc4bc07afb233c45b825b29a846ac",
+  "createAndIndexMs": 168.895801,
+  "createRecordsPerSecond": 5920.810310731171,
+  "indexCreationAndMaintenance": {
+    "indexSetupMs": 314.349093,
+    "indexesMaintainedDuringBulkIngest": true,
+    "indexes": [
+      {
+        "name": "group_uuid",
+        "fields": [
+          "group",
+          "uuid"
+        ],
+        "ddoc": "bench_group_uuid"
+      },
+      {
+        "name": "profile_team_uuid",
+        "fields": [
+          "profile.team",
+          "uuid"
+        ],
+        "ddoc": "bench_profile_team_uuid"
+      },
+      {
+        "name": "rank_idx",
+        "fields": [
+          "rank"
+        ],
+        "ddoc": "bench_rank_idx"
+      },
+      {
+        "name": "group_active_uuid",
+        "fields": [
+          "group",
+          "active",
+          "uuid"
+        ],
+        "ddoc": "bench_group_active_uuid"
+      },
+      {
+        "name": "bulk_delete",
+        "fields": [
+          "bulkDelete"
+        ],
+        "ddoc": "bench_bulk_delete"
+      },
+      {
+        "name": "fixture_uuid",
+        "fields": [
+          "uuid"
+        ],
+        "ddoc": "bench_fixture_uuid"
+      }
+    ]
+  },
+  "indexCatchupMs": 175.52638000000002,
+  "databaseStats": {
+    "docCount": 1007
+  },
+  "queryPlans": {
+    "equality": {
+      "index": {
+        "ddoc": "_design/bench_group_uuid",
+        "name": "group_uuid",
+        "type": "json",
+        "partitioned": false,
+        "def": {
+          "fields": [
+            {
+              "group": "asc"
+            },
+            {
+              "uuid": "asc"
+            }
+          ]
+        }
+      },
+      "selector": {
+        "group": {
+          "$eq": "group-3"
+        }
+      },
+      "opts": {
+        "use_index": [
+          "bench_group_uuid",
+          "group_uuid"
+        ],
+        "bookmark": "nil",
+        "limit": 100,
+        "skip": 0,
+        "sort": {
+          "uuid": "asc"
+        },
+        "fields": [
+          "uuid",
+          "_id"
+        ],
+        "partition": "",
+        "r": 1,
+        "conflicts": false,
+        "stale": false,
+        "update": true,
+        "stable": false,
+        "execution_stats": true,
+        "allow_fallback": false
+      }
+    },
+    "nestedEquality": {
+      "index": {
+        "ddoc": "_design/bench_profile_team_uuid",
+        "name": "profile_team_uuid",
+        "type": "json",
+        "partitioned": false,
+        "def": {
+          "fields": [
+            {
+              "profile.team": "asc"
+            },
+            {
+              "uuid": "asc"
+            }
+          ]
+        }
+      },
+      "selector": {
+        "profile.team": {
+          "$eq": "team-7"
+        }
+      },
+      "opts": {
+        "use_index": [
+          "bench_profile_team_uuid",
+          "profile_team_uuid"
+        ],
+        "bookmark": "nil",
+        "limit": 100,
+        "skip": 0,
+        "sort": {
+          "uuid": "asc"
+        },
+        "fields": [
+          "uuid",
+          "_id"
+        ],
+        "partition": "",
+        "r": 1,
+        "conflicts": false,
+        "stale": false,
+        "update": true,
+        "stable": false,
+        "execution_stats": true,
+        "allow_fallback": false
+      }
+    },
+    "numericRange": {
+      "index": {
+        "ddoc": "_design/bench_rank_idx",
+        "name": "rank_idx",
+        "type": "json",
+        "partitioned": false,
+        "def": {
+          "fields": [
+            {
+              "rank": "asc"
+            }
+          ]
+        }
+      },
+      "selector": {
+        "$and": [
+          {
+            "rank": {
+              "$gte": 400
+            }
+          },
+          {
+            "rank": {
+              "$lt": 600
+            }
+          }
+        ]
+      },
+      "opts": {
+        "use_index": [
+          "bench_rank_idx",
+          "rank_idx"
+        ],
+        "bookmark": "nil",
+        "limit": 100,
+        "skip": 0,
+        "sort": {
+          "rank": "asc"
+        },
+        "fields": [
+          "uuid",
+          "_id"
+        ],
+        "partition": "",
+        "r": 1,
+        "conflicts": false,
+        "stale": false,
+        "update": true,
+        "stable": false,
+        "execution_stats": true,
+        "allow_fallback": false
+      }
+    },
+    "and": {
+      "index": {
+        "ddoc": "_design/bench_group_active_uuid",
+        "name": "group_active_uuid",
+        "type": "json",
+        "partitioned": false,
+        "def": {
+          "fields": [
+            {
+              "group": "asc"
+            },
+            {
+              "active": "asc"
+            },
+            {
+              "uuid": "asc"
+            }
+          ]
+        }
+      },
+      "selector": {
+        "$and": [
+          {
+            "group": {
+              "$eq": "group-4"
+            }
+          },
+          {
+            "active": {
+              "$eq": true
+            }
+          }
+        ]
+      },
+      "opts": {
+        "use_index": [
+          "bench_group_active_uuid",
+          "group_active_uuid"
+        ],
+        "bookmark": "nil",
+        "limit": 100,
+        "skip": 0,
+        "sort": {
+          "uuid": "asc"
+        },
+        "fields": [
+          "uuid",
+          "_id"
+        ],
+        "partition": "",
+        "r": 1,
+        "conflicts": false,
+        "stale": false,
+        "update": true,
+        "stable": false,
+        "execution_stats": true,
+        "allow_fallback": false
+      }
+    },
+    "or": {
+      "index": {
+        "ddoc": null,
+        "name": "_all_docs",
+        "type": "special",
+        "def": {
+          "fields": [
+            {
+              "_id": "asc"
+            }
+          ]
+        }
+      },
+      "selector": {
+        "$or": [
+          {
+            "group": {
+              "$eq": "group-1"
+            }
+          },
+          {
+            "group": {
+              "$eq": "group-8"
+            }
+          }
+        ]
+      },
+      "opts": {
+        "use_index": [],
+        "bookmark": "nil",
+        "limit": 100,
+        "skip": 0,
+        "sort": {},
+        "fields": [
+          "uuid",
+          "_id"
+        ],
+        "partition": "",
+        "r": 1,
+        "conflicts": false,
+        "stale": false,
+        "update": true,
+        "stable": false,
+        "execution_stats": true,
+        "allow_fallback": true
+      }
+    }
+  },
+  "operations": {
+    "uuidRead": {
+      "firstOperationMs": 4.001052000000072,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 2.7278399999997873,
+        "maxMs": 6.57435600000008,
+        "meanMs": 4.1118969,
+        "p50Ms": 4.087285000000065,
+        "p95Ms": 4.827829000000065,
+        "p99Ms": 6.57435600000008,
+        "totalMs": 164.72429399999987,
+        "opsPerSecond": 242.8299981058048
+      }
+    },
+    "equality": {
+      "firstOperationMs": 10.746172999999999,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 8.588643000000047,
+        "maxMs": 14.108934000000318,
+        "meanMs": 10.671161300000017,
+        "p50Ms": 10.651540999999952,
+        "p95Ms": 12.25958300000002,
+        "p99Ms": 14.108934000000318,
+        "totalMs": 428.734782,
+        "opsPerSecond": 93.29777214109957
+      }
+    },
+    "nestedEquality": {
+      "firstOperationMs": 7.6741619999997965,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 6.790664000000106,
+        "maxMs": 13.470753000000059,
+        "meanMs": 8.468869024999947,
+        "p50Ms": 8.176798999999846,
+        "p95Ms": 9.985467999999855,
+        "p99Ms": 13.470753000000059,
+        "totalMs": 339.731397,
+        "opsPerSecond": 117.74007452128424
+      }
+    },
+    "numericRange": {
+      "firstOperationMs": 23.335297000000082,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 21.680283000000145,
+        "maxMs": 28.366461999999956,
+        "meanMs": 24.276506675000064,
+        "p50Ms": 24.029129999999896,
+        "p95Ms": 27.72253099999989,
+        "p99Ms": 28.366461999999956,
+        "totalMs": 972.1604649999999,
+        "opsPerSecond": 41.145470773695784
+      }
+    },
+    "and": {
+      "firstOperationMs": 11.225729000000229,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 8.693574999999782,
+        "maxMs": 14.632540999999947,
+        "meanMs": 10.241092674999948,
+        "p50Ms": 10.02635999999984,
+        "p95Ms": 11.925351999999293,
+        "p99Ms": 14.632540999999947,
+        "totalMs": 411.02759100000003,
+        "opsPerSecond": 97.31706794349968
+      }
+    },
+    "or": {
+      "firstOperationMs": 41.8184140000003,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 39.38366500000029,
+        "maxMs": 83.96022999999968,
+        "meanMs": 47.27277527500009,
+        "p50Ms": 44.52204400000028,
+        "p95Ms": 59.74878400000034,
+        "p99Ms": 83.96022999999968,
+        "totalMs": 1894.8976549999998,
+        "opsPerSecond": 21.109319489869762
+      }
+    },
+    "singleCreate": {
+      "firstOperationMs": 12.826482000000397,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 9.70133799999985,
+        "maxMs": 16.568624999999884,
+        "meanMs": 11.480701474999979,
+        "p50Ms": 11.321083999999246,
+        "p95Ms": 12.349925999999869,
+        "p99Ms": 16.568624999999884,
+        "totalMs": 459.3731630000002,
+        "opsPerSecond": 87.0751781379096
+      }
+    },
+    "singleKeyUpdate": {
+      "firstOperationMs": 15.72924999999941,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 12.721459999999752,
+        "maxMs": 18.226692000000185,
+        "meanMs": 14.507067650000044,
+        "p50Ms": 14.383035000000746,
+        "p95Ms": 16.13408199999958,
+        "p99Ms": 18.226692000000185,
+        "totalMs": 580.4666150000003,
+        "opsPerSecond": 68.91007848918234
+      }
+    },
+    "indexedKeyUpdate": {
+      "firstOperationMs": 14.77426800000012,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 12.86458500000117,
+        "maxMs": 25.177741000001333,
+        "meanMs": 15.282317850000027,
+        "p50Ms": 14.609282999999778,
+        "p95Ms": 20.357443000000785,
+        "p99Ms": 25.177741000001333,
+        "totalMs": 611.4991890000001,
+        "opsPerSecond": 65.41300580531103
+      }
+    },
+    "numericIncrement": {
+      "firstOperationMs": 15.210693000000902,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 13.042530999999144,
+        "maxMs": 22.71520100000089,
+        "meanMs": 15.130192849999958,
+        "p50Ms": 14.772047999998904,
+        "p95Ms": 16.530186999998477,
+        "p99Ms": 22.71520100000089,
+        "totalMs": 605.4574510000002,
+        "opsPerSecond": 66.06574901990922
+      }
+    },
+    "singleDelete": {
+      "firstOperationMs": 16.289968000000954,
+      "warmups": 10,
+      "measured": {
+        "samples": 40,
+        "minMs": 12.968229000000065,
+        "maxMs": 17.137987000000066,
+        "meanMs": 14.748649200000045,
+        "p50Ms": 14.681316000000152,
+        "p95Ms": 15.75438099999883,
+        "p99Ms": 17.137987000000066,
+        "totalMs": 590.1949559999994,
+        "opsPerSecond": 67.77421527133492
+      }
+    },
+    "filteredBulkDelete": {
+      "deleted": 25,
+      "elapsedMs": 120.93660500000078
+    }
+  },
+  "sustained": [
+    {
+      "mode": "read",
+      "concurrency": 1,
+      "durationTargetMs": 5000,
+      "operations": 1608,
+      "elapsedMs": 5001.04377,
+      "opsPerSecond": 321.5328787254345,
+      "latency": {
+        "samples": 1608,
+        "minMs": 1.594612999999299,
+        "maxMs": 29.516765000000305,
+        "meanMs": 3.0993433097015153,
+        "p50Ms": 3.0801719999999477,
+        "p95Ms": 3.5875789999990957,
+        "p99Ms": 4.311642000000575
+      },
+      "clientCpuUtilizationPercent": 26.989265882789905,
+      "serverCpuUtilizationPercent": 101.17887850439669,
+      "clientMemory": {
+        "rss": 166539264,
+        "heapTotal": 93564928,
+        "heapUsed": 33368056,
+        "external": 4378707,
+        "arrayBuffers": 378559
+      },
+      "serverMemory": {
+        "processes": 5,
+        "rssBytes": 172929024,
+        "peakRssBytes": 192688128,
+        "cpuTicks": 21607
+      }
+    },
+    {
+      "mode": "write",
+      "concurrency": 1,
+      "durationTargetMs": 5000,
+      "operations": 327,
+      "elapsedMs": 5014.6158989999985,
+      "opsPerSecond": 65.20938125394798,
+      "latency": {
+        "samples": 327,
+        "minMs": 12.570315000000846,
+        "maxMs": 54.9099040000001,
+        "meanMs": 15.32080304281355,
+        "p50Ms": 14.816999999999098,
+        "p95Ms": 18.410939000001235,
+        "p99Ms": 20.622941000001447
+      },
+      "clientCpuUtilizationPercent": 13.570710373564351,
+      "serverCpuUtilizationPercent": 102.10153884410202,
+      "clientMemory": {
+        "rss": 171913216,
+        "heapTotal": 159887360,
+        "heapUsed": 36350896,
+        "external": 4880133,
+        "arrayBuffers": 879985
+      },
+      "serverMemory": {
+        "processes": 5,
+        "rssBytes": 172253184,
+        "peakRssBytes": 192688128,
+        "cpuTicks": 22119
+      }
+    },
+    {
+      "mode": "mixed",
+      "concurrency": 1,
+      "durationTargetMs": 5000,
+      "operations": 564,
+      "elapsedMs": 5010.316387000003,
+      "opsPerSecond": 112.5677415229466,
+      "latency": {
+        "samples": 564,
+        "minMs": 1.980835999998817,
+        "maxMs": 33.07101900000271,
+        "meanMs": 8.870746081560304,
+        "p50Ms": 5.662325999997847,
+        "p95Ms": 15.187260000002425,
+        "p99Ms": 16.85165599999891
+      },
+      "clientCpuUtilizationPercent": 16.224105170466547,
+      "serverCpuUtilizationPercent": 86.6212762782958,
+      "clientMemory": {
+        "rss": 206123008,
+        "heapTotal": 159887360,
+        "heapUsed": 47903448,
+        "external": 5126981,
+        "arrayBuffers": 1126833
+      },
+      "serverMemory": {
+        "processes": 5,
+        "rssBytes": 170356736,
+        "peakRssBytes": 192688128,
+        "cpuTicks": 22553
+      }
+    },
+    {
+      "mode": "read",
+      "concurrency": 8,
+      "durationTargetMs": 5000,
+      "operations": 3504,
+      "elapsedMs": 5007.533765,
+      "opsPerSecond": 699.745656133384,
+      "latency": {
+        "samples": 3504,
+        "minMs": 2.5354440000010072,
+        "maxMs": 46.484190999999555,
+        "meanMs": 9.189638502853887,
+        "p50Ms": 9.1014290000021,
+        "p95Ms": 11.953723999999056,
+        "p99Ms": 14.30189099999916
+      },
+      "clientCpuUtilizationPercent": 40.64170299209155,
+      "serverCpuUtilizationPercent": 155.56560106390015,
+      "clientMemory": {
+        "rss": 247410688,
+        "heapTotal": 169324544,
+        "heapUsed": 37454224,
+        "external": 4595280,
+        "arrayBuffers": 595132
+      },
+      "serverMemory": {
+        "processes": 5,
+        "rssBytes": 170774528,
+        "peakRssBytes": 192688128,
+        "cpuTicks": 23332
+      }
+    },
+    {
+      "mode": "write",
+      "concurrency": 8,
+      "durationTargetMs": 5000,
+      "operations": 904,
+      "elapsedMs": 5001.374232000002,
+      "opsPerSecond": 180.75032142485747,
+      "latency": {
+        "samples": 904,
+        "minMs": 23.17166300000099,
+        "maxMs": 75.24824799999624,
+        "meanMs": 39.089082607300945,
+        "p50Ms": 40.380880000004254,
+        "p95Ms": 49.39565700000094,
+        "p99Ms": 66.17303900000115
+      },
+      "clientCpuUtilizationPercent": 26.834104742914178,
+      "serverCpuUtilizationPercent": 126.96510409821293,
+      "clientMemory": {
+        "rss": 250294272,
+        "heapTotal": 177451008,
+        "heapUsed": 86767488,
+        "external": 5688881,
+        "arrayBuffers": 1688733
+      },
+      "serverMemory": {
+        "processes": 5,
+        "rssBytes": 170500096,
+        "peakRssBytes": 192688128,
+        "cpuTicks": 23967
+      }
+    },
+    {
+      "mode": "mixed",
+      "concurrency": 8,
+      "durationTargetMs": 5000,
+      "operations": 1104,
+      "elapsedMs": 5014.718607999996,
+      "opsPerSecond": 220.1519339966126,
+      "latency": {
+        "samples": 1104,
+        "minMs": 3.353189999994356,
+        "maxMs": 71.60617700000148,
+        "meanMs": 20.07770518206529,
+        "p50Ms": 21.222978999998304,
+        "p95Ms": 37.35309999999299,
+        "p99Ms": 52.78444799999852
+      },
+      "clientCpuUtilizationPercent": 28.4217343267529,
+      "serverCpuUtilizationPercent": 120.04661618293548,
+      "clientMemory": {
+        "rss": 253308928,
+        "heapTotal": 174710784,
+        "heapUsed": 57541992,
+        "external": 5405904,
+        "arrayBuffers": 1405756
+      },
+      "serverMemory": {
+        "processes": 5,
+        "rssBytes": 170590208,
+        "peakRssBytes": 192688128,
+        "cpuTicks": 24569
+      }
+    }
+  ],
+  "databaseStatsFinal": {
+    "docCount": 1033
+  },
+  "clientCpuUsageUs": {
+    "user": 8900407,
+    "system": 950622
+  },
+  "totalElapsedMs": 41712.474905999996,
+  "serverResourceUsage": {
+    "start": {
+      "processes": 5,
+      "rssBytes": 169287680,
+      "peakRssBytes": 189661184,
+      "cpuTicks": 19677
+    },
+    "final": {
+      "processes": 5,
+      "rssBytes": 170590208,
+      "peakRssBytes": 192688128,
+      "cpuTicks": 24569
+    }
+  },
+  "completedAt": "2026-11-20T13:20:48.293Z"
+}
