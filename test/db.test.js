@@ -119,3 +119,18 @@ test('scope resolution rejects missing organizations, bad refs and cyclic config
     circular.loop = circular
     assert.throws(() => db.config.setValue('scopes', circular), /Cyclic scope configuration/)
 })
+
+test('leaf capacity can be smaller than branch capacity', async () => {
+    const db = createDB({}, { size: 16, leafSize: 4 })
+    const scope = { organization_id: 'org', storage: 'store', database: 'db', array: 'items' }
+    const objects = Array.from({ length: 24 }, (_, sequence) => ({ sequence }))
+    const created = await db.send({ ...scope, method: 'object.create', object: objects })
+    assert.equal(created.success, true)
+    db.flushIndex()
+
+    const tree = created.object[0].getIndex('sequence').tree
+    assert.ok(tree.root.indexes.length > 4)
+    assert.ok(tree.root.indexes.every(leaf => !leaf.indexes && leaf.length <= 4))
+    const read = await db.send({ ...scope, method: 'object.read', filter: { query: { sequence: 23 } } })
+    assert.equal(read.object[0], created.object[23])
+})

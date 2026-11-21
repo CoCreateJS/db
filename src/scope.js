@@ -53,21 +53,21 @@ function reference(envelope, name) {
     }
 }
 
-function insertEntry(tree, size, entry, local) {
+function insertEntry(tree, size, leafSize, entry, local) {
     let types = tree.get(entry.key)
     if (!types) tree.set(entry.key, types = new Map())
     let index = types.get(type(entry.value))
-    if (!index) types.set(type(entry.value), index = new Tree(size,local,entry.key))
+    if (!index) types.set(type(entry.value), index = new Tree(size,local,entry.key,leafSize))
     entry.insert(index)
 }
 
-export function createScopeManager({ db, size = 1024, deferIndex = false }) {
+export function createScopeManager({ db, size = 1024, leafSize = size, deferIndex = false }) {
     const pendingIndex = new Set()
     const deleted = db.deleted = new Map()
     db.deleting ??= new Set()
     const context = { artifacts: db.artifacts, tree: db.tree, pendingIndex, get indexError() { return indexError } }
     let scheduled, indexError
-    const insert = entry => insertEntry(db.tree, size, entry, db.local)
+    const insert = entry => insertEntry(db.tree, size, leafSize, entry, db.local)
     function flushArtifact(artifact) {
         if(indexError)throw indexError
         if(!pendingIndex.has(artifact))return

@@ -1,12 +1,17 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { ArtifactTier } from '../src/tree/artifacts.js'
+import { LocalTier } from '../src/tree/local.js'
 import { queryData } from '@cocreate/utils'
 import { createArtifact, attach, updateArtifact, type } from '../src/artifact.js'
 import { Tree } from '../src/tree/index.js'
 import { queryTree } from '../src/tree/query.js'
 
-function indexedScope(records) {
-    const scope = { artifacts: new Map(), tree: new Map() }
+function indexedScope(records, artifacts = new Map()) {
+    const scope = { artifacts, tree: new Map() }
     for (const record of records) {
         const artifact = createArtifact(structuredClone(record))
         scope.artifacts.set(artifact.uuid, artifact)
@@ -89,4 +94,45 @@ test('ranges match numeric strings and unindexed arrays even when a numeric inde
         ['array', 'inactive', 'number', 'string'])
     assert.deepEqual(queryTree(scope, { active: true, score: { $gt: 10 } }).map(o => o.uuid).sort(),
         ['array', 'number', 'string'])
+})
+
+test('range coverage counts cold artifacts and skips cold entries outside the bounds', async t => {
+    const directory = await mkdtemp(join(tmpdir(), 'cocreatedb-range-'))
+    t.after(() => rm(directory, { recursive: true, force: true }))
+    const artifacts = new ArtifactTier(new LocalTier(directory))
+    const scope = indexedScope([
+        { uuid: 'number', scope: 'object', score: 15 },
+        { uuid: 'unrelated', scope: 'object', score: 50 },
+        { uuid: 'cold', scope: 'object', score: '15' }
+    ], artifacts)
+    const cold = artifacts.get('cold')
+    const unrelated = artifacts.get('unrelated')
+    const query = { score: { $gte: 10, $lt: 20 } }
+    assert.equal(await cold.toDisk(), true)
+    assert.equal(artifacts.size, scope.tree.get('score').get('number').root.length)
+    assert.equal(artifacts.totalSize, 3)
+    const matches = queryTree(scope, query)
+    assert.deepEqual(matches.map(object => object.uuid), ['number', 'cold'])
+    assert.equal(matches[1], cold)
+
+    assert.equal(await cold.toDisk(), true)
+    assert.equal(await unrelated.toDisk(), true)
+    const reads = artifacts.reads
+    assert.deepEqual(queryTree(scope, query).map(object => object.uuid), ['number', 'cold'])
+    assert.equal(artifacts.reads - reads, 1)
+    assert.equal(artifacts.cold.has('unrelated'), true)
+})
+
+test('pending deletes cannot make a range index appear to cover every artifact', () => {
+    const scope = indexedScope([
+        { uuid: 'number', score: 15 },
+        { uuid: 'deleted', score: 16 },
+        { uuid: 'string', score: '17' }
+    ])
+    const deleted = scope.artifacts.get('deleted')
+    scope.artifacts.delete('deleted')
+    scope.pendingIndex = new Set([deleted])
+    assert.equal(scope.artifacts.size, scope.tree.get('score').get('number').root.length)
+    assert.deepEqual(queryTree(scope, { score: { $gte: 10, $lt: 20 } }).map(object => object.uuid),
+        ['number', 'string'])
 })

@@ -1,5 +1,5 @@
 import {queryData} from '@cocreate/utils'
-import {type} from '../artifact.js'
+import {hasIndexEntry,type} from '../artifact.js'
 export function queryTree(scope,query={},limit=Infinity){
     if(scope.indexError)throw scope.indexError
     if(limit<=0)return []
@@ -25,12 +25,14 @@ export function queryTree(scope,query={},limit=Infinity){
             if(!scope.pendingIndex?.has(object))yield object
         }
         yield* (scope.pendingIndex ?? [])
-        // Other types and unindexed containers can also satisfy a native range.
-        if(range&&tree.root.length!==scope.artifacts.size){
-            for(const object of scope.artifacts.values()){
+        // Pending deletes can still occupy index entries, and Map.size can
+        // describe only the resident artifacts. Neither proves coverage.
+        const artifactCount=scope.artifacts.totalSize??scope.artifacts.size
+        if(range&&(scope.pendingIndex?.size||tree.root.length!==artifactCount)){
+            const references=scope.artifacts.references?.()??scope.artifacts.values()
+            for(const object of references){
                 if(scope.pendingIndex?.has(object))continue
-                const entry=object.getIndex(key)
-                if(entry?.tree!==tree||!entry.partition)yield object
+                if(!hasIndexEntry(object,key,tree))yield object
             }
         }
     }

@@ -73,3 +73,16 @@ Distributed synchronization, replication, sharding, recovery and transactional c
 ## Current scale results
 
 The latest five-second sustained CoCreateDB run is [2026-11-20T06-10-08.681Z](runs/standard-2026-11-20T06-10-08.681Z/report.md). Five 1,000-, 10,000- and 100,000-object runs passed at each size. A prior 1,000,000-object attempt hit Node.js's JavaScript heap limit at about 2 GiB; it is recorded in [2026-11-20T01-04-18.943Z](runs/standard-2026-11-20T01-04-18.943Z/report.md) and excluded from the default run sizes for now. The MongoDB same-fixture baseline is [2026-11-20T04-08-28.702Z](runs/mongodb-standard-2026-11-20T04-08-28.702Z/report.md); Redis String and RedisJSON/RediSearch results are in [2026-11-20T04-58-00.174Z](runs/redis-standard-2026-11-20T04-58-00.174Z/report.md).
+
+### Query field locality
+
+Run each mode against the same wide fixture and seeded record sequence:
+
+```sh
+node test/benchmarks/diagnostics/query-locality.mjs --mode=focused --records=100000
+node test/benchmarks/diagnostics/query-locality.mjs --mode=scattered --records=100000
+```
+
+By default, each record has 40 queryable fields plus a revision and a variable size payload, and both modes run one equality read per create batch, followed by 12,000 mixed requests after loading. Focused mode queries four fixed fields. Scattered mode selects from all 40. Both modes select records from the same broad set so the comparison isolates field choice. Set `--focused-fields` to 1–4, `--fields` to change fixture width, `--requests` to change the steady phase length, or `--leaf-size` to compare leaf capacities with branch capacity fixed at 1,024.
+
+Both modes use the engine’s automatic offload at `--memory=25`. Results contain RSS, operation latency, and index partition reads, writes, and remaining cold partitions by field. It also reports total and cold index entries per field after growth and before a final point query that verifies a previously unused cold leaf can reload. Reads are attributed to the synchronous CRUD path or background processing. Use `BENCH_OUTPUT_DIR` to place the result and temporary DB files outside the checkout. Run Node with `--expose-gc` to sample whether offloaded entries are still reachable and report heap and RSS after a final forced collection. The forced collection runs after the timed workload.

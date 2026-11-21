@@ -9,13 +9,28 @@ export function lower(items,value,compare){
 }
 class Partition {
     constructor(parent=null,tree=parent?.tree){
-        this[UUID]=uuid();this.tree=tree;this.viewed=0;this.onDisk=false;this.parent=parent;this.entries=[];this.length=0;this.refresh();tree?.local?.add(this)
+        this[UUID]=uuid();this.tree=tree;this.viewed=0;this.revision=0;this.onDisk=false;this.parent=parent;this.entries=[];this.length=0;this.refresh();tree?.local?.add(this)
     }
     get uuid(){return this[UUID]}
     getUuid(){return this[UUID]}
     touch(){this.toMemory();if(this.tree?.local)this.tree.local.touch(this);else this.viewed++;return this}
-    toDisk(){const local=this.tree?.local;if(!local||local.active.has(this)||this.indexes||!this.entries)return false;local.write(this);local.remove(this);delete this.entries;this.onDisk=true;return true}
-    toMemory(){if(!this.onDisk)return this;const local=this.tree.local,data=local.read(this);const entries=data.entries.map(([v,ids])=>[v,ids.map(id=>{const e=local.resolve(id,this.tree.key);if(!e||e.partition!==this)throw Error('missing entry '+id);return e})]);this.entries=entries;this.viewed=data.viewed;this.onDisk=false;local.add(this);return this}
+    toDisk(){const local=this.tree?.local;if(!local||local.active.has(this)||this.indexes||!this.entries||!local.canRelease(this))return false;local.write(this);local.release(this);return true}
+    toMemory() {
+        if (!this.onDisk) return this
+        const local = this.tree.local
+        const data = local.read(this)
+        const entries = data.entries.map(([value, ids]) => [value, ids.map(id => {
+            const entry = local.restore(id, this, value)
+            if (!entry || entry.partition !== this) throw Error('missing entry ' + id)
+            return entry
+        })])
+        local.relink(this, entries)
+        this.entries = entries
+        this.viewed = data.viewed
+        this.onDisk = false
+        local.add(this)
+        return this
+    }
     getParent(){return this.parent?.toMemory().touch()??null}
     getPrevious(){return this.neighbor(-1)?.toMemory().touch()??null}
     getNext(){return this.neighbor(1)?.toMemory().touch()??null}
@@ -53,19 +68,25 @@ class Partition {
 const lastOf=p=>({value:p.lastValue,uuid:p.lastUuid})
 const firstOf=p=>({value:p.firstValue,uuid:p.firstUuid})
 export class Tree {
-    constructor(size=1024,local=null,key=null){if(size<2)throw Error('partition size');this.size=size;this.local=local;this.key=key;this.root=new Partition(null,this)}
-    locate(entry,node=this.root){while(node.indexes){node.touch();node=node.indexes[Math.min(lower(node.indexes,entry,(p,e)=>order(lastOf(p),e)),node.indexes.length-1)]}return node.toMemory().touch()}
+    constructor(size=1024,local=null,key=null,leafSize=size){if(size<2||leafSize<2)throw Error('partition size');this.size=size;this.leafSize=leafSize;this.local=local;this.key=key;this.root=new Partition(null,this)}
+    locate(entry,node=this.root){while(node.indexes)node=node.indexes[Math.min(lower(node.indexes,entry,(p,e)=>order(lastOf(p),e)),node.indexes.length-1)];return node.toMemory()}
     insert(entry,start=this.root){
         const node=this.locate(entry,start), i=lower(node.entries,entry.value,(g,v)=>compare(g[0],v))
         let group=node.entries[i]
         if(!group||compare(group[0],entry.value)!==0){group=[entry.value,[]];node.entries.splice(i,0,group)}
         const j=lower(group[1],entry.uuid,(e,u)=>compare(e.uuid,u))
         if(group[1][j]?.uuid===entry.uuid)throw Error('duplicate index entry')
-        group[1].splice(j,0,entry);entry.partition=node;entry.tree=this
+        group[1].splice(j,0,entry);node.revision++;entry.partition=node;entry.tree=this
         this.refresh(node)
     }
     refresh(node){
-        while(node){node.refresh();if((node.indexes?.length??node.length)>this.size)this.split(node);node=node.parent}
+        while (node) {
+            node.refresh()
+            const count = node.indexes?.length ?? node.length
+            const capacity = node.indexes ? this.size : this.leafSize
+            if (count > capacity) this.split(node)
+            node = node.parent
+        }
     }
     split(node){
         const right=new Partition(node.parent,this)
@@ -83,24 +104,24 @@ export class Tree {
         else node.parent.indexes.splice(node.parent.indexes.indexOf(node)+1,0,right)
     }
     remove(entry){
-        const node=entry.partition.toMemory().touch(),i=lower(node.entries,entry.value,(g,v)=>compare(g[0],v)),group=node.entries[i]
+        const node=entry.partition.toMemory(),i=lower(node.entries,entry.value,(g,v)=>compare(g[0],v)),group=node.entries[i]
         const j=lower(group[1],entry.uuid,(e,u)=>compare(e.uuid,u));if(group[1][j]!==entry)throw Error('missing index entry')
-        group[1].splice(j,1);if(!group[1].length)node.entries.splice(i,1);entry.partition=null
+        group[1].splice(j,1);node.revision++;if(!group[1].length)node.entries.splice(i,1);entry.partition=null
         let p=node
-        while(p){if(p!==node)p.touch();p.refresh();const parent=p.parent;if(!p.length&&parent){parent.indexes.splice(parent.indexes.indexOf(p),1);this.local?.discard(p);p.parent=null}p=parent}
+        while(p){p.refresh();const parent=p.parent;if(!p.length&&parent){parent.indexes.splice(parent.indexes.indexOf(p),1);this.local?.discard(p);p.parent=null}p=parent}
         while(this.root.indexes?.length===1){const old=this.root;this.root=old.indexes[0];this.root.parent=null;this.local?.discard(old)}
         if(!this.root.length){this.local?.discard(this.root);this.root=new Partition(null,this)}
     }
     move(entry,value,write){
         let start=entry.partition;const target={value,uuid:entry.uuid}
-        while(start.parent&&(order(target,firstOf(start))<0||order(target,lastOf(start))>0)){start=start.parent;start.touch()}
+        while(start.parent&&(order(target,firstOf(start))<0||order(target,lastOf(start))>0))start=start.parent
         this.remove(entry);write();if(!start.length||(!start.parent&&start!==this.root))start=this.root
         this.insert(entry,start)
     }
     *scan(min,max,node=this.root){
         if(!node.length)return
         if(min!==undefined&&compare(node.lastValue,min)<0||max!==undefined&&compare(node.firstValue,max)>0)return
-        node.toMemory();node.touch()
+        node.touch()
         if(node.indexes){const i=min===undefined?0:lower(node.indexes,min,(p,v)=>compare(p.lastValue,v));for(let j=i;j<node.indexes.length;j++){const p=node.indexes[j];if(max!==undefined&&compare(p.firstValue,max)>0)break;yield* this.scan(min,max,p)}}
         else {const i=min===undefined?0:lower(node.entries,min,(g,v)=>compare(g[0],v));for(let j=i;j<node.entries.length;j++){const [value,entries]=node.entries[j];if(max!==undefined&&compare(value,max)>0)break;yield* entries}}
     }
