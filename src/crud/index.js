@@ -18,9 +18,11 @@ function identity(root, value) {
 
 export async function crud({ db, roots }, request) {
     const response = { ...request }
+    delete response.awareness
+    const awareness = new Set()
     const changed = new Set()
     function result(success, error) {
-        const output = { ...response, success, ...(error ? { error: [error.message] } : {}) }
+        const output = { ...response, awareness: [...awareness], success, ...(error ? { error: [error.message] } : {}) }
         Object.defineProperty(output, persistenceChanges, { value: changed })
         return output
     }
@@ -34,6 +36,11 @@ export async function crud({ db, roots }, request) {
         if (action === 'create' && filter) throw Error('Filters are not supported for create')
         if (filter && (filter.sort?.length || filter.search !== undefined)) throw Error('sort/search not implemented')
         const output = response[root] = []
+        function addResult(leaf, includeParent = false) {
+            output.push(leaf)
+            if (typeof leaf?.uuid === 'string' && leaf.uuid) awareness.add(leaf.uuid)
+            if (includeParent && typeof leaf?.parent === 'string') awareness.add(leaf.parent)
+        }
         const canCreateParents = action === 'create' || action === 'update' && request.upsert
         let resolved
         function resolve() {
@@ -59,7 +66,7 @@ export async function crud({ db, roots }, request) {
 
         if (action === 'create') {
             if (!inputs.length) roots.validateTarget(root)
-            for (const input of inputs) output.push(create(input))
+            for (const input of inputs) addResult(create(input), true)
             return result(true)
         }
 
@@ -80,7 +87,8 @@ export async function crud({ db, roots }, request) {
             const start = filter.startingIndex ?? filter.index ?? 0
             const limit = filter.limit ?? 50
             if (!Number.isSafeInteger(start) || start < 0 || !Number.isSafeInteger(limit) || limit < 0) throw Error('invalid pagination')
-            resolve()
+            const scope = resolve()
+            if (!scope.missing && typeof scope.parent?.uuid === 'string') awareness.add(scope.parent.uuid)
             const matches = select(filter.query ?? {}, limit === 0 ? Infinity : start + limit).slice(start)
             for (const leaf of matches) if (!targets.has(leaf)) targets.set(leaf, inputs[0] ?? {})
         }
@@ -90,22 +98,24 @@ export async function crud({ db, roots }, request) {
             delete response.updated
             const updates = response.$update = []
             if (replay && targets.size !== inputs.length) throw Error('missing or duplicate replay target')
-            if (!targets.size && request.upsert && inputs.length === 1) output.push(create(inputs[0]))
+            if (!targets.size && request.upsert && inputs.length === 1) addResult(create(inputs[0]), true)
             else {
                 if (!filter && !replay && !inputs.some(input => identity(root, input))) throw Error(`${root}.update requires identity or filter`)
                 if (!targets.size && !filter && (!replay || inputs.length)) throw Error(`${root} not found`)
                 for (const [leaf, input] of targets) {
                     const result = update(leaf, input, replay ? undefined : request.$update)
                     if (result.mutation) { updates.push(result.mutation); changed.add(leaf) }
-                    output.push(result.object)
+                    addResult(result.object, true)
                 }
             }
-        } else if (action === 'read') output.push(...targets.keys())
+        } else if (action === 'read') {
+            for (const leaf of targets.keys()) addResult(leaf)
+        }
         else {
             for (const leaf of targets.keys()) {
                 await leaf.delete()
                 changed.add(leaf)
-                output.push(leaf)
+                addResult(leaf, true)
             }
         }
         return result(true)

@@ -1,12 +1,14 @@
 # CoCreateJS — Distribution and Awareness
 
-Status: architectural decision and integration specification. Distribution is removed from CoCreateDB; the external workflows below are proposed, not implemented by this checkpoint.
+Status: architectural decision and integration specification. CoCreateDB returns awareness references with CRUD results. Recipient tracking and network delivery remain owned by Socket, IPC and Mesh.
 
 ## Component ownership
 
-CoCreateDB stores living leaves, roots and indexes and processes local CRUD operations. It does not maintain local or remote availability inventories, publish server records, discover peers, subscribe to remote changes or choose network routes. Its existing leaves and roots are the local data state, not an additional distribution state.
+CoCreateDB stores living leaves, roots and indexes and processes local CRUD operations. It computes UUID awareness references while resolving CRUD results but does not maintain recipient inventories, publish server records, discover peers, subscribe to remote changes or choose network routes. Its leaves and roots are the local data state, not an additional recipient state.
 
-CoCreate CRUD orchestrates requests through configurable workflows. It selects the database, calls it, resolves missing data through persistence or other CRUD endpoints, materializes acquired data when appropriate, and returns the final response. CoCreate Cluster (IPC and server mesh) and CoCreate Socket own communication and awareness. Persistence is optional and provides durable data access. No dependency on the platform database is required to discover leaf locations.
+CoCreate CRUD orchestrates requests through configurable workflows. It selects the database, calls it, resolves missing data through persistence or other CRUD endpoints, materializes acquired data when appropriate, and returns the final response. CoCreate Cluster (IPC and server mesh) and CoCreate Socket own organization-scoped recipient awareness and communication. Persistence is optional and provides durable data access. No dependency on the platform database is required to discover leaf locations.
+
+The current in-memory model indexes organization-scoped UUID references to recipient IDs: Socket maps references to client IDs, IPC maps references to worker IDs, and Mesh maps references to peer server IDs. These indexes are runtime routing state; the DB returns references but does not persist or query recipient registrations. Recipient cleanup follows socket, worker and peer disconnects. A future DB-backed recipient query can replace these maps without changing the CRUD reference contract.
 
 ## Acquisition workflow
 

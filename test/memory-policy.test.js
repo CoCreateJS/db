@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Tree } from '../src/tree/index.js'
 import { LocalTier } from '../src/tree/local.js'
@@ -278,15 +278,22 @@ test('adaptive restart reuses persisted index route UUIDs and serves indexed rea
     }
 })
 
-test('a missing base path uses a temporary directory and creates the standard layout', async () => {
-    const db = createDB({}, { memoryPolicy: false })
+test('a missing base path uses ~/.cocreate/db and creates the standard layout', async () => {
+    const homeVariable = process.platform === 'win32' ? 'USERPROFILE' : 'HOME'
+    const previousHome = process.env[homeVariable]
+    const testHome = await mkdtemp(join(tmpdir(), 'cocreatedb-home-'))
+    process.env[homeVariable] = testHome
     try {
-        assert.ok(db.baseDirectory.startsWith(tmpdir()))
+        const db = createDB({}, { memoryPolicy: false })
+        assert.equal(homedir(), testHome)
+        assert.equal(db.baseDirectory, join(testHome, '.cocreate', 'db'))
         assert.ok(await readFile(join(db.baseDirectory, 'config.json'), 'utf8'))
         assert.equal(db.local.branchDirectory, join(db.baseDirectory, 'branches'))
         assert.equal(db.local.leafDirectory, join(db.baseDirectory, 'leaves'))
     } finally {
-        await rm(db.baseDirectory, { recursive: true, force: true })
+        if (previousHome === undefined) delete process.env[homeVariable]
+        else process.env[homeVariable] = previousHome
+        await rm(testHome, { recursive: true, force: true })
     }
 })
 

@@ -4,7 +4,9 @@
 
 `send(request)` accepts `<root>.<create|read|update|delete>`. The root must be configured. The target property accepts one object or an array. Ancestor references are supplied by envelope names, including dynamic root properties. A UUID can bypass named resolution while respecting supplied constraints. Object `_id` and other root `name` are name identities.
 
-Responses preserve envelope properties and return `success` plus an array under the target root. Failures include `error` messages. No transactional rollback is promised for a multi-object request.
+Responses preserve envelope properties and return `success`, an `awareness` array of UUID references, and an array under the target root. The DB owns reference calculation only; it does not store recipient registrations or deliver messages. Caller-supplied `awareness` is discarded. Failures include `error` messages. No transactional rollback is promised for a multi-object request.
+
+Each returned leaf contributes its UUID. A filtered request also contributes the UUID of the resolved parent branch, including when the filter returns no leaves. This parent is selected by the CRUD root: for example, an object query refers to its containing array, while an array query refers to its containing database. Create, update and delete results contribute the parent branch UUID of each affected leaf so branch-aware recipients can receive mutations. A direct UUID read contributes the leaf UUID without its parent branch. References are deduplicated, and `organization_id` remains a separate top-level scope.
 
 - Create: returns created leaves; filters are rejected. Missing named ancestors may be created.
 - Read: returns local matching leaves; missing targets may return an empty successful array.

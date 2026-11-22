@@ -1,8 +1,8 @@
 import {LeafTier} from './tree/leaves.js'
 import { MemoryPolicy } from './tree/memory.js'
 import { LocalTier } from './tree/local.js'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import Config from '@cocreate/config'
 import { crud, persistenceChanges } from './crud/index.js'
@@ -19,7 +19,7 @@ export function createDB(server = {}, options = {}) {
     const acknowledgement = options.acknowledgement ?? options.config?.acknowledgement ?? 'memory'
     if (!['memory', 'disk', 'persistence'].includes(acknowledgement)) throw new Error(`Unsupported acknowledgement: ${acknowledgement}`)
     if (acknowledgement === 'persistence') throw new Error('Persistence acknowledgement requires an external persistence integration with the complete persistence tree')
-    const baseDirectory = primary ? options.directory ?? mkdtempSync(join(tmpdir(), 'cocreatedb-')) : undefined
+    const baseDirectory = primary ? options.directory ?? join(homedir(), '.cocreate', 'db') : undefined
     if (primary && mode === 'disk-cache') {
         for (const name of ['config.json', 'config.json.tmp', 'branches', 'leaves'])
             rmSync(join(baseDirectory, name), { recursive: true, force: true })
