@@ -17,4 +17,4 @@ Filters use `filter.query`, `startingIndex` (or `index`) and `limit` (default 50
 
 ## External workflows
 
-CRUD calls DB then a configurable workflow. Local misses, remote lookup, persistence acquisition, authorization, durability and communication are external concerns. A local empty result is not proof of global absence. Remote create/update/delete routing requires explicit execution ownership; do not blindly race mutations across nodes. See [mutations](mutations.md) and [distribution](distribution.md).
+CRUD calls DB then a configurable workflow. Local misses, remote lookup, persistence acquisition, authorization, durability and communication are external concerns. A local empty result is not proof of global absence. Remote create/update/delete routing requires explicit execution ownership; do not blindly race mutations across nodes. See [mutations](mutations.md) and [awareness](awareness.md).

@@ -23,7 +23,7 @@ This is the first transport and journal stage. It does not yet hydrate or update
 
 ## Decision
 
-CoCreateDB owns living leaves, roots, indexes, local CRUD and its Hot/Warm residency lifecycle. Hot is memory; Warm is the DB-managed local-disk tier used for write-through, recovery and eviction. This is separate from Cool external Persistence and Cold archival storage, which remain outside the DB engine. The new callback is a transport seam only; the complete Persistence Tree, distribution inventory and remote routing are not yet implemented. CoCreate CRUD can orchestrate external Persistence through configurable workflows and AST. Socket, IPC and Mesh own communication awareness and recipient selection. See [architecture](architecture.md), [indexes](indexes.md) and [distribution](distribution.md).
+CoCreateDB owns living leaves, roots, indexes, local CRUD and its Hot/Warm residency lifecycle. Hot is memory; Warm is the DB-managed local-disk tier used for write-through, recovery and eviction. This is separate from Cool external Persistence and Cold archival storage, which remain outside the DB engine. The new callback is a transport seam only; complete persistence-tree handling and remote routing are not yet implemented. CoCreate CRUD can orchestrate external Persistence through configurable workflows and AST. Socket, IPC and Mesh own communication awareness and recipient selection. See [architecture](architecture.md), [indexes](indexes.md) and [awareness](awareness.md).
 
 ## Entry point
 
@@ -35,7 +35,7 @@ response = await server.workflow.send({ name: 'crud', data, response })
 return response
 ```
 
-The envelope already identifies the method, root, request and routing context. Use the standard result; do not invent a second mutation event or a parallel distribution protocol. The workflow can invoke other workflows, APIs, persistence adapters and remote CRUD. Configure the behavior without modifying DB or the runtime.
+The envelope already identifies the method, root, request and routing context. Use the standard result; do not invent a second mutation event or a parallel recipient-awareness protocol. The workflow can invoke other workflows, APIs, persistence adapters and remote CRUD. Configure the behavior without modifying DB or the runtime.
 
 ## Successful local operations
 

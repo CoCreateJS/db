@@ -122,7 +122,7 @@ Distributed deployment does not require the database engine to maintain peer inv
 
 Possible acquisition policies include the local DB's Hot/Warm state, local state followed by Cool Persistence, local state followed by peers, Persistence-first or peer-first after a local miss, and combinations of available sources. Selection can be sequential, parallel or recursive. Recursive routes must be bounded and prevent cycles; parallel requests need cancellation or safe late-response handling. First valid object responses can satisfy specific UUID lookups, but range and filter queries may require combining results or proving coverage.
 
-An acquired leaf can be materialized locally without generating a second logical create. Intermediate peers may optionally retain results and establish interest. Full hydration and remote execution ownership remain integration requirements. See [distribution](specifications/distribution.md).
+An acquired leaf can be materialized locally without generating a second logical create. Intermediate peers may optionally retain results and establish interest. Full hydration and remote execution ownership remain integration requirements. See [awareness](specifications/awareness.md).
 
 ## 10. Distributed memory and ephemeral compute
 

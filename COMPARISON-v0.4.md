@@ -110,10 +110,9 @@ Here `videoBytes` represents a supported binary value, not a filename or a refer
   data/
     <uuid>
     <uuid>
-  distribution/
 ```
 
-All database-owned durable leaves reside under `data/` with extensionless UUID addresses. Only `data/` participates in database-managed cloud persistence. The externally provisioned bootstrap manifest and local distribution inventory have separate ownership and are excluded from that persistence boundary.
+All database-owned durable leaves reside under `data/` with extensionless UUID addresses. Only `data/` participates in database-managed cloud persistence. Recipient awareness is transient routing state owned by Socket and Cluster; it is not a DB directory or persistence inventory.
 
 One shared serialization/deserialization contract applies to all data leaves. Logical values are decoded in memory; persisted content is serialized bytes, not directly usable source files or media files. The serialization implementation is an architectural boundary, but a deployment uses a consistent compatible codec rather than choosing encodings independently for each leaf. Encryption is a separate protection layer.
 

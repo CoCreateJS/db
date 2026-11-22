@@ -99,7 +99,7 @@ CoCreate CRUD and Workflow/AST compose the required behavior before, around and 
 
 Communication layers deliver messages and maintain awareness; persistence workflows manage durable state. Neither ordinary synchronization nor optional persistence alone establishes a transactional guarantee. A response-stabilization workflow may wait for observed changes to settle, but silence is not proof of convergence or isolation.
 
-This is an architectural direction, not a claim that distributed transactions, atomic batches or complete reconciliation are already implemented. See [CRUD](specifications/crud.md), [reconciliation](specifications/reconciliation.md), [distribution](specifications/distribution.md) and [persistence](specifications/persistence.md).
+This is an architectural direction, not a claim that distributed transactions, atomic batches or complete reconciliation are already implemented. See [CRUD](specifications/crud.md), [reconciliation](specifications/reconciliation.md), [awareness](specifications/awareness.md) and [persistence](specifications/persistence.md).
 
 ## 6. The architectural advantage
 

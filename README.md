@@ -172,7 +172,7 @@ Local state defaults to `mode: 'adaptive'` and `acknowledgement: 'memory'`. Adap
 
 The DB's memory policy manages its Hot/Warm working set. It cannot cap total server RSS or prevent unbounded ingress from consuming memory in sockets, HTTP handlers or queues. Process-level OOM protection belongs to server telemetry and traffic management: bound in-flight work, drain or throttle ingress under pressure, and have clients retry with backoff.
 
-### Persistence and distribution
+### Persistence and awareness
 
 CoCreateDB exposes a minimal external persistence transport and an in-memory pending journal grouped by root UUID. Register a provider and explicitly drain pending leaf changes:
 
@@ -192,7 +192,7 @@ CoCreate CRUD → CoCreateDB → CRUD workflow / AST
 
 The default memory acknowledgement returns after the local Hot mutation is available; local Warm writes continue separately. External Cool Persistence runs only when explicitly drained or orchestrated by a workflow. Missing local data can be acquired from Persistence or other servers through standard CRUD requests. Sequential, parallel, recursive and latency-aware acquisition are workflow choices. The DB returns an `awareness` UUID array with CRUD responses: leaf UUIDs identify returned data, and filtered or mutating operations also identify the resolved parent branch. Socket, IPC and Mesh own recipient awareness and mutation delivery. Cold archive integration is also external.
 
-These integration designs are documented in [persistence](specifications/persistence.md) and [distribution and awareness](specifications/distribution.md). External orchestration, complete acquired-leaf hydration, durable ordering and deduplication are not implemented by this engine checkpoint.
+These integration designs are documented in [persistence](specifications/persistence.md) and [CRUD awareness](specifications/awareness.md). External orchestration, complete acquired-leaf hydration, durable ordering and deduplication are not implemented by this engine checkpoint.
 
 ## Tests and benchmarks
 
