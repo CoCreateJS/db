@@ -90,11 +90,11 @@ Route acquisition reads separately from replication writes and acknowledgments. 
 
 ## Persistence and eviction
 
-Warm local-disk writes and eviction are part of the current DB. Cool external Persistence remains a separate workflow integration; it should preserve structural UUIDs and define hydration, write queues, durability, errors and flush behavior. Evicting Hot memory to Warm disk is not logical deletion. `disk-cache` deliberately clears its Warm local base on restart, so deployments that require recovery across restarts must use a stable persistent base or an external Cool/Cold copy. Network-level ingress control remains the server's responsibility.
+Warm local-disk writes and eviction are part of the current DB. Cool external Persistence has a callback seam and pending-leaf journal, but complete tree writes and hydration remain workflow integration; providers must preserve UUIDs and define durability, errors and recovery. Evicting Hot memory to Warm disk is not logical deletion. `disk-cache` deliberately clears its Warm local base on restart, so deployments that require recovery across restarts must use a stable persistent base or a complete external Cool/Cold copy. Network-level ingress control remains the server's responsibility.
 
 ## Integration checklist
 
-- DB: remove distribution scaffold; keep storage and indexing independent of transport. Define local miss/completeness and materialization contracts; implement persistence hydration and durability.
+- DB: keep storage and indexing independent of transport. Define local miss/completeness and materialization contracts; complete persistence tree writes, hydration and durability.
 - CRUD: implement configurable acquisition workflows, request correlation, route bounds, result aggregation and authorization. Retain standard CRUD envelopes where possible.
 - Cluster / IPC / mesh: inspect and extend current reference registration, routing and cleanup; targeted distribution keys must reach interested remote nodes and receiving primaries when appropriate.
 - Socket: verify client reference removal, root/query interest and last-user lifecycle. Do not duplicate awareness in DB.
@@ -104,4 +104,4 @@ This document describes architecture, not completed cross-repository functionali
 
 ## Workflow integration decision
 
-CRUD calls `db.send`, then a configurable CRUD workflow. That workflow orchestrates both remote acquisition and optional persistence (see [persistence.md](persistence.md)). Awareness and mutation delivery remain communication-layer responsibilities. The database does not maintain distribution or persistence hooks.
+CRUD calls `db.send`, then a configurable CRUD workflow. That workflow orchestrates remote acquisition and may explicitly call the DB's persistence transport (see [persistence.md](persistence.md)). Awareness and mutation delivery remain communication-layer responsibilities. The database does not maintain distribution state or automatically invoke persistence after each CRUD request.

@@ -6,7 +6,7 @@ const create = (db, path, uuid) => db.send({ ...path, method: 'object.create', o
 
 test('transfer configuration, reuse root identities, keep ordinary objects local', async () => {
     const a = createDB()
-    assert.deepEqual(Object.keys(a).sort(), ['baseDirectory','config','leafTier','local','send'])
+    assert.deepEqual(Object.keys(a).sort(), ['baseDirectory','config','leafTier','local','persist','persistence','send'])
     const first = await create(a, path, 'a')
     assert.equal(first.success, true, first.error?.join('; '))
     const second = await create(a, { ...path, array:'users' }, 'b')

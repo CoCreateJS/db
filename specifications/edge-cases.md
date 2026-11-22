@@ -16,7 +16,7 @@
 | Live object reference | Direct assignment can bypass indexes; use mutation APIs. |
 | Concurrent acquisition and mutation | Planned identity/version handling to avoid stale hydration. |
 | Duplicate increment or delayed delete | Planned reconciliation and deduplication. |
-| Async persistence failure | Workflow owns retry, ordering and acknowledgement policy. |
+| Async persistence failure | `db.persist()` retains failed leaf entries and their error for a later retry; the host/workflow owns when retries run. Ordering across separate DB instances and durable acknowledgement remain integration work. |
 | Last in-memory copy removed | External retention policy must prevent unintended loss. |
 | Recursive route cycles | External bounded route, deadline and correlation required. |
 

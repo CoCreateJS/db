@@ -10,13 +10,13 @@ CoCreateDB is a JavaScript-native database engine built around living leaves, st
 
 Rather than requiring every deployment to adopt a fixed storage engine or replication topology, CoCreateDB enables applications to compose these capabilities through external workflows. A local engine can operate independently; a distributed application can use the same CRUD interface while acquiring, persisting and synchronizing data through authorized infrastructure.
 
-This architecture aims to reduce duplicated traversal, memory residency and application orchestration while allowing data to remain portable across providers and compute environments. The current engine implements adaptive Hot memory, Warm local-disk storage and runtime indexing. Cool external Persistence, Cold archival storage, distributed acquisition, reconciliation and cryptographic policies are integration designs or research directions, not claims of completed functionality or certification.
+This architecture aims to reduce duplicated traversal, memory residency and application orchestration while allowing data to remain portable across providers and compute environments. The current engine implements adaptive Hot memory, Warm local-disk storage and runtime indexing, plus an explicit callback and pending-leaf journal for Cool Persistence. Complete external durability, root/index persistence, Cold archival storage, distributed acquisition, reconciliation and cryptographic policies remain integration designs or research directions, not claims of completed functionality or certification.
 
 **Your data is not trapped inside a database. Your data is the database.**
 
 ## 1. Architectural philosophy
 
-A database should be defined by its logical relationships rather than the location of its bytes. CoCreateDB separates logical structure, indexing, local Hot/Warm residency, external persistence, communication and security. The engine owns local CRUD, indexes and Hot/Warm state; Cool Persistence and Cold archive providers are composed externally without provider-specific behavior in the engine.
+A database should be defined by its logical relationships rather than the location of its bytes. CoCreateDB separates logical structure, indexing, local Hot/Warm residency, external persistence, communication and security. The engine owns local CRUD, indexes and Hot/Warm state; a host-supplied callback handles the current leaf-level Cool Persistence seam without provider-specific behavior in the engine.
 
 This separation permits an embedded application, a primary/worker runtime and a geographically distributed application to share the same data model. It does not eliminate the cost of persistence or consistency; it makes those policies explicit and independently selectable.
 
@@ -96,15 +96,15 @@ response = await server.workflow.send({ name: 'crud', data, response })
 return response
 ```
 
-This illustrates composition, not a built-in database callback or a finalized workflow API. The engine does not invoke persistence or distribution itself. Workflow/AST determines subsequent actions. Across processes the logical envelope survives, not JavaScript reference identity.
+This illustrates workflow composition, not an automatic persistence policy or finalized workflow API. The engine has an explicitly registered persistence transport and pending-leaf journal; the host or workflow chooses when to drain it. The DB does not maintain distribution state or automatically persist each CRUD request. Across processes the logical envelope survives, not JavaScript reference identity.
 
 ## 7. Persistence and portability
 
 The current engine uses Hot memory and Warm local disk. Adaptive mode is the default: its requested memory budget defaults to 25% of total system memory, capped by memory available at startup, and its weighted eviction policy moves eligible leaves and branches to Warm storage as pressure rises. This is a soft DB-residency target, not a hard cap on total process memory. `disk-first` remains available as an explicit mitigation mode and is also entered temporarily by adaptive handling at high pressure. `disk-cache` clears the DB-managed local base on startup. The default acknowledgement is `memory`; `disk` acknowledgement waits for affected Warm writes. Neither setting controls server ingress or guarantees transactional atomicity.
 
-Warm local files are part of the DB's own working and recovery path. Cool external workflows can persist complete objects and configuration to cloud storage, databases, network storage or other compatible destinations; Cold archival storage is another external tier. UUID identity is independent of filename, directory layout, provider or encoding. No provider-specific paths are mandated.
+Warm local files are part of the DB's own working and recovery path. The current external persistence seam groups pending leaf changes by root UUID and can send complete UUID-bearing leaf snapshots or UUID deletes through a registered callback. The host or workflow controls when it is drained. Root and index-branch persistence, a separate Persistence Tree, and Cold archival storage are not implemented. UUID identity is independent of filename, directory layout, provider or encoding. No provider-specific paths are mandated.
 
-The default memory acknowledgement returns when the local Hot mutation is available while Warm writes continue separately. A workflow can await a Cool persistence provider when stronger external durability is required. Detached external writes require stable snapshots, ordering, retry policy, backpressure, failure visibility and shutdown recovery. Late writes must not overwrite newer state. Reads need not trigger external durable writes merely because they have been served.
+The default memory acknowledgement returns when the local Hot mutation is available while Warm writes continue separately. `db.persist()` explicitly drains pending leaf changes; it retains failed or unacknowledged entries and clears only the matching acknowledged entry. This early contract does not establish complete database durability, and persistence acknowledgement mode remains unavailable until roots and index branches are included. Reads do not create pending writes merely because they have been served.
 
 Portable exports require configuration, complete objects, necessary reconciliation metadata and a compatible codec. Moving durable bytes between providers does not itself ensure a consistent snapshot. Restoration must reconstruct the working set and runtime indexes while preserving UUIDs. See [persistence](specifications/persistence.md).
 

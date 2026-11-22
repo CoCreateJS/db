@@ -148,7 +148,7 @@ export function createRootManager({ db, size = 1024, leafSize = size, deferIndex
         const root = persistenceRoot(leaf)
         const group = db.persistence.pending[root] ??= Object.create(null)
         const previous = group[leaf.uuid]
-        group[leaf.uuid] = op
+        group[leaf.uuid] = { op }
         return { root, previous }
     }
     function restorePending(root, id, previous) {
@@ -389,5 +389,5 @@ export function createRootManager({ db, size = 1024, leafSize = size, deferIndex
         if (pending.size === count) throw Error('Missing or cyclic configured parent')
     }
     initializing = false
-    return { create, resolve, select, remove, direct, validateTarget, configuration, configureLeaf, restoreLeaf, flushIndex, syncIndexCatalog, clearPersistencePending, pendingIndex, hasIdentity: (parent,id) => identities.has(identityKey(parent?.uuid,id)) }
+    return { create, resolve, select, remove, direct, validateTarget, configuration, configureLeaf, restoreLeaf, flushIndex, syncIndexCatalog, clearPersistencePending, persistenceValue: id => db.leaves.get(id) ?? deleted.get(id), pendingIndex, hasIdentity: (parent,id) => identities.has(identityKey(parent?.uuid,id)) }
 }

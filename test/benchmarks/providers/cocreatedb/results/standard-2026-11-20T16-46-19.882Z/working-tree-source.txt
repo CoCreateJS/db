@@ -1,5 +1,0 @@
-Benchmark source identity
-Git HEAD: 3f3bb2f21f8fd2332b6f686bb50cfd8b1a553653
-Working tree: dirty; benchmark executed against current source files, including uncommitted changes.
-Per-file SHA-256 hashes: source-sha256.txt
-Fixture hash (100000 canonical pre-ingestion JSON dataset): 79fd345261896883833b8e006eaf41bf1f1d8e5239f8eb8c24e3fc43abcaac6b

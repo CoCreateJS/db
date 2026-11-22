@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Config from '@cocreate/config'
 import { crud, persistenceChanges } from './crud/index.js'
+import { Persistence } from './persistence/index.js'
 import { createConfiguration, createRootManager } from './root.js'
 
 export function createDB(server = {}, options = {}) {
@@ -17,7 +18,7 @@ export function createDB(server = {}, options = {}) {
     if (!['adaptive', 'disk-first', 'disk-cache'].includes(mode)) throw new Error(`Unsupported database mode: ${mode}`)
     const acknowledgement = options.acknowledgement ?? options.config?.acknowledgement ?? 'memory'
     if (!['memory', 'disk', 'persistence'].includes(acknowledgement)) throw new Error(`Unsupported acknowledgement: ${acknowledgement}`)
-    if (acknowledgement === 'persistence') throw new Error('Persistence acknowledgement requires the external persistence integration')
+    if (acknowledgement === 'persistence') throw new Error('Persistence acknowledgement requires an external persistence integration with the complete persistence tree')
     const baseDirectory = primary ? options.directory ?? mkdtempSync(join(tmpdir(), 'cocreatedb-')) : undefined
     if (primary && mode === 'disk-cache') {
         for (const name of ['config.json', 'config.json.tmp', 'branches', 'leaves'])
@@ -45,6 +46,16 @@ export function createDB(server = {}, options = {}) {
     }
     const policy = primary && db.local && options.memoryPolicy !== false ? new MemoryPolicy(db.local, {memory:options.config?.memory??25,...memoryOptions},db.leaves) : null
     const roots = createRootManager({ db, size, leafSize, deferIndex: options.deferIndex ?? true, persistConfig: db.persistConfig })
+    db.persistence = new Persistence({
+        pending: db.persistence.pending,
+        get: roots.persistenceValue,
+        remove: (root, uuid, entry) => {
+            const group = db.persistence.pending[root]
+            if (!group || group[uuid] !== entry) return
+            delete group[uuid]
+            if (!Object.keys(group).length) delete db.persistence.pending[root]
+        }
+    })
     db.persistConfig()
     if(db.leaves instanceof LeafTier){db.leaves.pending=roots.pendingIndex;db.leaves.restore=(data)=>roots.restoreLeaf(data.object)}
     let diskQueue = Promise.resolve()
@@ -125,6 +136,7 @@ export function createDB(server = {}, options = {}) {
         ... (db.local ? {local:db.local,leafTier:db.leaves} : {}),
         persistence: db.persistence,
         baseDirectory,
+        persist: () => db.persistence.persist(),
         get config() { return roots.configuration(primary) },
         async send(request) {
             if (!primary) {

@@ -6,7 +6,7 @@ CoCreateDB keeps a Hot working set in memory and uses Warm local disk for write-
 
 Use CoCreateDB independently in Node.js or compose it with CoCreate Server, CRUD, Workflow and other CoCreateJS capabilities to build persistent and distributed applications.
 
-> Development status: this README describes the current Next implementation. External persistence, distributed acquisition and production integration are separate work; this is not yet a production release.
+> Development status: this README describes the current Next implementation. The external persistence callback is an early leaf-level seam; complete external durability, distributed acquisition and production integration remain separate work. This is not yet a production release.
 
 ## Features
 
@@ -174,7 +174,14 @@ The DB's memory policy manages its Hot/Warm working set. It cannot cap total ser
 
 ### Persistence and distribution
 
-CoCreateDB has no persistence hooks, distribution inventories, peer-discovery manager or subscription system. These are composed externally through CRUD and configurable workflows.
+CoCreateDB exposes a minimal external persistence transport and an in-memory pending journal grouped by root UUID. Register a provider and explicitly drain pending leaf changes:
+
+```js
+database.persistence.register(async envelope => provider.send(envelope))
+const persisted = await database.persist()
+```
+
+The drain sends complete UUID-bearing leaf snapshots for upserts and UUID-only requests for deletes. A successful provider acknowledgement clears the matching pending item; errors remain attached for retry. Reads can be sent through `database.persistence.send()` using `persistence.read`. This is an early integration seam: the separate Persistence Tree and root/index branch writes are not implemented, so this does not yet provide complete external durability. `acknowledgement: 'persistence'` is therefore unavailable.
 
 ```text
 CoCreate CRUD → CoCreateDB → CRUD workflow / AST
@@ -183,7 +190,7 @@ CoCreate CRUD → CoCreateDB → CRUD workflow / AST
                               └─ Communication
 ```
 
-The default memory acknowledgement returns after the local Hot mutation is available; local Warm writes and external Cool Persistence are separate work. A workflow may schedule external Persistence independently or await it for a stronger provider-specific acknowledgement. Missing local data can be acquired from Persistence or other servers through standard CRUD requests. Sequential, parallel, recursive and latency-aware acquisition are workflow choices. Socket, IPC and Mesh own recipient awareness and mutation delivery. Cold archive integration is also external.
+The default memory acknowledgement returns after the local Hot mutation is available; local Warm writes continue separately. External Cool Persistence runs only when explicitly drained or orchestrated by a workflow. Missing local data can be acquired from Persistence or other servers through standard CRUD requests. Sequential, parallel, recursive and latency-aware acquisition are workflow choices. Socket, IPC and Mesh own recipient awareness and mutation delivery. Cold archive integration is also external.
 
 These integration designs are documented in [persistence](specifications/persistence.md) and [distribution and awareness](specifications/distribution.md). External orchestration, complete acquired-leaf hydration, durable ordering and deduplication are not implemented by this engine checkpoint.
 

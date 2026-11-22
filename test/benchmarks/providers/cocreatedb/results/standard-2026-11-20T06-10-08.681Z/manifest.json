@@ -3,9 +3,7 @@
   "runId": "2026-11-20T06-10-08.681Z",
   "startedAt": "2026-11-20T06:10:08.681Z",
   "sizes": [
-    1000,
-    10000,
-    100000
+    1000
   ],
   "independentRunsRequested": 5,
   "sampleCount": 40,
@@ -50,76 +48,6 @@
       "status": "passed",
       "file": "size-1000-run-05.json",
       "elapsedMs": 30774.000728
-    },
-    {
-      "size": 10000,
-      "runIndex": 1,
-      "status": "passed",
-      "file": "size-10000-run-01.json",
-      "elapsedMs": 34107.924496
-    },
-    {
-      "size": 10000,
-      "runIndex": 2,
-      "status": "passed",
-      "file": "size-10000-run-02.json",
-      "elapsedMs": 34182.673113
-    },
-    {
-      "size": 10000,
-      "runIndex": 3,
-      "status": "passed",
-      "file": "size-10000-run-03.json",
-      "elapsedMs": 34138.179138
-    },
-    {
-      "size": 10000,
-      "runIndex": 4,
-      "status": "passed",
-      "file": "size-10000-run-04.json",
-      "elapsedMs": 34237.210899
-    },
-    {
-      "size": 10000,
-      "runIndex": 5,
-      "status": "passed",
-      "file": "size-10000-run-05.json",
-      "elapsedMs": 34161.354594000004
-    },
-    {
-      "size": 100000,
-      "runIndex": 1,
-      "status": "passed",
-      "file": "size-100000-run-01.json",
-      "elapsedMs": 77874.05840000001
-    },
-    {
-      "size": 100000,
-      "runIndex": 2,
-      "status": "passed",
-      "file": "size-100000-run-02.json",
-      "elapsedMs": 78690.494357
-    },
-    {
-      "size": 100000,
-      "runIndex": 3,
-      "status": "passed",
-      "file": "size-100000-run-03.json",
-      "elapsedMs": 79093.622574
-    },
-    {
-      "size": 100000,
-      "runIndex": 4,
-      "status": "passed",
-      "file": "size-100000-run-04.json",
-      "elapsedMs": 78572.93594
-    },
-    {
-      "size": 100000,
-      "runIndex": 5,
-      "status": "passed",
-      "file": "size-100000-run-05.json",
-      "elapsedMs": 79609.10204700001
     }
   ],
   "legacyCompatibility": {
@@ -161,7 +89,7 @@
   },
   "completedAt": "2026-11-20T06:22:12.792Z",
   "summary": {
-    "successfulRuns": 15,
+    "successfulRuns": 5,
     "failedRuns": 0,
     "notAttempted": 0
   }

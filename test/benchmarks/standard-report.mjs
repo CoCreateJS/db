@@ -65,6 +65,10 @@ for (const size of sizes) {
             incrementalHeapBytes: median(runs.map(run => run.memory?.incrementalHeapBytes)),
             rssBytesPerObject: median(runs.map(run => run.memory?.rssBytesPerObject))
         },
+        memoryPolicy: {
+            requestedBudgetBytes: median(runs.map(run => run.memoryPolicy?.requestedBudgetBytes)),
+            effectiveBudgetBytes: median(runs.map(run => run.memoryPolicy?.effectiveBudgetBytes))
+        },
         cpu: {
             userUs: median(runs.map(run => run.cpuUsageUs?.user)),
             systemUs: median(runs.map(run => run.cpuUsageUs?.system)),
@@ -104,6 +108,7 @@ for (const size of sizes) {
         `- Total independent run time: ${fmt(summary.totalElapsedMs)} ms.`,
         `- Index entries/object: ${runs[0]?.indexEntriesPerObject ?? 'n/a'}; indexing is synchronous and included in create time.`,
         `- Memory (idle / loaded / peak RSS): ${miB(summary.memory.idleRssBytes)} / ${miB(summary.memory.loadedRssBytes)} / ${miB(summary.memory.peakRssBytes)}.`,
+        `- Memory allocation: ${manifest.configuration?.memoryPercent ?? runs[0]?.configuration?.memoryPercent ?? 'unknown'}% of system memory; requested / effective budget: ${miB(summary.memoryPolicy.requestedBudgetBytes)} / ${miB(summary.memoryPolicy.effectiveBudgetBytes)}.`,
         `- Incremental memory/object: ${fmt(summary.memory.rssBytesPerObject)} bytes RSS; incremental heap: ${miB(summary.memory.incrementalHeapBytes)}.`,
         `- CPU: ${fmt(summary.cpu.userUs / 1000)} ms user + ${fmt(summary.cpu.systemUs / 1000)} ms system; ${fmt(summary.cpu.utilizationPercent)}% utilization.`, '',
         '| Operation | First ms | Warm min ms | Warm max ms | Warm mean ms | Warm p50 ms | p95 ms | p99 ms | Warm ops/s |', '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |', ...operationRows, '',
@@ -170,10 +175,10 @@ const lines = [
     `- Source revision: \`${summaryEntry.sourceRevision ?? 'unavailable'}\`; DB version ${summaryEntry.runtime?.databaseVersion ?? 'unknown'}.`,
     `- Runtime: ${summaryEntry.runtime?.node ?? 'unknown'} / ${summaryEntry.runtime?.platform ?? 'unknown'}; CPU: ${summaryEntry.runtime?.cpuModel ?? 'unknown'} (${summaryEntry.runtime?.cpuCount ?? '?'} logical CPUs); RAM: ${miB(summaryEntry.runtime?.totalMemoryBytes)}; limit: ${miB(summaryEntry.runtime?.memoryLimitBytes)}.`,
     `- Method: ${manifest.independentRunsRequested} independent runs/size; ${manifest.warmupCount} warmups and ${manifest.sampleCount} samples per latency operation; ${manifest.sustainedDurationMs} ms sustained runs per workload/concurrency.`,
-    `- Process model: ${summaryEntry.runtime?.processModel}; durability: ${summaryEntry.runtime?.durability}. Disk usage and I/O are not applicable.`,
+    `- Process model: ${summaryEntry.runtime?.processModel}; mode: ${manifest.configuration?.mode ?? 'adaptive'}; acknowledgement: ${manifest.configuration?.acknowledgement ?? 'memory'}; memory allocation: ${manifest.configuration?.memoryPercent ?? 'unknown'}%. ${summaryEntry.runtime?.durability}.`,
     '- No competitor databases, containers, dependencies or datasets were installed or launched.', '',
     'Each run is a fresh child process and database. Fixture data is generated in 1,000-record batches; object generation and fixture hashing are excluded from measured create/index time. The fixture hash is over the canonical pre-ingestion JSON dataset. Correctness checks compare UUID result sets before query timings are accepted. Measured request latency stops before result assertions. Sustained modes are read-only, increment-only writes, or alternating read/write calls; concurrency means outstanding in-process requests, not parallel database threads.', '',
-    'Initialization and readiness are reported separately. Index creation and maintenance are synchronous inside object creation, so create/index is one timed operation. The memory-only run has no disk I/O, persistence durability or network cost. CPU and RSS include both the benchmark client and database in the same Node process. Incremental memory/object is an approximate loaded-minus-idle RSS ratio.', '',
+    'Initialization and readiness are reported separately. Index creation and maintenance are synchronous inside object creation, so create/index is one timed operation. Local Warm writes are queued after memory acknowledgement; their disk drain is not included in request timings. External persistence is not configured. CPU and RSS include both the benchmark client and database in the same Node process. Incremental memory/object is an approximate loaded-minus-idle RSS ratio.', '',
     '| Size | Runs passed | Fixture hash | Create + index ms | Create ops/s | Loaded RSS | Peak RSS |', '| ---: | ---: | --- | ---: | ---: | ---: | ---: |',
     ...sizes.map(size => {
         const item = summaries[size]
@@ -199,7 +204,7 @@ const lines = [
     `Raw independent runs and the manifest are stored under \`${directory}\`. Status counts: ${JSON.stringify(manifest.summary)}. Provider summary appended to [summary.json](../summary.json) without replacing historical data.`,
     '',
     '## Limits and follow-up', '',
-    'This report measures the in-memory CoCreateDB prototype. MongoDB and Redis have separate provider adapters and reports; compare their results by operation while accounting for transport, indexing and durability differences. Distributed synchronization, replication, sharding, recovery, persistence durability, server/client separation, and transaction guarantees are out of scope for this in-memory CoCreateDB run.'
+    'This report measures a single-node CoCreateDB run with adaptive memory residency and local Warm writes. MongoDB and Redis have separate provider adapters and reports; compare their results by operation while accounting for transport, indexing and durability differences. Distributed synchronization, replication, sharding, external persistence durability, server/client separation, and transaction guarantees are out of scope.'
 ]
 await writeFile(join(directory, 'report.md'), `${lines.join('\n')}\n`)
 console.log(`report=${join(directory, 'report.md')}`)

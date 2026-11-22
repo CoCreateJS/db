@@ -4,12 +4,12 @@
 - Source revision: `7d9c347d0385de84d9aefa6acbb00dafec9edaa7`; DB version 1.0.0.
 - Runtime: v24.18.0 / linux-x64; CPU: AMD EPYC 7571 (2 logical CPUs); RAM: 7838.21 MiB; limit: n/a.
 - Method: 5 independent runs/size; 10 warmups and 40 samples per latency operation; 5000 ms sustained runs per workload/concurrency.
-- Process model: single in-process Node process; benchmark client and database share CPU/RSS; durability: none; no disk or provider writes. Disk usage and I/O are not applicable.
+- Process model: single in-process Node process; benchmark client and database share CPU/RSS; mode: adaptive; acknowledgement: memory; memory allocation: unknown%. none; no disk or provider writes.
 - No competitor databases, containers, dependencies or datasets were installed or launched.
 
 Each run is a fresh child process and database. Fixture data is generated in 1,000-record batches; object generation and fixture hashing are excluded from measured create/index time. The fixture hash is over the canonical pre-ingestion JSON dataset. Correctness checks compare UUID result sets before query timings are accepted. Measured request latency stops before result assertions. Sustained modes are read-only, increment-only writes, or alternating read/write calls; concurrency means outstanding in-process requests, not parallel database threads.
 
-Initialization and readiness are reported separately. Index creation and maintenance are synchronous inside object creation, so create/index is one timed operation. The memory-only run has no disk I/O, persistence durability or network cost. CPU and RSS include both the benchmark client and database in the same Node process. Incremental memory/object is an approximate loaded-minus-idle RSS ratio.
+Initialization and readiness are reported separately. Index creation and maintenance are synchronous inside object creation, so create/index is one timed operation. Local Warm writes are queued after memory acknowledgement; their disk drain is not included in request timings. External persistence is not configured. CPU and RSS include both the benchmark client and database in the same Node process. Incremental memory/object is an approximate loaded-minus-idle RSS ratio.
 
 | Size | Runs passed | Fixture hash | Create + index ms | Create ops/s | Loaded RSS | Peak RSS |
 | ---: | ---: | --- | ---: | ---: | ---: | ---: |
@@ -23,6 +23,7 @@ Initialization and readiness are reported separately. Index creation and mainten
 - Total independent run time: 32751.004 ms.
 - Index entries/object: 17; indexing is synchronous and included in create time.
 - Memory (idle / loaded / peak RSS): 62.23 MiB / 177.89 MiB / 304.77 MiB.
+- Memory allocation: unknown% of system memory; requested / effective budget: n/a / n/a.
 - Incremental memory/object: 12113.510 bytes RSS; incremental heap: 77.04 MiB.
 - CPU: 33576.752 ms user + 399.062 ms system; 103.627% utilization.
 
@@ -67,4 +68,4 @@ Raw independent runs and the manifest are stored under `/home/ubuntu/Dev/CoCreat
 
 ## Limits and follow-up
 
-This report measures the in-memory CoCreateDB prototype. MongoDB and Redis have separate provider adapters and reports; compare their results by operation while accounting for transport, indexing and durability differences. Distributed synchronization, replication, sharding, recovery, persistence durability, server/client separation, and transaction guarantees are out of scope for this in-memory CoCreateDB run.
+This report measures a single-node CoCreateDB run with adaptive memory residency and local Warm writes. MongoDB and Redis have separate provider adapters and reports; compare their results by operation while accounting for transport, indexing and durability differences. Distributed synchronization, replication, sharding, external persistence durability, server/client separation, and transaction guarantees are out of scope.

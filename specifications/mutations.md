@@ -13,7 +13,7 @@ Update uses shared createUpdate on a cloned object, validates identity and value
 }
 ```
 
-The snapshot is abbreviated; actual updated entries contain the complete resulting leaf, including parent and other fields when present. Existing updates preserve request patch operators for communication and return independent structuredClone snapshots for persistence. The same envelope can be used externally; no second mutation or DB persistence callback is required. Upsert creation returns a created leaf, not necessarily an updated snapshot. Deletes identify removed leaves.
+The snapshot is abbreviated; actual updated entries contain the complete resulting leaf, including parent and other fields when present. Existing updates preserve request patch operators for communication and return independent structuredClone snapshots. The DB also records changed leaves in `persistence.pending`; an explicit `db.persist()` sends complete current leaf snapshots for upserts and UUIDs for deletes. Upsert creation returns a created leaf, not necessarily an updated snapshot. Deletes identify removed leaves. Persistence of root/index branches is not yet implemented.
 
 ## Planned
 

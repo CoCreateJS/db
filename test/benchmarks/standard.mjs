@@ -48,8 +48,11 @@ const recordEnvironment = () => {
         databaseVersion: JSON.parse(readFileSync(join(root, 'package.json'))).version,
         sourceRevision: gitRevision(),
         processModel: 'single in-process Node process; benchmark client and database share CPU/RSS',
-        persistence: 'not configured; memory-resident run',
-        durability: 'none; no disk or provider writes',
+        mode: 'adaptive',
+        acknowledgement: 'memory',
+        memoryPercent: Number(process.env.BENCH_MEMORY_PERCENT ?? 25),
+        persistence: 'external persistence not configured; local Warm disk writes enabled',
+        durability: 'local writes are queued after memory acknowledgement; disk drain excluded from request timings',
         diskUsageBytes: null,
         diskIO: null
     }
@@ -69,6 +72,9 @@ const assertResponse = (response, label) => {
     return response
 }
 const uuidFor = benchmarkUuid
+const memoryPercent = Number(process.env.BENCH_MEMORY_PERCENT ?? 25)
+if (!Number.isFinite(memoryPercent) || memoryPercent <= 0 || memoryPercent > 100)
+    throw Error('BENCH_MEMORY_PERCENT must be a number greater than 0 and at most 100')
 const verifyIds = (response, expected, label) => {
     assertResponse(response, label)
     assert.deepEqual(response.object.map(value => value.uuid), expected, `${label} result ids`)
@@ -145,18 +151,25 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
     const environment = recordEnvironment()
     const root = lifecycleRoot(size)
     const result = {
-        status: 'running', benchmark: 'cocreatedb-standard-single-node-memory',
+        status: 'running', benchmark: 'cocreatedb-standard-single-node-adaptive',
         benchmarkVersion: 1, fixture: 'shared lifecycle fixture v3', fixtureVersion: '3.0.0',
         runIndex, datasetSize: size, sampleCount: samples, warmupCount: warmups,
         sustainedDurationMs: sustainMs, concurrencyLevels: concurrency,
-        environment, configuration: { roots: 'default', indexSize: 64, chunkSize: 1000, deferIndex: false },
+        environment, configuration: { roots: 'default', indexSize: 64, chunkSize: 1000, deferIndex: false, mode: 'adaptive', acknowledgement: 'memory', memoryPercent },
         startedAt: new Date().toISOString()
     }
     const cpuStart = process.cpuUsage()
     const wallStart = performance.now()
     try {
         const initStart = performance.now()
-        const db = await createDB.init(undefined, { prompt: false, config: {}, size: 64, deferIndex: false })
+        const db = await createDB.init(undefined, { prompt: false, config: { memory: memoryPercent }, size: 64, deferIndex: false })
+        result.memoryPolicy = {
+            requestedPercent: memoryPercent,
+            totalMemoryBytes: db.memoryPolicy?.totalMemory,
+            availableMemoryBytes: db.memoryPolicy?.availableMemory,
+            requestedBudgetBytes: db.memoryPolicy?.requestedBudget,
+            effectiveBudgetBytes: db.memoryPolicy?.budget
+        }
         result.initializationMs = performance.now() - initStart
         const send = request => db.send(request)
         const idleMemory = process.memoryUsage()
@@ -346,6 +359,7 @@ async function orchestrate() {
         sampleCount: samples, warmupCount: warmups, sustainedDurationMs: sustainMs,
         concurrencyLevels: concurrency, results: [],
         stallTimeoutMs: Number(process.env.BENCH_STALL_MS ?? 10 * 60 * 1000),
+        configuration: { mode: 'adaptive', acknowledgement: 'memory', memoryPercent },
         legacyCompatibility: { status: 'not-run', fixture: 'lifecycle fixture v2', runs: [] }
     }
     let stopLargerSizes = false
