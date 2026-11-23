@@ -1,4 +1,5 @@
 import { uuid, getValueFromObject, dotNotationToObject } from '@cocreate/utils'
+import { defer, cancelDefer } from './defer.js'
 import { createLeaf, attach, initializeLeaf, type, updateLeaf, deferLeaf, reconcileLeaf, restoreLeafIndex } from './leaf.js'
 import { Tree } from './tree/index.js'
 import { queryTree } from './tree/query.js'
@@ -103,14 +104,14 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
     }
     function schedule() {
         if (scheduled || !pendingIndex.size || indexError) return
-        scheduled = setImmediate(async () => {
+        scheduled = defer(async () => {
             scheduled = undefined
             try { await drain(64) } catch { return }
             schedule()
         })
     }
     async function flushIndex() {
-        if (scheduled) clearImmediate(scheduled)
+        if (scheduled) cancelDefer(scheduled)
         scheduled = undefined
         await drain()
     }

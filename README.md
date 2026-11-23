@@ -2,7 +2,7 @@
 
 **An embeddable JavaScript document database built around living leaves, automatic indexing and configurable roots.**
 
-CoCreateDB keeps a Hot working set in memory and uses Warm local disk for write-through storage, recovery and pressure relief. Objects retain their identity as they are queried and updated, while index entries reference the objects directly. The engine provides a common CRUD interface for data and structural leaves without requiring an external database provider or network connection.
+CoCreateDB keeps a Hot working set in memory and uses Warm local disk for write-through storage, recovery and pressure relief. Objects retain their identity as they are queried and updated, while index entries reference the objects directly. The engine provides a common CRUD interface for data and structural leaves without requiring an external database provider or network connection. Its Node entry uses local filesystem storage; its browser package entry uses the Origin Private File System (OPFS).
 
 Use CoCreateDB independently in Node.js or compose it with CoCreate Server, CRUD, Workflow and other CoCreateJS capabilities to build persistent and distributed applications.
 
@@ -171,6 +171,10 @@ In standalone usage no server is required. In worker mode an injected `forward(r
 Local state defaults to `mode: 'adaptive'` and `acknowledgement: 'memory'`. Adaptive uses Hot memory and Warm local disk, evicting weighted leaves and branches under pressure. Its default requested budget is 25% of total system memory, capped by memory available at startup; this is a soft residency target, not a hard cap on process memory. At high pressure, adaptive temporarily uses disk-first request handling. `mode: 'disk-first'` remains available explicitly for mitigation/testing; `mode: 'disk-cache'` clears the DB-managed base on startup and starts fresh. The independent `acknowledgement` option also accepts `'disk'`, which waits for affected local writes. These options are instance-level; memory acknowledgement is not a transaction or disk-durability guarantee. Each instance uses a base directory containing `config.json`, `branches/`, and `leaves/`. If `directory` is omitted, the default base is `~/.cocreate/db` for the current OS user; adaptive and disk-first resume its Config and data across restarts, while disk-cache clears its contents at startup. A supplied `directory` is used exactly as given. External Persistence acknowledgement is not implemented by this engine yet.
 
 The DB's memory policy manages its Hot/Warm working set. It cannot cap total server RSS or prevent unbounded ingress from consuming memory in sockets, HTTP handlers or queues. Process-level OOM protection belongs to server telemetry and traffic management: bound in-flight work, drain or throttle ingress under pressure, and have clients retry with backoff.
+
+### Browser storage
+
+The package's `browser` entry selects the OPFS adapter automatically; browser consumers import `@cocreate/db` without selecting a separate adapter. Browser instances use disk-first request processing and store the same `config.json`, `branches/` and `leaves/` layout under the origin-private directory `CoCreateDB/` by default. Set `directory` to a relative path beneath the OPFS root to isolate another database. OPFS is origin-scoped, quota-managed browser storage and requires a secure context. The Node entry remains selected by the package's `main` field and keeps its `~/.cocreate/db` default.
 
 ### Persistence and awareness
 

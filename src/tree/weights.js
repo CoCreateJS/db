@@ -121,8 +121,9 @@ export class Weights {
         for (const {object, weight} of selected) {
             if (object.viewed === weight && this.has(object) && eligible(object) && await evict(object)) count++
             else skipped++
-            await new Promise(setImmediate)
+            await nextTurn()
         }
         return {candidates, target, count, skipped}
     }
 }
+import { nextTurn } from '../defer.js'

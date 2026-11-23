@@ -106,7 +106,7 @@ const lastOf=p=>({value:p.lastValue,uuid:p.lastUuid})
 const firstOf=p=>({value:p.firstValue,uuid:p.firstUuid})
 export class Tree {
     constructor(size=1024,local=null,key=null,leafSize=size,rootUuid){if(size<2||leafSize<2)throw Error('index size');this.size=size;this.leafSize=leafSize;this.local=local;this.key=key;this.rootUuid=rootUuid;this.root=new Branch(null,this,rootUuid?{uuid:rootUuid}:undefined);this.initialized=!rootUuid}
-    async initialize(){if(!this.initialized){try{const data=await this.local.readByUuid(this.rootUuid);if(data)await this.root.restore(data)}catch(error){if(error.code!=='ENOENT')throw error}this.initialized=true}return this}
+    async initialize(){if(!this.initialized){try{const data=await this.local.readByUuid(this.rootUuid);if(data)await this.root.restore(data)}catch(error){if(error.code!=='ENOENT'&&error.name!=='NotFoundError')throw error}this.initialized=true}return this}
     reference(index){return index instanceof Branch?index.reference():index}
     async resolveChild(parent,index){
         const ref=parent.branches[index]

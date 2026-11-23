@@ -1,2 +1,3 @@
-// Node storage implementation, retained at this path for source-level consumers.
-export { LocalTier } from '../node/tree/local.js'
+// Keep the source-level Node entry stable for consumers that construct a LocalTier
+// from a directory. Browser code imports the storage-agnostic local-core module.
+export { LocalTier, default } from '../node/tree/local.js'
