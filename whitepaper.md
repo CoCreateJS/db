@@ -1,14 +1,14 @@
 # CoCreateDB
 
-## A Storage-Independent Architecture for Secure, Portable and Distributed Data
+## A Client-Server Database Engine for Distributed Databases
 
 **Technical whitepaper — living document**
 
 ## Abstract
 
-CoCreateDB is a JavaScript-native database engine built around living leaves, stable UUID identity and independently usable indexing primitives. It separates logical structure and Hot/Warm local execution from external persistence, network distribution, security and ownership.
+CoCreateDB is a JavaScript-native client-server database engine built around living leaves, stable UUID identity and independently usable indexing primitives. It runs as a local database in browser clients and Node servers, separating logical structure and local execution from external persistence, network distribution, security and ownership.
 
-Rather than requiring every deployment to adopt a fixed storage engine or replication topology, CoCreateDB enables applications to compose these capabilities through external workflows. A local engine can operate independently; a distributed application can use the same CRUD interface while acquiring, persisting and synchronizing data through authorized infrastructure.
+The client and server use the same database contract with runtime-specific local storage: browser clients use OPFS with disk-first processing, while Node servers use the filesystem and adaptive Hot/Warm residency by default. Each runtime can perform its own local CRUD. CoCreate CRUD, Socket, IPC, Mesh and Workflow layers connect instances, route authorized operations and coordinate synchronization or acquisition. These layers can compose the instances into a distributed database without making the DB package itself own network connections or peer discovery.
 
 This architecture aims to reduce duplicated traversal, memory residency and application orchestration while allowing data to remain portable across providers and compute environments. The current engine implements adaptive Hot memory, Warm local-disk storage and runtime indexing, plus an explicit callback and pending-leaf journal for Cool Persistence. Complete external durability, root/index persistence, Cold archival storage, distributed acquisition, reconciliation and cryptographic policies remain integration designs or research directions, not claims of completed functionality or certification.
 
@@ -16,9 +16,15 @@ This architecture aims to reduce duplicated traversal, memory residency and appl
 
 ## 1. Architectural philosophy
 
-A database should be defined by its logical relationships rather than the location of its bytes. CoCreateDB separates logical structure, indexing, local Hot/Warm residency, external persistence, communication and security. The engine owns local CRUD, indexes and Hot/Warm state; a host-supplied callback handles the current leaf-level Cool Persistence seam without provider-specific behavior in the engine.
+A database should be defined by its logical relationships rather than the location of its bytes. CoCreateDB separates logical structure, indexing, local residency, external persistence, communication and security. The same engine runs in browser clients and Node servers while using a platform-appropriate storage adapter. The engine owns local CRUD and indexes; a host-supplied callback handles the current leaf-level Cool Persistence seam without provider-specific behavior in the engine.
 
-This separation permits an embedded application, a primary/worker runtime and a geographically distributed application to share the same data model. It does not eliminate the cost of persistence or consistency; it makes those policies explicit and independently selectable.
+This separation permits clients, primary servers, workers and geographically distributed nodes to share a data model and CRUD contract. The runtime-specific local database is distinct from the network behavior that connects instances. It does not eliminate the cost of persistence or consistency; it makes those policies explicit and independently selectable.
+
+### Client and server runtimes
+
+The package's `browser` entry selects the client adapter automatically. It stores local state in OPFS under the origin-private `CoCreateDB/` directory by default and processes requests disk-first without retaining the DB's adaptive Hot working set. The Node `main` entry selects the server adapter, stores state under `~/.cocreate/db` by default and uses adaptive Hot/Warm residency. Both adapters keep the same logical configuration, roots, branches and leaves.
+
+A browser client is a database participant with its own local state; it is not merely a view over a server database. A server is another database participant with its own local state. The surrounding CoCreate CRUD and communication stack decides which instance receives a request, who receives changes and how missing data is acquired. The DB package does not automatically connect these runtimes, broadcast changes, discover peers or guarantee distributed consistency. Those behaviors depend on the host's transport, awareness, persistence and reconciliation policies.
 
 ## 2. Living leaves and universal identity
 

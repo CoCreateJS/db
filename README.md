@@ -1,10 +1,10 @@
 # CoCreateDB
 
-**An embeddable JavaScript document database built around living leaves, automatic indexing and configurable roots.**
+**A client-server database engine for building distributed databases, built around living leaves, automatic indexing and configurable roots.**
 
 CoCreateDB keeps a Hot working set in memory and uses Warm local disk for write-through storage, recovery and pressure relief. Objects retain their identity as they are queried and updated, while index entries reference the objects directly. The engine provides a common CRUD interface for data and structural leaves without requiring an external database provider or network connection. Its Node entry uses local filesystem storage; its browser package entry uses the Origin Private File System (OPFS).
 
-Use CoCreateDB independently in Node.js or compose it with CoCreate Server, CRUD, Workflow and other CoCreateJS capabilities to build persistent and distributed applications.
+CoCreateDB runs as a local database in both browser clients and Node.js servers. CoCreate CRUD and communication layers can connect those database instances into a distributed application. Each instance owns its local Hot/Warm state; the client and server can therefore perform local database work without treating the browser as only a remote UI or cache.
 
 > Development status: this README describes the current Next implementation. The external persistence callback is an early leaf-level seam; complete external durability, distributed acquisition and production integration remain separate work. This is not yet a production release.
 
@@ -20,6 +20,18 @@ Use CoCreateDB independently in Node.js or compose it with CoCreate Server, CRUD
 - Transferable structural configuration that preserves root identities.
 - Standalone operation and configurable primary/worker forwarding.
 - Optional Cool external Persistence and distributed communication through external capabilities, not dependencies of the engine.
+
+## Client-server database model
+
+The package selects its local storage adapter from its entry point. Application code imports `@cocreate/db`; bundlers use the browser entry for clients, while Node uses the server entry.
+
+| Runtime | Storage and default | Processing model |
+| --- | --- | --- |
+| Browser client | OPFS, under the origin-private `CoCreateDB/` directory by default | Disk-first; each browser origin has its own local database state |
+| Node server | Node filesystem, under `~/.cocreate/db` by default | Adaptive Hot memory and Warm local disk; disk-first and disk-cache modes are available |
+| Node worker | No independent local store by default | Forwards requests through the configured `forward(request)` adapter |
+
+The DB engine supplies local CRUD, UUID identity, roots, indexes and residency. Client-server transport, awareness, recipient selection, synchronization and remote acquisition belong to the surrounding CoCreate CRUD, Socket, IPC, Mesh and Workflow layers. They can use the DB instances to build a distributed database, but importing this package alone does not establish connections or replicate changes automatically. See [runtime integration](#runtime-integration) and [the architecture specification](specifications/architecture.md).
 
 ## Getting started
 
@@ -176,6 +188,8 @@ The DB's memory policy manages its Hot/Warm working set. It cannot cap total ser
 
 The package's `browser` entry selects the OPFS adapter automatically; browser consumers import `@cocreate/db` without selecting a separate adapter. Browser instances use disk-first request processing and store the same `config.json`, `branches/` and `leaves/` layout under the origin-private directory `CoCreateDB/` by default. Set `directory` to a relative path beneath the OPFS root to isolate another database. OPFS is origin-scoped, quota-managed browser storage and requires a secure context. The Node entry remains selected by the package's `main` field and keeps its `~/.cocreate/db` default.
 
+This is local client-side database storage, not an implicit synchronization channel. A host application connects client and server instances using its CRUD and communication setup; distributed delivery and reconciliation remain external to the DB package.
+
 ### Persistence and awareness
 
 CoCreateDB exposes a minimal external persistence transport and an in-memory pending journal grouped by root UUID. Register a provider and explicitly drain pending leaf changes:
@@ -233,9 +247,13 @@ See the [specifications index](specifications/README.md) for detailed engine con
 
 ```text
 src/
-├── index.js       Engine factory and initialization
-├── leaf.js    Living leaf and index-entry primitives
-├── root.js       Configuration and root resolution
+├── index.js       Node server entry
+├── browser.js     Browser client entry
+├── database.js    Shared asynchronous engine
+├── leaf.js        Living leaf and index-entry primitives
+├── root.js        Configuration and root resolution
+├── node/          Node filesystem adapter and initializer
+├── browser/       OPFS adapter and browser initializer
 ├── crud/
 │   └── index.js   CRUD processing
 └── tree/
