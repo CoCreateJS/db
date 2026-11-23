@@ -1,26 +1,18 @@
-import { readFileSync } from 'node:fs'
-import { freemem, totalmem } from 'node:os'
-
 const stages = [
     .10, .20, .30, .40, .50, .60, .80, .90
 ]
 const diskFirstPressure = .90
 const sampleLimit = 128
-const getAvailableMemory = () => {
-    try {
-        const match = /^MemAvailable:\s+(\d+)\s+kB$/m.exec(readFileSync('/proc/meminfo', 'utf8'))
-        if (match) return Number(match[1]) * 1024
-    } catch {}
-    return freemem()
-}
 
-// RSS is a primary-process proxy, not an exact database allocation measurement.
 export class MemoryPolicy {
-    constructor(local, { memory = 25, systemMemory = totalmem(), availableMemory: available = getAvailableMemory(), interval = 100, hysteresis = .025 } = {}, leaves) {
+    constructor(local, { memory = 25, systemMemory, availableMemory, interval = 100, hysteresis = .025 } = {}, leaves) {
+        this.memory = memory
         this.totalMemory = systemMemory
-        this.availableMemory = available
-        this.requestedBudget = systemMemory * memory / 100
-        this.budget = Math.min(this.requestedBudget, available)
+        this.availableMemory = availableMemory ?? systemMemory
+        this.requestedBudget = Number.isFinite(systemMemory) ? systemMemory * memory / 100 : undefined
+        this.budget = this.requestedBudget === undefined ? undefined : Math.min(this.requestedBudget, this.availableMemory)
+        this.baselineUsedMemory = undefined
+        this.baselineReady = false
         this.interval = interval
         this.hysteresis = hysteresis
         this.stage = 0
@@ -34,10 +26,34 @@ export class MemoryPolicy {
             evict: () => leaves.evictLowestWeight()
         }
     }
-    check(now = performance.now(), rss) {
+    update(sample, now = performance.now()) {
+        const total = Number(sample?.memory?.total)
+        const maximum = Number(sample?.memory?.max)
+        if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(maximum) || maximum < 0 || maximum > 100) return false
+
+        const usedMemory = total * maximum / 100
+        if (!this.baselineReady) {
+            this.totalMemory = total
+            this.baselineUsedMemory = usedMemory
+            this.availableMemory = Math.max(0, total - usedMemory)
+            this.requestedBudget = total * this.memory / 100
+            this.budget = Math.min(this.requestedBudget, this.availableMemory)
+            this.baselineReady = true
+            if (this.budget === 0) this.checkPressure(now, 0, 1)
+            return true
+        }
+
+        const addedMemory = Math.max(0, usedMemory - this.baselineUsedMemory)
+        const pressure = this.budget > 0 ? addedMemory / this.budget : 1
+        this.checkPressure(now, addedMemory, pressure)
+        return true
+    }
+    check(now = performance.now(), usedMemory) {
+        if (!Number.isFinite(usedMemory) || !Number.isFinite(this.budget) || this.budget <= 0) return
+        this.checkPressure(now, usedMemory, usedMemory / this.budget)
+    }
+    checkPressure(now, usedMemory, pressure) {
         if (this.error) return
-        rss ??= process.memoryUsage.rss()
-        const pressure = rss / this.budget
         const urgentPressure = pressure >= diskFirstPressure
         this.diskFirst = this.diskFirst
             ? pressure >= diskFirstPressure - this.hysteresis
@@ -55,7 +71,7 @@ export class MemoryPolicy {
         this.stage = stage
         if (!stage) return
 
-        const sample = { rss, stage }
+        const sample = { usedMemory, pressure, stage }
         this.signal(this.index, sample, urgentPressure)
         if (this.payload) this.signal(this.payload, sample, urgentPressure)
     }
@@ -66,13 +82,13 @@ export class MemoryPolicy {
     async prune(tier, sample) {
         try {
             while (sample && !this.error) {
-                const { rss, stage } = sample
+                const { usedMemory, pressure, stage } = sample
                 const started = performance.now()
                 const threshold = stages[stage - 1]
                 const result = await tier.evict()
-                tier.samples.push({ rss, stage, threshold,
+                tier.samples.push({ usedMemory, pressure, stage, threshold,
                     ...result,
-                    elapsedMs: performance.now() - started, afterRss: process.memoryUsage.rss() })
+                    elapsedMs: performance.now() - started })
                 if (tier.samples.length > sampleLimit) tier.samples.shift()
                 sample = tier.pending
                 tier.pending = null

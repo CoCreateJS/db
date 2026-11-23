@@ -39,7 +39,8 @@
     "url": "https://github.com/CoCreateJS/db/issues"
   },
   "type": "module",
-  "main": "./src/index.js",
+  "main": "./src/node/index.js",
+  "browser": "./src/browser.js",
   "homepage": "https://CoCreateJS.com/docs/db",
   "dependencies": {
     "@cocreate/coson": "^1.0.0",
