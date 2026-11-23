@@ -24,7 +24,7 @@ const outputFile = join(outputDir, `adaptive-create-${sizeLabel}-${startedAt.toI
 const directory = await mkdtemp(join(tmpdir(), 'cocreatedb-adaptive-create-'))
 const root = lifecycleRoot(records)
 // Intentionally pass no mode, acknowledgement, memory-policy, or indexing options.
-const db = createDB({}, { directory })
+const db = await createDB({}, { directory })
 const result = {
     benchmark: 'cocreatedb-adaptive-default-create-diagnostic',
     benchmarkVersion: 1,
@@ -80,7 +80,7 @@ try {
     result.peakRssBeforeDrainMiB = process.resourceUsage().maxRSS / 1024
 
     const indexStart = performance.now()
-    db.flushIndex()
+    await db.flushIndex()
     result.indexDrainMs = performance.now() - indexStart
     result.pendingIndexAfterDrain = db.pendingIndexCount
 

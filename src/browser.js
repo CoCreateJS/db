@@ -1,4 +1,4 @@
-function createDB() {
+async function createDB() {
     throw new Error('CoCreateDB browser storage is not implemented yet')
 }
 

@@ -1,9 +1,9 @@
 import {queryData} from '@cocreate/utils'
 import {hasIndexEntry,type} from '../leaf.js'
-export function queryTree(root,query={},limit=Infinity){
+export async function queryTree(root,query={},limit=Infinity){
     if(root.indexError)throw root.indexError
     if(limit<=0)return []
-    if(typeof query.uuid==='string'){const object=root.leaves.get(query.uuid);return object&&queryData(object,query)?[object]:[]}
+    if(typeof query.uuid==='string'){const object=await root.leaves.get(query.uuid);return object&&queryData(object,query)?[object]:[]}
     let candidate
     for(const [key,condition] of Object.entries(query)){
         if(key.startsWith('$') || key.includes('[') || /(^|\.)\d+(\.|$)|^\.|\.$|\.\./.test(key))continue
@@ -19,29 +19,30 @@ export function queryTree(root,query={},limit=Infinity){
                 typeof bounds[op]==='number'&&!Number.isFinite(bounds[op]))))continue
         if(!candidate||tree.root.length<candidate.tree.root.length)candidate={tree,min,max,key,range:!equality}
     }
-    function* indexedCandidates({tree,min,max,key,range}){
-        for(const entry of tree.scan(min,max)){
-            const object=entry.object
+    async function* indexedCandidates({tree,min,max,key,range}){
+        for await(const entry of tree.scan(min,max)){
+            const object=await root.leaves.get(entry.uuid)
+            if(!object)continue
             if(!root.pendingIndex?.has(object))yield object
         }
         yield* (root.pendingIndex ?? [])
         // Pending deletes can still occupy index entries, and Map.size can
         // describe only the resident leaves. Neither proves coverage.
-        const leafCount=root.leaves.totalSize??root.leaves.size
+        const leafCount=root.leaves.count?await root.leaves.count():root.leaves.totalSize??root.leaves.size
         if(range&&(root.pendingIndex?.size||tree.root.length!==leafCount)){
             const references=root.leaves.references?.()??root.leaves.values()
             const pending=new Set([...(root.pendingIndex??[])].map(object=>object.uuid))
-            for(const reference of references){
+            for await(const reference of references){
                 if(pending.has(reference.uuid))continue
-                const resident=root.leaves.reference?.(reference.uuid)
+                const resident=await root.leaves.reference?.(reference.uuid)
                 const object=resident??reference
                 if(!hasIndexEntry(object,key,tree)&&queryData(object,query)){
-                    const live=resident??root.leaves.get(reference.uuid)
+                    const live=resident??await root.leaves.get(reference.uuid)
                     if(live)yield live
                 }
             }
         }
     }
     const source=candidate?indexedCandidates(candidate):root.leaves.values()
-    const result=[];for(const object of source){if(root.leaves.get(object.uuid)===object && queryData(object,query)){result.push(object);if(result.length>=limit)break}}return result
+    const result=[];for await(const object of source){if(await root.leaves.get(object.uuid)===object && queryData(object,query)){result.push(object);if(result.length>=limit)break}}return result
 }

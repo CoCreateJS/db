@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import createDB from '../src/index.js'
+import createDB from '../test-support/database.mjs'
 
 const root = { organization_id: 'org', storage: 'main', database: 'app', array: 'items' }
 test('update returns operators and independent complete resulting objects', async () => {
-    const db = createDB({}, { persistence: { set() { throw Error('unexpected hook') }, delete() { throw Error('unexpected hook') } } })
+    const db = await createDB({}, { persistence: { set() { throw Error('unexpected hook') }, delete() { throw Error('unexpected hook') } } })
     const send = (method, object) => db.send({ ...root, method: `object.${method}`, object })
     const created = (await send('create', { uuid: 'a', quantity: 10, price: 4, tags: ['x'], obsolete: true })).object[0]
     const patch = { '$inc.quantity': 5, '$push.tags': 'y', '$unset.obsolete': true, price: 8, 'updated.on': 200, 'updated.by': 'user1' }
@@ -19,7 +19,7 @@ test('update returns operators and independent complete resulting objects', asyn
     assert.equal((await send('delete', { uuid: 'a' })).success, true)
 })
 test('batch update pairs patches and snapshots and excludes failed mutations', async () => {
-    const db = createDB()
+    const db = await createDB()
     const send = (method, object) => db.send({ ...root, method: `object.${method}`, object })
     await send('create', [{ uuid: 'a', n: 1 }, { uuid: 'b', n: 2 }])
     const result = await send('update', [{ uuid: 'a', '$inc.n': 2 }, { uuid: 'b', '$inc.n': 3 }])
@@ -31,7 +31,7 @@ test('batch update pairs patches and snapshots and excludes failed mutations', a
 })
 
 test('older updates fill missing paths without overwriting newer values or audit', async () => {
-    const db = createDB()
+    const db = await createDB()
     const send = (method, object, extra = {}) => db.send({ ...root, method: `object.${method}`, object, ...extra })
     await send('create', { uuid: 'a', price: 150, quantity: 5, profile: { name: 'new' }, tags: ['new'], updated: { on: 200, by: 'new' } })
     const result = await send('update', { uuid: 'a', price: 100, profile: { name: 'old', city: 'NYC' }, description: 'old', '$inc.quantity': 3, '$unset.price': true, '$push.tags': 'old', 'updated.on': 100, 'updated.by': 'old' })
@@ -51,7 +51,7 @@ test('older updates fill missing paths without overwriting newer values or audit
 })
 
 test('replay uses mutation rather than object snapshot; newer and undated updates apply', async () => {
-    const db = createDB()
+    const db = await createDB()
     const send = (method, object, extra = {}) => db.send({ ...root, method: `object.${method}`, object, ...extra })
     await send('create', { uuid: 'a', n: 1, price: 200 })
     const result = await send('update', { uuid: 'a', n: 99, price: 1 }, { $update: [{ uuid: 'a', '$inc.n': 2, 'updated.on': 200 }] })

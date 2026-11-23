@@ -26,7 +26,7 @@ const sizeLabel = records >= 1000 && records % 1000 === 0 ? `${records / 1000}k`
 const outputFile = join(outputDir, `disk-first-create-${sizeLabel}-${acknowledgement}-${startedAt.toISOString().replaceAll(':', '-')}.json`)
 const directory = await mkdtemp(join(tmpdir(), `cocreatedb-disk-first-${acknowledgement}-`))
 const root = lifecycleRoot(records)
-const db = createDB({}, { directory, deferIndex: false, memoryPolicy: false, mode: 'disk-first', acknowledgement })
+const db = await createDB({}, { directory, deferIndex: false, memoryPolicy: false, mode: 'disk-first', acknowledgement })
 const started = performance.now()
 const result = {
     benchmark: 'cocreatedb-disk-first-create-diagnostic',

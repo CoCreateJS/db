@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import Config from '@cocreate/config'
-import DB from '../src/index.js'
+import DB from '../test-support/database.mjs'
 
 test('init resolves configuration without owning the server', async () => {
     const original = Config.prompt
@@ -12,7 +12,8 @@ test('init resolves configuration without owning the server', async () => {
         assert.deepEqual(server, {})
         assert.equal(db.config.getValue('version'), '2.0.0')
         assert.equal((await db.send({ method: 'status.create', status: { name: 'ready' } })).success, true)
-        db.config.setValue('roots.other', {})
+        await db.config.setValue('roots.other', {})
+        await db.flushDisk()
         const copy = await DB.init({}, { prompt: false, config: JSON.parse(JSON.stringify(db.config)) })
         assert.deepEqual(JSON.parse(JSON.stringify(copy.config)), JSON.parse(JSON.stringify(db.config)))
         const explicit = await DB.init({}, { config: { version: '3.0.0' } })

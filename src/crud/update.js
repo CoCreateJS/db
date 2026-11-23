@@ -48,7 +48,7 @@ function olderPatch(object, patch) {
     return accepted
 }
 
-export function update(object, input, global = {}) {
+export async function update(object, input, global = {}) {
     const { uuid, _id, $update, ...fields } = input
     const patch = { ...fields, ...global, ...$update }
     const supplied = [patch.updated?.on, patch['updated.on'], patch.$set?.updated?.on, patch.$set?.['updated.on'], patch['$set.updated']?.on, patch['$set.updated.on']].filter(value => value !== undefined)
@@ -60,6 +60,6 @@ export function update(object, input, global = {}) {
     const by = patch['updated.by'] ?? patch.updated?.by ?? patch['$set.updated.by'] ?? patch['$set.updated']?.by ?? patch.$set?.['updated.by'] ?? patch.$set?.updated?.by
     const audit = stale ? { 'updated.on': supplied[0], ...(by !== undefined ? { 'updated.by': by } : {}) } : {}
     const mutation = Object.keys(applied).length ? structuredClone({ ...applied, ...audit, uuid: object.uuid, ...(object._id !== undefined ? { _id: object._id } : {}) }) : undefined
-    if (mutation) updateLeaf(object, applied)
+    if (mutation) await updateLeaf(object, applied)
     return { object: structuredClone(object), mutation }
 }

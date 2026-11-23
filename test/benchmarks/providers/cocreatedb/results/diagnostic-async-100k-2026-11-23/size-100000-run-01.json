@@ -1,0 +1,34 @@
+{
+  "status": "failed",
+  "datasetSize": 100000,
+  "runIndex": 1,
+  "startedAt": "2026-11-23T18:48:25.269Z",
+  "environment": {
+    "date": "2026-11-23T18:48:25.270Z",
+    "node": "v24.18.0",
+    "platform": "linux-x64",
+    "release": "7.0.0-1017-aws",
+    "os": "#18~24.04.1-Ubuntu SMP PREEMPT Thu Oct 29 17:57:24 UTC 2026",
+    "cpuModel": "AMD EPYC 7571",
+    "cpuCount": 2,
+    "totalMemoryBytes": 8218963968,
+    "freeMemoryBytesAtStart": 5980839936,
+    "databaseVersion": "1.1.0",
+    "sourceRevision": "fbd2950c861b8481780653c9fb26caea41f4f2f2",
+    "processModel": "single in-process Node process; benchmark client and database share CPU/RSS",
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 75,
+    "persistence": "external persistence not configured; local Warm disk writes enabled",
+    "durability": "local writes are queued after memory acknowledgement; disk drain excluded from request timings",
+    "diskUsageBytes": null,
+    "diskIO": null
+  },
+  "failure": {
+    "message": "Benchmark subprocess exited before writing results",
+    "exitCode": null,
+    "signal": "SIGTERM",
+    "stderr": ""
+  },
+  "stdout": "CH_PROGRESS provider=cocreatedb size=100000 completed=80000 total=100000 elapsedMs=62729\nBENCH_PROGRESS provider=cocreatedb size=100000 completed=90000 total=100000 elapsedMs=71324\nBENCH_PROGRESS provider=cocreatedb size=100000 completed=100000 total=100000 elapsedMs=80075\nBENCH_PROGRESS provider=cocreatedb run=1 phase=correctness-queries\nBENCH_PROGRESS provider=cocreatedb run=1 phase=correctness-uuidRead\nBENCH_PROGRESS provider=cocreatedb run=1 phase=correctness-equality\nBENCH_PROGRESS provider=cocreatedb run=1 phase=correctness-nestedEquality\nBENCH_PROGRESS provider=cocreatedb run=1 phase=correctness-numericRange\nBENCH_PROGRESS provider=cocreatedb run=1 phase=correctness-and\nBENCH_PROGRESS provider=cocreatedb run=1 phase=correctness-or\nBENCH_PROGRESS provider=cocreatedb run=1 phase=uuid-read\nBENCH_PROGRESS provider=cocreatedb run=1 phase=uuid-read-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=equality-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=nestedEquality-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=numericRange-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=and-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=or-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=single-create-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=single-key-update-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=indexed-key-update-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=numeric-increment-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=single-delete-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=filtered-delete-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=sustained-read-1-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=sustained-write-1-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=sustained-mixed-1-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=sustained-read-8-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=sustained-write-8-done\nBENCH_PROGRESS provider=cocreatedb run=1 phase=sustained-mixed-8-done\n"
+}

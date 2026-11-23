@@ -1,0 +1,42 @@
+{
+  "suite": "CoCreateDB standard single-node benchmark v2",
+  "runId": "2026-11-23T18-29-01.678Z",
+  "startedAt": "2026-11-23T18:29:01.678Z",
+  "sizes": [
+    100000
+  ],
+  "independentRunsRequested": 1,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "results": [
+    {
+      "size": 100000,
+      "runIndex": 1,
+      "status": "failed",
+      "file": "size-100000-run-01.json",
+      "elapsedMs": 109883.08997100001
+    }
+  ],
+  "stallTimeoutMs": 600000,
+  "configuration": {
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 75
+  },
+  "legacyCompatibility": {
+    "status": "not-run",
+    "fixture": "lifecycle fixture v2",
+    "runs": []
+  },
+  "completedAt": "2026-11-23T18:30:53.820Z",
+  "summary": {
+    "successfulRuns": 0,
+    "failedRuns": 1,
+    "notAttempted": 0
+  }
+}

@@ -140,7 +140,7 @@ for (const size of sizes) {
             createBatchMs,
             createAndIndexMs: createBatchMs,
             createRecordsPerSecond,
-            indexEntriesPerRecord: Object.keys(documents[0].getIndex()).length,
+            indexEntriesPerRecord: Object.keys(await documents[0].getIndex()).length,
             indexFlushMs,
             readUuid,
             readEquality,
@@ -164,7 +164,7 @@ for (const size of sizes) {
 }
 
 results.completedAt = new Date().toISOString()
-const outputDirectory = resolve(process.env.BENCH_OUTPUT_DIR ?? 'test/benchmarks/providers/cocreatedb/results/legacy-v2)
+const outputDirectory = resolve(process.env.BENCH_OUTPUT_DIR ?? 'test/benchmarks/providers/cocreatedb/results/legacy-v2')
 await mkdir(outputDirectory, { recursive: true })
 const output = join(outputDirectory, `run-${startedAt.toISOString().replaceAll(':', '-')}.json`)
 await writeFile(output, `${JSON.stringify(results, null, 2)}\n`)

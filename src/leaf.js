@@ -25,10 +25,10 @@ export class DiskBranch {
         this.uuid = index.uuid
         this.tree = index.tree
     }
-    load() {
-        const index = this.tree?.loadUuid?.(this.uuid)
+    async load() {
+        const index = await this.tree?.loadUuid?.(this.uuid)
         if (!index) throw Error('Missing index ' + this.uuid)
-        return index.toMemory()
+        return await index.toMemory()
     }
 }
 
@@ -80,40 +80,40 @@ class Entry {
         this.releaseObject()
     }
     getValue(){return this.value}
-    insert(tree){tree.insert(this);return this}
-    setValue(value){return this.object.setValue(this.key,value)}
-    delete(){return this.object.delete(this.key)}
+    async insert(tree){await tree.insert(this);return this}
+    async setValue(value){return await this.object.setValue(this.key,value)}
+    async delete(){return await this.object.delete(this.key)}
 }
 const prototype=Object.create(Object.prototype)
 Object.defineProperties(prototype,{
     getUuid:{value(){return this.uuid}},
-    getData:{value(){const object=this.toMemory();if(object!==this)return object.getData();return {viewed:this.viewed,object:Object.fromEntries(Object.entries(this))}}},
-    getFile:{value(){return {uuid:this.getUuid(),content:JSON.stringify(this.getData())}}},
+    getData:{value:async function(){const object=await this.toMemory();if(object!==this)return await object.getData();return {viewed:this.viewed,object:Object.fromEntries(Object.entries(this))}}},
+    getFile:{value:async function(){return {uuid:this.getUuid(),content:JSON.stringify(await this.getData())}}},
     viewed:{get(){return this[TIER]?.viewed??0}},
-    touch:{value(){const r=this[TIER];if(r?.object===this){const object=r.tier.hydrate(r);if(object!==this)return object.touch();r.tier.touch(r)};return this}},
+    touch:{value:async function(){const r=this[TIER];if(r?.object===this){const object=await r.tier.hydrate(r);if(object!==this)return await object.touch();r.tier.touch(r)};return this}},
     toDisk:{value(){const r=this[TIER];return r?.object===this?r.tier.evictOne(r):false}},
-    toMemory:{value(){const r=this[TIER];return r?.object===this?r.tier.hydrate(r):this}},
-    getIndex:{value(key){
-        const current=this.toMemory();if(current!==this)return current.getIndex(key)
+    toMemory:{value:async function(){const r=this[TIER];return r?.object===this?await r.tier.hydrate(r):this}},
+    getIndex:{value:async function(key){
+        const current=await this.toMemory();if(current!==this)return await current.getIndex(key)
         const index = this[INDEX]
         if (key !== undefined) {
             const slot = index[key]
-            if (slot instanceof DiskBranch) slot.load()
-            else if (slot instanceof Entry && !slot.index) this[ATTACH]?.(slot)
+            if (slot instanceof DiskBranch) await slot.load()
+            else if (slot instanceof Entry && !slot.index) await this[ATTACH]?.(slot)
             return index[key]
         }
         for (const name of Object.keys(index)) {
             const slot = index[name]
-            if (slot instanceof DiskBranch) slot.load()
-            else if (slot instanceof Entry && !slot.index) this[ATTACH]?.(slot)
+            if (slot instanceof DiskBranch) await slot.load()
+            else if (slot instanceof Entry && !slot.index) await this[ATTACH]?.(slot)
         }
         return index
     }},
-    getValue:{value(key){const current=this.toMemory();if(current!==this)return current.getValue(key);this.touch?.();return get(this,key)}},
-    setValue:{value(key,value){
-        const current=this.toMemory();if(current!==this)return current.setValue(key,value)
-        if(this[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found")
-        this.touch?.();this[DEFER]?.flush(this)
+    getValue:{value:async function(key){const current=await this.toMemory();if(current!==this)return await current.getValue(key);await this.touch?.();return get(this,key)}},
+    setValue:{value:async function(key,value){
+        const current=await this.toMemory();if(current!==this)return await current.setValue(key,value)
+        if(await this[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found")
+        await this.touch?.();await this[DEFER]?.flush(this)
         if(['uuid','parent','root','_id'].includes(key)||this[STRUCTURAL]&&key==='name')throw Error(`immutable ${key}`);if(!scalar(value)||typeof value==='number'&&!Number.isFinite(value))throw Error('scalar update required')
         const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.');if(parts.some(k=>!k||['__proto__','constructor','prototype'].includes(k)))throw Error('invalid path')
         const parent=parts.length===1?this:get(this,parts.slice(0,-1).join('.')), property=parts.at(-1)
@@ -121,19 +121,19 @@ Object.defineProperties(prototype,{
         const slot = this[INDEX][key]
         const previous = slot instanceof DiskBranch ? get(this, key) : slot?.value
         if (slot && Object.is(previous, value)) return this
-        const entry = this.getIndex(key)
+        const entry = await this.getIndex(key)
         const write=()=>{parent[property]=value}
         if(entry?.index&&type(entry.value)===type(value)){
-            write();this[Symbol.for("cocreate.markDirty")]?.()
-            entry.tree.move(entry,value,()=>{entry.value=value})
+            write();await this[Symbol.for("cocreate.markDirty")]?.()
+            await entry.tree.move(entry,value,()=>{entry.value=value})
         } else {
-            write();this[Symbol.for("cocreate.markDirty")]?.()
-            if(entry?.index)entry.tree.remove(entry)
-            const e=entry??(this[INDEX][key]=new Entry(this,key));e.value=value;this[ATTACH]?.(e)
+            write();await this[Symbol.for("cocreate.markDirty")]?.()
+            if(entry?.index)await entry.tree.remove(entry)
+            const e=entry??(this[INDEX][key]=new Entry(this,key));e.value=value;await this[ATTACH]?.(e)
         }
         return this
     }},
-    delete:{value(key){const current=this.toMemory();if(current!==this)return current.delete(key);if(key===undefined)return this[Symbol.for("cocreate.deleteLeaf")]();if(this[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found");this.touch?.();this[DEFER]?.flush(this);if(['uuid','parent','root','_id'].includes(key)||this[STRUCTURAL]&&key==='name')throw Error(`immutable ${key}`);const entry=this.getIndex(key);if(!entry)return false;const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.'),parent=parts.length===1?this:get(this,parts.slice(0,-1).join('.'));delete parent[parts.at(-1)];this[Symbol.for("cocreate.markDirty")]?.();if(entry.index)entry.tree.remove(entry);delete this[INDEX][key];return true}}
+    delete:{value:async function(key){const current=await this.toMemory();if(current!==this)return await current.delete(key);if(key===undefined)return await this[Symbol.for("cocreate.deleteLeaf")]();if(await this[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found");await this.touch?.();await this[DEFER]?.flush(this);if(['uuid','parent','root','_id'].includes(key)||this[STRUCTURAL]&&key==='name')throw Error(`immutable ${key}`);const entry=await this.getIndex(key);if(!entry)return false;const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.'),parent=parts.length===1?this:get(this,parts.slice(0,-1).join('.'));delete parent[parts.at(-1)];await this[Symbol.for("cocreate.markDirty")]?.();if(entry.index)await entry.tree.remove(entry);delete this[INDEX][key];return true}}
 })
 export function createLeaf(object, structural = false){
     if(Object.getPrototypeOf(object)!==Object.prototype)throw Error('plain object required')
@@ -144,27 +144,27 @@ export function createLeaf(object, structural = false){
     const index=Object.create(null);for(const key of keys.keys())if(key!=='uuid')index[key]=new Entry(object,key)
     Object.defineProperties(object,{[STRUCTURAL]:{value:structural},[INDEX]:{value:index},[ATTACH]:{value:null,writable:true}});Object.setPrototypeOf(object,prototype);return object
 }
-export function attach(object,insert){object[ATTACH]=insert;for(const entry of residentIndexEntries(object))insert(entry)}
+export async function attach(object,insert){object[ATTACH]=insert;for(const entry of residentIndexEntries(object))await insert(entry)}
 export function initializeLeaf(object,insert){object[ATTACH]=insert;return object}
 
 export function deferLeaf(object,handler){Object.defineProperty(object,DEFER,{value:handler})}
-export function reconcileLeaf(object,insert){
+export async function reconcileLeaf(object,insert){
     const after=paths(object),index=object[INDEX]
     for(const key of Object.keys(index)){
         const entry=index[key]
         if (entry instanceof DiskBranch) continue
-        if(entry.index&&(!after.has(key)||!Object.is(entry.value,after.get(key))))entry.tree.remove(entry)
+        if(entry.index&&(!after.has(key)||!Object.is(entry.value,after.get(key))))await entry.tree.remove(entry)
         delete entry[SNAPSHOT]
         if(after.has(key))entry.value=after.get(key)
         if(!after.has(key))delete index[key]
     }
     for(const key of after.keys())if(key!=='uuid'&&!index[key])index[key]=new Entry(object,key)
     object[ATTACH]=insert
-    for(const entry of residentIndexEntries(object))if(!entry.index)insert(entry)
+    for(const entry of residentIndexEntries(object))if(!entry.index)await insert(entry)
 }
-export function updateLeaf(object,patch){
-    if(object[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found")
-    object.touch?.();object.getIndex();const next=structuredClone(object)
+export async function updateLeaf(object,patch){
+    if(await object[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found")
+    await object.touch?.();await object.getIndex();const next=structuredClone(object)
     if(createUpdate(next,patch)===false)throw Error('Invalid update')
     if(object[STRUCTURAL]&&next.name!==object.name)throw Error("Root rename not supported yet")
     if(next.uuid!==object.uuid||next._id!==object._id||next.parent!==object.parent||next.root!==object.root)throw Error('immutable identity')
@@ -175,7 +175,7 @@ export function updateLeaf(object,patch){
             const slot = index[key]
             const before = slot instanceof DiskBranch ? get(object, key) : slot.value
             if(!after.has(key)||!Object.is(before,after.get(key))){
-                const entry = object.getIndex(key)
+                const entry = await object.getIndex(key)
                 if(entry.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=before
                 changed=true
             }
@@ -183,7 +183,7 @@ export function updateLeaf(object,patch){
         for(const key of after.keys())if(key!=='uuid'&&!index[key])changed=true
         for(const key of Object.keys(object))if(!['uuid','parent','root'].includes(key)&&!Object.hasOwn(next,key))delete object[key]
         for(const key of Object.keys(next))if(!['uuid','parent','root'].includes(key)&&!(object[STRUCTURAL]&&key==='name'))object[key]=next[key]
-        if(changed)object[Symbol.for("cocreate.markDirty")]?.()
+        if(changed)await object[Symbol.for("cocreate.markDirty")]?.()
         if(changed)object[DEFER].queue(object)
         return object
     }
@@ -196,15 +196,15 @@ export function updateLeaf(object,patch){
     if(!changed.length)return object
     for(const key of Object.keys(object))if(!['uuid','parent','root'].includes(key)&&!Object.hasOwn(next,key))delete object[key]
     for(const key of Object.keys(next))if(!['uuid','parent','root'].includes(key)&&!(object[STRUCTURAL]&&key==='name'))object[key]=next[key]
-    object[Symbol.for("cocreate.markDirty")]?.()
+    await object[Symbol.for("cocreate.markDirty")]?.()
     const reinsert=[]
     for(const key of changed){
         let entry=index[key]
-        if(entry){entry=object.getIndex(key);if(entry.index)entry.tree.remove(entry)}
+        if(entry){entry=await object.getIndex(key);if(entry.index)await entry.tree.remove(entry)}
         if(!after.has(key))delete index[key]
         else {entry??=(index[key]=new Entry(object,key));entry.value=after.get(key);reinsert.push(entry)}
     }
-    for(const entry of reinsert)object[ATTACH]?.(entry)
+    for(const entry of reinsert)await object[ATTACH]?.(entry)
     return object
 }
 

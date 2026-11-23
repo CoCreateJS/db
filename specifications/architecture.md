@@ -2,7 +2,7 @@
 
 ## Current engine
 
-CoCreateDB is an embeddable JavaScript database. `createDB(server, options)` and `await createDB.init(server, options)` expose `send(request)` and `config`. A standalone instance requires no server. Primary instances execute local CRUD; workers use the supplied `forward(request)` adapter. Explicit primary status takes precedence. No IPC protocol is embedded.
+CoCreateDB is an embeddable JavaScript database. `await createDB(server, options)` and `await createDB.init(server, options)` expose asynchronous `send(request)` and `config`. Initialization opens the configured storage adapter and restores its configuration and indexes before resolving. A standalone instance requires no server. Primary instances execute local CRUD; workers use the supplied `forward(request)` adapter. Explicit primary status takes precedence. No IPC protocol is embedded.
 
 Internally one UUID-keyed leaf Map, one key/type tree catalog and a root manager maintain live data. Index entries reference leaves directly. Offloaded terminal branches are stored separately from leaves; the root/parent branch catalog is not yet restored on restart. Configuration defines allowed hierarchy and structural identities; it is not a data snapshot.
 
@@ -10,7 +10,7 @@ Internally one UUID-keyed leaf Map, one key/type tree catalog and a root manager
 
 The default mode is `adaptive`; the default acknowledgement is `memory`. Adaptive keeps a Hot working set in memory and uses Warm local disk for write-through, recovery and weighted eviction. The default requested memory budget is 25% of total system memory, capped by memory available at startup. It is a soft DB-residency target, not a hard process-memory cap. Disk-first remains an explicit mitigation mode and is also used temporarily by adaptive handling at high pressure. Disk-cache starts with a cleared DB-managed local base.
 
-Memory acknowledgement returns when the local in-memory mutation is available. Disk acknowledgement waits for affected local writes; neither acknowledgement provides multi-object atomicity. The DB exposes `persistence.register()`, `persistence.send()` and `db.persist()` for an explicit external persistence transport and pending leaf journal. The separate Persistence Tree, full root/index branch persistence and Cold archives remain outside the implemented engine.
+For `object.create`, memory acknowledgement returns after the UUID-bearing input is stored in the leaves Map. It does not wait for scope resolution, leaf preparation, flattening, indexing or Warm writes. UUID reads can resolve that staged leaf immediately; filter reads observe it after indexing, while UUID updates and deletes wait for preparation to finish. A failed background preparation does not retract an acknowledgement; `flushIndex()` or `flushDisk()` reports the recorded failure. Disk acknowledgement waits for preparation and affected local writes. Neither acknowledgement provides multi-object atomicity. The DB exposes `persistence.register()`, `persistence.send()` and `db.persist()` for an explicit external persistence transport and pending leaf journal. The separate Persistence Tree, full root/index branch persistence and Cold archives remain outside the implemented engine.
 
 ## Integration boundary
 

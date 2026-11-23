@@ -22,7 +22,7 @@ const outputDir = resolve(process.env.BENCH_OUTPUT_DIR ?? join(here, 'results'))
 const outputFile = join(outputDir, `continuous-${runId}.json`)
 const directory = join(tmpdir(), `cocreatedb-continuous-${process.pid}-${Date.now()}`)
 const root = lifecycleRoot(target)
-const db = createDB({}, {
+const db = await createDB({}, {
     directory,
     size: 64,
     deferIndex: true,
@@ -202,7 +202,7 @@ try {
 
     sample()
     const drainStart = performance.now()
-    db.flushIndex()
+    await db.flushIndex()
     result.indexDrainMs = performance.now() - drainStart
     const policyDrainStart = performance.now()
     await db.memoryPolicy.flush()

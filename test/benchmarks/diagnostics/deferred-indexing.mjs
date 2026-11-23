@@ -20,7 +20,7 @@ const outputDir = resolve(process.env.BENCH_OUTPUT_DIR ?? join(here, 'results'))
 const outputFile = join(outputDir, `deferred-indexing-${runId}.json`)
 const directory = join(tmpdir(), `cocreatedb-deferred-${process.pid}-${Date.now()}`)
 const root = lifecycleRoot(size)
-const db = createDB({}, { directory, deferIndex: true, memoryPolicy: false, size: 64 })
+const db = await createDB({}, { directory, deferIndex: true, memoryPolicy: false, size: 64 })
 const send = (method, extra) => db.send({ ...root, method: `object.${method}`, ...extra })
 const percentile = (values, ratio) => {
     const sorted = [...values].sort((a, b) => a - b)
@@ -75,7 +75,7 @@ async function createPhase() {
     result.pendingAfterCreate = db.pendingIndexCount
     result.createAcknowledgementMemory = process.memoryUsage()
     const drainStart = performance.now()
-    db.flushIndex()
+    await db.flushIndex()
     result.createIndexDrainMs = performance.now() - drainStart
     result.pendingAfterCreateDrain = db.pendingIndexCount
     assert.equal(result.pendingAfterCreateDrain, 0)
@@ -95,7 +95,7 @@ async function updatePhase() {
     result.updateLatencyMs = { p50: percentile(times, 0.5), p95: percentile(times, 0.95), p99: percentile(times, 0.99) }
     result.pendingAfterUpdate = db.pendingIndexCount
     const drainStart = performance.now()
-    db.flushIndex()
+    await db.flushIndex()
     result.updateIndexDrainMs = performance.now() - drainStart
     result.pendingAfterUpdateDrain = db.pendingIndexCount
     assert.equal(result.pendingAfterUpdateDrain, 0)
@@ -118,7 +118,7 @@ async function deletePhase() {
     result.deleteLatencyMs = { p50: percentile(times, 0.5), p95: percentile(times, 0.95), p99: percentile(times, 0.99) }
     result.pendingAfterDelete = db.pendingIndexCount
     const drainStart = performance.now()
-    db.flushIndex()
+    await db.flushIndex()
     result.deleteIndexDrainMs = performance.now() - drainStart
     result.pendingAfterDeleteDrain = db.pendingIndexCount
     assert.equal(result.pendingAfterDeleteDrain, 0)

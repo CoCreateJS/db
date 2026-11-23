@@ -1,0 +1,65 @@
+{
+  "benchmark": "CoCreateDB deferred create acknowledgement and index drain",
+  "benchmarkVersion": 1,
+  "runId": "2026-11-23T21-13-11.012Z",
+  "startedAt": "2026-11-23T21:13:11.012Z",
+  "datasetSize": 100000,
+  "fixture": "shared lifecycle fixture v3",
+  "fixtureHash": "79fd345261896883833b8e006eaf41bf1f1d8e5239f8eb8c24e3fc43abcaac6b",
+  "runsRequested": 5,
+  "configuration": {
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 75,
+    "deferIndex": true
+  },
+  "sourceRevision": "fbd2950c861b8481780653c9fb26caea41f4f2f2",
+  "sourceWorkingTreeDirty": true,
+  "sourceHashes": {
+    "src/node/index.js": "4e142833cc7b4dfd14d512ca7e0031d0c502c8d52da890a30137f5bc36dd4ee0",
+    "src/root.js": "69368ad49486b8b01cfd509b79f0a527b56850eedbda34b2b6fdf032ea1733c1",
+    "src/leaf.js": "99fe191d7b2fcf84f34693c80233aad3eb1ad80d69c2205e9de5649c8531e1b5",
+    "test/fixtures/lifecycle.mjs": "cc3a26f0dd16e1cb8e8a934d0348d137ff93f3cf472a43e6112aeb7fc6738c62",
+    "test/benchmarks/diagnostics/create-acknowledgement.mjs": "b851074fdfccbc2a89149e43e34cf030f612402c4b45d2788a4d93e7fbe532c6"
+  },
+  "results": [
+    {
+      "runIndex": 1,
+      "file": "run-01.json",
+      "status": "passed"
+    },
+    {
+      "runIndex": 2,
+      "file": "run-02.json",
+      "status": "passed"
+    },
+    {
+      "runIndex": 3,
+      "file": "run-03.json",
+      "status": "passed"
+    },
+    {
+      "runIndex": 4,
+      "file": "run-04.json",
+      "status": "passed"
+    },
+    {
+      "runIndex": 5,
+      "file": "run-05.json",
+      "status": "passed"
+    }
+  ],
+  "summary": {
+    "singleCreateAckP50Ms": 0.8926810000000103,
+    "singleCreateAckP95Ms": 1.784700000000015,
+    "singleCreateIndexDrainMs": 0.6589519999999993,
+    "bulkCreateAcknowledgementMs": 57972.182841999995,
+    "bulkCreateAcknowledgementOpsPerSecond": 1724.9652350083923,
+    "bulkIndexDrainAfterAcknowledgementMs": 480.5603239999982,
+    "bulkCreateToIndexedWallMs": 59310.672217,
+    "bulkCreateToIndexedWallExcludingFixturePreparationMs": 58455.168048,
+    "pendingLeavesAfterAcknowledgement": 0,
+    "peakRssBytes": 751562752
+  },
+  "completedAt": "2026-11-23T21:24:55.936Z"
+}

@@ -1,0 +1,66 @@
+{
+  "benchmark": "CoCreateDB deferred create acknowledgement and index drain",
+  "benchmarkVersion": 1,
+  "runId": "2026-11-23T22-22-18.885Z",
+  "startedAt": "2026-11-23T22:22:18.885Z",
+  "datasetSize": 100000,
+  "fixture": "shared lifecycle fixture v3 (generated UUIDs)",
+  "fixtureHash": "5ebaf0a6b003895c10faa0afcd2067b21e346c7d485d53b6707384093682f19f",
+  "uuidMode": "generated",
+  "runsRequested": 5,
+  "configuration": {
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 75,
+    "deferIndex": true
+  },
+  "sourceRevision": "fbd2950c861b8481780653c9fb26caea41f4f2f2",
+  "sourceWorkingTreeDirty": true,
+  "sourceHashes": {
+    "src/node/index.js": "4e142833cc7b4dfd14d512ca7e0031d0c502c8d52da890a30137f5bc36dd4ee0",
+    "src/root.js": "69368ad49486b8b01cfd509b79f0a527b56850eedbda34b2b6fdf032ea1733c1",
+    "src/leaf.js": "99fe191d7b2fcf84f34693c80233aad3eb1ad80d69c2205e9de5649c8531e1b5",
+    "test/fixtures/lifecycle.mjs": "cc3a26f0dd16e1cb8e8a934d0348d137ff93f3cf472a43e6112aeb7fc6738c62",
+    "test/benchmarks/diagnostics/create-acknowledgement.mjs": "94c2e0426f8a73513739531e64eb8c36ab5a419fb20f917fa5e48361623ebee3"
+  },
+  "results": [
+    {
+      "runIndex": 1,
+      "file": "run-01.json",
+      "status": "passed"
+    },
+    {
+      "runIndex": 2,
+      "file": "run-02.json",
+      "status": "passed"
+    },
+    {
+      "runIndex": 3,
+      "file": "run-03.json",
+      "status": "passed"
+    },
+    {
+      "runIndex": 4,
+      "file": "run-04.json",
+      "status": "passed"
+    },
+    {
+      "runIndex": 5,
+      "file": "run-05.json",
+      "status": "passed"
+    }
+  ],
+  "summary": {
+    "singleCreateAckP50Ms": 0.0674319999999966,
+    "singleCreateAckP95Ms": 0.10872399999999516,
+    "singleCreateIndexDrainMs": 36.576126999999985,
+    "bulkCreateAcknowledgementMs": 1801.0809490000017,
+    "bulkCreateAcknowledgementOpsPerSecond": 55522.21295523786,
+    "bulkIndexDrainAfterAcknowledgementMs": 40604.47627399999,
+    "bulkCreateToIndexedWallMs": 43894.197785000004,
+    "bulkCreateToIndexedWallExcludingFixturePreparationMs": 42438.175689,
+    "pendingLeavesAfterAcknowledgement": 0,
+    "peakRssBytes": 940806144
+  },
+  "completedAt": "2026-11-23T22:34:23.445Z"
+}

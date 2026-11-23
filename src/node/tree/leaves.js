@@ -1,9 +1,11 @@
 import {Weights} from '../../tree/weights.js'
-import {existsSync,mkdirSync,readFileSync,readdirSync,renameSync,writeFileSync} from 'node:fs'
-import {writeFile,unlink} from 'node:fs/promises'
+import {existsSync,readFileSync,readdirSync} from 'node:fs'
+import {rename,writeFile,unlink,readFile,readdir,access} from 'node:fs/promises'
 import {bindLeafTier,createLeaf,residentIndexEntries} from '../../leaf.js'
 
 const residentHas = (tier,id) => Map.prototype.has.call(tier,id)
+let temporaryFileId = 0
+const temporaryPath = path => `${path}.${process.pid}.${temporaryFileId++}.tmp`
 
 // Hot leaves are kept in the Map. Warm files are addressed by UUID;
 // there is deliberately no UUID-to-file-object registry.
@@ -15,9 +17,9 @@ export class LeafTier extends Map {
         this.buckets=this.weights
         this.refs=new WeakMap()
         this.dirty=new Map()
+        this.writeLocks=new Map()
         this.reads=0
         this.writes=0
-        mkdirSync(local.leafDirectory,{recursive:true})
     }
     files(){
         return readdirSync(this.local.leafDirectory)
@@ -36,6 +38,13 @@ export class LeafTier extends Map {
     add(record){this.weights.add(record)}
     remove(record){this.weights.remove(record)}
     markDirty(object){this.dirty.set(object.uuid,object)}
+    withWriteLock(id,operation){
+        const previous=this.writeLocks.get(id)??Promise.resolve()
+        const task=previous.catch(()=>{}).then(operation)
+        this.writeLocks.set(id,task)
+        return task.finally(()=>{if(this.writeLocks.get(id)===task)this.writeLocks.delete(id)})
+    }
+    async deleteFile(id){return await this.withWriteLock(id,()=>this.local.deleteLeaf(id))}
     touch(record){if(record.object&&!record.evicted)this.weights.touch(record)}
     set(id,object){
         super.set(id,object)
@@ -47,13 +56,26 @@ export class LeafTier extends Map {
         }
         return this
     }
-    has(id){return typeof id==='string'&&(super.has(id)||existsSync(this.local.leafPath(id)))}
-    get(id){
+    reserve(id,object){
+        this.set(id,object)
+        const record=this.refs.get(object)
+        if(record)record.active=true
+        return object
+    }
+    release(object){
+        const record=object&&this.refs.get(object)
+        if(record)record.active=false
+        return object
+    }
+    async has(id){if(typeof id!=='string')return false;if(super.has(id))return true;try{await access(this.local.leafPath(id));return true}catch(error){if(error.code==='ENOENT')return false;throw error}}
+    async get(id){
         if(typeof id!=='string'||!id)return undefined
         let object=super.get(id)
-        if(!object&&existsSync(this.local.leafPath(id))){
-            const data=JSON.parse(readFileSync(this.local.leafPath(id),'utf8'))
-            object=this.restore?.(data,id)??createLeaf(data.object,data.object.root!=='object')
+        if(!object){
+            let source
+            try{source=await readFile(this.local.leafPath(id),'utf8')}catch(error){if(error.code==='ENOENT')return undefined;throw error}
+            const data=JSON.parse(source)
+            object=(await this.restore?.(data,id))??createLeaf(data.object,data.object.root!=='object')
             if(!residentHas(this,id))this.set(id,object)
             this.reads++
             object=super.get(id)??object
@@ -71,43 +93,52 @@ export class LeafTier extends Map {
         return super.delete(id)
     }
     get totalSize(){let total=this.size;for(const id of this.files())if(!residentHas(this,id))total++;return total}
-    persistAll(){
+    async count(){let total=this.size;for(const name of await readdir(this.local.leafDirectory)){if(!name.endsWith('.json'))continue;const id=Buffer.from(name.slice(0,-5),'hex').toString();if(!residentHas(this,id))total++}return total}
+    async persistAll(){
         let count=0
         for(const [id,object] of super.entries()){
             if(typeof object?.getFile!=='function')continue
-            const path=this.local.leafPath(id),temp=path+'.leaf.tmp'
-            writeFileSync(temp,object.getFile().content)
-            renameSync(temp,path)
-            this.dirty.delete(id)
-            this.writes++
-            count++
+            if(await this.withWriteLock(id,async()=>{
+                if(super.get(id)!==object)return false
+                const path=this.local.leafPath(id),temp=temporaryPath(path)
+                try{await writeFile(temp,(await object.getFile()).content);if(super.get(id)!==object)return false;await rename(temp,path);this.dirty.delete(id);this.writes++;return true}
+                finally{await unlink(temp).catch(error=>{if(error.code!=='ENOENT')throw error})}
+            }))count++
         }
         return count
     }
-    persistDirty(){
+    async persistDirty(){
         let count=0
         for(const [id,object] of this.dirty){
-            if(super.get(id)!==object)continue
-            const path=this.local.leafPath(id),temp=path+'.leaf.tmp'
-            writeFileSync(temp,object.getFile().content)
-            renameSync(temp,path)
-            this.dirty.delete(id)
-            this.writes++
-            count++
+            if(await this.withWriteLock(id,async()=>{
+                if(super.get(id)!==object||this.dirty.get(id)!==object)return false
+                const path=this.local.leafPath(id),temp=temporaryPath(path)
+                try{
+                    await writeFile(temp,(await object.getFile()).content)
+                    if(super.get(id)!==object||this.dirty.get(id)!==object)return false
+                    await rename(temp,path)
+                    if(super.get(id)!==object||this.dirty.get(id)!==object){await unlink(path).catch(error=>{if(error.code!=='ENOENT')throw error});return false}
+                    this.dirty.delete(id);this.writes++;return true
+                }finally{await unlink(temp).catch(error=>{if(error.code!=='ENOENT')throw error})}
+            }))count++
         }
         return count
     }
-    *references(){
+    async *references(){
         yield* super.values()
-        for(const id of this.files())if(!residentHas(this,id)){
-            const data=JSON.parse(readFileSync(this.local.leafPath(id),'utf8'))
+        for(const name of await readdir(this.local.leafDirectory))if(name.endsWith('.json')){
+            const id=Buffer.from(name.slice(0,-5),'hex').toString()
+            if(residentHas(this,id))continue
+            const data=JSON.parse(await readFile(this.local.leafPath(id),'utf8'))
             if(data?.object)yield data.object
         }
     }
-    *values(){
+    async *values(){
         yield* super.values()
-        for(const id of this.files())if(!residentHas(this,id)){
-            const object=this.get(id)
+        for(const name of await readdir(this.local.leafDirectory))if(name.endsWith('.json')){
+            const id=Buffer.from(name.slice(0,-5),'hex').toString()
+            if(residentHas(this,id))continue
+            const object=await this.get(id)
             if(object)yield object
         }
     }
@@ -131,31 +162,33 @@ export class LeafTier extends Map {
         const object=record.object
         if(!object||record.evicted||this.pending?.has(object)||record.active)return false
         record.active=true
-        const weight=record.viewed,path=this.local.leafPath(record.id),temp=path+'.leaf.tmp'
         try{
-            const content=object.getFile().content
-            await writeFile(temp,content)
-            if(record.object!==object||record.viewed!==weight||this.pending?.has(object)||object.getFile().content!==content)return false
-            renameSync(temp,path)
-            this.dirty.delete(record.id)
-            this.writes++
-            for(const entry of residentIndexEntries(object))entry.releaseObject()
-            for(const key of Object.keys(object)){
-                if(!Object.getOwnPropertyDescriptor(object,key).configurable)continue
-                Object.defineProperty(object,key,{
-                    enumerable:true,configurable:true,
-                    get(){const live=record.tier.hydrate(record);if(live===object){record.tier.touch(record);return object[key]}return live[key]},
-                    set(value){const live=record.tier.hydrate(record);record.tier.touch(record);if(live===object)object[key]=value;else live[key]=value}
-                })
-            }
-            this.remove(record)
-            super.delete(record.id)
-            record.evicted=true
-            return true
-        }finally{
-            record.active=false
-            await unlink(temp).catch(error=>{if(error.code!=='ENOENT')throw error})
-        }
+            return await this.withWriteLock(record.id,async()=>{
+                if(record.object!==object||record.evicted||this.pending?.has(object))return false
+                const weight=record.viewed,path=this.local.leafPath(record.id),temp=temporaryPath(path)
+                try{
+                    const content=(await object.getFile()).content
+                    await writeFile(temp,content)
+                    if(record.object!==object||record.viewed!==weight||this.pending?.has(object)||(await object.getFile()).content!==content)return false
+                    await rename(temp,path)
+                    this.dirty.delete(record.id)
+                    this.writes++
+                    for(const entry of residentIndexEntries(object))entry.releaseObject()
+                    for(const key of Object.keys(object)){
+                        if(!Object.getOwnPropertyDescriptor(object,key).configurable)continue
+                        Object.defineProperty(object,key,{
+                            enumerable:true,configurable:true,
+                            get(){const live=record.tier.hydrate(record);if(live===object){record.tier.touch(record);return object[key]}return live[key]},
+                            set(value){const live=record.tier.hydrate(record);record.tier.touch(record);if(live===object)object[key]=value;else live[key]=value}
+                        })
+                    }
+                    this.remove(record)
+                    super.delete(record.id)
+                    record.evicted=true
+                    return true
+                }finally{await unlink(temp).catch(error=>{if(error.code!=='ENOENT')throw error})}
+            })
+        }finally{record.active=false}
     }
     evictBatch(limit,options){
         return this.weights.evictBatch(limit,record=>!!record.object&&!record.evicted&&!record.active&&!this.pending?.has(record.object),record=>this.evictOne(record),options)

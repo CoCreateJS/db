@@ -37,7 +37,7 @@ The examples below use the development source. Once this implementation is publi
 ```js
 import db from './src/index.js'
 
-const database = db()
+const database = await db()
 const context = {
     organization_id: 'example',
     storage: 'production',
@@ -131,7 +131,7 @@ The default configuration is:
 A root beginning with `$` resolves its name from the corresponding request property. For example, `$organization_id` resolves `organization_id`. The value names the structural leaf; it does not become its UUID. Other dynamic root names work the same way.
 
 ```js
-const database = db({}, {
+const database = await db({}, {
     config: {
         roots: { $tenant_id: { $project_id: { object: {} } } }
     }
@@ -142,7 +142,7 @@ Create and upsert can establish missing ancestors; reads do not create them. Str
 
 ```js
 const config = JSON.parse(JSON.stringify(database.config))
-const replica = db({}, { config })
+const replica = await db({}, { config })
 ```
 
 This restores structural configuration, not the ordinary objects of the original database. Configuration access uses `getValue(path)` and `setValue(path, value)`; the returned enumerable properties are defensive snapshots. Only root definitions can currently be edited via `setValue`, subject to structural validation. Occupied roots cannot be removed or converted between structural and leaf status. Structural renaming and reparenting are not supported.
@@ -157,7 +157,7 @@ The index primitives are independently usable from the source modules. Their low
 
 ## Runtime integration
 
-The public engine exposes `send()` and `config`. It accepts an optional living server object and configuration. The asynchronous initializer integrates with `@cocreate/config`:
+The public engine exposes `send()` and `config`. `createDB(server, options)` is asynchronous and must be awaited because initialization opens the local storage adapter, loads its configuration and restores indexes before returning. It accepts an optional living server object and configuration. The initializer also integrates with `@cocreate/config`:
 
 ```js
 import db from './src/index.js'
@@ -190,7 +190,7 @@ CoCreate CRUD → CoCreateDB → CRUD workflow / AST
                               └─ Communication
 ```
 
-The default memory acknowledgement returns after the local Hot mutation is available; local Warm writes continue separately. External Cool Persistence runs only when explicitly drained or orchestrated by a workflow. Missing local data can be acquired from Persistence or other servers through standard CRUD requests. Sequential, parallel, recursive and latency-aware acquisition are workflow choices. The DB returns an `awareness` UUID array with CRUD responses: leaf UUIDs identify returned data, and filtered or mutating operations also identify the resolved parent branch. Socket, IPC and Mesh own recipient awareness and mutation delivery. Cold archive integration is also external.
+The default memory acknowledgement for `object.create` returns once the UUID-bearing object is resident in the leaves map. Scope resolution, leaf preparation, flattening, indexing and Warm writes continue afterward. A direct UUID read can resolve the staged leaf immediately; filter reads see it after indexing, and UUID updates or deletes wait for leaf preparation. Other CRUD operations retain their existing acknowledgement path. `acknowledgement: 'disk'` waits for create preparation and affected local writes. A background preparation error does not retract an acknowledgement; `flushIndex()` or `flushDisk()` reports it. External Cool Persistence runs only when explicitly drained or orchestrated by a workflow. Missing local data can be acquired from Persistence or other servers through standard CRUD requests. Sequential, parallel, recursive and latency-aware acquisition are workflow choices. The DB returns an `awareness` UUID array with CRUD responses: leaf UUIDs identify returned data, and filtered or mutating operations also identify the resolved parent branch. Socket, IPC and Mesh own recipient awareness and mutation delivery. Cold archive integration is also external.
 
 These integration designs are documented in [persistence](specifications/persistence.md) and [CRUD awareness](specifications/awareness.md). External orchestration, complete acquired-leaf hydration, durable ordering and deduplication are not implemented by this engine checkpoint.
 

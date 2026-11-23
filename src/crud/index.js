@@ -1,6 +1,7 @@
 import { update } from './update.js'
 
 export const persistenceChanges = Symbol.for('cocreate.db.persistenceChanges')
+export const postAcknowledgement = Symbol.for('cocreate.db.postAcknowledgement')
 const methods = new Set(['create', 'read', 'update', 'delete'])
 const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 
@@ -16,7 +17,7 @@ function identity(root, value) {
     return root === 'object' ? value._id ? { _id: value._id } : undefined : value.name ? { name: value.name } : undefined
 }
 
-export async function crud({ db, roots }, request) {
+export async function crud({ db, roots, deferObjectCreate = false }, request) {
     const response = { ...request }
     delete response.awareness
     const awareness = new Set()
@@ -43,30 +44,61 @@ export async function crud({ db, roots }, request) {
         }
         const canCreateParents = action === 'create' || action === 'update' && request.upsert
         let resolved
-        function resolve() {
+        async function resolve() {
             if (!resolved) {
-                resolved = roots.resolve(request, root, { createMissing: canCreateParents })
+                resolved = await roots.resolve(request, root, { createMissing: canCreateParents })
                 for (const leaf of resolved.created) changed.add(leaf)
             }
             return resolved
         }
-        const select = (query = {}, limit = Infinity) => resolved.missing ? [] : roots.select(resolved.parent, root, query, limit)
+        const select = async (query = {}, limit = Infinity) => resolved.missing ? [] : await roots.select(resolved.parent, root, query, limit)
 
-        function create(input) {
+        async function create(input) {
             if (root !== 'object' && (typeof input.name !== 'string' || !input.name)) throw Error(`${root}.create requires name`)
-            if (input.uuid && db.leaves.has(input.uuid)) throw Error('duplicate identity')
-            resolve()
+            if (input.uuid && await db.leaves.has(input.uuid)) throw Error('duplicate identity')
+            await resolve()
             if (resolved.missing) return
-            if (root !== 'object' && input.name && select({ name: input.name }, 1).length) throw Error('duplicate name')
+            if (root !== 'object' && input.name && (await select({ name: input.name }, 1)).length) throw Error('duplicate name')
             if (root === 'object' && input._id && roots.hasIdentity(resolved.parent, input._id)) throw Error('duplicate identity')
-            const leaf = roots.create(input, resolved.parent, root)
+            const leaf = await roots.create(input, resolved.parent, root)
             if (leaf) changed.add(leaf)
             return leaf
         }
 
         if (action === 'create') {
             if (!inputs.length) roots.validateTarget(root)
-            for (const input of inputs) addResult(create(input), true)
+            if (root === 'object' && inputs.length) {
+                const staged = await roots.stageCreates(inputs)
+                for (const item of staged) addResult(item.value)
+                const finalize = async () => {
+                    try { await resolve() }
+                    catch (error) {
+                        for (const item of staged) roots.failStaged(item, error)
+                        throw error
+                    }
+                    let failure
+                    for (const item of staged) {
+                        try {
+                            if (item.value._id !== undefined && roots.hasIdentity(resolved.parent, item.value._id)) throw Error('duplicate identity')
+                            const leaf = await roots.create(item.value, resolved.parent, root, { staged: true })
+                            if (leaf) changed.add(leaf)
+                            if (leaf?.parent) awareness.add(leaf.parent)
+                        } catch (error) {
+                            roots.failStaged(item, error)
+                            failure ??= error
+                        }
+                    }
+                    if (failure) throw failure
+                }
+                if (deferObjectCreate) {
+                    const outputResult = result(true)
+                    Object.defineProperty(outputResult, postAcknowledgement, { value: finalize })
+                    return outputResult
+                }
+                await finalize()
+                return result(true)
+            }
+            for (const input of inputs) addResult(await create(input), true)
             return result(true)
         }
 
@@ -75,11 +107,15 @@ export async function crud({ db, roots }, request) {
             const ref = identity(root, input)
             if (!ref) continue
             if (ref.uuid) {
-                const leaf = roots.direct(request, root, ref.uuid)
+                let leaf = await roots.direct(request, root, ref.uuid)
+                if (leaf && action !== 'read') {
+                    await roots.waitForCreate(ref.uuid)
+                    leaf = await roots.direct(request, root, ref.uuid)
+                }
                 if (leaf) targets.set(leaf, input)
             } else {
-                resolve()
-                for (const leaf of select(ref)) targets.set(leaf, input)
+                await resolve()
+                for (const leaf of await select(ref)) targets.set(leaf, input)
             }
         }
 
@@ -87,9 +123,9 @@ export async function crud({ db, roots }, request) {
             const start = filter.startingIndex ?? filter.index ?? 0
             const limit = filter.limit ?? 50
             if (!Number.isSafeInteger(start) || start < 0 || !Number.isSafeInteger(limit) || limit < 0) throw Error('invalid pagination')
-            const scope = resolve()
+            const scope = await resolve()
             if (!scope.missing && typeof scope.parent?.uuid === 'string') awareness.add(scope.parent.uuid)
-            const matches = select(filter.query ?? {}, limit === 0 ? Infinity : start + limit).slice(start)
+            const matches = (await select(filter.query ?? {}, limit === 0 ? Infinity : start + limit)).slice(start)
             for (const leaf of matches) if (!targets.has(leaf)) targets.set(leaf, inputs[0] ?? {})
         }
 
@@ -98,12 +134,12 @@ export async function crud({ db, roots }, request) {
             delete response.updated
             const updates = response.$update = []
             if (replay && targets.size !== inputs.length) throw Error('missing or duplicate replay target')
-            if (!targets.size && request.upsert && inputs.length === 1) addResult(create(inputs[0]), true)
+            if (!targets.size && request.upsert && inputs.length === 1) addResult(await create(inputs[0]), true)
             else {
                 if (!filter && !replay && !inputs.some(input => identity(root, input))) throw Error(`${root}.update requires identity or filter`)
                 if (!targets.size && !filter && (!replay || inputs.length)) throw Error(`${root} not found`)
                 for (const [leaf, input] of targets) {
-                    const result = update(leaf, input, replay ? undefined : request.$update)
+                    const result = await update(leaf, input, replay ? undefined : request.$update)
                     if (result.mutation) { updates.push(result.mutation); changed.add(leaf) }
                     addResult(result.object, true)
                 }
@@ -113,7 +149,7 @@ export async function crud({ db, roots }, request) {
         }
         else {
             for (const leaf of targets.keys()) {
-                await leaf.delete()
+                await roots.remove(leaf)
                 changed.add(leaf)
                 addResult(leaf, true)
             }

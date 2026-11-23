@@ -1,0 +1,34 @@
+{
+  "status": "failed",
+  "datasetSize": 100000,
+  "runIndex": 1,
+  "startedAt": "2026-11-23T18:42:51.664Z",
+  "environment": {
+    "date": "2026-11-23T18:42:51.664Z",
+    "node": "v24.18.0",
+    "platform": "linux-x64",
+    "release": "7.0.0-1017-aws",
+    "os": "#18~24.04.1-Ubuntu SMP PREEMPT Thu Oct 29 17:57:24 UTC 2026",
+    "cpuModel": "AMD EPYC 7571",
+    "cpuCount": 2,
+    "totalMemoryBytes": 8218963968,
+    "freeMemoryBytesAtStart": 5783638016,
+    "databaseVersion": "1.1.0",
+    "sourceRevision": "fbd2950c861b8481780653c9fb26caea41f4f2f2",
+    "processModel": "single in-process Node process; benchmark client and database share CPU/RSS",
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 75,
+    "persistence": "external persistence not configured; local Warm disk writes enabled",
+    "durability": "local writes are queued after memory acknowledgement; disk drain excluded from request timings",
+    "diskUsageBytes": null,
+    "diskIO": null
+  },
+  "failure": {
+    "message": "Benchmark made no progress for 600000 ms",
+    "exitCode": null,
+    "signal": "SIGTERM",
+    "stderr": ""
+  },
+  "stdout": "BENCH_PROGRESS provider=cocreatedb size=100000 completed=10000 total=100000 elapsedMs=6736\nBENCH_PROGRESS provider=cocreatedb size=100000 completed=20000 total=100000 elapsedMs=13595\nBENCH_PROGRESS provider=cocreatedb size=100000 completed=30000 total=100000 elapsedMs=20754\nBENCH_PROGRESS provider=cocreatedb size=100000 completed=40000 total=100000 elapsedMs=28238\nBENCH_PROGRESS provider=cocreatedb size=100000 completed=50000 total=100000 elapsedMs=36432\nBENCH_PROGRESS provider=cocreatedb size=100000 completed=60000 total=100000 elapsedMs=44408\nBENCH_PROGRESS provider=cocreatedb size=100000 completed=70000 total=100000 elapsedMs=52682\nBENCH_PROGRESS provider=cocreatedb size=100000 completed=80000 total=100000 elapsedMs=60968\nBENCH_PROGRESS provider=cocreatedb size=100000 completed=90000 total=100000 elapsedMs=69919\nBENCH_PROGRESS provider=cocreatedb size=100000 completed=100000 total=100000 elapsedMs=79706\n"
+}

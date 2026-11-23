@@ -1,0 +1,67 @@
+{
+  "status": "failed",
+  "benchmark": "cocreatedb-standard-single-node-adaptive",
+  "benchmarkVersion": 1,
+  "fixture": "shared lifecycle fixture v3",
+  "fixtureVersion": "3.0.0",
+  "runIndex": 1,
+  "datasetSize": 100000,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "environment": {
+    "date": "2026-11-23T18:24:45.295Z",
+    "node": "v24.18.0",
+    "platform": "linux-x64",
+    "release": "7.0.0-1017-aws",
+    "os": "#18~24.04.1-Ubuntu SMP PREEMPT Thu Oct 29 17:57:24 UTC 2026",
+    "cpuModel": "AMD EPYC 7571",
+    "cpuCount": 2,
+    "totalMemoryBytes": 8218963968,
+    "freeMemoryBytesAtStart": 5827256320,
+    "databaseVersion": "1.1.0",
+    "sourceRevision": "fbd2950c861b8481780653c9fb26caea41f4f2f2",
+    "processModel": "single in-process Node process; benchmark client and database share CPU/RSS",
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 75,
+    "persistence": "external persistence not configured; local Warm disk writes enabled",
+    "durability": "local writes are queued after memory acknowledgement; disk drain excluded from request timings",
+    "diskUsageBytes": null,
+    "diskIO": null
+  },
+  "configuration": {
+    "roots": "default",
+    "indexSize": 64,
+    "chunkSize": 1000,
+    "deferIndex": false,
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 75
+  },
+  "startedAt": "2026-11-23T18:24:45.303Z",
+  "memoryPolicy": {
+    "requestedPercent": 75
+  },
+  "initializationMs": 7.250002999999992,
+  "failure": {
+    "name": "Error",
+    "message": "database readiness: Root is not configured: object",
+    "stack": "Error: database readiness: Root is not configured: object\n    at assertResponse (file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/standard.mjs:71:15)\n    at runOne (file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/standard.mjs:177:9)\n    at async file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/standard.mjs:453:20"
+  },
+  "completedAt": "2026-11-23T18:24:45.315Z",
+  "totalElapsedMs": 9.753232999999994,
+  "cpuUsageUs": {
+    "user": 5163,
+    "system": 5750
+  },
+  "subprocess": {
+    "exitCode": 1,
+    "signal": null,
+    "stderr": ""
+  }
+}

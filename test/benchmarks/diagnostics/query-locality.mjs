@@ -55,7 +55,7 @@ await mkdir(output, { recursive: true })
 const directory = await mkdtemp(join(output, 'locality-data-'))
 const resultFile = join(output, 'query-locality-' + mode + '-' + Date.now() + '.json')
 const root = { organization_id: 'locality', storage: 'benchmark', database: 'local', array: 'records' }
-const db = createDB({}, { directory, size: branchSize, leafSize, config: { memory }, mode: databaseMode, acknowledgement })
+const db = await createDB({}, { directory, size: branchSize, leafSize, config: { memory }, mode: databaseMode, acknowledgement })
 const uuid = rank => rank.toString(16).padStart(32, '0')
 const value = (rank, fieldIndex) => rank + fieldIndex * records
 const revisions = new Uint32Array(records)
@@ -291,7 +291,7 @@ try {
         if (Math.floor(created / 10_000) !== Math.floor(offset / 10_000) || created === records) await checkpoint()
     }
     const indexDrainStart = performance.now()
-    db.flushIndex()
+    await db.flushIndex()
     await db.flushDisk()
     result.indexDrainMs = performance.now() - indexDrainStart
     result.growth = snapshot()
@@ -329,7 +329,7 @@ try {
         } else {
             const [row] = await send('delete', { object: { uuid: id } })
             assert.equal(row?.uuid, id)
-            assert.equal(db.leafTier.has(id), false)
+            assert.equal(await db.leafTier.has(id), false)
             deleted[rank] = 1
             live--
         }
@@ -341,7 +341,7 @@ try {
     assert.equal(db.leafTier.totalSize - 4, live)
     phase = 'drain'
     const drainStart = performance.now()
-    db.flushIndex()
+    await db.flushIndex()
     await db.flushDisk()
     result.finalDrainMs = performance.now() - drainStart
     result.beforeProbeFields = indexDetails()

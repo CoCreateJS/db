@@ -1,0 +1,75 @@
+{
+  "suite": "CoCreateDB standard single-node benchmark v2",
+  "runId": "2026-11-23T18-25-53.935Z",
+  "startedAt": "2026-11-23T18:25:53.935Z",
+  "sizes": [
+    100000
+  ],
+  "independentRunsRequested": 5,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "results": [
+    {
+      "size": 100000,
+      "runIndex": 1,
+      "status": "failed",
+      "file": "size-100000-run-01.json",
+      "elapsedMs": 112500.32615400001,
+      "failure": {
+        "name": "Error",
+        "message": "sustained mixed: Invalid child index reference",
+        "stack": "Error: sustained mixed: Invalid child index reference\n    at assertResponse (file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/standard.mjs:71:15)\n    at execute (file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/standard.mjs:111:9)\n    at async Promise.all (index 3)\n    at async sustained (file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/standard.mjs:126:23)\n    at async runOne (file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/standard.mjs:323:39)\n    at async file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/standard.mjs:457:20"
+      }
+    },
+    {
+      "status": "not-attempted",
+      "runIndex": 2,
+      "datasetSize": 100000,
+      "reason": "A preceding independent run for this size failed.",
+      "file": "size-100000-run-02.json"
+    },
+    {
+      "status": "not-attempted",
+      "runIndex": 3,
+      "datasetSize": 100000,
+      "reason": "A preceding independent run for this size failed.",
+      "file": "size-100000-run-03.json"
+    },
+    {
+      "status": "not-attempted",
+      "runIndex": 4,
+      "datasetSize": 100000,
+      "reason": "A preceding independent run for this size failed.",
+      "file": "size-100000-run-04.json"
+    },
+    {
+      "status": "not-attempted",
+      "runIndex": 5,
+      "datasetSize": 100000,
+      "reason": "A preceding independent run for this size failed.",
+      "file": "size-100000-run-05.json"
+    }
+  ],
+  "stallTimeoutMs": 600000,
+  "configuration": {
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 75
+  },
+  "legacyCompatibility": {
+    "status": "not-run",
+    "fixture": "lifecycle fixture v2",
+    "runs": []
+  },
+  "completedAt": "2026-11-23T18:27:49.978Z",
+  "summary": {
+    "successfulRuns": 0,
+    "failedRuns": 1,
+    "notAttempted": 4
+  }
+}

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
-import { availableParallelism, cpus, freemem, release as osRelease, totalmem, version as osVersion } from 'node:os'
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { availableParallelism, cpus, freemem, release as osRelease, tmpdir, totalmem, version as osVersion } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createDB } from '../../src/index.js'
@@ -149,6 +149,8 @@ async function sustained(send, root, ids, { durationMs, concurrency, mode }) {
 
 async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs, concurrency }) {
     const environment = recordEnvironment()
+    let databaseDirectory
+    const phase = name => process.stdout.write(`BENCH_PROGRESS provider=cocreatedb run=${runIndex} phase=${name}\n`)
     const root = lifecycleRoot(size)
     const result = {
         status: 'running', benchmark: 'cocreatedb-standard-single-node-adaptive',
@@ -162,7 +164,8 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
     const wallStart = performance.now()
     try {
         const initStart = performance.now()
-        const db = await createDB.init(undefined, { prompt: false, config: { memory: memoryPercent }, size: 64, deferIndex: false })
+        databaseDirectory = await mkdtemp(join(tmpdir(), `cocreatedb-standard-${runIndex}-`))
+        const db = await createDB.init(undefined, { prompt: false, directory: databaseDirectory, config: { memory: memoryPercent }, size: 64, deferIndex: false })
         result.memoryPolicy = {
             requestedPercent: memoryPercent,
             totalMemoryBytes: db.memoryPolicy?.totalMemory,
@@ -210,7 +213,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             const response = assertResponse(await send({ ...root, method: 'object.create', object: batch }), `bulk create ${offset}-${end}`)
             createAndIndexMs += performance.now() - createStart
             assert.equal(response.object.length, batch.length)
-            indexEntriesPerObject ??= Object.keys(batch[0].getIndex()).length
+            indexEntriesPerObject ??= Object.keys(await batch[0].getIndex()).length
             reportProgress(end)
         }
         hash.update(']')
@@ -233,6 +236,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         result.memory.incrementalHeapBytes = loadedMemory.heapUsed - idleMemory.heapUsed
         result.memory.rssBytesPerObject = result.memory.incrementalRssBytes / size
         result.indexEntriesPerObject = indexEntriesPerObject ?? null
+        phase('correctness-queries')
 
         const workload = standardWorkloads(size)
         const queries = [
@@ -248,16 +252,20 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
                 ? { ...root, method: 'object.read', object: { uuid: item.expected[0] } }
                 : { ...root, method: 'object.read', filter: { query: item.query, limit: 100 } }
             verifyIds(await send(request), item.expected, `correctness ${item.key}`)
+            phase(`correctness-${item.key}`)
         }
 
         result.operations = {}
+        phase('uuid-read')
         result.operations.uuidRead = await measure(
             () => rootRead(send, root, { object: { uuid: uuidFor(Math.floor(size / 2)) } }),
             response => { assertResponse(response, 'UUID read'); assert.equal(response.object.length, 1) }, { warmups, samples })
+        phase('uuid-read-done')
         for (const item of queries.slice(1)) {
             result.operations[item.key] = await measure(
                 () => rootRead(send, root, { filter: { query: item.query, limit: 100 } }),
                 response => verifyIds(response, item.expected, item.key), { warmups, samples })
+            phase(`${item.key}-done`)
         }
 
         const createOffset = size + 1000 + runIndex * (warmups + samples + 100)
@@ -266,6 +274,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             const rank = stage === 'first' ? createRank++ : createRank++
             return send({ ...root, method: 'object.create', object: createBenchmarkRecord(rank, size, root.organization_id) })
         }, response => { assertResponse(response, 'single create'); assert.equal(response.object.length, 1) }, { warmups, samples })
+        phase('single-create-done')
 
         const updateStart = Math.floor(size / 4)
         let updateRank = updateStart
@@ -273,16 +282,19 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             const rank = updateRank++
             return send({ ...root, method: 'object.update', object: { uuid: uuidFor(rank), note: `note-${stage}-${i}` } })
         }, response => { assertResponse(response, 'single key update'); assert.equal(response.object.length, 1) }, { warmups, samples })
+        phase('single-key-update-done')
         const indexedStart = Math.floor(size / 3)
         let indexedRank = indexedStart
         result.operations.indexedKeyUpdate = await measure((stage, i) => {
             const rank = indexedRank++
             return send({ ...root, method: 'object.update', object: { uuid: uuidFor(rank), group: `updated-group-${stage}-${i}` } })
         }, response => { assertResponse(response, 'indexed key update'); assert.equal(response.object.length, 1) }, { warmups, samples })
+        phase('indexed-key-update-done')
         result.operations.numericIncrement = await measure((stage, i) => {
             const rank = Math.floor(size / 2) + i
             return send({ ...root, method: 'object.update', object: { uuid: uuidFor(rank), '$inc.revision': 1 } })
         }, response => { assertResponse(response, 'numeric increment'); assert.equal(response.object.length, 1) }, { warmups, samples })
+        phase('numeric-increment-done')
         const indexedCheckRank = indexedStart + warmups + samples
         const indexedValue = `updated-group-sample-${samples - 1}`
         assert.equal((await rootRead(send, root, { filter: { query: { group: indexedValue }, limit: 1 } })).object[0]?.uuid, uuidFor(indexedCheckRank))
@@ -301,6 +313,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             const uuid = deleteIds[deleteIndex++]
             return send({ ...root, method: 'object.delete', object: { uuid } })
         }, response => { assertResponse(response, 'single delete'); assert.equal(response.object.length, 1) }, { warmups, samples })
+        phase('single-delete-done')
         for (const uuid of deleteIds) assert.equal((await rootRead(send, root, { object: { uuid } })).object.length, 0)
 
         const deleteQuery = { bulkDelete: true }
@@ -313,12 +326,15 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         assert.equal(deleted.object.length, expectedDelete)
         assert.equal((await rootRead(send, root, { filter: { query: deleteQuery, limit: 0 } })).object.length, 0)
         result.operations.filteredBulkDelete = { deleted: expectedDelete, elapsedMs: filteredBulkDeleteMs, opsPerSecond: expectedDelete / filteredBulkDeleteMs * 1000 }
+        phase('filtered-delete-done')
 
         const sustainedIds = Array.from({ length: Math.min(size - expectedDelete, 10000) }, (_, i) => uuidFor(i))
         result.sustained = []
         for (const concurrencyLevel of concurrency) {
-            for (const mode of ['read', 'write', 'mixed'])
+            for (const mode of ['read', 'write', 'mixed']) {
                 result.sustained.push(await sustained(send, root, sustainedIds, { durationMs: sustainMs, concurrency: concurrencyLevel, mode }))
+                phase(`sustained-${mode}-${concurrencyLevel}-done`)
+            }
         }
 
         result.cpuUsageUs = process.cpuUsage(cpuStart)
@@ -328,6 +344,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         result.memory.peakRssBytes = Math.max(result.memory.peakRssBytes, process.resourceUsage().maxRSS * 1024)
         result.completedAt = new Date().toISOString()
         result.status = 'passed'
+        await db.flushDisk?.()
         await db.close?.()
         await writeFile(outputFile, `${JSON.stringify(result, null, 2)}\n`)
         return result
@@ -339,6 +356,8 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         result.cpuUsageUs = process.cpuUsage(cpuStart)
         await writeFile(outputFile, `${JSON.stringify(result, null, 2)}\n`)
         return result
+    } finally {
+        if (databaseDirectory) await rm(databaseDirectory, { recursive: true, force: true })
     }
 }
 
