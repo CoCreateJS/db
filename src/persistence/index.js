@@ -8,29 +8,16 @@ const responseError = response => {
 
 /** External persistence transport and the in-memory pending journal runner. */
 export class Persistence {
-    constructor({ pending, get, remove } = {}) {
+    constructor({ pending, get, remove, send } = {}) {
         this.pending = pending ?? Object.create(null)
         this.get = get ?? (() => undefined)
         this.remove = remove ?? (() => {})
-        this.transport = undefined
+        this.send = send
         this.running = Promise.resolve()
     }
 
-    register(send) {
-        if (typeof send !== 'function') throw new TypeError('Persistence transport must be a function')
-        this.transport = send
-        return () => {
-            if (this.transport === send) this.transport = undefined
-        }
-    }
-
-    send(envelope) {
-        if (!this.transport) return undefined
-        return this.transport(envelope)
-    }
-
     persist() {
-        if (!this.transport) return Promise.resolve({ success: false, skipped: true })
+        if (typeof this.send !== 'function') return Promise.resolve({ success: false, skipped: true })
         this.running = this.running.then(() => this.flush(), () => this.flush())
         return this.running
     }

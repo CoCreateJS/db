@@ -162,7 +162,7 @@ export class LeafTier extends Map {
     }
 
     async *references() {
-        yield* super.values()
+        yield* Map.prototype.values.call(this)
         for (const id of await this.files()) {
             if (residentHas(this, id)) continue
             const data = JSON.parse(await this.storage.readLeaf(id))
@@ -171,7 +171,7 @@ export class LeafTier extends Map {
     }
 
     async *values() {
-        yield* super.values()
+        yield* Map.prototype.values.call(this)
         for (const id of await this.files()) {
             if (residentHas(this, id)) continue
             const object = await this.get(id)

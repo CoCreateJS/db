@@ -192,14 +192,14 @@ This is local client-side database storage, not an implicit synchronization chan
 
 ### Persistence and awareness
 
-CoCreateDB exposes a minimal external persistence transport and an in-memory pending journal grouped by root UUID. Register a provider and explicitly drain pending leaf changes:
+CoCreateDB exposes an in-memory pending journal grouped by root UUID. In a server runtime, `database.persistence.send` invokes the `workflow.db.persist` workflow. Replace that function to use a custom provider, or explicitly drain pending leaf changes:
 
 ```js
-database.persistence.register(async envelope => provider.send(envelope))
+database.persistence.send = async envelope => provider.send(envelope)
 const persisted = await database.persist()
 ```
 
-The drain sends complete UUID-bearing leaf snapshots for upserts and UUID-only requests for deletes. A successful provider acknowledgement clears the matching pending item; errors remain attached for retry. Reads can be sent through `database.persistence.send()` using `persistence.read`. This is an early integration seam: the separate Persistence Tree and root/index branch writes are not implemented, so this does not yet provide complete external durability. `acknowledgement: 'persistence'` is therefore unavailable.
+The drain sends complete UUID-bearing leaf snapshots for upserts and UUID-only requests for deletes. A successful workflow/provider acknowledgement clears the matching pending item; errors remain attached for retry. The seeded `db.persist` workflow is in `app/src/apps/workflows/config/db.js`; it uses the AWS API and the `db-upsert-leaf` / `db-delete-leaf` endpoints. Configure its AWS region, bucket and prefix, and configure AWS credentials on the `aws` API record. A custom `send` callback replaces the workflow route. This is an early integration seam: the separate Persistence Tree and root/index branch writes are not implemented, so this does not yet provide complete external durability. `acknowledgement: 'persistence'` is therefore unavailable.
 
 ```text
 CoCreate CRUD → CoCreateDB → CRUD workflow / AST

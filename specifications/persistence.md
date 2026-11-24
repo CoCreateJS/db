@@ -2,14 +2,14 @@
 
 ## Current persistence callback contract
 
-The DB exposes an in-memory pending journal grouped by top-level root UUID at `db.persistence.pending`. Each group maps a changed UUID to `{ op, error? }`. Register an external transport and trigger a drain explicitly:
+The DB exposes an in-memory pending journal grouped by top-level root UUID at `db.persistence.pending`. Each group maps a changed UUID to `{ op, error? }`. In a server runtime, `db.persistence.send` invokes `workflow.db.persist`; callers can replace that function with a custom transport and trigger a drain explicitly:
 
 ```js
-const unregister = db.persistence.register(async envelope => provider.send(envelope))
+db.persistence.send = async envelope => provider.send(envelope)
 const result = await db.persist()
 ```
 
-`db.persistence.send(envelope)` forwards an individual persistence request through the registered callback. The persistence envelope uses `method` and `persistence`; values are UUID-bearing objects:
+`db.persistence.send(envelope)` forwards an individual persistence request to the server workflow or replacement callback. The persistence envelope uses `method` and `persistence`; values are UUID-bearing objects:
 
 ```js
 { method: 'persistence.upsert', persistence: { uuid: '...', ... } }
@@ -17,7 +17,7 @@ const result = await db.persist()
 { method: 'persistence.read', persistence: { uuid: '...' } }
 ```
 
-The current drain sends pending leaf upserts as complete object snapshots and pending deletes by UUID. A provider response is an acknowledgement when it is non-null and has no `error`, `data.error`, or `success: false`. A successful acknowledgement removes only the exact journal entry that was sent. An error or missing acknowledgement retains the entry and records its error; a newer mutation replaces the old entry and is not cleared by an older in-flight response. Entries are processed sequentially within their root group. With no registered transport, `db.persist()` reports `skipped` and leaves the journal untouched.
+The current drain sends pending leaf upserts as complete object snapshots and pending deletes by UUID. A provider response is an acknowledgement when it is non-null and has no `error`, `data.error`, or `success: false`. A successful acknowledgement removes only the exact journal entry that was sent. An error or missing acknowledgement retains the entry and records its error; a newer mutation replaces the old entry and is not cleared by an older in-flight response. Entries are processed sequentially within their root group. If no workflow-backed or custom `send` function is available, `db.persist()` reports `skipped` and leaves the journal untouched.
 
 This is the first transport and journal stage. It does not yet hydrate or update a separate Persistence Tree, or send root/index branch changes. Consequently it is not yet a complete durable representation of CoCreateDB and does not enable `acknowledgement: 'persistence'`.
 
@@ -27,15 +27,18 @@ CoCreateDB owns living leaves, roots, indexes, local CRUD and its Hot/Warm resid
 
 ## Entry point
 
-Conceptual integration (not an implemented Workflow API contract):
+The server-side default sender invokes the named workflow with its configured organization and host:
 
 ```js
-let response = await server.db.send(data)
-response = await server.workflow.send({ name: 'crud', data, response })
-return response
+await server.workflow.run({
+    method: 'workflow.db.persist',
+    organization_id: server.organization_id,
+    host: server.host,
+    data: envelope
+})
 ```
 
-The envelope already identifies the method, root, request and routing context. Use the standard result; do not invent a second mutation event or a parallel recipient-awareness protocol. The workflow can invoke other workflows, APIs, persistence adapters and remote CRUD. Configure the behavior without modifying DB or the runtime.
+The seeded `db.persist` workflow calls the configured AWS API for S3 leaf upserts and deletes. Its region, bucket and prefix are workflow settings; AWS credentials are configured on the `aws` API record. Replacing `db.persistence.send` bypasses this default workflow route. The workflow can later orchestrate multiple provider targets without changing the DB journal envelope.
 
 ## Successful local operations
 

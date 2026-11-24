@@ -50,6 +50,16 @@ export async function createDatabase(server = {}, options = {}, platform = {}) {
     db.persistence = new Persistence({
         pending: db.persistence.pending,
         get: roots.persistenceValue,
+        send: server.id == null || !server.organization_id || !server.host ? undefined : async envelope => {
+            if (typeof server.workflow?.run !== 'function') throw new Error('CoCreate Workflow is unavailable for database persistence')
+            if (!server.organization_id || !server.host) throw new Error('Database persistence requires the server organization_id and host')
+            return await server.workflow.run({
+                method: 'workflow.db.persist',
+                organization_id: server.organization_id,
+                host: server.host,
+                data: envelope
+            })
+        },
         remove: (root, uuid, entry) => {
             const group = db.persistence.pending[root]
             if (!group || group[uuid] !== entry) return

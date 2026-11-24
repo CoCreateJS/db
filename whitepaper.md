@@ -102,7 +102,7 @@ response = await server.workflow.send({ name: 'crud', data, response })
 return response
 ```
 
-This illustrates workflow composition, not an automatic persistence policy or finalized workflow API. The engine has an explicitly registered persistence transport and pending-leaf journal; the host or workflow chooses when to drain it. The DB does not maintain distribution state or automatically persist each CRUD request. Across processes the logical envelope survives, not JavaScript reference identity.
+This illustrates workflow composition, not an automatic persistence policy. The engine has a replaceable persistence sender and pending-leaf journal; the host or workflow chooses when to drain it. Server instances default to `workflow.db.persist`, while a host can replace `db.persistence.send` with a custom callback. The DB does not maintain distribution state or automatically persist each CRUD request. Across processes the logical envelope survives, not JavaScript reference identity.
 
 ## 7. Persistence and portability
 
