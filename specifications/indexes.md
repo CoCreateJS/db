@@ -8,6 +8,12 @@ Offloaded terminal branches are stored under `branches/`; data leaves are stored
 
 Query selection uses the smallest usable scalar index and verifies candidates with shared queryData. A range scans the matching type index first when the bounds have that type, then checks leaves outside that index for matches under JavaScript coercion. Coverage includes Hot and Warm leaves and accounts for pending index changes. The fallback can inspect a Warm leaf’s index entry before loading its payload. Queries without a usable index scan local leaves. UUID queries use direct lookup. Sorting and search are not implemented. Pagination applies to local matches. Do not infer global coverage from local trees.
 
+## CRUD selection and execution
+
+Create with a supplied UUID, read, update, and delete use the tree's `visitMatches` path. It locates UUIDs directly or scans index candidates, verifies the complete query, and invokes CRUD's operation handler for each match before continuing the same traversal. Mutating operations queue index reconciliation while the traversal is active; the tree applies that work after the visit completes. Create without a UUID keeps the direct staged-insert path. CRUD responses still collect their result values in the response envelope. This is an internal cursor-style traversal, not a public resumable cursor API.
+
+An explicit UUID uses direct lookup. Create without a UUID follows the staged insert path and does not perform an existence lookup for its generated UUID; a supplied UUID is checked before it is reserved. Create and upsert keep their distinct duplicate/create semantics even though they share leaf insertion primitives.
+
 ## Requirements and optimization targets
 
 Maintain index consistency when values change, preserve type fidelity, avoid duplicate candidates and verify nested predicates. Mixed-type unified trees, richer container/binary semantics and stronger planner guarantees require additional implementation and tests. Current CRUD update clones and reconciles state; reducing traversal and allocation is a future optimization. The runtime index catalog is rebuilt from data; the root/parent branch catalog is not yet persisted for restart recovery.

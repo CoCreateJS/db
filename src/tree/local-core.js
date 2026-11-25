@@ -1,46 +1,35 @@
-import { DiskBranch, restoreIndexEntry } from '../leaf.js'
+import { DiskBranch, restoreIndexEntry } from './leaf.js'
 import { Weights } from './weights.js'
+import { requestDisk } from '../disk/index.js'
 
 export class LocalTier {
-    constructor(storage, resolve, { resolveLeaf } = {}) {
-        this.storage = storage
-        this.directory = storage.directory
-        this.branchDirectory = storage.branchDirectory
-        this.leafDirectory = storage.leafDirectory
+    constructor(disk, resolve, { resolveLeaf } = {}) {
+        this.disk = disk
         this.resolve = resolve
         this.resolveLeaf = resolveLeaf
         this.weights = new Weights()
         this.buckets = this.weights
         this.active = new Set()
         this.dirty = new Set()
+        this.pendingDiscards = new Set()
         this.reads = 0
         this.writes = 0
     }
 
-    async initialize() { await this.storage.initialize(); return this }
+    async initialize() { await requestDisk(this.disk, 'disk.initialize'); return this }
 
     get warmBranches() {
         const local = this
         return {
-            get size() {
-                if (typeof local.storage.listBranchesSync === 'function') return local.storage.listBranchesSync().length
-                return local.storage.listBranches().then(items => items.length)
-            },
-            has(id) {
-                if (typeof local.storage.hasBranchSync === 'function') return local.storage.hasBranchSync(id)
-                return local.storage.hasBranch(id)
-            },
-            keys() {
-                if (typeof local.storage.listBranchesSync === 'function') return local.storage.listBranchesSync()[Symbol.iterator]()
-                return (async function* () { yield* await local.storage.listBranches() })()
-            }
+            get size() { return local.listBranches().then(items => items.length) },
+            has(id) { return requestDisk(local.disk, 'disk.has', { kind: 'branch', uuid: id }) },
+            keys() { return (async function* () { yield* await local.listBranches() })() }
         }
     }
 
-    branchPath(index) { return this.storage.branchPath?.(index.uuid) }
-    leafPath(id) { return this.storage.leafPath?.(id) }
-    async deleteLeaf(id) { return await this.storage.deleteLeaf(id) }
-    add(index) { this.weights.add(index) }
+    async listBranches() { return await requestDisk(this.disk, 'disk.list', { kind: 'branch' }) }
+    async deleteLeaf(id) { return await requestDisk(this.disk, 'disk.delete', { kind: 'leaf', uuid: id }) }
+    add(index) { this.pendingDiscards.delete(index.uuid); this.weights.add(index) }
     remove(index) { this.weights.remove(index) }
     touch(index) { this.weights.touch(index) }
 
@@ -87,7 +76,7 @@ export class LocalTier {
         this.active.add(index)
         try {
             const file = await index.getFile()
-            await this.storage.writeBranch(index.uuid, file.content)
+            await requestDisk(this.disk, 'disk.write', { kind: 'branch', uuid: index.uuid, data: file.content })
             if (index.viewed !== weight || index.revision !== revision || !index.entries || index.branches || !this.weights.has(index) || !this.canRelease(index)) return false
             this.dirty.delete(index)
             this.writes++
@@ -129,9 +118,20 @@ export class LocalTier {
 
     async write(index) {
         const file = await index.getFile()
-        await this.storage.writeBranch(index.uuid, file.content)
+        await requestDisk(this.disk, 'disk.write', { kind: 'branch', uuid: index.uuid, data: file.content })
+        this.pendingDiscards.delete(index.uuid)
         this.dirty.delete(index)
         this.writes++
+    }
+
+    async persistDiscards() {
+        let count = 0
+        for (const id of this.pendingDiscards) {
+            await requestDisk(this.disk, 'disk.delete', { kind: 'branch', uuid: id })
+            this.pendingDiscards.delete(id)
+            count++
+        }
+        return count
     }
 
     async persistDirty() {
@@ -149,7 +149,8 @@ export class LocalTier {
     async read(index) { return await this.readByUuid(index.uuid) }
 
     async readByUuid(id) {
-        const content = await this.storage.readBranch(id)
+        if (this.pendingDiscards.has(id)) return undefined
+        const content = await requestDisk(this.disk, 'disk.read', { kind: 'branch', uuid: id })
         this.reads++
         return JSON.parse(content)
     }
@@ -158,7 +159,7 @@ export class LocalTier {
         this.remove(index)
         this.dirty.delete(index)
         if (index.onDisk) {
-            await this.storage.deleteBranch(index.uuid)
+            this.pendingDiscards.add(index.uuid)
             index.onDisk = false
         }
     }

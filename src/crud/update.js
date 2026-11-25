@@ -1,4 +1,4 @@
-import { updateLeaf } from '../leaf.js'
+import { updateLeaf } from '../tree/leaf.js'
 
 const record = value => value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype
 const operators = new Set(['$set', '$rename', '$inc', '$push', '$each', '$splice', '$unset', '$delete', '$slice', '$pop', '$shift', '$addToSet', '$pull'])

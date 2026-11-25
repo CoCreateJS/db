@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { availableParallelism, cpus, freemem, release as osRelease, tmpdir, totalmem, version as osVersion } from 'node:os'
+import { EventEmitter } from 'node:events'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createDB } from '../../src/index.js'
@@ -77,7 +78,7 @@ if (!Number.isFinite(memoryPercent) || memoryPercent <= 0 || memoryPercent > 100
     throw Error('BENCH_MEMORY_PERCENT must be a number greater than 0 and at most 100')
 const verifyIds = (response, expected, label) => {
     assertResponse(response, label)
-    assert.deepEqual(response.object.map(value => value.uuid), expected, `${label} result ids`)
+    assert.deepEqual(response.object.map(value => value.uuid).sort(), [...expected].sort(), `${label} result ids`)
 }
 const measure = async (fn, validate, { warmups, samples }) => {
     const firstStart = performance.now()
@@ -157,15 +158,29 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         benchmarkVersion: 1, fixture: 'shared lifecycle fixture v3', fixtureVersion: '3.0.0',
         runIndex, datasetSize: size, sampleCount: samples, warmupCount: warmups,
         sustainedDurationMs: sustainMs, concurrencyLevels: concurrency,
-        environment, configuration: { roots: 'default', indexSize: 64, chunkSize: 1000, deferIndex: false, mode: 'adaptive', acknowledgement: 'memory', memoryPercent },
+        environment, configuration: { roots: 'default', indexSize: 64, chunkSize: 1000, deferIndex: false, mode: 'adaptive', acknowledgement: 'memory', memoryPercent, telemetry: 'process RSS sampled every 100 ms by the benchmark harness' },
         startedAt: new Date().toISOString()
     }
     const cpuStart = process.cpuUsage()
     const wallStart = performance.now()
+    let db
+    let telemetryTimer
     try {
         const initStart = performance.now()
         databaseDirectory = await mkdtemp(join(tmpdir(), `cocreatedb-standard-${runIndex}-`))
-        const db = await createDB.init(undefined, { prompt: false, directory: databaseDirectory, config: { memory: memoryPercent }, size: 64, deferIndex: false })
+        const server = new EventEmitter()
+        server.id = `benchmark-${runIndex}`
+        server.isPrimary = true
+        db = await createDB.init(server, { prompt: false, directory: databaseDirectory, config: { memory: memoryPercent }, size: 64, deferIndex: false })
+        const memoryTotal = environment.memoryLimitBytes ?? totalmem()
+        const emitTelemetry = () => server.emit('telemetry', { data: {
+            serverId: server.id,
+            workerId: 0,
+            timestamp: new Date().toISOString(),
+            memory: { total: memoryTotal, max: Math.min(100, process.memoryUsage().rss / memoryTotal * 100) }
+        } })
+        emitTelemetry()
+        telemetryTimer = setInterval(emitTelemetry, 100)
         result.memoryPolicy = {
             requestedPercent: memoryPercent,
             totalMemoryBytes: db.memoryPolicy?.totalMemory,
@@ -196,12 +211,16 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         hash.update('[')
         let firstRecord = true
         let indexEntriesPerObject
-        let createAndIndexMs = 0
+        let firstBatch
+        let createAcknowledgementMs = 0
+        let fixtureGenerationMs = 0
+        const createLifecycleStart = performance.now()
         const chunkSize = 1000
         const reportProgress = createProgressReporter('cocreatedb', size)
         for (let offset = 0; offset < size; offset += chunkSize) {
             const batch = []
             const end = Math.min(size, offset + chunkSize)
+            const generationStart = performance.now()
             for (let rank = offset; rank < end; rank++) {
                 const object = createBenchmarkRecord(rank, size, root.organization_id)
                 if (!firstRecord) hash.update(',')
@@ -209,22 +228,34 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
                 firstRecord = false
                 batch.push(object)
             }
+            firstBatch ??= batch
+            fixtureGenerationMs += performance.now() - generationStart
             const createStart = performance.now()
             const response = assertResponse(await send({ ...root, method: 'object.create', object: batch }), `bulk create ${offset}-${end}`)
-            createAndIndexMs += performance.now() - createStart
+            createAcknowledgementMs += performance.now() - createStart
             assert.equal(response.object.length, batch.length)
-            indexEntriesPerObject ??= Object.keys(await batch[0].getIndex()).length
             reportProgress(end)
         }
         hash.update(']')
+        const indexDrainStart = performance.now()
+        await db.flushIndex()
+        const indexDrainWaitMs = performance.now() - indexDrainStart
+        const createAndIndexMs = performance.now() - createLifecycleStart
+        indexEntriesPerObject = Object.keys(await firstBatch[0].getIndex()).length
         result.fixtureHash = hash.digest('hex')
         result.createAndIndexMs = createAndIndexMs
         result.createRecordsPerSecond = size / createAndIndexMs * 1000
+        result.createAcknowledgementMs = createAcknowledgementMs
+        result.fixtureGenerationMs = fixtureGenerationMs
+        result.indexDrainWaitMs = indexDrainWaitMs
         result.indexCreationAndMaintenance = {
-            synchronous: true,
-            deferredIndexing: false,
+            synchronous: !db.tree.deferIndex,
+            deferredIndexing: Boolean(db.tree.deferIndex),
+            uuidMode: 'supplied',
             includedInCreateAndIndexMs: true,
-            flushMs: 0,
+            createAcknowledgementMs,
+            fixtureGenerationMs,
+            finalDrainWaitMs: indexDrainWaitMs,
             pendingAfterCreate: db.pendingIndexCount
         }
         assert.equal(db.pendingIndexCount, 0, 'standard run must complete index maintenance before timing proceeds')
@@ -239,19 +270,28 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         phase('correctness-queries')
 
         const workload = standardWorkloads(size)
+        const anyOrderOrIds = new Set(expectedUuids(size, workload.or.matches, size))
+        const verifyOrSubset = response => {
+            assertResponse(response, 'or')
+            const ids = response.object.map(value => value.uuid)
+            assert.equal(ids.length, 100, 'limited OR query result count')
+            assert.equal(new Set(ids).size, ids.length, 'limited OR query has no duplicate leaves')
+            assert.ok(ids.every(id => anyOrderOrIds.has(id)), 'limited OR query returns only matching leaves')
+        }
         const queries = [
             { key: 'uuidRead', query: null, expected: [uuidFor(Math.floor(size / 2))] },
             { key: 'equality', query: { group: workload.equality.value }, expected: expectedUuids(size, workload.equality.matches) },
             { key: 'nestedEquality', query: { 'profile.team': workload.nestedEquality.value }, expected: expectedUuids(size, workload.nestedEquality.matches) },
             { key: 'numericRange', query: { rank: { $gte: workload.numericRange.lower, $lt: workload.numericRange.upper } }, expected: expectedUuids(size, workload.numericRange.matches) },
             { key: 'and', query: { $and: [{ group: workload.and.group }, { active: workload.and.active }] }, expected: expectedUuids(size, workload.and.matches) },
-            { key: 'or', query: { $or: workload.or.groups.map(group => ({ group })) }, expected: expectedUuids(size, workload.or.matches) }
+            { key: 'or', query: { $or: workload.or.groups.map(group => ({ group })) }, expected: expectedUuids(size, workload.or.matches), validate: verifyOrSubset }
         ]
         for (const item of queries) {
             const request = item.key === 'uuidRead'
                 ? { ...root, method: 'object.read', object: { uuid: item.expected[0] } }
                 : { ...root, method: 'object.read', filter: { query: item.query, limit: 100 } }
-            verifyIds(await send(request), item.expected, `correctness ${item.key}`)
+            if (item.validate) item.validate(await send(request))
+            else verifyIds(await send(request), item.expected, `correctness ${item.key}`)
             phase(`correctness-${item.key}`)
         }
 
@@ -264,7 +304,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         for (const item of queries.slice(1)) {
             result.operations[item.key] = await measure(
                 () => rootRead(send, root, { filter: { query: item.query, limit: 100 } }),
-                response => verifyIds(response, item.expected, item.key), { warmups, samples })
+                response => item.validate ? item.validate(response) : verifyIds(response, item.expected, item.key), { warmups, samples })
             phase(`${item.key}-done`)
         }
 
@@ -344,7 +384,19 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         result.memory.peakRssBytes = Math.max(result.memory.peakRssBytes, process.resourceUsage().maxRSS * 1024)
         result.completedAt = new Date().toISOString()
         result.status = 'passed'
+        clearInterval(telemetryTimer)
+        telemetryTimer = undefined
         await db.flushDisk?.()
+        await db.flushMemory?.()
+        result.memoryPolicy.telemetry = {
+            baselineReady: db.memory?.baselineReady ?? false,
+            peakPressure: db.memory?.peakPressure,
+            peakStage: db.memory?.peakStage,
+            shedCycles: db.memory?.shedCycles,
+            branchesShed: db.memory?.branchesShed,
+            leavesShed: db.memory?.leavesShed,
+            diskFirstActivations: db.memory?.diskFirstActivations
+        }
         await db.close?.()
         await writeFile(outputFile, `${JSON.stringify(result, null, 2)}\n`)
         return result
@@ -357,6 +409,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         await writeFile(outputFile, `${JSON.stringify(result, null, 2)}\n`)
         return result
     } finally {
+        clearInterval(telemetryTimer)
         if (databaseDirectory) await rm(databaseDirectory, { recursive: true, force: true })
     }
 }

@@ -1,0 +1,70 @@
+{
+  "suite": "CoCreateDB standard single-node benchmark v2",
+  "runId": "2026-11-24T19-07-03.172Z",
+  "startedAt": "2026-11-24T19:07:03.172Z",
+  "sizes": [
+    100000
+  ],
+  "independentRunsRequested": 5,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "results": [
+    {
+      "size": 100000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-100000-run-01.json",
+      "elapsedMs": 106431.82946000001
+    },
+    {
+      "size": 100000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-100000-run-02.json",
+      "elapsedMs": 110230.843694
+    },
+    {
+      "size": 100000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-100000-run-03.json",
+      "elapsedMs": 105482.689848
+    },
+    {
+      "size": 100000,
+      "runIndex": 4,
+      "status": "passed",
+      "file": "size-100000-run-04.json",
+      "elapsedMs": 107413.687957
+    },
+    {
+      "size": 100000,
+      "runIndex": 5,
+      "status": "passed",
+      "file": "size-100000-run-05.json",
+      "elapsedMs": 109457.597564
+    }
+  ],
+  "stallTimeoutMs": 600000,
+  "configuration": {
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 25
+  },
+  "legacyCompatibility": {
+    "status": "not-run",
+    "fixture": "lifecycle fixture v2",
+    "runs": []
+  },
+  "completedAt": "2026-11-24T19:23:17.760Z",
+  "summary": {
+    "successfulRuns": 5,
+    "failedRuns": 0,
+    "notAttempted": 0
+  }
+}

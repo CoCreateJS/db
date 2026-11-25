@@ -1,19 +1,36 @@
-const present = error => Array.isArray(error) ? error.length > 0 : error != null && error !== false && error !== ''
-const hasError = response => present(response?.error) || present(response?.data?.error) || response?.success === false
+const hasError = response => response?.error || response?.data?.error || response?.success === false
 
-const responseError = response => {
-    const error = response?.data?.error ?? response?.error
-    return error instanceof Error ? error : new Error(Array.isArray(error) ? error.join('; ') : String(error ?? 'Persistence request failed'))
-}
-
-/** External persistence transport and the in-memory pending journal runner. */
+/** In-memory external-persistence journal; dispatch is controlled by persist(). */
 export class Persistence {
-    constructor({ pending, get, remove, send } = {}) {
-        this.pending = pending ?? Object.create(null)
-        this.get = get ?? (() => undefined)
-        this.remove = remove ?? (() => {})
+    constructor({ pending = Object.create(null), get = async () => undefined, send } = {}) {
+        this.pending = pending
+        this.get = get
         this.send = send
         this.running = Promise.resolve()
+    }
+
+    /** Read one UUID from the configured persistence provider on a local miss. */
+    async read(uuid) {
+        if (typeof uuid !== 'string' || !uuid) return undefined
+        if (typeof this.send !== 'function') return undefined
+        const response = await this.send({ method: 'persistence.read', persistence: { uuid } })
+        if (response == null) return undefined
+        if (hasError(response)) throw response?.error ?? response?.data?.error ?? new Error('Persistence read failed')
+        const value = response.persistence ?? response.data?.persistence ?? response.data ?? (typeof response.uuid === 'string' ? response : undefined)
+        if (value === undefined || value === null) return undefined
+        if (typeof value !== 'object' || Array.isArray(value) || value.uuid !== uuid)
+            throw new Error(`Persistence returned an invalid leaf for UUID ${uuid}`)
+        return value
+    }
+
+    async stage(envelope) {
+        if (envelope?.method !== 'persistence.stage') throw new Error(`Unsupported persistence hook: ${envelope?.method}`)
+        const { root, uuid, op } = envelope.persistence ?? {}
+        if (typeof root !== 'string' || typeof uuid !== 'string' || !['upsert', 'delete'].includes(op))
+            throw new TypeError('Persistence stage requires root, uuid, and an upsert or delete operation')
+        const group = this.pending[root] ??= Object.create(null)
+        group[uuid] = { op }
+        return { success: true }
     }
 
     persist() {
@@ -26,24 +43,21 @@ export class Persistence {
         const results = []
         for (const [root, group] of Object.entries(this.pending)) {
             for (const [uuid, entry] of Object.entries(group)) {
-                // A local mutation can replace this journal entry while send is in flight.
-                const operation = entry.op
                 try {
-                    let envelope
-                    if (operation === 'delete') {
-                        envelope = { method: 'persistence.delete', persistence: { uuid } }
-                    } else {
-                        const value = this.get(uuid)
-                        if (!value) throw new Error(`Pending persistence leaf is unavailable: ${uuid}`)
-                        envelope = { method: 'persistence.upsert', persistence: structuredClone(Object.fromEntries(Object.entries(value))) }
-                    }
+                    const value = entry.op === 'delete' ? undefined : await this.get(uuid)
+                    if (entry.op !== 'delete' && !value) throw new Error(`Pending persistence leaf is unavailable: ${uuid}`)
+                    const envelope = entry.op === 'delete'
+                        ? { method: 'persistence.delete', persistence: { uuid } }
+                        : { method: 'persistence.upsert', persistence: structuredClone(Object.fromEntries(Object.entries(value))) }
                     const response = await this.send(envelope)
-                    if (response == null) throw new Error('Persistence provider returned no acknowledgement')
-                    if (hasError(response)) throw responseError(response)
-                    if (this.pending[root]?.[uuid] === entry) this.remove(root, uuid, entry)
+                    if (response == null || hasError(response)) throw response?.error ?? response?.data?.error ?? new Error('Persistence request failed')
+                    if (this.pending[root]?.[uuid] === entry) {
+                        delete this.pending[root][uuid]
+                        if (!Object.keys(this.pending[root]).length) delete this.pending[root]
+                    }
                     results.push({ root, uuid, success: true, response })
                 } catch (error) {
-                    if (this.pending[root]?.[uuid] === entry && typeof entry === 'object') entry.error = error.message
+                    if (this.pending[root]?.[uuid] === entry) entry.error = error?.message ?? String(error)
                     results.push({ root, uuid, success: false, error })
                 }
             }

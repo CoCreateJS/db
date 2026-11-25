@@ -1,5 +1,6 @@
 import { Weights } from './weights.js'
-import { bindLeafTier, createLeaf, residentIndexEntries } from '../leaf.js'
+import { bindLeafTier, createLeaf, residentIndexEntries } from './leaf.js'
+import { requestDisk } from '../disk/index.js'
 
 const residentHas = (tier, id) => Map.prototype.has.call(tier, id)
 
@@ -7,33 +8,25 @@ export class LeafTier extends Map {
     constructor(local) {
         super()
         this.local = local
-        this.storage = local.storage
+        this.disk = local.disk
         this.weights = new Weights()
         this.buckets = this.weights
         this.refs = new WeakMap()
         this.dirty = new Map()
+        this.pendingDeletes = new Set()
         this.writeLocks = new Map()
         this.reads = 0
         this.writes = 0
     }
 
-    files() { return this.storage.listLeaves() }
+    files() { return requestDisk(this.disk, 'disk.list', { kind: 'leaf' }) }
 
     get warm() {
         const tier = this
         return {
-            get size() {
-                if (typeof tier.storage.listLeavesSync === 'function') return tier.storage.listLeavesSync().length
-                return tier.files().then(files => files.length)
-            },
-            has(id) {
-                if (typeof tier.storage.hasLeafSync === 'function') return tier.storage.hasLeafSync(id)
-                return tier.storage.hasLeaf(id)
-            },
-            keys() {
-                if (typeof tier.storage.listLeavesSync === 'function') return tier.storage.listLeavesSync()[Symbol.iterator]()
-                return (async function* () { yield* await tier.files() })()
-            }
+            get size() { return tier.files().then(files => files.length) },
+            has(id) { return requestDisk(tier.disk, 'disk.has', { kind: 'leaf', uuid: id }) },
+            keys() { return (async function* () { yield* await tier.files() })() }
         }
     }
 
@@ -48,10 +41,11 @@ export class LeafTier extends Map {
         return task.finally(() => { if (this.writeLocks.get(id) === task) this.writeLocks.delete(id) })
     }
 
-    async deleteFile(id) { return await this.withWriteLock(id, () => this.storage.deleteLeaf(id)) }
+    async deleteFile(id) { return await this.withWriteLock(id, () => requestDisk(this.disk, 'disk.delete', { kind: 'leaf', uuid: id })) }
     touch(record) { if (record.object && !record.evicted) this.weights.touch(record) }
 
     set(id, object) {
+        this.pendingDeletes.delete(id)
         super.set(id, object)
         if (object.root === 'object') {
             let record = this.refs.get(object)
@@ -81,17 +75,20 @@ export class LeafTier extends Map {
 
     async has(id) {
         if (typeof id !== 'string') return false
+        if (this.pendingDeletes.has(id)) return false
         if (super.has(id)) return true
-        return await this.storage.hasLeaf(id)
+        return await requestDisk(this.disk, 'disk.has', { kind: 'leaf', uuid: id })
     }
 
     async get(id) {
         if (typeof id !== 'string' || !id) return undefined
+        if (this.pendingDeletes.has(id)) return undefined
         let object = super.get(id)
         if (!object) {
             let source
-            try { source = await this.storage.readLeaf(id) }
+            try { source = await requestDisk(this.disk, 'disk.read', { kind: 'leaf', uuid: id }) }
             catch (error) { if (error.code === 'ENOENT' || error.name === 'NotFoundError') return undefined; throw error }
+            if (source === undefined || source === null) return undefined
             const data = JSON.parse(source)
             object = (await this.restore?.(data, id)) ?? createLeaf(data.object, data.object.root !== 'object')
             if (!residentHas(this, id)) this.set(id, object)
@@ -108,23 +105,30 @@ export class LeafTier extends Map {
     delete(id) {
         if (typeof id !== 'string' || !id) return super.delete(id)
         const object = super.get(id), record = object && this.refs.get(object)
+        this.pendingDeletes.add(id)
         this.dirty.delete(id)
         if (record) { this.remove(record); record.object = null }
         return super.delete(id)
     }
 
-    get totalSize() {
-        if (typeof this.storage.listLeavesSync === 'function') {
-            let total = this.size
-            for (const id of this.storage.listLeavesSync()) if (!residentHas(this, id)) total++
-            return total
+    async persistDeletes() {
+        let count = 0
+        for (const id of [...this.pendingDeletes]) {
+            if (await this.withWriteLock(id, async () => {
+                if (!this.pendingDeletes.has(id)) return false
+                await requestDisk(this.disk, 'disk.delete', { kind: 'leaf', uuid: id })
+                this.pendingDeletes.delete(id)
+                return true
+            })) count++
         }
-        return this.count()
+        return count
     }
+
+    get totalSize() { return this.count() }
 
     async count() {
         let total = this.size
-        for (const id of await this.files()) if (!residentHas(this, id)) total++
+        for (const id of await this.files()) if (!residentHas(this, id) && !this.pendingDeletes.has(id)) total++
         return total
     }
 
@@ -135,7 +139,7 @@ export class LeafTier extends Map {
             if (await this.withWriteLock(id, async () => {
                 if (super.get(id) !== object) return false
                 try {
-                    await this.storage.writeLeaf(id, (await object.getFile()).content)
+                    await requestDisk(this.disk, 'disk.write', { kind: 'leaf', uuid: id, data: (await object.getFile()).content })
                     if (super.get(id) !== object) return false
                     this.dirty.delete(id)
                     this.writes++
@@ -151,7 +155,7 @@ export class LeafTier extends Map {
         for (const [id, object] of this.dirty) {
             if (await this.withWriteLock(id, async () => {
                 if (super.get(id) !== object || this.dirty.get(id) !== object) return false
-                await this.storage.writeLeaf(id, (await object.getFile()).content)
+                await requestDisk(this.disk, 'disk.write', { kind: 'leaf', uuid: id, data: (await object.getFile()).content })
                 if (super.get(id) !== object || this.dirty.get(id) !== object) return false
                 this.dirty.delete(id)
                 this.writes++
@@ -164,8 +168,8 @@ export class LeafTier extends Map {
     async *references() {
         yield* Map.prototype.values.call(this)
         for (const id of await this.files()) {
-            if (residentHas(this, id)) continue
-            const data = JSON.parse(await this.storage.readLeaf(id))
+            if (residentHas(this, id) || this.pendingDeletes.has(id)) continue
+            const data = JSON.parse(await requestDisk(this.disk, 'disk.read', { kind: 'leaf', uuid: id }))
             if (data?.object) yield data.object
         }
     }
@@ -173,7 +177,7 @@ export class LeafTier extends Map {
     async *values() {
         yield* Map.prototype.values.call(this)
         for (const id of await this.files()) {
-            if (residentHas(this, id)) continue
+            if (residentHas(this, id) || this.pendingDeletes.has(id)) continue
             const object = await this.get(id)
             if (object) yield object
         }
@@ -181,32 +185,14 @@ export class LeafTier extends Map {
 
     hydrate(record) {
         if (!record.evicted) return record.object
-        if (typeof this.storage.readLeafSync === 'function') return this.hydrateSync(record)
         return this.hydrateAsync(record)
-    }
-
-    hydrateSync(record) {
-        const object = record.object
-        if (!record.evicted) return object
-        const current = super.get(record.id)
-        if (current && current !== object) return current
-        const data = JSON.parse(this.storage.readLeafSync(record.id))
-        for (const key of Object.keys(data.object)) {
-            if (Object.getOwnPropertyDescriptor(object, key)?.configurable === false) continue
-            Object.defineProperty(object, key, { value: data.object[key], writable: true, enumerable: true, configurable: true })
-        }
-        record.evicted = false
-        super.set(record.id, object)
-        this.add(record)
-        this.reads++
-        return object
     }
 
     async hydrateAsync(record) {
         const object = record.object
         const current = super.get(record.id)
         if (current && current !== object) return current
-        const data = JSON.parse(await this.storage.readLeaf(record.id))
+        const data = JSON.parse(await requestDisk(this.disk, 'disk.read', { kind: 'leaf', uuid: record.id }))
         for (const key of Object.keys(data.object)) {
             if (Object.getOwnPropertyDescriptor(object, key)?.configurable === false) continue
             Object.defineProperty(object, key, { value: data.object[key], writable: true, enumerable: true, configurable: true })
@@ -227,21 +213,11 @@ export class LeafTier extends Map {
                 if (record.object !== object || record.evicted || this.pending?.has(object)) return false
                 const weight = record.viewed
                 const content = (await object.getFile()).content
-                await this.storage.writeLeaf(record.id, content)
+                await requestDisk(this.disk, 'disk.write', { kind: 'leaf', uuid: record.id, data: content })
                 if (record.object !== object || record.viewed !== weight || this.pending?.has(object) || (await object.getFile()).content !== content) return false
                 this.dirty.delete(record.id)
                 this.writes++
                 for (const entry of residentIndexEntries(object)) entry.releaseObject()
-                if (typeof this.storage.readLeafSync === 'function') {
-                    for (const key of Object.keys(object)) {
-                        if (!Object.getOwnPropertyDescriptor(object, key).configurable) continue
-                        Object.defineProperty(object, key, {
-                            enumerable: true, configurable: true,
-                            get() { const live = record.tier.hydrateSync(record); if (live === object) { record.tier.touch(record); return object[key] } return live[key] },
-                            set(value) { const live = record.tier.hydrateSync(record); record.tier.touch(record); if (live === object) object[key] = value; else live[key] = value }
-                        })
-                    }
-                }
                 this.remove(record)
                 super.delete(record.id)
                 record.evicted = true

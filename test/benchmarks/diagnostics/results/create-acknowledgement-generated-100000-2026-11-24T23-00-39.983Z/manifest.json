@@ -1,0 +1,48 @@
+{
+  "benchmark": "CoCreateDB deferred create acknowledgement and index drain",
+  "benchmarkVersion": 1,
+  "runId": "2026-11-24T23-00-39.983Z",
+  "startedAt": "2026-11-24T23:00:39.983Z",
+  "datasetSize": 100000,
+  "fixture": "shared lifecycle fixture v3 (generated UUIDs)",
+  "fixtureHash": "5ebaf0a6b003895c10faa0afcd2067b21e346c7d485d53b6707384093682f19f",
+  "uuidMode": "generated",
+  "runsRequested": 1,
+  "configuration": {
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 75,
+    "deferIndex": true
+  },
+  "sourceRevision": "9851ef3f258455952c517eafb2adf9e458d299d5",
+  "sourceWorkingTreeDirty": true,
+  "sourceHashes": {
+    "src/core.js": "7e96acdca91fdcfda29eb28211887fd067f902176f48a9b93b6d3450a95b2a12",
+    "src/crud/index.js": "2e0a0b799bf5017b0a3585781b8df93bcbf1aaa6002ba7d916a9bf0c73b54a24",
+    "src/tree/index.js": "8db0a6b801f27e74a2e1d90662bf667c28257d473bc6d3a041351e5e752e7530",
+    "src/tree/manager.js": "4ddb1b910f51eebf1849d6e21ef6c853609a62f93c7d60033a249014857e9580",
+    "src/tree/leaf.js": "7cb5cb4e496a26d4a60a5d3acd8f131a0975925bd5558a995fd06cc1d10a732a",
+    "test/fixtures/lifecycle.mjs": "cc3a26f0dd16e1cb8e8a934d0348d137ff93f3cf472a43e6112aeb7fc6738c62",
+    "test/benchmarks/diagnostics/create-acknowledgement.mjs": "b7478cf61723edcf601f8f1fe9313aff1d7e7ea0a21bc3fd1d36b1bcda1a6a2b"
+  },
+  "results": [
+    {
+      "runIndex": 1,
+      "file": "run-01.json",
+      "status": "passed"
+    }
+  ],
+  "summary": {
+    "singleCreateAckP50Ms": 0.1482520000000136,
+    "singleCreateAckP95Ms": 0.25318300000000704,
+    "singleCreateIndexDrainMs": 16.672116000000017,
+    "bulkCreateAcknowledgementMs": 5082.7281459999995,
+    "bulkCreateAcknowledgementOpsPerSecond": 19674.473457467502,
+    "bulkIndexDrainAfterAcknowledgementMs": 0.00923999999940861,
+    "bulkCreateToIndexedWallMs": 39386.974009,
+    "bulkCreateToIndexedWallExcludingFixturePreparationMs": 38008.527306,
+    "pendingLeavesAfterAcknowledgement": 100000,
+    "peakRssBytes": 890003456
+  },
+  "completedAt": "2026-11-24T23:03:17.630Z"
+}

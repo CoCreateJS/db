@@ -203,7 +203,7 @@ async function orchestrate(size, uuidMode) {
         sourceRevision: gitRevision(), sourceWorkingTreeDirty: execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).trim().length > 0,
         sourceHashes: {}, results: []
     }
-    for (const file of ['src/node/index.js', 'src/root.js', 'src/leaf.js', 'test/fixtures/lifecycle.mjs', 'test/benchmarks/diagnostics/create-acknowledgement.mjs']) {
+    for (const file of ['src/core.js', 'src/crud/index.js', 'src/tree/index.js', 'src/tree/manager.js', 'src/tree/leaf.js', 'test/fixtures/lifecycle.mjs', 'test/benchmarks/diagnostics/create-acknowledgement.mjs']) {
         manifest.sourceHashes[file] = createHash('sha256').update(await readFile(join(repo, file))).digest('hex')
     }
     for (let runIndex = 1; runIndex <= runs; runIndex++) {
@@ -244,7 +244,7 @@ async function orchestrate(size, uuidMode) {
         '- Each trial uses a fresh Node process and isolated temporary DB directory. Values are medians across independent trials.',
         '- Create acknowledgement measures elapsed time awaiting `object.create` responses. Index drain measures the remaining `flushIndex()` time after the create responses; background indexing may already have progressed during creation.',
         '- The benchmark verifies the last created leaf can be read directly by UUID before the index drain finishes.',
-        '- `createLeaf()` currently constructs its per-key Entry metadata synchronously; this measures deferred tree insertion, not a leaf-only implementation.',
+        '- New leaves enter the resident map before deferred index entries are constructed; the UUID read check confirms map availability before index drain.',
         '',
         '| Metric | Median |', '| --- | ---: |',
         `| Single create acknowledgement p50 | ${manifest.summary.singleCreateAckP50Ms.toFixed(3)} ms |`,

@@ -1,161 +1,198 @@
+import { queryData } from '@cocreate/utils'
 import { update } from './update.js'
 
-export const persistenceChanges = Symbol.for('cocreate.db.persistenceChanges')
-export const postAcknowledgement = Symbol.for('cocreate.db.postAcknowledgement')
 const methods = new Set(['create', 'read', 'update', 'delete'])
 const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value)
+const TREE_STOP = Symbol.for('cocreate.db.tree.stop')
 
-function inputArray(value, root) {
+function inputs(value, root) {
     if (value === undefined) return []
-    const values = Array.isArray(value) ? value : [value]
-    if (values.some(item => !isRecord(item))) throw new TypeError(`${root} must contain objects`)
-    return values
+    const result = Array.isArray(value) ? value : [value]
+    if (result.some(item => !isRecord(item))) throw new TypeError(`${root} must contain objects`)
+    return result
 }
 
 function identity(root, value) {
-    if (value.uuid) return { uuid: value.uuid }
-    return root === 'object' ? value._id ? { _id: value._id } : undefined : value.name ? { name: value.name } : undefined
+    if (typeof value.uuid === 'string' && value.uuid) return { uuid: value.uuid }
+    if (root === 'object' && value._id !== undefined) return { query: { _id: value._id } }
+    if (root !== 'object' && typeof value.name === 'string' && value.name) return { query: { name: value.name } }
 }
 
-export async function crud({ db, roots, deferObjectCreate = false }, request) {
-    const response = { ...request }
-    delete response.awareness
-    const awareness = new Set()
-    const changed = new Set()
-    function result(success, error) {
-        const output = { ...response, awareness: [...awareness], success, ...(error ? { error: [error.message] } : {}) }
-        Object.defineProperty(output, persistenceChanges, { value: changed })
-        return output
+function addAwareness(leaf, awareness, parent = false) {
+    if (typeof leaf?.uuid === 'string') awareness.add(leaf.uuid)
+    if (parent && typeof leaf?.parent === 'string') awareness.add(leaf.parent)
+}
+
+/** CRUD dispatcher: one find path, then match and operation in the visitor. */
+export class CRUD {
+    constructor(tree, planner) {
+        if (!tree) throw new TypeError('CRUD requires a Tree instance')
+        if (!planner || typeof planner.plan !== 'function') throw new TypeError('CRUD requires a Query Planner resource')
+        this.tree = tree
+        this.planner = planner
     }
-    try {
-        const [root, action] = String(request.method ?? '').split('.')
-        if (!root || !methods.has(action)) throw Error(`Unsupported CRUD method: ${request.method}`)
-        const replay = action === 'update' && Array.isArray(request.$update)
-        const inputs = inputArray(replay ? request.$update : request[root], root)
-        if (replay && (request.filter || request.upsert || inputs.some(item => !item.uuid))) throw Error('replay requires explicit UUID targets without filter or upsert')
-        const filter = request.filter?.isFilter === false ? undefined : request.filter
-        if (action === 'create' && filter) throw Error('Filters are not supported for create')
-        if (filter && (filter.sort?.length || filter.search !== undefined)) throw Error('sort/search not implemented')
-        const output = response[root] = []
-        function addResult(leaf, includeParent = false) {
-            output.push(leaf)
-            if (typeof leaf?.uuid === 'string' && leaf.uuid) awareness.add(leaf.uuid)
-            if (includeParent && typeof leaf?.parent === 'string') awareness.add(leaf.parent)
-        }
-        const canCreateParents = action === 'create' || action === 'update' && request.upsert
-        let resolved
-        async function resolve() {
-            if (!resolved) {
-                resolved = await roots.resolve(request, root, { createMissing: canCreateParents })
-                for (const leaf of resolved.created) changed.add(leaf)
-            }
-            return resolved
-        }
-        const select = async (query = {}, limit = Infinity) => resolved.missing ? [] : await roots.select(resolved.parent, root, query, limit)
 
-        async function create(input) {
-            if (root !== 'object' && (typeof input.name !== 'string' || !input.name)) throw Error(`${root}.create requires name`)
-            if (input.uuid && await db.leaves.has(input.uuid)) throw Error('duplicate identity')
-            await resolve()
-            if (resolved.missing) return
-            if (root !== 'object' && input.name && (await select({ name: input.name }, 1)).length) throw Error('duplicate name')
-            if (root === 'object' && input._id && roots.hasIdentity(resolved.parent, input._id)) throw Error('duplicate identity')
-            const leaf = await roots.create(input, resolved.parent, root)
-            if (leaf) changed.add(leaf)
-            return leaf
-        }
+    async send(request = {}) {
+        const response = { ...request }
+        delete response.awareness
+        const awareness = new Set()
+        const [root, operation] = String(request.method ?? '').split('.')
+        const output = []
+        if (root) response[root] = output
+        const result = (success, error) => ({
+            ...response,
+            awareness: [...awareness],
+            success,
+            ...(error ? { error: [error.message] } : {})
+        })
 
-        if (action === 'create') {
-            if (!inputs.length) roots.validateTarget(root)
-            if (root === 'object' && inputs.length) {
-                const staged = await roots.stageCreates(inputs)
-                for (const item of staged) addResult(item.value)
-                const finalize = async () => {
-                    try { await resolve() }
-                    catch (error) {
-                        for (const item of staged) roots.failStaged(item, error)
-                        throw error
+        try {
+            if (!root || !methods.has(operation)) throw new Error(`Unsupported CRUD method: ${request.method}`)
+            const values = inputs(request[root], root)
+            const filter = request.filter?.isFilter === false ? undefined : request.filter
+            if (operation === 'create' && filter) throw new Error('Filters are not supported for create')
+            if (filter && (filter.sort?.length || filter.search !== undefined)) throw new Error('sort/search not implemented')
+
+            if (operation === 'create') {
+                const supplied = new Set()
+                for (const value of values) {
+                    if (value.uuid) {
+                        if (supplied.has(value.uuid)) throw new Error('duplicate identity')
+                        supplied.add(value.uuid)
+                        const exists = await this.find({
+                            root,
+                            request,
+                            uuid: value.uuid,
+                            predicates: [],
+                            globalUuid: true,
+                            visit: () => { throw new Error('duplicate identity') }
+                        })
+                        if (exists) throw new Error('duplicate identity')
                     }
-                    let failure
-                    for (const item of staged) {
-                        try {
-                            if (item.value._id !== undefined && roots.hasIdentity(resolved.parent, item.value._id)) throw Error('duplicate identity')
-                            const leaf = await roots.create(item.value, resolved.parent, root, { staged: true })
-                            if (leaf) changed.add(leaf)
-                            if (leaf?.parent) awareness.add(leaf.parent)
-                        } catch (error) {
-                            roots.failStaged(item, error)
-                            failure ??= error
-                        }
-                    }
-                    if (failure) throw failure
                 }
-                if (deferObjectCreate) {
-                    const outputResult = result(true)
-                    Object.defineProperty(outputResult, postAcknowledgement, { value: finalize })
-                    return outputResult
+                const leaves = values.length
+                    ? await this.tree.leaves.set(root, values, request, { identityChecked: true })
+                    : []
+                for (const leaf of leaves) {
+                    output.push(leaf)
+                    addAwareness(leaf, awareness, true)
                 }
-                await finalize()
+                if (!values.length) await this.tree.getRootBranch(request, root)
                 return result(true)
             }
-            for (const input of inputs) addResult(await create(input), true)
+
+            if (!filter && !values.length) {
+                if (operation === 'update' && !request.upsert) throw new Error(`${root}.update requires identity or filter`)
+                return result(true)
+            }
+            const refs = values.map(value => ({ value, ref: identity(root, value) })).filter(item => item.ref)
+            const directUuidOnly = refs.length > 0 && refs.every(item => Boolean(item.ref.uuid))
+            const scope = directUuidOnly ? undefined : await this.tree.getRootBranch(request, root, { allowPartial: true })
+            if (scope?.missing) return result(true)
+            const filterQuery = filter?.query ?? {}
+            const start = filter?.startingIndex ?? filter?.index ?? 0
+            const requestedLimit = filter?.limit ?? 50
+            if (filter && (!Number.isSafeInteger(start) || start < 0 || !Number.isSafeInteger(requestedLimit) || requestedLimit < 0)) throw new Error('invalid pagination')
+            const limit = filter ? (requestedLimit === 0 ? Infinity : requestedLimit) : Infinity
+            const seen = new Set()
+            let matched = 0
+            let skipped = 0
+            let returned = 0
+            let stopped = false
+            const operate = async (leaf, input) => {
+                if (seen.has(leaf.uuid)) return
+                seen.add(leaf.uuid)
+                matched++
+                if (skipped++ < start) return
+
+                switch (operation) {
+                    case 'read':
+                        output.push(leaf)
+                        break
+                    case 'update': {
+                        const updated = await update(leaf, input, request.$update)
+                        if (updated.mutation) (response.$update ??= []).push(updated.mutation)
+                        output.push(updated.object)
+                        break
+                    }
+                    case 'delete': {
+                        const snapshot = structuredClone(Object.fromEntries(Object.entries(leaf)))
+                        await this.tree.removeLeaf(leaf.uuid)
+                        output.push(snapshot)
+                        break
+                    }
+                }
+                addAwareness(leaf, awareness, true)
+                returned++
+                if (returned >= limit) stopped = true
+                if (stopped) return TREE_STOP
+            }
+
+            if (refs.length) {
+                for (const { ref, value } of refs) {
+                    const query = ref.query ?? filterQuery
+                    await this.find({
+                        root, request, scope, uuid: ref.uuid, query,
+                        predicates: [...(ref.query ? [ref.query] : []), ...(filter ? [filterQuery] : [])],
+                        visit: leaf => operate(leaf, value),
+                        mutating: operation !== 'read',
+                        stop: () => stopped
+                    })
+                    if (stopped) break
+                }
+            } else if (filter) {
+                await this.find({
+                    root, request, scope, query: filterQuery, visit: leaf => operate(leaf, values[0] ?? {}),
+                    mutating: operation !== 'read', stop: () => stopped
+                })
+            }
+
+            if (operation === 'update' && matched === 0 && request.upsert && values.length === 1) {
+                const created = await this.tree.createLeaf(root, values[0], request)
+                if (created) {
+                    output.push(created)
+                    addAwareness(created, awareness, true)
+                }
+            } else if (operation === 'update' && matched === 0 && !filter) {
+                throw new Error(refs.length ? `${root} not found` : `${root}.update requires identity or filter`)
+            }
             return result(true)
+        } catch (error) {
+            return result(false, error)
+        }
+    }
+
+    /** UUID and query plans share this single candidate/match/visit entry point. */
+    async find({ root, request, scope, uuid, query = {}, predicates, visit, mutating = false, globalUuid = false, stop = () => false }) {
+        if (typeof visit !== 'function') throw new TypeError('find requires a visitor')
+        const matches = async leaf => {
+            if (!globalUuid && (!await this.tree.matchesRoot(request, root, leaf) ||
+                scope?.parent?.uuid !== undefined && leaf.parent !== scope.parent.uuid)) return
+            for (const predicate of predicates ?? [query]) if (!queryData(leaf, predicate)) return
+            const result = await visit(leaf)
+            return { matched: true, stop: result === TREE_STOP }
         }
 
-        const targets = new Map()
-        for (const input of inputs) {
-            const ref = identity(root, input)
-            if (!ref) continue
-            if (ref.uuid) {
-                let leaf = await roots.direct(request, root, ref.uuid)
-                if (leaf && action !== 'read') {
-                    await roots.waitForCreate(ref.uuid)
-                    leaf = await roots.direct(request, root, ref.uuid)
-                }
-                if (leaf) targets.set(leaf, input)
-            } else {
-                await resolve()
-                for (const leaf of await select(ref)) targets.set(leaf, input)
-            }
+        if (uuid) {
+            const leaf = await this.tree.leaves.get(uuid)
+            if (!leaf) return 0
+            return (await matches(leaf))?.matched ? 1 : 0
         }
 
-        if (filter) {
-            const start = filter.startingIndex ?? filter.index ?? 0
-            const limit = filter.limit ?? 50
-            if (!Number.isSafeInteger(start) || start < 0 || !Number.isSafeInteger(limit) || limit < 0) throw Error('invalid pagination')
-            const scope = await resolve()
-            if (!scope.missing && typeof scope.parent?.uuid === 'string') awareness.add(scope.parent.uuid)
-            const matches = (await select(filter.query ?? {}, limit === 0 ? Infinity : start + limit)).slice(start)
-            for (const leaf of matches) if (!targets.has(leaf)) targets.set(leaf, inputs[0] ?? {})
+        if (!scope || scope.missing) return 0
+        const plan = this.planner.plan(scope, query)
+        const visitor = async leaf => {
+            const result = await matches(leaf)
+            if (result?.stop) return TREE_STOP
+            if (stop()) return TREE_STOP
         }
-
-        if (!resolved && !targets.size) roots.validateTarget(root)
-        if (action === 'update') {
-            delete response.updated
-            const updates = response.$update = []
-            if (replay && targets.size !== inputs.length) throw Error('missing or duplicate replay target')
-            if (!targets.size && request.upsert && inputs.length === 1) addResult(await create(inputs[0]), true)
-            else {
-                if (!filter && !replay && !inputs.some(input => identity(root, input))) throw Error(`${root}.update requires identity or filter`)
-                if (!targets.size && !filter && (!replay || inputs.length)) throw Error(`${root} not found`)
-                for (const [leaf, input] of targets) {
-                    const result = await update(leaf, input, replay ? undefined : request.$update)
-                    if (result.mutation) { updates.push(result.mutation); changed.add(leaf) }
-                    addResult(result.object, true)
-                }
-            }
-        } else if (action === 'read') {
-            for (const leaf of targets.keys()) addResult(leaf)
-        }
-        else {
-            for (const leaf of targets.keys()) {
-                await roots.remove(leaf)
-                changed.add(leaf)
-                addResult(leaf, true)
-            }
-        }
-        return result(true)
-    } catch (error) {
-        return result(false, error)
+        if (plan.strategy === 'none') return 0
+        if (plan.strategy === 'scan') return await this.tree.visitLeaves(visitor, { mutating })
+        const ranges = plan.branches.map(branch => ({ min: plan.min, max: plan.max, branchUuid: branch.uuid }))
+        return await this.tree.visitRanges(plan.key, plan.type, ranges, visitor, { mutating })
     }
 }
+
+export function createCRUD(tree, planner) { return new CRUD(tree, planner) }
+
+export default CRUD
