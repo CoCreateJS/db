@@ -67,17 +67,6 @@ const diskFirstPressure = 0.90
 const memoryHysteresis = 0.025
 const isMissingConfig = error => error?.code === 'ENOENT' || error?.name === 'NotFoundError'
 
-function snapshotResponse(request, response) {
-    const root = String(request?.method ?? '').split('.')[0]
-    if (!Array.isArray(response?.[root])) return response
-    return {
-        ...response,
-        [root]: response[root].map(value => value && typeof value === 'object'
-            ? structuredClone(Object.fromEntries(Object.entries(value)))
-            : value)
-    }
-}
-
 async function loadConfiguration(options, disk) {
     if (options.config !== undefined || options.roots !== undefined) {
         return createConfiguration({ config: options.config, roots: options.roots })
@@ -141,7 +130,7 @@ export class Index {
     #telemetryListener
     #telemetryTimestamps = new Map()
     #memoryQueue = Promise.resolve()
-    #diskFirstQueue = Promise.resolve()
+    #diskFirstLeaves = new Set()
     #diskQueue = Promise.resolve()
     #diskError
     #flushTimer
@@ -257,29 +246,31 @@ export class Index {
     set disk(handler) { if (this.tree) this.tree.disk = handler }
 
     async send(request) {
-        if (!this.tree.diskFirst) {
-            const response = await this.crud.send(request)
+        const response = await this.crud.send(request)
+        if (response?.success !== false) {
             const operation = String(request?.method ?? '').split('.')[1]
-            if (operation !== 'read' && response?.success !== false) {
-                if (this.#flushTimer === undefined) {
-                    this.#flushTimer = setTimeout(() => {
-                        this.#flushTimer = undefined
-                        this.#diskQueue = this.#diskQueue.then(() => this.tree.flushLocal()).catch(error => { this.#diskError = error })
-                    }, 0)
-                }
+            if (this.tree.diskFirst) {
+                const root = String(request?.method ?? '').split('.')[0]
+                for (const leaf of response?.[root] ?? []) if (typeof leaf?.uuid === 'string') this.#diskFirstLeaves.add(leaf.uuid)
             }
-            return response
+            if ((operation !== 'read' || this.tree.diskFirst && this.#diskFirstLeaves.size) && this.#flushTimer === undefined) {
+                this.#flushTimer = setTimeout(() => {
+                    this.#flushTimer = undefined
+                    this.#diskQueue = this.#diskQueue.then(async () => {
+                        await this.tree.flushLocal()
+                        await this.#releaseDiskFirstLeaves()
+                    }).catch(error => { this.#diskError = error })
+                }, 0)
+            }
         }
-        const task = this.#diskFirstQueue.then(async () => {
-            await this.flushMemory()
-            const result = await this.crud.send(request)
-            const response = snapshotResponse(request, result)
-            await this.tree.flushLocal()
-            while ((await this.tree.shed()).count > 0) {}
-            return response
-        })
-        this.#diskFirstQueue = task.then(() => undefined, () => undefined)
-        return await task
+        return response
+    }
+
+    async #releaseDiskFirstLeaves() {
+        if (!this.#diskFirstLeaves.size) return
+        const ids = [...this.#diskFirstLeaves]
+        this.#diskFirstLeaves.clear()
+        for (const id of ids) await this.tree.evictLeaf(id)
     }
 
     async flushIndex() { return await this.tree?.flushIndex?.() }
@@ -291,7 +282,9 @@ export class Index {
         }
         await this.#diskQueue
         if (this.#diskError) throw this.#diskError
-        return await this.tree?.flushLocal?.()
+        const result = await this.tree?.flushLocal?.()
+        await this.#releaseDiskFirstLeaves()
+        return result
     }
 
     get pendingIndexCount() { return this.tree?.pendingIndexCount ?? 0 }
@@ -313,7 +306,6 @@ export class Index {
             this.#telemetryListener = undefined
         }
         await this.flushMemory()
-        await this.#diskFirstQueue
         await this.flushLocal()
     }
 }

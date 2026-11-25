@@ -67,7 +67,7 @@ async function insertEntry(tree, size, leafSize, entry, local, leaves) {
 }
 
 export async function createRootManager({ db, size = 1024, leafSize = size, deferIndex = false, persistConfig = () => {}, persist = async () => ({ success: true }) }) {
-    const pendingIndex = new Set()
+    const pendingIndex = new Map()
     const deleted = db.deleted = new Map()
     db.deleting ??= new Set()
     let scheduled, indexError, activeTraversals = 0
@@ -88,7 +88,10 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
                 if(db.deleting.has(leaf.uuid))return
                 for(const entry of Object.values(await leaf.getIndex()))if(entry.index)await entry.tree.remove(entry)
                 deleted.delete(leaf.uuid)
-            } else await reconcileLeaf(leaf,insert)
+            } else {
+                const changedPaths=pendingIndex.get(leaf)
+                await reconcileLeaf(leaf,insert,changedPaths instanceof Set?changedPaths:undefined)
+            }
             pendingIndex.delete(leaf)
         }
         catch(error){indexError=error;throw error}
@@ -102,7 +105,16 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
         workQueue = task.catch(() => {})
         return task
     }
-    const handler={queue(leaf){pendingIndex.add(leaf);schedule()},flush:leaf=>serializeWork(async()=>{await persistLeaves();return await flushLeaf(leaf)})}
+    function queueIndex(leaf, changedPaths) {
+        if (!pendingIndex.has(leaf)) pendingIndex.set(leaf, changedPaths === undefined ? undefined : new Set(changedPaths))
+        else {
+            const pending=pendingIndex.get(leaf)
+            if (pending instanceof Set && changedPaths !== undefined) for (const key of changedPaths) pending.add(key)
+            else pendingIndex.set(leaf, undefined)
+        }
+        schedule()
+    }
+    const handler={queue:queueIndex,flush:leaf=>serializeWork(async()=>{await persistLeaves();return await flushLeaf(leaf)})}
     async function stagePersistence(leaf, op = 'upsert') {
         const root = rootIds.get(leaf.uuid) ?? rootIds.get(leaf.parent) ?? leaf.parent ?? leaf.uuid
         return await persist({ method: 'persistence.stage', persistence: { root, uuid: leaf.uuid, op } })
@@ -113,7 +125,7 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
         // Leaves are the recovery source: make pending leaf writes durable
         // before constructing or changing any derived index entries.
         await persistLeaves()
-        for (const leaf of pendingIndex) {
+        for (const leaf of pendingIndex.keys()) {
             if (limit-- <= 0) break
             try { await flushLeaf(leaf) }
             catch (error) { indexError = error; throw error }
@@ -284,7 +296,7 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
         await stagePersistence(leaf, 'upsert')
         if (deferIndex && !isRoot) {
             deferLeaf(leaf,handler)
-            pendingIndex.add(leaf)
+            queueIndex(leaf)
             if (!deferSchedule) schedule()
         }
         else await attach(leaf, insert)
@@ -353,8 +365,8 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
             delete catalog[id]
             await persistConfig()
         }
-        if(deferIndex || activeTraversals){pendingIndex.add(leaf);schedule()}
-        else {pendingIndex.add(leaf);await flushLeaf(leaf)}
+        if(deferIndex || activeTraversals){queueIndex(leaf)}
+        else {queueIndex(leaf);await flushLeaf(leaf)}
         return true
     }
 

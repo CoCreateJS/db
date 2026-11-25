@@ -116,9 +116,8 @@ export class CRUD {
                         break
                     }
                     case 'delete': {
-                        const snapshot = structuredClone(Object.fromEntries(Object.entries(leaf)))
                         await this.tree.removeLeaf(leaf.uuid)
-                        output.push(snapshot)
+                        output.push(leaf)
                         break
                     }
                 }

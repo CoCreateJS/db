@@ -192,6 +192,16 @@ export class Tree {
         return await this.#manager.remove(leaf)
     }
 
+    /** Release one fully indexed leaf and its resident index branches, retaining disk files. */
+    async evictLeaf(uuid) {
+        const leaf = await this.#database.leaves.get(uuid)
+        if (!leaf || typeof leaf.toDisk !== 'function') return false
+        const indexes = new Set()
+        for (const entry of Object.values(await leaf.getIndex())) if (entry?.index) indexes.add(entry.index)
+        for (const index of indexes) await index.toDisk?.()
+        return await leaf.toDisk()
+    }
+
     async flushIndex() { return await this.#manager.flushIndex() }
 
     /** Evict one complete lowest-weight group from each resident tier. */

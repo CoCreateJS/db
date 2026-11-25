@@ -359,7 +359,7 @@ test('Index derives its memory budget from telemetry and asks Tree to shed at pr
     await index.close()
 })
 
-test('temporary disk-first requests flush locally, shed residency, and return snapshots', async () => {
+test('disk-first requests acknowledge the live leaf and release it after local flushing', async () => {
     const storage = new MemoryStorage()
     const index = await createIndex({
         storage,
@@ -370,7 +370,8 @@ test('temporary disk-first requests flush locally, shed residency, and return sn
     const response = await index.send({ ...envelope, method: 'object.create', object: { value: 'disk-first' } })
 
     assert.equal(response.success, true, response.error?.join('; '))
-    assert.equal(typeof response.object[0].getFile, 'undefined', 'response is detached before Tree evicts its live leaf')
+    assert.equal(typeof response.object[0].getFile, 'function', 'response returns the live Tree leaf')
+    await index.flushLocal()
     assert.equal(storage.leaves.has(response.object[0].uuid), true)
     const hydrated = await index.tree.getLeaf(response.object[0].uuid)
     assert.equal(hydrated.value, 'disk-first')

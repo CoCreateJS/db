@@ -2,6 +2,7 @@ import {objectToDotNotation, getValueFromObject, uuid, createUpdate} from '@cocr
 const TIER=Symbol('leafTier')
 const INDEX=Symbol('index'), ATTACH=Symbol('attach'), STRUCTURAL=Symbol('structural'), DEFER=Symbol('defer'), SNAPSHOT=Symbol('snapshot')
 const scalar=v=>v===null||['string','number','boolean'].includes(typeof v)
+const updateMarkers=new Set(['$set','$inc','$unset','$delete','$rename','$push','$each','$splice','$slice','$pop','$shift','$addToSet','$pull'])
 export const type=v=>v===null?'null':typeof v
 export const get=getValueFromObject
 function pruneUndefined(object){
@@ -18,6 +19,44 @@ function paths(object){
         if(!scalar(value)||typeof value==='number'&&!Number.isFinite(value))throw Error('unsupported value')
     }
     return new Map(Object.entries(flattened))
+}
+function scalarUpdateTargets(patch){
+    const targets=[]
+    for(const [key,value] of Object.entries(patch)){
+        let path=key
+        if(key.startsWith('$')){
+            const dot=key.indexOf('.')
+            const operator=key.slice(0,dot)
+            if(dot<0||!['$set','$inc','$unset','$delete'].includes(operator))return
+            path=key.slice(dot+1)
+            if(operator==='$inc'&&(typeof value!=='number'||!Number.isFinite(value)))return
+            if(operator==='$set'&&value!==null&&typeof value==='object')return
+        } else if((value!==null&&typeof value==='object')||(typeof value==='string'&&updateMarkers.has(value)))return
+        if(value!==undefined&&value!==null&&!['string','number','boolean'].includes(typeof value))return
+        if(typeof value==='number'&&!Number.isFinite(value))return
+        const parts=path.replace(/\[(\d+)\]/g,'.$1').split('.')
+        if(parts.some(part=>!part||['__proto__','constructor','prototype'].includes(part)))return
+        targets.push(parts.map(part=>/^\d+$/.test(part)?`[${part}]`:part).reduce((out,part)=>part[0]==='['?out+part:out?`${out}.${part}`:part,''))
+    }
+    targets.sort((a,b)=>a.length-b.length)
+    return [...new Set(targets.filter((path,index)=>!targets.slice(0,index).some(parent=>path.startsWith(parent+'.')||path.startsWith(parent+'['))))]
+}
+function overlapsPath(key,target){
+    const normalized=key.replace(/\[(\d+)\]/g,'.$1')
+    const prefix=target.replace(/\[(\d+)\]/g,'.$1')
+    return normalized===prefix||normalized.startsWith(prefix+'.')
+}
+function valuesAtTargets(object,targets){
+    const result=new Map()
+    for(const target of targets){
+        const value=get(object,target)
+        if(value===undefined)continue
+        if(value!==null&&typeof value==='object'){
+            for(const [suffix,child] of Object.entries(objectToDotNotation(value)))
+                result.set(suffix.startsWith('[')?target+suffix:`${target}.${suffix}`,child)
+        } else result.set(target,value)
+    }
+    return result
 }
 export class DiskBranch {
     constructor(local, index) {
@@ -152,44 +191,105 @@ export function deferLeaf(object,handler){
     Object.defineProperty(object,DEFER,{value:handler,configurable:true})
     return()=>delete object[DEFER]
 }
-export async function reconcileLeaf(object,insert){
-    pruneUndefined(object)
-    const after=paths(object),index=object[INDEX]
-    for(const key of Object.keys(index)){
+export async function reconcileLeaf(object,insert,changedPaths){
+    const selective = changedPaths instanceof Set
+    if(!selective)pruneUndefined(object)
+    const after=selective?undefined:paths(object),index=object[INDEX]
+    const keys=selective?changedPaths:new Set(Object.keys(index))
+    if(!selective)for(const key of after.keys())keys.add(key)
+    for(const key of keys){
         const entry=index[key]
         if (entry instanceof DiskBranch) continue
-        if(entry.index&&(!after.has(key)||!Object.is(entry.value,after.get(key))))await entry.tree.remove(entry)
+        if(!entry)continue
+        const exists=selective?get(object,key)!==undefined:after.has(key)
+        const value=selective?get(object,key):after.get(key)
+        if(entry?.index&&(!exists||!Object.is(entry.value,value)))await entry.tree.remove(entry)
         delete entry[SNAPSHOT]
-        if(after.has(key))entry.value=after.get(key)
-        if(!after.has(key))delete index[key]
+        if(exists)entry.value=value
+        if(!exists)delete index[key]
     }
-    for(const key of after.keys())if(key!=='uuid'&&!index[key])index[key]=new Entry(object,key)
+    for(const key of keys)if(key!=='uuid'&&!index[key]){
+        const exists=selective?get(object,key)!==undefined:after.has(key)
+        if(exists)index[key]=new Entry(object,key)
+    }
     object[ATTACH]=insert
-    for(const entry of residentIndexEntries(object))if(!entry.index)await insert(entry)
+    if(selective){
+        for(const key of keys){const entry=index[key];if(entry instanceof Entry&&!entry.index)await insert(entry)}
+    } else for(const entry of residentIndexEntries(object))if(!entry.index)await insert(entry)
+}
+async function updateScalarLeaf(object,patch,targets){
+    const identity={uuid:object.uuid,_id:object._id,parent:object.parent,root:object.root,name:object.name}
+    for(const path of targets){
+        const first=path.split(/[.[]/,1)[0]
+        if(['uuid','_id','parent','root'].includes(first))throw Error('immutable identity')
+        if(object[STRUCTURAL]&&first==='name')throw Error('Root rename not supported yet')
+    }
+    const index=object[INDEX],before=new Map()
+    for(const key of Object.keys(index))if(targets.some(target=>overlapsPath(key,target))){
+        const entry=await object.getIndex(key)
+        if(entry)before.set(key,entry.value)
+    }
+    if(createUpdate(object,patch)===false)throw Error('Invalid update')
+    if(object[STRUCTURAL]&&object.name!==identity.name)throw Error('Root rename not supported yet')
+    if(object.uuid!==identity.uuid||object._id!==identity._id||object.parent!==identity.parent||object.root!==identity.root)throw Error('immutable identity')
+    const after=valuesAtTargets(object,targets),candidates=new Set([...before.keys(),...after.keys()]),changed=[]
+    for(const key of candidates)if(!Object.is(before.get(key),after.get(key))||before.has(key)!==after.has(key))changed.push(key)
+    if(!changed.length)return object
+    await object[Symbol.for('cocreate.markDirty')]?.()
+    if(object[DEFER]){
+        for(const key of changed){const entry=index[key];if(entry?.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=before.get(key)}
+        object[DEFER].queue(object,changed)
+        return object
+    }
+    const reinsert=[]
+    for(const key of changed){
+        let entry=index[key]
+        if(entry){entry=await object.getIndex(key);if(entry.index)await entry.tree.remove(entry)}
+        if(!after.has(key))delete index[key]
+        else {entry??=(index[key]=new Entry(object,key));entry.value=after.get(key);reinsert.push(entry)}
+    }
+    for(const entry of reinsert)await object[ATTACH]?.(entry)
+    return object
 }
 export async function updateLeaf(object,patch){
     if(await object[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found")
-    await object.touch?.();await object.getIndex();const next=structuredClone(object)
-    if(createUpdate(next,patch)===false)throw Error('Invalid update')
-    if(object[STRUCTURAL]&&next.name!==object.name)throw Error("Root rename not supported yet")
-    if(next.uuid!==object.uuid||next._id!==object._id||next.parent!==object.parent||next.root!==object.root)throw Error('immutable identity')
-    pruneUndefined(next);const after=paths(next),index=object[INDEX],changed=[]
+    await object.touch?.()
+    const targets=scalarUpdateTargets(patch)
+    if(targets)return await updateScalarLeaf(object,patch,targets)
+    await object.getIndex()
+    const identity = { uuid: object.uuid, _id: object._id, parent: object.parent, root: object.root, name: object.name }
+    for(const [key,value] of Object.entries(patch)){
+        const operator=key.startsWith('$')?(key.includes('.')?key.slice(0,key.indexOf('.')):key):undefined
+        const paths=operator
+            ? key.includes('.')?[key.slice(key.indexOf('.')+1)]:value&&typeof value==='object'?Object.keys(value):[]
+            :[key]
+        if(operator==='$rename')for(const path of paths){
+            const target=key.includes('.')?value:value?.[path]
+            if(typeof target==='string')paths.push(target)
+        }
+        for(const path of paths){
+            const first=path.replace(/\[(\d+)\]/g,'.$1').split('.')[0]
+            if(['uuid','_id','parent','root'].includes(first))throw Error('immutable identity')
+            if(object[STRUCTURAL]&&first==='name')throw Error('Root rename not supported yet')
+        }
+    }
+    if(createUpdate(object,patch)===false)throw Error('Invalid update')
+    if(object[STRUCTURAL]&&object.name!==identity.name)throw Error("Root rename not supported yet")
+    if(object.uuid!==identity.uuid||object._id!==identity._id||object.parent!==identity.parent||object.root!==identity.root)throw Error('immutable identity')
+    pruneUndefined(object);const after=paths(object),index=object[INDEX],changed=[]
     if(object[DEFER]){
-        let changed=false
         for(const key of Object.keys(index)){
             const slot = index[key]
             const before = slot instanceof DiskBranch ? get(object, key) : slot.value
             if(!after.has(key)||!Object.is(before,after.get(key))){
                 const entry = await object.getIndex(key)
                 if(entry.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=before
-                changed=true
+                changed.push(key)
             }
         }
-        for(const key of after.keys())if(key!=='uuid'&&!index[key])changed=true
-        for(const key of Object.keys(object))if(!['uuid','parent','root'].includes(key)&&!Object.hasOwn(next,key))delete object[key]
-        for(const key of Object.keys(next))if(!['uuid','parent','root'].includes(key)&&!(object[STRUCTURAL]&&key==='name'))object[key]=next[key]
-        if(changed)await object[Symbol.for("cocreate.markDirty")]?.()
-        if(changed)object[DEFER].queue(object)
+        for(const key of after.keys())if(key!=='uuid'&&!index[key])changed.push(key)
+        if(changed.length)await object[Symbol.for("cocreate.markDirty")]?.()
+        if(changed.length)object[DEFER].queue(object,changed)
         return object
     }
     for(const key of Object.keys(index)){
@@ -199,8 +299,6 @@ export async function updateLeaf(object,patch){
     }
     for(const key of after.keys())if(key!=='uuid'&&!index[key])changed.push(key)
     if(!changed.length)return object
-    for(const key of Object.keys(object))if(!['uuid','parent','root'].includes(key)&&!Object.hasOwn(next,key))delete object[key]
-    for(const key of Object.keys(next))if(!['uuid','parent','root'].includes(key)&&!(object[STRUCTURAL]&&key==='name'))object[key]=next[key]
     await object[Symbol.for("cocreate.markDirty")]?.()
     const reinsert=[]
     for(const key of changed){

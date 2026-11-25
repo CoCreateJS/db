@@ -1,3 +1,4 @@
+import { createUpdate } from '@cocreate/utils'
 import { updateLeaf } from '../tree/leaf.js'
 
 const record = value => value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype
@@ -45,6 +46,8 @@ function olderPatch(object, patch) {
         } else if (key.startsWith('$set.')) retainMissing(object, key.slice(5), value, accepted, '$set.')
         else if (!key.startsWith('$')) retainMissing(object, key, value, accepted)
     }
+    if (Object.keys(accepted).length && createUpdate(object, { ...accepted }) === false)
+        throw Error('Invalid stale update')
     return accepted
 }
 
@@ -56,10 +59,14 @@ export async function update(object, input, global = {}) {
     if (supplied.some(value => timestamp(value) !== incoming)) throw Error('conflicting updated.on')
     const previous = timestamp(object.updated?.on)
     const stale = previous !== undefined && incoming !== undefined && incoming <= previous
-    const applied = stale ? olderPatch(object, patch) : patch
+    const merge = stale ? structuredClone(object) : object
+    const applied = stale ? olderPatch(merge, patch) : patch
     const by = patch['updated.by'] ?? patch.updated?.by ?? patch['$set.updated.by'] ?? patch['$set.updated']?.by ?? patch.$set?.['updated.by'] ?? patch.$set?.updated?.by
     const audit = stale ? { 'updated.on': supplied[0], ...(by !== undefined ? { 'updated.by': by } : {}) } : {}
-    const mutation = Object.keys(applied).length ? structuredClone({ ...applied, ...audit, uuid: object.uuid, ...(object._id !== undefined ? { _id: object._id } : {}) }) : undefined
-    if (mutation) await updateLeaf(object, applied)
-    return { object: structuredClone(object), mutation }
+    const hasMutation = Object.keys(applied).length > 0
+    if (hasMutation) await updateLeaf(object, applied)
+    const mutation = hasMutation
+        ? Object.assign(applied, audit, { uuid: object.uuid, ...(object._id !== undefined ? { _id: object._id } : {}) })
+        : undefined
+    return { object, mutation }
 }
