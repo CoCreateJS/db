@@ -2,11 +2,11 @@
 
 **A client-server database engine for building distributed databases, built around living leaves, automatic indexing and configurable roots.**
 
-CoCreateDB keeps a Hot working set in memory and uses Warm local disk for write-through storage, recovery and pressure relief. Objects retain their identity as they are queried and updated, while index entries reference the objects directly. The engine provides a common CRUD interface for data and structural leaves without requiring an external database provider or network connection. One package entry composes the same engine in both environments and dynamically loads the server filesystem or browser Origin Private File System (OPFS) adapter.
+CoCreateDB keeps its working set in memory and can use an attached Disk resource for write-through storage, recovery and pressure relief. Objects retain their identity as they are queried and updated, while index entries reference the objects directly. The engine provides a common CRUD interface for data and structural leaves without requiring an external database provider or network connection. One package entry composes the same engine in both environments and can use `@cocreate/disk` for server filesystem or browser Origin Private File System (OPFS) operations.
 
 CoCreateDB runs as a local database in both browser clients and Node.js servers. CoCreate CRUD and communication layers can connect those database instances into a distributed application. Each instance owns its local Hot/Warm state; the client and server can therefore perform local database work without treating the browser as only a remote UI or cache.
 
-> Development status: this README describes the current Next implementation. The external persistence callback is an early leaf-level seam; complete external durability, distributed acquisition and production integration remain separate work. This is not yet a production release.
+> Development status: this README describes the current Next implementation. The attached Persistence resource receives leaf operations; complete external durability, distributed acquisition and production integration remain separate work. This is not yet a production release.
 
 ## Features
 
@@ -23,13 +23,13 @@ CoCreateDB runs as a local database in both browser clients and Node.js servers.
 
 ## Client-server database model
 
-Application code imports the same `@cocreate/db` entry in both environments. The entry composes Tree, CRUD, query planning, Persistence and disk; disk dynamically loads the server or client adapter.
+Application code imports the same `@cocreate/db` entry in both environments. The entry composes Tree, CRUD, query planning, optional Persistence and optional Disk. Index maps Tree disk operations to paths; the attached Disk resource performs platform I/O through `execute()`.
 
 | Runtime | Storage and default | Processing model |
 | --- | --- | --- |
-| Browser client | OPFS, under the origin-private `CoCreateDB/` directory by default | Disk-first; each browser origin has its own local database state |
-| Node server | Node filesystem, under `~/.cocreate/db` by default | Adaptive Hot memory and Warm local disk; disk-first and disk-cache modes are available |
-| Node worker | No independent local store by default | Forwards requests through the configured `forward(request)` adapter |
+| Browser client | In-memory unless an initialized Disk resource is attached | Adaptive in-memory by default; disk-first is available with Disk attached |
+| Node server | In-memory unless an initialized Disk resource is attached | Adaptive in-memory by default; adaptive Hot/Warm, disk-first and disk-cache modes are available with Disk attached |
+| Node worker | No independent local store by default | DB routes requests to the primary through the Server `send()` interface |
 
 The DB engine supplies local CRUD, UUID identity, roots, indexes and residency. Client-server transport, awareness, recipient selection, synchronization and remote acquisition belong to the surrounding CoCreate CRUD, Socket, IPC, Mesh and Workflow layers. They can use the DB instances to build a distributed database, but importing this package alone does not establish connections or replicate changes automatically. See [runtime integration](#runtime-integration) and [the architecture specification](specifications/architecture.md).
 
@@ -169,7 +169,7 @@ The index primitives are independently usable from the source modules. Their low
 
 ## Runtime integration
 
-The public engine exposes `send()` and `config`. `createDB(server, options)` is asynchronous and must be awaited because initialization opens the local storage adapter, loads its configuration and restores indexes before returning. It accepts an optional living server object and configuration. The initializer also integrates with `@cocreate/config`:
+The public engine exposes `send()` and `config`. `createDB(server, options)` is asynchronous and must be awaited because it resolves configuration before composing Tree. Attach an initialized Disk resource as `server.disk` or `options.disk`; otherwise the database stays in memory. It accepts an optional living server object and configuration. The initializer also integrates with `@cocreate/config`:
 
 ```js
 import db from './src/index.js'
@@ -178,28 +178,30 @@ const server = { isPrimary: true }
 server.db = await db.init(server, { prompt: false })
 ```
 
-In standalone usage no server is required. In worker mode an injected `forward(request)` adapter is required; the engine does not implement IPC itself. The `size` option controls index branch sizing.
+In standalone usage no server is required. When given a worker Server, DB composes its `send()` interface into a primary-forwarding path; a custom `forward(request)` adapter can override that transport. The primary DB handles those forwarded requests. The `size` option controls index branch sizing.
 
-Local state defaults to `mode: 'adaptive'` with memory acknowledgement. Adaptive uses Hot memory and Warm local disk, evicting weighted leaves and branches under pressure. Its default requested budget is 25% of total system memory, capped by memory available at startup; this is a soft residency target, not a hard cap on process memory. At high pressure, adaptive temporarily uses disk-first request handling. `mode: 'disk-first'` remains available explicitly for mitigation/testing; `mode: 'disk-cache'` clears the DB-managed base on startup and starts fresh. Each instance uses a base directory containing `config.json`, `branches/`, and `leaves/`. If `directory` is omitted, the default base is `~/.cocreate/db` for the current OS user; adaptive and disk-first resume its Config and data across restarts, while disk-cache clears its contents at startup. A supplied `directory` is used exactly as given.
+Local state defaults to `mode: 'adaptive'` with memory acknowledgement. Without a disk resource, the DB operates in memory and Tree can rebuild pruned index branches from resident leaves. When a disk resource is attached, adaptive uses Hot memory and Warm local disk; branch pruning writes branch data to Disk before releasing its in-memory contents. LFU is the default prune strategy; LRU and a branch limit can be configured independently of storage. Pruning does not evict leaves. The default requested budget is 25% of total system memory, capped by memory available at startup; this is a soft residency target, not a hard cap on process memory. At high pressure, adaptive temporarily uses disk-first request handling, which can release processed leaves after local flushing. `mode: 'disk-first'` remains available explicitly when a disk is attached; `mode: 'disk-cache'` clears the DB-managed base on startup and starts fresh. Directory selection belongs to Disk initialization; DB composes the initialized resource onto Tree.
 
 The DB's memory policy manages its Hot/Warm working set. It cannot cap total server RSS or prevent unbounded ingress from consuming memory in sockets, HTTP handlers or queues. Process-level OOM protection belongs to server telemetry and traffic management: bound in-flight work, drain or throttle ingress under pressure, and have clients retry with backoff.
 
 ### Browser storage
 
-The shared package entry selects OPFS automatically in browser contexts; browser consumers import `@cocreate/db` without selecting a separate entry. Browser instances use disk-first request processing and store the same `config.json`, `branches/` and `leaves/` layout under the origin-private directory `CoCreateDB/` by default. Set `directory` to a relative path beneath the OPFS root to isolate another database. OPFS is origin-scoped, quota-managed browser storage and requires a secure context. Server instances use the filesystem adapter and default to `~/.cocreate/db`.
+The shared package entry works in browser contexts; browser consumers import `@cocreate/db` without selecting a separate entry. Initialize Disk with the desired OPFS directory and attach the resource as `server.disk` or `options.disk`. OPFS is origin-scoped, quota-managed browser storage and requires a secure context. On Node, initialize Disk with the desired filesystem directory and attach the resource through the same composition API.
 
 This is local client-side database storage, not an implicit synchronization channel. A host application connects client and server instances using its CRUD and communication setup; distributed delivery and reconciliation remain external to the DB package.
 
 ### Persistence and awareness
 
-CoCreateDB exposes an in-memory pending journal grouped by root UUID. In a server runtime, `database.persistence.send` invokes the `workflow.db.persist` workflow. Replace that function to use a custom provider, or explicitly drain pending leaf changes:
+Persistence is an optional resource assigned directly to Tree. Tree sends accepted leaf mutations to its `execute(operation)` method; the resource decides whether to write immediately or queue/group work. Workflow integration can be composed outside the DB:
 
 ```js
-database.persistence.send = async envelope => provider.send(envelope)
+const database = await createDB(server, {
+    persistence: provider
+})
 const persisted = await database.persist()
 ```
 
-The drain sends complete UUID-bearing leaf snapshots for upserts and UUID-only requests for deletes. A successful workflow/provider acknowledgement clears the matching pending item; errors remain attached for retry. The seeded `db.persist` workflow is in `app/src/apps/workflows/config/db.js`; it uses the AWS API and the `db-upsert-leaf` / `db-delete-leaf` endpoints. Configure its AWS region, bucket and prefix, and configure AWS credentials on the `aws` API record. A custom `send` callback replaces the workflow route. This is an early integration seam: the separate Persistence Tree and root/index branch writes are not implemented, so this does not yet provide complete external durability. `acknowledgement: 'persistence'` is therefore unavailable.
+The resource receives `{ operation, kind, uuid, root, data }`, with `kind` set to `leaf`. Writes include the live leaf reference; deletes include the UUID and root. If the resource retains a write for later processing, it must capture the revision it needs. Tree does not clone, group, or queue these operations. `db.persist()` delegates to the resource's optional `persist()` method. Without an attached resource, no external persistence operations are sent.
 
 ```text
 CoCreate CRUD → CoCreateDB → CRUD workflow / AST
@@ -265,7 +267,7 @@ src/
 
 ## Current limitations
 
-Sorting and search, broader data-type support, atomic batches, stale/concurrent mutation reconciliation, production authorization, complete root-index recovery and external workflow integration require further development. Root constraints are not a substitute for authorization. The default local base `~/.cocreate/db` is restart-stable for adaptive and disk-first modes; use `directory` to select another exact base path. Warm-disk acknowledgement is local durability only; Cool Persistence and Cold archive require external integration. Detached persistence requires external error handling, ordering and shutdown policies.
+Sorting and search, broader data-type support, atomic batches, stale/concurrent mutation reconciliation, production authorization, complete root-index recovery and external workflow integration require further development. Root constraints are not a substitute for authorization. Disk initialization and directory selection belong to the provider; DB attaches only an initialized Disk resource. Warm-disk acknowledgement is local durability only; Cool Persistence and Cold archive require external integration. Detached persistence requires external error handling, ordering and shutdown policies.
 
 ## CoCreateJS
 

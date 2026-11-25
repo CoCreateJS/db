@@ -5,6 +5,7 @@ import { availableParallelism, cpus, freemem, release as osRelease, tmpdir, tota
 import { EventEmitter } from 'node:events'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import Disk from '@cocreate/disk'
 import { createDB } from '../../src/index.js'
 import { benchmarkUuid, createBenchmarkRecord, lifecycleRoot } from '../fixtures/lifecycle.mjs'
 import { launch } from './shared/child-process.mjs'
@@ -168,10 +169,11 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
     try {
         const initStart = performance.now()
         databaseDirectory = await mkdtemp(join(tmpdir(), `cocreatedb-standard-${runIndex}-`))
+        const disk = await Disk.init({ directory: databaseDirectory })
         const server = new EventEmitter()
         server.id = `benchmark-${runIndex}`
         server.isPrimary = true
-        db = await createDB.init(server, { prompt: false, directory: databaseDirectory, config: { memory: memoryPercent }, size: 64, deferIndex: false })
+        db = await createDB.init(server, { prompt: false, disk, config: { memory: memoryPercent }, size: 64, deferIndex: false })
         const memoryTotal = environment.memoryLimitBytes ?? totalmem()
         const emitTelemetry = () => server.emit('telemetry', { data: {
             serverId: server.id,

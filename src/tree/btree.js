@@ -9,7 +9,7 @@ export function lower(items,value,compare){
 }
 class Branch {
     constructor(parent=null,tree=parent?.tree,data){
-        this[UUID]=data?.uuid??uuid();this.tree=tree;this.viewed=data?.viewed??0;this.revision=data?.revision??0;this.onDisk=false;this.parent=parent
+        this[UUID]=data?.uuid??uuid();this.tree=tree;this.weight=data?.weight??data?.viewed??0;this.lastVisited=data?.lastVisited??0;this.revision=data?.revision??0;this.onDisk=false;this.parent=parent
         this.parentUuid=parent?.uuid??data?.parent??null;this.previousUuid=data?.previous??null;this.nextUuid=data?.next??null
         if(data?.branches){this.branches=data.branches.map(ref=>({...ref}));delete this.entries}
         else if(data?.entries)this.entries=data.entries.map(([value,ids])=>[value,ids.map(id=>tree.local.restore(id,this,value))])
@@ -20,13 +20,14 @@ class Branch {
     }
     get uuid(){return this[UUID]}
     getUuid(){return this[UUID]}
-    touch(){if(this.tree?.local)this.tree.local.touch(this);else this.viewed++;return this}
+    touch(){this.lastVisited=Date.now();if(this.tree?.local)this.tree.local.touch(this);else this.weight++;return this}
     async toDisk(){const local=this.tree?.local;if(!local||local.active.has(this)||this.branches||!this.entries||!local.canRelease(this))return false;await local.write(this);local.release(this);return true}
     async toMemory() {
         if (!this.onDisk) return this
+        const local = this.tree?.local
+        if (!local) return await this.tree?.restorePruned(this)
         const resident=await this.tree?.loadUuid?.(this.uuid)
         if(resident&&resident!==this)return resident
-        const local = this.tree.local
         const data = await local.read(this)
         if(!this.parent&&data.parent)this.parent=await this.tree.loadUuid(data.parent)
         await this.restore(data)
@@ -36,7 +37,7 @@ class Branch {
         return this
     }
     async restore(data) {
-        this.viewed=data.viewed??0;this.revision=data.revision??0
+        this.weight=data.weight??data.viewed??0;this.lastVisited=data.lastVisited??0;this.revision=data.revision??0
         this.parentUuid=this.parent?.uuid??data.parent??null;this.previousUuid=data.previous??null;this.nextUuid=data.next??null
         if(data.branches){this.branches=data.branches.map(ref=>({...ref}));delete this.entries}
         else this.entries=await Promise.all(data.entries.map(async ([value,ids])=>[value,await Promise.all(ids.map(async id=>{
@@ -85,21 +86,24 @@ class Branch {
         return undefined
     }
     async getData(){
-        if(this.onDisk)throw Error('Index must be loaded before serialization');const data={viewed:this.viewed,parent:this.parent?.getUuid()??this.parentUuid??null,previous:this.neighborUuid(-1)??this.previousUuid??null,next:this.neighborUuid(1)??this.nextUuid??null,length:this.length,firstValue:this.firstValue,lastValue:this.lastValue,firstUuid:this.firstUuid,lastUuid:this.lastUuid}
+        if(this.onDisk)throw Error('Index must be loaded before serialization');const data={weight:this.weight,lastVisited:this.lastVisited,parent:this.parent?.getUuid()??this.parentUuid??null,previous:this.neighborUuid(-1)??this.previousUuid??null,next:this.neighborUuid(1)??this.nextUuid??null,length:this.length,firstValue:this.firstValue,lastValue:this.lastValue,firstUuid:this.firstUuid,lastUuid:this.lastUuid}
         if(this.branches)data.branches=this.branches.map(p=>this.tree.reference(p))
         else data.entries=this.entries.map(([value,entries])=>[value,entries.map(entry=>entry.uuid)])
         return data
     }
     reference(){return {uuid:this.getUuid(),length:this.length,firstValue:this.firstValue,lastValue:this.lastValue,firstUuid:this.firstUuid,lastUuid:this.lastUuid}}
     async getFile(){return {uuid:this.getUuid(),content:JSON.stringify(await this.getData())}}
-    refresh(){
+    refreshBounds(){
         this.tree?.local?.dirty.add(this)
         const first=this.branches?.[0],last=this.branches?.at(-1)
-        this.length=this.branches ? this.branches.reduce((n,p)=>n+p.length,0) : this.entries.reduce((n,g)=>n+g[1].length,0)
         this.firstValue=this.branches ? first?.firstValue : this.entries[0]?.[0]
         this.lastValue=this.branches ? last?.lastValue : this.entries.at(-1)?.[0]
         this.firstUuid=this.branches ? first?.firstUuid : this.entries[0]?.[1][0].uuid
         this.lastUuid=this.branches ? last?.lastUuid : this.entries.at(-1)?.[1].at(-1).uuid
+    }
+    refresh(){
+        this.length=this.branches ? this.branches.reduce((n,p)=>n+p.length,0) : this.entries.reduce((n,g)=>n+g[1].length,0)
+        this.refreshBounds()
     }
 }
 const lastOf=p=>({value:p.lastValue,uuid:p.lastUuid})
@@ -119,14 +123,62 @@ export class Tree {
         await node.restore(data)
         return node
     }
+    prunableBranches() {
+        const branches = []
+        const visit = node => {
+            if (node.onDisk) return
+            if (node.branches) {
+                for (const child of node.branches) if (child instanceof Branch) visit(child)
+            } else if (node.entries?.length) branches.push(node)
+        }
+        visit(this.root)
+        return branches
+    }
+    pruneBranch(branch, { weight = branch.weight, revision = branch.revision } = {}) {
+        if (branch.tree !== this || branch.onDisk || branch.weight !== weight || branch.revision !== revision || branch.branches || !branch.entries?.length) return false
+        delete branch.entries
+        branch.onDisk = true
+        return true
+    }
+    async restorePruned(branch) {
+        if (branch.tree !== this || !branch.onDisk) return branch
+        if (typeof this.resolveLeaves !== 'function') throw Error('Cannot restore a pruned branch without its leaves')
+        const groups = new Map()
+        for await (const leaf of await this.resolveLeaves()) {
+            const entry = await leaf.getIndex(this.key)
+            if (entry?.index !== branch) continue
+            let entries = groups.get(entry.value)
+            if (!entries) groups.set(entry.value, entries = [])
+            entries.push(entry)
+        }
+        branch.entries = [...groups].sort(([a], [b]) => compare(a, b))
+            .map(([value, entries]) => [value, entries.sort((a, b) => compare(a.uuid, b.uuid))])
+        branch.onDisk = false
+        branch.refresh()
+        return branch
+    }
     async findUuid(id,node=this.root){
         if(node.uuid===id)return node
         await node.toMemory()
+        node.touch()
         if(!node.branches)return undefined
         for(let i=0;i<node.branches.length;i++){
             const ref=node.branches[i]
-            if(ref.uuid===id)return this.resolveChild(node,i)
+            if(ref.uuid===id){const found=await this.resolveChild(node,i);found.touch();return found}
             if(ref instanceof Branch&&ref.branches){const found=await this.findUuid(id,ref);if(found)return found}
+        }
+    }
+    async findUuidDeep(id,node=this.root){
+        if(node.uuid===id)return await node.toMemory()
+        node=await node.toMemory()
+        node.touch()
+        if(!node.branches)return undefined
+        for(let i=0;i<node.branches.length;i++){
+            const ref=node.branches[i]
+            if(ref.uuid===id){const found=await this.resolveChild(node,i);found.touch();return found}
+            const child=await this.resolveChild(node,i)
+            const found=await this.findUuidDeep(id,child)
+            if(found)return found
         }
     }
     async loadUuid(id){
@@ -143,19 +195,35 @@ export class Tree {
         await node.restore(data)
         return node
     }
-    async locate(entry,node=this.root){await this.initialize();await node.toMemory();while(node.branches){const at=Math.min(lower(node.branches,entry,(p,e)=>order(lastOf(p),e)),node.branches.length-1);node=await this.resolveChild(node,at)}return node.toMemory()}
+    async locate(entry,node=this.root){await this.initialize();await node.toMemory();node.touch();while(node.branches){const at=Math.min(lower(node.branches,entry,(p,e)=>order(lastOf(p),e)),node.branches.length-1);node=await this.resolveChild(node,at);node.touch()}return node.toMemory()}
     async insert(entry,start=this.root){
         const node=await this.locate(entry,start), i=lower(node.entries,entry.value,(g,v)=>compare(g[0],v))
         let group=node.entries[i]
         if(!group||compare(group[0],entry.value)!==0){group=[entry.value,[]];node.entries.splice(i,0,group)}
         const j=lower(group[1],entry.uuid,(e,u)=>compare(e.uuid,u))
+        let added=true
         if(group[1][j]?.uuid===entry.uuid){
             if(group[1][j]===entry){entry.index=node;entry.tree=this;return}
             const old=group[1][j];old.index=null;old.releaseObject?.();group[1][j]=entry
+            added=false
         }else group[1].splice(j,0,entry)
         node.revision++;entry.index=node;entry.tree=this
         if(this.resolveLeaf||this.local?.resolveLeaf)entry.releaseObject?.()
-        this.refresh(node)
+        if(added){for(let branch=node;branch;branch=branch.parent)branch.length++;this.refreshInserted(node)}
+        else this.refresh(node)
+    }
+    async insertMany(entries){
+        for(const entry of entries)await this.insert(entry)
+        return entries.length
+    }
+    refreshInserted(node){
+        while(node){
+            node.refreshBounds()
+            const count=node.branches?.length??node.length
+            const capacity=node.branches?this.size:this.leafSize
+            if(count>capacity)this.split(node)
+            node=node.parent
+        }
     }
     refresh(node){
         while (node) {
@@ -178,11 +246,11 @@ export class Tree {
             for(const [,entries] of right.entries)for(const entry of entries)entry.index=right
         }
         node.refresh();right.refresh()
-        if(!node.parent){const root=new Branch(null,this);delete root.entries;root.branches=[node,right];node.parent=right.parent=root;node.parentUuid=right.parentUuid=root.uuid;this.root=root}
+        if(!node.parent){const root=new Branch(null,this);delete root.entries;root.branches=[node,right];root.length=node.length+right.length;node.parent=right.parent=root;node.parentUuid=right.parentUuid=root.uuid;this.root=root}
         else {right.parent.branches.splice(right.parent.branches.indexOf(node)+1,0,right);right.parentUuid=right.parent.uuid}
     }
     async remove(entry){
-        const node=await entry.index.toMemory(),i=lower(node.entries,entry.value,(g,v)=>compare(g[0],v)),group=node.entries[i]
+        const node=await entry.index.toMemory();node.touch();const i=lower(node.entries,entry.value,(g,v)=>compare(g[0],v)),group=node.entries[i]
         const j=lower(group[1],entry.uuid,(e,u)=>compare(e.uuid,u));if(group[1][j]!==entry)throw Error('missing index entry')
         group[1].splice(j,1);node.revision++;if(!group[1].length)node.entries.splice(i,1);entry.index=null
         let p=node

@@ -15,7 +15,7 @@ test('new CRUD performs full-query matching and mutations through the Tree visit
     assert.equal(created.success, true, created.error?.join('; '))
     assert.equal(created.object.length, 40)
 
-    const rootBranch = await tree.getRootBranch(path, 'object')
+    const rootBranch = await tree.getPrimaryBranch({ ...path, method: 'object.read' })
     const plan = planQuery(rootBranch, { group: 'all', rank: { $gte: 10, $lt: 30 } })
     assert.equal(plan.strategy, 'index')
     assert.equal(plan.key, 'rank')
@@ -66,7 +66,7 @@ test('new CRUD handles UUID finds, route constraints, uniqueness, and unindexed 
 
     const unindexed = await crud.send({ ...path, method: 'object.read', filter: { query: { value: { $includes: 'first' } }, limit: 0 } })
     assert.equal(unindexed.object.length, 1)
-    assert.equal(planQuery(await tree.getRootBranch(path, 'object'), { $or: [{ value: 'first' }, { value: 'second' }] }).strategy, 'scan')
+    assert.equal(planQuery(await tree.getPrimaryBranch({ ...path, method: 'object.read' }), { $or: [{ value: 'first' }, { value: 'second' }] }).strategy, 'scan')
 })
 
 test('CRUD UUID create checks and read/update/delete bypass index planning', async () => {
@@ -75,8 +75,8 @@ test('CRUD UUID create checks and read/update/delete bypass index planning', asy
     const created = await crud.send({ ...path, method: 'object.create', object: { uuid: 'direct-path-leaf', value: 1 } })
     assert.equal(created.success, true, created.error?.join('; '))
 
-    const getRootBranch = tree.getRootBranch
-    tree.getRootBranch = async () => { throw new Error('UUID operation must bypass index planning') }
+    const getPrimaryBranch = tree.getPrimaryBranch
+    tree.getPrimaryBranch = async () => { throw new Error('UUID operation must bypass index planning') }
     try {
         const read = await crud.send({ ...path, method: 'object.read', object: { uuid: 'direct-path-leaf' } })
         assert.equal(read.success, true, read.error?.join('; '))
@@ -89,5 +89,62 @@ test('CRUD UUID create checks and read/update/delete bypass index planning', asy
         const deleted = await crud.send({ ...path, method: 'object.delete', object: { uuid: 'direct-path-leaf' } })
         assert.equal(deleted.success, true, deleted.error?.join('; '))
         assert.equal(deleted.object.length, 1)
-    } finally { tree.getRootBranch = getRootBranch }
+    } finally { tree.getPrimaryBranch = getPrimaryBranch }
+})
+
+test('CRUD delegates timestamp reconciliation to Utils and indexes only the applied result', async () => {
+    const tree = await createTree({ deferIndex: true })
+    const crud = createCRUD(tree, new QueryPlanner())
+    const created = await crud.send({
+        ...path,
+        method: 'object.create',
+        object: { uuid: 'reconciled-leaf', updated: { on: 200, by: 'local' }, profile: { city: 'Lima' }, count: 4 }
+    })
+    assert.equal(created.success, true, created.error?.join('; '))
+    const id = created.object[0]._id
+
+    const stale = await crud.send({
+        ...path,
+        method: 'object.update',
+        object: {
+            uuid: 'reconciled-leaf',
+            $update: {
+                updated: { on: 100, by: 'peer' },
+                profile: { city: 'Quito', name: 'Ana' },
+                available: false,
+                $inc: { count: 5 }
+            }
+        }
+    })
+    assert.equal(stale.success, true, stale.error?.join('; '))
+    assert.deepEqual(stale.object[0].profile, { city: 'Lima', name: 'Ana' })
+    assert.equal(stale.object[0].count, 4)
+    assert.equal(stale.object[0].available, false)
+    assert.deepEqual(stale.object[0].updated, { on: 200, by: 'local' })
+    assert.deepEqual(stale.$update[0], {
+        $set: { 'profile.name': 'Ana', available: false },
+        'updated.on': 100,
+        'updated.by': 'peer',
+        uuid: 'reconciled-leaf',
+        _id: id
+    })
+
+    await tree.flushIndex()
+    const indexed = await crud.send({ ...path, method: 'object.read', filter: { query: { available: false }, limit: 0 } })
+    assert.equal(indexed.object.length, 1)
+
+    const newer = await crud.send({
+        ...path,
+        method: 'object.update',
+        object: { uuid: 'reconciled-leaf', $update: { updated: { on: 300, by: 'newer' }, $inc: { count: 1 } } }
+    })
+    assert.equal(newer.success, true, newer.error?.join('; '))
+    assert.equal(newer.object[0].count, 5)
+    assert.deepEqual(newer.object[0].updated, { on: 300, by: 'newer' })
+    assert.deepEqual(newer.$update[0], {
+        updated: { on: 300, by: 'newer' },
+        $inc: { count: 1 },
+        uuid: 'reconciled-leaf',
+        _id: id
+    })
 })

@@ -44,6 +44,8 @@ Raw trial JSON, manifests and reports are written inside that provider's `result
 
 The suite records initialization/readiness, first and bulk creation, create/index throughput, UUID/equality/nested/range/complex-filter reads, updates, deletion, latency percentiles, sustained read/write/mixed throughput, total time, memory, CPU, fixture hash, source revision, correctness status, and provider-specific outstanding work when the adapter exposes it. Sustained concurrency is outstanding requests; a single-process CoCreateDB result does not imply parallel database threads.
 
+The standard provider lane sets `deferIndex: false`; its create acknowledgement timings include synchronous index insertion. Use the separate deferred create acknowledgement diagnostic to measure memory acknowledgement independently from later index drain. Those create timing totals are different workloads and should not be compared directly.
+
 The standard CoCreateDB lane is memory-only and in-process. Provider lanes use their documented transport, indexing, durability and process boundaries. Compare only matching fixture hashes and operation semantics; retain the provider-specific costs rather than treating the output as a direct ranking. The one-million case is included in standard runs and may fail under a host's memory limit; the manifest preserves failures and stops later sizes only when resource exhaustion makes continuing unsafe.
 
 ## CoCreateDB diagnostics
@@ -61,9 +63,9 @@ The diagnostics use `diagnostics/fixtures/residency.mjs`, a richer nested and va
 
 The default requested memory budget is 25% of detected system RAM, capped at startup by memory available to the OS. It is an adaptive pressure target, not a hard RSS cap: eviction is asynchronous and may lag the workload. The DB mode and response acknowledgement are configured independently. Modes are `adaptive` (default), `disk-first`, and `disk-cache`; acknowledgements are `memory` (default) and `disk`. `disk-first` hydrates and processes requests from local Warm state, then writes and prunes it. `disk-cache` uses adaptive Hot/Warm behavior but clears only its managed Warm cache on startup. A `disk` acknowledgement waits for local writes; it does not select or change the mode. External Persistence acknowledgement is not implemented yet. The query-locality diagnostic accepts `--database-mode=adaptive|disk-first|disk-cache` and `--acknowledgement=memory|disk`. These measurements remain separate from standardized provider timings.
 
-## Historical results
+## Selected CoCreateDB baseline
 
-Previous CoCreateDB and provider measurements remain in their provider-specific `results/` folders, and the November 19 baselines remain in `baselines/2026-11-19-final`. No historical measurement was overwritten or recalculated. A report should be regenerated only from its raw run manifest and result files.
+The selected current-dev baseline is the three-run 100K standard measurement in [`providers/cocreatedb/results/baseline-dev-100k-2026-11-25/`](providers/cocreatedb/results/baseline-dev-100k-2026-11-25/). It uses the shared v3 fixture, adaptive mode, memory acknowledgement, 40 samples and 10 warmups per latency operation, 1-second sustained phases, and concurrency 1. Earlier CoCreateDB standard result artifacts were removed when this baseline was selected. Separate diagnostic outputs and other provider comparison results remain separate from this baseline. Regenerate its report only from its raw run manifest and result files.
 
 ### Query field locality
 

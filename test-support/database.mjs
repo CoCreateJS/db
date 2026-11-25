@@ -2,6 +2,7 @@ import { after } from 'node:test'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import Disk from '@cocreate/disk'
 import sourceDB from '../src/index.js'
 
 let sequence = 0
@@ -15,9 +16,15 @@ function testDirectory() {
 }
 
 export async function createDB(server = {}, options = {}) {
-    const db = options.directory || server?.isPrimary === false || server?.isWorker === true && server?.isPrimary !== true
-        ? await sourceDB(server, options)
-        : await sourceDB(server, { ...options, directory: testDirectory() })
+    const worker = server?.isPrimary === false || server?.isWorker === true && server?.isPrimary !== true
+    const configured = { ...options }
+    if (!worker && !configured.disk && !server?.disk) {
+        const directory = configured.directory ?? testDirectory()
+        directories.add(directory)
+        configured.disk = await Disk.init({ directory })
+    }
+    delete configured.directory
+    const db = await sourceDB(server, configured)
     instances.add(db)
     return db
 }
@@ -27,9 +34,15 @@ export async function flushCreatedDatabases() {
 }
 
 createDB.init = async (server = {}, options = {}) => {
-    const db = options.directory || server?.isPrimary === false || server?.isWorker === true && server?.isPrimary !== true
-        ? await sourceDB.init(server, options)
-        : await sourceDB.init(server, { ...options, directory: testDirectory() })
+    const worker = server?.isPrimary === false || server?.isWorker === true && server?.isPrimary !== true
+    const configured = { ...options }
+    if (!worker && !configured.disk && !server?.disk) {
+        const directory = configured.directory ?? testDirectory()
+        directories.add(directory)
+        configured.disk = await Disk.init({ directory })
+    }
+    delete configured.directory
+    const db = await sourceDB.init(server, configured)
     instances.add(db)
     return db
 }

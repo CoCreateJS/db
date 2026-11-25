@@ -5,6 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import Disk from '@cocreate/disk'
 import createDB from '../../../src/index.js'
 import { benchmarkUuid, createBenchmarkRecord, lifecycleRoot } from '../../fixtures/lifecycle.mjs'
 import { launch } from '../shared/child-process.mjs'
@@ -52,8 +53,9 @@ async function runOne(size, runIndex, outputFile, uuidMode) {
     const say = value => process.stdout.write(`BENCH_PROGRESS provider=cocreate-ack run=${runIndex} ${value}\n`)
 
     try {
+        const disk = await Disk.init({ directory })
         db = await createDB.init(undefined, {
-            prompt: false, directory, config: { memory: memoryPercent }, size: 64, deferIndex: true
+            prompt: false, disk, config: { memory: memoryPercent }, size: 64, deferIndex: true
         })
         const send = request => db.send(request)
 
@@ -203,7 +205,7 @@ async function orchestrate(size, uuidMode) {
         sourceRevision: gitRevision(), sourceWorkingTreeDirty: execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).trim().length > 0,
         sourceHashes: {}, results: []
     }
-    for (const file of ['src/core.js', 'src/crud/index.js', 'src/tree/index.js', 'src/tree/manager.js', 'src/tree/leaf.js', 'test/fixtures/lifecycle.mjs', 'test/benchmarks/diagnostics/create-acknowledgement.mjs']) {
+    for (const file of ['src/index.js', 'src/crud.js', 'src/queryPlanner.js', 'src/tree/index.js', 'src/tree/manager.js', 'src/tree/leaf.js', 'test/fixtures/lifecycle.mjs', 'test/benchmarks/diagnostics/create-acknowledgement.mjs']) {
         manifest.sourceHashes[file] = createHash('sha256').update(await readFile(join(repo, file))).digest('hex')
     }
     for (let runIndex = 1; runIndex <= runs; runIndex++) {

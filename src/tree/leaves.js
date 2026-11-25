@@ -1,6 +1,5 @@
 import { Weights } from './weights.js'
 import { bindLeafTier, createLeaf, residentIndexEntries } from './leaf.js'
-import { requestDisk } from '../disk/index.js'
 
 const residentHas = (tier, id) => Map.prototype.has.call(tier, id)
 
@@ -19,13 +18,13 @@ export class LeafTier extends Map {
         this.writes = 0
     }
 
-    files() { return requestDisk(this.disk, 'disk.list', { kind: 'leaf' }) }
+    files() { return this.disk({ operation: 'list', kind: 'leaf' }) }
 
     get warm() {
         const tier = this
         return {
             get size() { return tier.files().then(files => files.length) },
-            has(id) { return requestDisk(tier.disk, 'disk.has', { kind: 'leaf', uuid: id }) },
+            has(id) { return tier.disk({ operation: 'has', kind: 'leaf', uuid: id }) },
             keys() { return (async function* () { yield* await tier.files() })() }
         }
     }
@@ -41,7 +40,7 @@ export class LeafTier extends Map {
         return task.finally(() => { if (this.writeLocks.get(id) === task) this.writeLocks.delete(id) })
     }
 
-    async deleteFile(id) { return await this.withWriteLock(id, () => requestDisk(this.disk, 'disk.delete', { kind: 'leaf', uuid: id })) }
+    async deleteFile(id) { return await this.withWriteLock(id, () => this.disk({ operation: 'delete', kind: 'leaf', uuid: id })) }
     touch(record) { if (record.object && !record.evicted) this.weights.touch(record) }
 
     set(id, object) {
@@ -77,7 +76,7 @@ export class LeafTier extends Map {
         if (typeof id !== 'string') return false
         if (this.pendingDeletes.has(id)) return false
         if (super.has(id)) return true
-        return await requestDisk(this.disk, 'disk.has', { kind: 'leaf', uuid: id })
+        return await this.disk({ operation: 'has', kind: 'leaf', uuid: id })
     }
 
     async get(id) {
@@ -86,7 +85,7 @@ export class LeafTier extends Map {
         let object = super.get(id)
         if (!object) {
             let source
-            try { source = await requestDisk(this.disk, 'disk.read', { kind: 'leaf', uuid: id }) }
+            try { source = await this.disk({ operation: 'read', kind: 'leaf', uuid: id }) }
             catch (error) { if (error.code === 'ENOENT' || error.name === 'NotFoundError') return undefined; throw error }
             if (source === undefined || source === null) return undefined
             const data = JSON.parse(source)
@@ -116,7 +115,7 @@ export class LeafTier extends Map {
         for (const id of [...this.pendingDeletes]) {
             if (await this.withWriteLock(id, async () => {
                 if (!this.pendingDeletes.has(id)) return false
-                await requestDisk(this.disk, 'disk.delete', { kind: 'leaf', uuid: id })
+                await this.disk({ operation: 'delete', kind: 'leaf', uuid: id })
                 this.pendingDeletes.delete(id)
                 return true
             })) count++
@@ -139,7 +138,7 @@ export class LeafTier extends Map {
             if (await this.withWriteLock(id, async () => {
                 if (super.get(id) !== object) return false
                 try {
-                    await requestDisk(this.disk, 'disk.write', { kind: 'leaf', uuid: id, data: (await object.getFile()).content })
+                    await this.disk({ operation: 'write', kind: 'leaf', uuid: id, data: (await object.getFile()).content })
                     if (super.get(id) !== object) return false
                     this.dirty.delete(id)
                     this.writes++
@@ -152,16 +151,34 @@ export class LeafTier extends Map {
 
     async persistDirty() {
         let count = 0
-        for (const [id, object] of this.dirty) {
-            if (await this.withWriteLock(id, async () => {
-                if (super.get(id) !== object || this.dirty.get(id) !== object) return false
-                await requestDisk(this.disk, 'disk.write', { kind: 'leaf', uuid: id, data: (await object.getFile()).content })
-                if (super.get(id) !== object || this.dirty.get(id) !== object) return false
-                this.dirty.delete(id)
-                this.writes++
-                return true
-            })) count++
+        const dirty = [...this.dirty]
+        const queued = new Map(dirty)
+        let next = 0
+        const takeDirty = () => {
+            if (next >= dirty.length) {
+                for (const [id, object] of this.dirty) if (queued.get(id) !== object) {
+                    queued.set(id, object)
+                    dirty.push([id, object])
+                }
+            }
+            return dirty[next++]
         }
+        const workers = Array.from({ length: Math.min(16, dirty.length) }, async () => {
+            while (true) {
+                const item = takeDirty()
+                if (!item) return
+                const [id, object] = item
+                if (await this.withWriteLock(id, async () => {
+                    if (super.get(id) !== object || this.dirty.get(id) !== object) return false
+                    await this.disk({ operation: 'write', kind: 'leaf', uuid: id, data: (await object.getFile()).content })
+                    if (super.get(id) !== object || this.dirty.get(id) !== object) return false
+                    this.dirty.delete(id)
+                    this.writes++
+                    return true
+                })) count++
+            }
+        })
+        await Promise.all(workers)
         return count
     }
 
@@ -169,7 +186,7 @@ export class LeafTier extends Map {
         yield* Map.prototype.values.call(this)
         for (const id of await this.files()) {
             if (residentHas(this, id) || this.pendingDeletes.has(id)) continue
-            const data = JSON.parse(await requestDisk(this.disk, 'disk.read', { kind: 'leaf', uuid: id }))
+            const data = JSON.parse(await this.disk({ operation: 'read', kind: 'leaf', uuid: id }))
             if (data?.object) yield data.object
         }
     }
@@ -192,7 +209,7 @@ export class LeafTier extends Map {
         const object = record.object
         const current = super.get(record.id)
         if (current && current !== object) return current
-        const data = JSON.parse(await requestDisk(this.disk, 'disk.read', { kind: 'leaf', uuid: record.id }))
+            const data = JSON.parse(await this.disk({ operation: 'read', kind: 'leaf', uuid: record.id }))
         for (const key of Object.keys(data.object)) {
             if (Object.getOwnPropertyDescriptor(object, key)?.configurable === false) continue
             Object.defineProperty(object, key, { value: data.object[key], writable: true, enumerable: true, configurable: true })
@@ -213,7 +230,7 @@ export class LeafTier extends Map {
                 if (record.object !== object || record.evicted || this.pending?.has(object)) return false
                 const weight = record.viewed
                 const content = (await object.getFile()).content
-                await requestDisk(this.disk, 'disk.write', { kind: 'leaf', uuid: record.id, data: content })
+                await this.disk({ operation: 'write', kind: 'leaf', uuid: record.id, data: content })
                 if (record.object !== object || record.viewed !== weight || this.pending?.has(object) || (await object.getFile()).content !== content) return false
                 this.dirty.delete(record.id)
                 this.writes++

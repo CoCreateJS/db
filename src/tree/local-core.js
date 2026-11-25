@@ -1,13 +1,12 @@
 import { DiskBranch, restoreIndexEntry } from './leaf.js'
 import { Weights } from './weights.js'
-import { requestDisk } from '../disk/index.js'
-
 export class LocalTier {
-    constructor(disk, resolve, { resolveLeaf } = {}) {
+    constructor(disk, resolve, { resolveLeaf, persistBranch } = {}) {
         this.disk = disk
         this.resolve = resolve
         this.resolveLeaf = resolveLeaf
-        this.weights = new Weights()
+        this.persistBranch = persistBranch
+        this.weights = new Weights('weight')
         this.buckets = this.weights
         this.active = new Set()
         this.dirty = new Set()
@@ -16,68 +15,55 @@ export class LocalTier {
         this.writes = 0
     }
 
-    async initialize() { await requestDisk(this.disk, 'disk.initialize'); return this }
-
     get warmBranches() {
         const local = this
         return {
             get size() { return local.listBranches().then(items => items.length) },
-            has(id) { return requestDisk(local.disk, 'disk.has', { kind: 'branch', uuid: id }) },
+            has(id) { return local.disk({ operation: 'has', kind: 'branch', uuid: id }) },
             keys() { return (async function* () { yield* await local.listBranches() })() }
         }
     }
 
-    async listBranches() { return await requestDisk(this.disk, 'disk.list', { kind: 'branch' }) }
-    async deleteLeaf(id) { return await requestDisk(this.disk, 'disk.delete', { kind: 'leaf', uuid: id }) }
+    async listBranches() { return await this.disk({ operation: 'list', kind: 'branch' }) }
+    async deleteLeaf(id) { return await this.disk({ operation: 'delete', kind: 'leaf', uuid: id }) }
     add(index) { this.pendingDiscards.delete(index.uuid); this.weights.add(index) }
     remove(index) { this.weights.remove(index) }
     touch(index) { this.weights.touch(index) }
 
-    async evict(limit = Infinity, maxWeight = Infinity) {
-        let count = 0
-        for (const weight of this.buckets.keys()) {
-            if (weight > maxWeight) break
-            for (const index of this.buckets.get(weight) ?? []) {
-                if (count >= limit) return count
-                if (await index.toDisk()) count++
-            }
-        }
-        return count
-    }
-
-    evictAsync(maxWeight = Infinity, fraction = 1) {
+    prune({ strategy = 'lfu', limit } = {}) {
+        const eligible = index => !!index.entries && !index.branches && !this.active.has(index)
+        const evict = index => this.evictOne(index)
+        if (strategy === 'noeviction' || limit === 0)
+            return Promise.resolve({ strategy, target: 0, candidates: 0, count: 0, skipped: 0 })
         if (this.eviction) return this.eviction
-        this.eviction = this.drain(maxWeight, fraction).finally(() => { this.eviction = null })
+        const job = strategy === 'lfu'
+            ? this.weights.evictBatch(limit ?? Infinity, eligible, evict)
+            : this.evictLru(limit, eligible, evict)
+        this.eviction = Promise.resolve(job).then(result => ({ strategy, ...result })).finally(() => { this.eviction = null })
         return this.eviction
     }
 
-    evictLowestWeight() {
-        if (this.eviction) return this.eviction
-        this.eviction = this.weights.evictLowestWeight(
-            index => !!index.entries && !index.branches && !this.active.has(index),
-            index => this.evictOne(index)
-        ).finally(() => { this.eviction = null })
-        return this.eviction
-    }
-
-    drain(maxWeight, fraction) {
-        return this.weights.evict(
-            fraction,
-            index => !!index.entries && !index.branches && !this.active.has(index),
-            index => this.evictOne(index),
-            maxWeight
-        )
+    async evictLru(limit, eligible, evict) {
+        const selected = []
+        for (const [, indexes] of this.weights)
+            for (const index of indexes) if (eligible(index)) selected.push(index)
+        selected.sort((a, b) => a.lastVisited - b.lastVisited || a.weight - b.weight || a.uuid.localeCompare(b.uuid))
+        const candidates = selected.length
+        selected.length = Math.min(candidates, limit ?? candidates)
+        const ranked = selected.map(object => ({ object, weight: object.weight }))
+        return { target: ranked.length, candidates, ...await this.weights.evictSelected(ranked, eligible, evict, 4) }
     }
 
     async evictOne(index) {
         if (this.active.has(index) || !index.entries || index.branches || !this.weights.has(index)) return false
-        const weight = index.viewed
+        const weight = index.weight
         const revision = index.revision
         this.active.add(index)
         try {
             const file = await index.getFile()
-            await requestDisk(this.disk, 'disk.write', { kind: 'branch', uuid: index.uuid, data: file.content })
-            if (index.viewed !== weight || index.revision !== revision || !index.entries || index.branches || !this.weights.has(index) || !this.canRelease(index)) return false
+            await this.disk({ operation: 'write', kind: 'branch', uuid: index.uuid, data: file.content })
+            await this.persistBranch?.({ operation: 'write', kind: 'branch', uuid: index.uuid, data: file.content })
+            if (index.weight !== weight || index.revision !== revision || !index.entries || index.branches || !this.weights.has(index) || !this.canRelease(index)) return false
             this.dirty.delete(index)
             this.writes++
             this.release(index)
@@ -118,7 +104,7 @@ export class LocalTier {
 
     async write(index) {
         const file = await index.getFile()
-        await requestDisk(this.disk, 'disk.write', { kind: 'branch', uuid: index.uuid, data: file.content })
+            await this.disk({ operation: 'write', kind: 'branch', uuid: index.uuid, data: file.content })
         this.pendingDiscards.delete(index.uuid)
         this.dirty.delete(index)
         this.writes++
@@ -127,7 +113,7 @@ export class LocalTier {
     async persistDiscards() {
         let count = 0
         for (const id of this.pendingDiscards) {
-            await requestDisk(this.disk, 'disk.delete', { kind: 'branch', uuid: id })
+            await this.disk({ operation: 'delete', kind: 'branch', uuid: id })
             this.pendingDiscards.delete(id)
             count++
         }
@@ -150,7 +136,7 @@ export class LocalTier {
 
     async readByUuid(id) {
         if (this.pendingDiscards.has(id)) return undefined
-        const content = await requestDisk(this.disk, 'disk.read', { kind: 'branch', uuid: id })
+        const content = await this.disk({ operation: 'read', kind: 'branch', uuid: id })
         this.reads++
         return JSON.parse(content)
     }

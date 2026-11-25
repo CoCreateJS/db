@@ -43,6 +43,7 @@
   "browser": "./src/index.js",
   "homepage": "https://CoCreateJS.com/docs/db",
   "dependencies": {
+    "@cocreate/disk": "^1.0.0",
     "@cocreate/coson": "^1.0.0",
     "@cocreate/config": "^2.0.2",
     "@cocreate/utils": "^2.0.2"

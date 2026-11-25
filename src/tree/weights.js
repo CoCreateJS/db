@@ -1,10 +1,12 @@
 // Ordered nonempty frequency buckets. A touch moves only one bucket forward.
 export class Weights {
-    constructor() {
+    constructor(property = 'viewed') {
+        this.property = property
         this.buckets = new Map()
         this.first = null
         this.size = 0
     }
+    value(object) { return object[this.property] }
     insert(weight, previous = null) {
         const next = previous ? previous.next : this.first
         const bucket = {weight, values: new Set(), previous, next}
@@ -15,11 +17,11 @@ export class Weights {
         return bucket
     }
     add(object) {
-        let bucket = this.buckets.get(object.viewed)
+        let bucket = this.buckets.get(this.value(object))
         if (!bucket) {
             let previous = null
-            for (let node = this.first; node && node.weight < object.viewed; node = node.next) previous = node
-            bucket = this.insert(object.viewed, previous)
+            for (let node = this.first; node && node.weight < this.value(object); node = node.next) previous = node
+            bucket = this.insert(this.value(object), previous)
         }
         if (!bucket.values.has(object)) {
             bucket.values.add(object)
@@ -27,7 +29,7 @@ export class Weights {
         }
     }
     remove(object) {
-        const bucket = this.buckets.get(object.viewed)
+        const bucket = this.buckets.get(this.value(object))
         if (!bucket?.values.delete(object)) return false
         this.size--
         if (!bucket.values.size) {
@@ -39,20 +41,21 @@ export class Weights {
         return true
     }
     touch(object) {
-        const bucket = this.buckets.get(object.viewed)
+        const weight = this.value(object)
+        const bucket = this.buckets.get(weight)
         if (!bucket?.values.has(object)) {
-            object.viewed++
+            object[this.property]++
             this.add(object)
             return
         }
-        const next = this.buckets.get(object.viewed + 1) ?? this.insert(object.viewed + 1, bucket)
+        const next = this.buckets.get(weight + 1) ?? this.insert(weight + 1, bucket)
         this.remove(object)
-        object.viewed++
+        object[this.property]++
         next.values.add(object)
         this.size++
     }
     get(weight) { return this.buckets.get(weight)?.values }
-    has(object) { return this.get(object.viewed)?.has(object) ?? false }
+    has(object) { return this.get(this.value(object))?.has(object) ?? false }
     *keys() { for (const [weight] of this) yield weight }
     *[Symbol.iterator]() {
         for (let node = this.first; node; node = node.next) yield [node.weight, node.values]
@@ -68,7 +71,7 @@ export class Weights {
             }
         }
 
-        return {target: limit, candidates: selected.length, ...await this.evictSelected(selected, eligible, evict, concurrency)}
+        return {target: selected.length, candidates: selected.length, ...await this.evictSelected(selected, eligible, evict, concurrency)}
     }
 
     async evictLowestWeight(eligible, evict, { concurrency = 4 } = {}) {
@@ -90,7 +93,7 @@ export class Weights {
         const worker = async () => {
             while (next < selected.length) {
                 const {object, weight} = selected[next++]
-                if (object.viewed === weight && this.has(object) && eligible(object) && await evict(object)) count++
+                if (this.value(object) === weight && this.has(object) && eligible(object) && await evict(object)) count++
                 else skipped++
             }
         }
@@ -119,7 +122,7 @@ export class Weights {
         }
         let count = 0, skipped = 0
         for (const {object, weight} of selected) {
-            if (object.viewed === weight && this.has(object) && eligible(object) && await evict(object)) count++
+            if (this.value(object) === weight && this.has(object) && eligible(object) && await evict(object)) count++
             else skipped++
             await nextTurn()
         }

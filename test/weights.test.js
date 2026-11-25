@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Weights } from '../src/tree/weights.js'
+import { LocalTier } from '../src/tree/local-core.js'
 
 test('weight buckets stay ordered through touches, removals and re-additions', () => {
     const weights = new Weights()
@@ -129,4 +130,26 @@ test('whole-group eviction skips an item touched after selection', async () => {
     assert.equal(result.skipped, 1)
     assert.equal(weights.has(touched), true)
     assert.equal(touched.viewed, 3)
+})
+
+test('LocalTier LRU pruning releases the least recently visited branch up to its limit', async () => {
+    const writes = []
+    const local = new LocalTier(async operation => { writes.push(operation.uuid); return true }, () => {})
+    const branch = (uuid, lastVisited) => ({
+        uuid, weight: 1, lastVisited, revision: 0, entries: [],
+        async getFile() { return { content: uuid } },
+        neighborUuid() { return undefined }
+    })
+    const recent = branch('recent', 20)
+    const oldest = branch('oldest', 1)
+    const middle = branch('middle', 10)
+    for (const item of [recent, oldest, middle]) local.add(item)
+
+    const result = await local.prune({ strategy: 'lru', limit: 2 })
+    assert.deepEqual(writes, ['oldest', 'middle'])
+    assert.equal(result.strategy, 'lru')
+    assert.equal(result.candidates, 3)
+    assert.equal(result.target, 2)
+    assert.equal(result.count, 2)
+    assert.equal(local.weights.has(recent), true)
 })

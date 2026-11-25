@@ -1,6 +1,0 @@
-{
-  "status": "not-attempted",
-  "runIndex": 5,
-  "datasetSize": 100000,
-  "reason": "A preceding independent run for this size failed."
-}

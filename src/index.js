@@ -1,42 +1,52 @@
-import { CRUD } from './crud/index.js'
-import { QueryPlanner } from './query-planner/index.js'
+import { CRUD } from './crud.js'
+import { createPlanner, QueryPlanner } from './queryPlanner.js'
 import { createConfiguration, createTree, defaultConfiguration, Tree } from './tree/index.js'
-import { createPlatformDisk, createStorageDisk, requestDisk } from './disk/index.js'
-import { Persistence } from './persistence/index.js'
 
 const modes = new Set(['adaptive', 'disk-first', 'disk-cache'])
 const isNode = typeof globalThis.process?.versions?.node === 'string'
 
 /** Compose the platform disk adapter, tree engine, persistence, planner, and CRUD. */
 export async function createDB(server = {}, options = {}) {
-    const primary = server.isPrimary ?? (server.isWorker === true ? false : true)
+    const primary = server?.isPrimary ?? (server?.isWorker === true ? false : true)
     if (!primary) {
-        if (typeof options.forward !== 'function') throw new Error('worker IPC adapter required')
+        const forward = options.forward ?? (typeof server?.send === 'function'
+            ? async request => {
+                const response = await server.send({
+                    method: 'db.forward',
+                    request,
+                    primary: true,
+                    broadcast: false
+                })
+                if (!response || response.success === false || response.error)
+                    throw new Error(response?.error || 'Primary database request failed.')
+                return response.result
+            }
+            : undefined)
+        if (typeof forward !== 'function') throw new Error('worker IPC adapter required')
         return {
             config: structuredClone(options.config ?? defaultConfiguration()),
             mode: options.mode ?? options.config?.mode ?? (isNode ? 'adaptive' : 'disk-first'),
-            send: async request => await options.forward(request),
+            send: async request => await forward(request),
             flushIndex: async () => {},
             flushDisk: async () => {},
             close: async () => {}
         }
     }
 
-    const mode = options.mode ?? options.config?.mode ?? (isNode ? 'adaptive' : 'disk-first')
+    const disk = options.disk ?? server?.disk
+    if (options.directory !== undefined && !disk)
+        throw new Error('Initialize Disk with the directory and pass it as server.disk or options.disk')
+    const mode = options.mode ?? options.config?.mode ?? (isNode || !disk ? 'adaptive' : 'disk-first')
     if (!modes.has(mode)) throw new Error(`Unsupported database mode: ${mode}`)
-    const platform = options.disk ? undefined : await createPlatformDisk({ directory: options.directory, storage: options.storage })
-    const storage = platform?.storage ?? options.storage
-    const disk = options.disk ?? platform?.disk ?? (storage ? createStorageDisk(storage) : undefined)
     if (mode === 'disk-cache') {
-        if (typeof storage?.clear !== 'function') throw new Error('disk-cache mode requires a disk storage adapter that supports clear()')
-        await storage.clear()
+        if (!disk) throw new Error('disk-cache mode requires a disk handler')
+        await Tree.clearDisk(disk)
     }
 
     const db = await createIndex({
         ...options,
         server,
         mode,
-        storage: undefined,
         disk,
         treeOptions: {
             size: options.size,
@@ -50,7 +60,7 @@ export async function createDB(server = {}, options = {}) {
 }
 
 export async function init(server = {}, options = {}) {
-    const primary = server.isPrimary ?? (server.isWorker === true ? false : true)
+    const primary = server?.isPrimary ?? (server?.isWorker === true ? false : true)
     let config = options.config
     if (config === undefined && options.prompt !== false && primary) {
         const { default: Config } = await import('@cocreate/config')
@@ -74,7 +84,7 @@ async function loadConfiguration(options, disk) {
 
     if (disk) {
         try {
-            const saved = await requestDisk(disk, 'disk.read', { kind: 'config' })
+            const saved = await Tree.readDiskConfig(disk)
             return createConfiguration({ config: typeof saved === 'string' ? JSON.parse(saved) : saved })
         } catch (error) {
             if (!isMissingConfig(error)) throw error
@@ -89,32 +99,31 @@ async function loadConfiguration(options, disk) {
  */
 export class Index {
     static async create(options = {}) {
-        const disk = options.disk ?? (options.storage ? createStorageDisk(options.storage) : undefined)
-        if (disk) await requestDisk(disk, 'disk.initialize')
+        const disk = options.disk ?? options.server?.disk ?? options.tree?.disk
+        const persistence = options.persistence ?? options.server?.persistence ?? options.tree?.persistence
         const config = options.tree?.config ?? await loadConfiguration(options, disk)
         let tree
-        const persistence = options.persistence ?? new Persistence({
-            pending: options.pending,
-            get: async uuid => await tree?.getLeaf(uuid),
-            send: options.persistenceSend
-        })
-        if (typeof persistence.stage !== 'function' || typeof persistence.persist !== 'function')
-            throw new TypeError('Index requires a Persistence resource with stage(envelope) and persist()')
-        tree = options.tree ?? await createTree({
+        if (persistence !== undefined && persistence !== null && typeof persistence.execute !== 'function')
+            throw new TypeError('Index requires a Tree Persistence resource with execute(operation)')
+        tree = options.tree ?? Tree.prepare({
             ...options.treeOptions,
             config,
-            disk,
-            read: typeof persistence.read === 'function' ? uuid => persistence.read(uuid) : undefined,
-            diskInitialized: true,
-            persist: options.persist ?? (envelope => persistence.stage(envelope))
         })
+        if (disk) tree.disk = disk
+        if (persistence) tree.persistence = persistence
+        if (!options.tree) await tree.initialize()
         if (options.tree) {
-            if (disk) tree.disk = disk
-            tree.persist = options.persist ?? (envelope => persistence.stage(envelope))
-            tree.setReadExternal?.(typeof persistence.read === 'function' ? uuid => persistence.read(uuid) : undefined)
+            if (persistence) tree.persistence = persistence
         }
-        const planner = options.planner ?? new QueryPlanner()
-        const crud = options.crud ?? new CRUD(tree, planner)
+        const configuredPrune = options.prune ?? options.config?.prune
+        if (configuredPrune !== undefined && (!configuredPrune || typeof configuredPrune !== 'object' || Array.isArray(configuredPrune)))
+            throw new TypeError('Prune configuration must be an object')
+        const prune = configuredPrune === undefined
+            ? { strategy: 'lfu' }
+            : { ...configuredPrune, strategy: configuredPrune.strategy ?? 'lfu' }
+        const planner = createPlanner(options.planner ?? new QueryPlanner())
+        tree.planner = planner
+        const crud = options.crud ?? new CRUD(tree)
         if (typeof crud.send !== 'function') throw new TypeError('Index requires a CRUD resource with send(request)')
         const configuredMemory = options.memoryPercent
             ?? options.memory?.percent
@@ -123,11 +132,12 @@ export class Index {
         const memoryPercent = configuredMemory === undefined ? 25 : Number(configuredMemory)
         if (!Number.isFinite(memoryPercent) || memoryPercent < 0 || memoryPercent > 100)
             throw new Error('memoryPercent must be between 0 and 100')
-        return new Index({ config, tree, planner, crud, disk, persistence, server: options.server, memoryPercent, mode: options.mode ?? options.config?.mode ?? 'adaptive' })
+        return new Index({ config, tree, planner, crud, server: options.server, memoryPercent, prune, mode: options.mode ?? options.config?.mode ?? 'adaptive' })
     }
 
     #server
     #telemetryListener
+    #forwardListener
     #telemetryTimestamps = new Map()
     #memoryQueue = Promise.resolve()
     #diskFirstLeaves = new Set()
@@ -135,14 +145,13 @@ export class Index {
     #diskError
     #flushTimer
 
-    constructor({ config, tree, planner, crud, disk, persistence, server = {}, memoryPercent = 25, mode = 'adaptive' }) {
+    constructor({ config, tree, planner, crud, server = {}, memoryPercent = 25, prune = { strategy: 'lfu' }, mode = 'adaptive' }) {
         this.initialConfig = config
         this.tree = tree
         this.planner = planner
         this.crud = crud
-        this.disk = disk
-        this.persistence = persistence
         this.mode = mode
+        this.prune = prune
         this.#server = server
         this.memory = {
             percent: memoryPercent,
@@ -157,20 +166,26 @@ export class Index {
             peakPressure: 0,
             stage: 0,
             peakStage: 0,
-            shedCycles: 0,
-            branchesShed: 0,
-            leavesShed: 0,
+            pruneCycles: 0,
+            branchesPruned: 0,
             diskFirst: false,
             diskFirstActivations: 0,
-            shedError: undefined,
-            lastShed: undefined
+            pruneError: undefined,
+            lastPrune: undefined
         }
         this.memoryPolicy = this.memory
 
-        const primary = server.isPrimary ?? (server.isWorker === true ? false : true)
+        const primary = server?.isPrimary ?? (server?.isWorker === true ? false : true)
         if (primary && typeof server.on === 'function') {
             this.#telemetryListener = message => this.#onTelemetry(message)
             server.on('telemetry', this.#telemetryListener)
+        }
+        if (primary && typeof server.on === 'function') {
+            this.#forwardListener = async payload => {
+                try { return { uuid: payload.uuid, result: await this.send(payload.request) } }
+                catch (error) { return { uuid: payload.uuid, success: false, error: error.message || String(error) } }
+            }
+            server.on('db.forward', this.#forwardListener)
         }
     }
 
@@ -215,32 +230,36 @@ export class Index {
         memory.stage = stage
         memory.peakStage = Math.max(memory.peakStage, stage)
 
-        const diskFirst = memory.diskFirst
-            ? pressure >= diskFirstPressure - memoryHysteresis
-            : pressure >= diskFirstPressure
-        if (diskFirst !== memory.diskFirst) {
-            try {
-                this.tree.setDiskFirst(diskFirst)
-                memory.diskFirst = diskFirst
-                if (diskFirst) memory.diskFirstActivations++
-            } catch (error) {
-                memory.shedError = error
+        if (typeof this.tree.disk?.execute === 'function') {
+            const diskFirst = memory.diskFirst
+                ? pressure >= diskFirstPressure - memoryHysteresis
+                : pressure >= diskFirstPressure
+            if (diskFirst !== memory.diskFirst) {
+                try {
+                    this.tree.setDiskFirst(diskFirst)
+                    memory.diskFirst = diskFirst
+                    if (diskFirst) memory.diskFirstActivations++
+                } catch (error) {
+                    memory.pruneError = error
+                }
             }
         }
 
-        const sheds = Math.max(0, stage - previousStage)
-        if (!sheds || memory.shedError) return
+        const prunes = Math.max(0, stage - previousStage)
+        if (!prunes || memory.pruneError) return
         this.#memoryQueue = this.#memoryQueue.then(async () => {
-            for (let count = 0; count < sheds; count++) {
-                memory.lastShed = await this.tree.shed()
-                memory.shedCycles++
-                memory.branchesShed += memory.lastShed?.branches?.count ?? 0
-                memory.leavesShed += memory.lastShed?.leaves?.count ?? 0
+            for (let count = 0; count < prunes; count++) {
+                memory.lastPrune = await this.tree.prune(this.prune)
+                memory.pruneCycles++
+                memory.branchesPruned += memory.lastPrune?.count ?? 0
             }
-        }).catch(error => { memory.shedError = error })
+        }).catch(error => { memory.pruneError = error })
     }
 
-    get config() { return this.tree?.config ?? structuredClone(this.initialConfig) }
+    get config() {
+        const config = this.tree?.config ?? structuredClone(this.initialConfig)
+        return { ...config, prune: this.prune }
+    }
 
     get disk() { return this.tree?.disk }
     set disk(handler) { if (this.tree) this.tree.disk = handler }
@@ -291,15 +310,27 @@ export class Index {
 
     async flushDisk() { return await this.flushLocal() }
 
-    async persist() { return await this.persistence.persist() }
+    async persist() {
+        const persistence = this.persistence
+        if (!persistence) return { success: false, skipped: true }
+        if (typeof persistence.persist !== 'function') return { success: true, skipped: true }
+        return await persistence.persist()
+    }
+
+    get persistence() { return this.tree?.persistence }
 
     async flushMemory() {
         await this.#memoryQueue
-        if (this.memory.shedError) throw this.memory.shedError
-        return this.memory.lastShed
+        if (this.memory.pruneError) throw this.memory.pruneError
+        return this.memory.lastPrune
     }
 
     async close() {
+        if (this.#forwardListener) {
+            if (typeof this.#server.off === 'function') this.#server.off('db.forward', this.#forwardListener)
+            else this.#server.removeListener?.('db.forward', this.#forwardListener)
+            this.#forwardListener = undefined
+        }
         if (this.#telemetryListener) {
             if (typeof this.#server.off === 'function') this.#server.off('telemetry', this.#telemetryListener)
             else this.#server.removeListener?.('telemetry', this.#telemetryListener)
@@ -313,9 +344,7 @@ export class Index {
 export async function createIndex(options) { return await Index.create(options) }
 
 export { Tree, createTree, createConfiguration, defaultConfiguration }
-export { createPlatformDisk, createStorageDisk, requestDisk } from './disk/index.js'
-export { CRUD, createCRUD } from './crud/index.js'
-export { QueryPlanner, planQuery } from './query-planner/index.js'
-export { Persistence } from './persistence/index.js'
+export { CRUD, createCRUD } from './crud.js'
+export { QueryPlanner, planQuery } from './queryPlanner.js'
 
 export default createDB

@@ -2,9 +2,41 @@ import { LeafTier } from './leaves.js'
 import { LocalTier } from './local-core.js'
 import { createConfiguration, createRootManager } from './manager.js'
 import { updateLeaf } from './leaf.js'
-import { requestDisk } from '../disk/index.js'
+import { getValueFromObject } from '@cocreate/utils'
 
 const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value)
+const encodeUuid = value => typeof Buffer === 'function'
+    ? Buffer.from(value).toString('hex')
+    : Array.from(new TextEncoder().encode(value), byte => byte.toString(16).padStart(2, '0')).join('')
+const decodeUuid = value => typeof Buffer === 'function'
+    ? Buffer.from(value, 'hex').toString()
+    : new TextDecoder().decode(new Uint8Array(value.match(/.{2}/g)?.map(pair => Number.parseInt(pair, 16)) ?? []))
+
+async function executeDisk(disk, { operation, kind, uuid, data } = {}) {
+    if (!disk || typeof disk.execute !== 'function') throw new TypeError('Tree Disk requires execute(operation)')
+    if (operation === 'clear') return await disk.execute({ operation, kind: 'directory' })
+    if (operation === 'list') {
+        const directories = { branch: 'branches', leaf: 'leaves' }
+        const path = directories[kind]
+        if (!path) throw new Error(`Unsupported disk kind: ${kind}`)
+        const files = await disk.execute({ operation, kind: 'directory', path })
+        return files.filter(file => file.endsWith('.json')).map(file => {
+            const id = file.slice(0, -5)
+            return kind === 'leaf' ? decodeUuid(id) : id
+        })
+    }
+    if (operation === 'has' && kind === 'config') return true
+    if (operation === 'delete' && kind === 'config') throw new Error('Deleting disk config is unsupported')
+    const path = kind === 'config'
+        ? 'config.json'
+        : kind === 'branch'
+            ? `branches/${uuid}.json`
+            : kind === 'leaf'
+                ? `leaves/${encodeUuid(uuid)}.json`
+                : undefined
+    if (!path) throw new Error(`Unsupported disk kind: ${kind}`)
+    return await disk.execute({ operation, kind: 'file', path, data })
+}
 
 /**
  * Standalone tree engine. Storage is injected; this module has no Node or
@@ -13,42 +45,68 @@ const isRecord = value => value !== null && typeof value === 'object' && !Array.
 export class Tree {
     static stop = Symbol.for('cocreate.db.tree.stop')
 
+    static async clearDisk(disk) { return await executeDisk(disk, { operation: 'clear' }) }
+    static async readDiskConfig(disk) { return await executeDisk(disk, { operation: 'read', kind: 'config' }) }
+
     #database
     #manager
-    #shedQueue = Promise.resolve()
-    static async create({ config, roots, disk, read, diskInitialized = false, size = 1024, leafSize = size, deferIndex = true, persist } = {}) {
+    #disk
+    #pruneQueue = Promise.resolve()
+    static prepare({ config, roots, size = 1024, leafSize = size, deferIndex = true } = {}) {
         const configuration = createConfiguration({ config, roots })
         const database = {
             config: configuration,
             leaves: new Map(),
             tree: new Map(),
             deleting: new Set(),
-            readExternal: read
+            readExternal: undefined
         }
-        const tree = new Tree(database, { size, leafSize, deferIndex, disk, persist })
-        if (disk) {
-            if (!diskInitialized) await requestDisk(envelope => tree.disk(envelope), 'disk.initialize')
-            const local = new LocalTier(envelope => tree.disk(envelope), undefined, { resolveLeaf: async id => await database.leaves.get?.(id) ?? database.deleted?.get(id) })
-            database.local = local
-            database.leaves = new LeafTier(local)
-        }
-        tree.#manager = await createRootManager({
-            db: database,
-            size,
-            leafSize,
-            deferIndex,
-            persistConfig: async () => {
-                if (tree.disk) await requestDisk(envelope => tree.disk(envelope), 'disk.write', { kind: 'config', data: JSON.stringify(database.config) })
-            },
-            persist: async envelope => await tree.persist(envelope)
+        const tree = new Tree(database, { size, leafSize, deferIndex })
+        tree.roots = Object.freeze({
+            get: path => tree.#manager
+                ? tree.#manager.getRoots(path)
+                : structuredClone(path ? getValueFromObject(database.config.roots, path) : database.config.roots),
+            set: (path, value) => {
+                if (!tree.#manager) throw new Error('Tree must be initialized before updating roots')
+                return tree.#manager.setRoots(path, value)
+            }
         })
-        if (database.local) database.local.resolveLeaf = async id => await tree.#manager.getLeaf(id) ?? database.deleted?.get(id)
-        if (database.leaves instanceof LeafTier) database.leaves.pending = tree.#manager.pendingIndex
+        tree.branches = Object.freeze({ get: uuid => tree.#getBranch(uuid) })
         tree.leaves = Object.freeze({
             get: uuid => tree.getLeaf(uuid),
-            set: (root, values, envelope = {}, options = {}) => tree.createLeaves(root, values, envelope, options)
+            has: async uuid => tree.#manager
+                ? await tree.#manager.hasLeaf(uuid)
+                : await database.leaves.has(uuid)
         })
         return tree
+    }
+
+    static async create(options = {}) {
+        const tree = Tree.prepare(options)
+        return await tree.initialize()
+    }
+
+    async initialize() {
+        if (this.#manager) return this
+        if (this.disk && !this.#database.local) this.#attachDisk()
+        this.#manager = await createRootManager({
+            db: this.#database,
+            size: this.size,
+            leafSize: this.leafSize,
+            deferIndex: this.deferIndex,
+            persistConfig: async () => {
+                const data = JSON.stringify(this.#database.config)
+                const writes = []
+                if (this.disk) writes.push(this.#executeDisk({ operation: 'write', kind: 'config', data }))
+                if (this.persistence?.execute) writes.push(this.persistence.execute({ operation: 'write', kind: 'config', data }))
+                await Promise.all(writes)
+            },
+            persist: operation => this.persistence?.execute?.(operation)
+        })
+        this.#setExternalRead()
+        if (this.#database.local) this.#database.local.resolveLeaf = async id => await this.#manager.getLeaf(id) ?? this.#database.deleted?.get(id)
+        if (this.#database.leaves instanceof LeafTier) this.#database.leaves.pending = this.#manager.pendingIndex
+        return this
     }
 
     constructor(database, options = {}) {
@@ -56,9 +114,49 @@ export class Tree {
         this.size = options.size ?? 1024
         this.leafSize = options.leafSize ?? this.size
         this.deferIndex = options.deferIndex ?? true
-        this.disk = options.disk
-        this.persist = options.persist ?? (async () => ({ success: true }))
         this.#diskFirst = false
+    }
+
+    #persistence
+
+    get persistence() { return this.#persistence }
+    set persistence(resource) {
+        if (resource !== undefined && resource !== null && typeof resource.execute !== 'function')
+            throw new TypeError('Tree persistence must expose execute(operation)')
+        this.#persistence = resource ?? undefined
+        this.#setExternalRead()
+    }
+
+    #setExternalRead() {
+        if (!this.#manager) return
+        this.#manager.setReadExternal(typeof this.#persistence?.execute === 'function'
+            ? uuid => this.#persistence.execute({ operation: 'read', kind: 'leaf', uuid })
+            : undefined)
+    }
+
+    get disk() { return this.#disk }
+    set disk(disk) {
+        if (disk !== undefined && disk !== null && typeof disk.execute !== 'function')
+            throw new TypeError('Tree disk must expose execute(operation)')
+        this.#disk = disk ?? undefined
+        if (this.#disk && !this.#database.local) this.#attachDisk()
+    }
+
+    async #executeDisk(operation) { return await executeDisk(this.disk, operation) }
+
+    #attachDisk() {
+        const local = new LocalTier(operation => this.#executeDisk(operation), undefined, {
+            resolveLeaf: async id => await this.#database.leaves.get?.(id) ?? this.#database.deleted?.get(id),
+            persistBranch: async operation => await this.persistence?.execute(operation)
+        })
+        const leaves = new LeafTier(local)
+        for (const [uuid, leaf] of this.#database.leaves) leaves.set(uuid, leaf)
+        this.#database.local = local
+        this.#database.leaves = leaves
+        if (this.#manager) {
+            leaves.pending = this.#manager.pendingIndex
+            local.resolveLeaf = async id => await this.#manager.getLeaf(id) ?? this.#database.deleted?.get(id)
+        }
     }
 
     #diskFirst
@@ -67,7 +165,7 @@ export class Tree {
 
     /** Temporarily switch request handling to a disk-first lifecycle. */
     setDiskFirst(enabled) {
-        if (enabled && !this.disk) throw new Error('Disk-first mode requires a disk handler')
+        if (enabled && typeof this.disk?.execute !== 'function') throw new Error('Disk-first mode requires a disk handler')
         this.#diskFirst = Boolean(enabled)
         return this.#diskFirst
     }
@@ -76,15 +174,15 @@ export class Tree {
 
     get pendingIndexCount() { return this.#manager.pendingIndex.size }
 
-    /** Return index summaries, optionally bound to a configured root path. */
-    async getRootBranch(envelope, target, { createMissing = false, allowPartial = false } = {}) {
+    /** Resolve the index-bearing branch for the configured root in a CRUD payload. */
+    async getPrimaryBranch(payload = {}) {
+        const target = String(payload.method ?? '').split('.')[0]
+        if (!target) throw new Error('A CRUD method is required to resolve the primary branch')
         let resolved
-        if (target !== undefined) {
-            try { resolved = await this.#manager.resolve(envelope ?? {}, target, { createMissing }) }
-            catch (error) {
-                if (!allowPartial || createMissing || !/Missing root reference|Ambiguous root path/.test(error.message)) throw error
-                resolved = { target, path: undefined, parent: undefined, missing: false, incomplete: true }
-            }
+        try { resolved = await this.#manager.resolve(payload, target) }
+        catch (error) {
+            if (!/Missing root reference|Ambiguous root path/.test(error.message)) throw error
+            resolved = { target, path: undefined, parent: undefined, missing: false, incomplete: true }
         }
         await this.flushIndex()
         const fields = []
@@ -106,7 +204,6 @@ export class Tree {
             }
         }
         fields.sort((a, b) => a.key.localeCompare(b.key) || a.type.localeCompare(b.type))
-        if (target === undefined) return fields
         return {
             target,
             path: resolved.path,
@@ -120,12 +217,17 @@ export class Tree {
     /** Resolve a concrete field/type index; selection/planning stays with callers. */
     #getIndex(key, type) { return this.#database.tree.get(key)?.get(type) }
 
-    /** Resolve a branch by UUID within one field/type index. */
-    async getBranch(key, type, uuid) {
+    /** Resolve a branch UUID across the configured field/type indexes. */
+    async #getBranch(uuid) {
+        if (typeof uuid !== 'string' || !uuid) throw new TypeError('Branch UUID is required')
         await this.flushIndex()
-        const index = this.#getIndex(key, type)
-        const branch = index ? await index.findUuid(uuid) : undefined
-        return branch ? index.reference(branch) : undefined
+        for (const types of this.#database.tree.values()) {
+            for (const index of types.values()) {
+                const branch = await index.findUuidDeep(uuid)
+                if (branch) return index.reference(branch)
+            }
+        }
+        return undefined
     }
 
     /** Stream index entries in an inclusive value range without materializing them. */
@@ -158,6 +260,10 @@ export class Tree {
     /** Visit every live leaf for an unindexed query or full scan. */
     async visitLeaves(visit, { mutating = false } = {}) {
         return await this.#manager.visitLeaves({ mutating }, visit)
+    }
+
+    async *getLeaves(plan) {
+        yield* this.#manager.getLeaves(plan)
     }
 
     async getLeaf(uuid) { return await this.#manager.getLeaf(uuid) }
@@ -204,27 +310,42 @@ export class Tree {
 
     async flushIndex() { return await this.#manager.flushIndex() }
 
-    /** Evict one complete lowest-weight group from each resident tier. */
-    shed() {
-        const task = this.#shedQueue.then(async () => {
+    /** Release eligible branch contents from memory, preserving tree paths. */
+    prune({ strategy = 'lfu', limit } = {}) {
+        if (!['lfu', 'lru', 'noeviction'].includes(strategy))
+            throw new TypeError(`Unsupported Tree pruning strategy: ${strategy}`)
+        if (limit !== undefined && (!Number.isInteger(limit) || limit < 0))
+            throw new TypeError('Tree pruning limit must be a non-negative integer')
+        if (strategy === 'noeviction' || limit === 0)
+            return Promise.resolve({ strategy, target: 0, candidates: 0, count: 0, skipped: 0 })
+        const task = this.#pruneQueue.then(async () => {
             await this.flushIndex()
-            if (!this.disk) throw new Error('Tree shedding requires a disk handler')
-            const branches = await this.#database.local?.evictLowestWeight() ?? { count: 0, weight: null }
-            const leaves = await this.#database.leaves.evictLowestWeight?.() ?? { count: 0, weight: null }
-            return {
-                branches: { count: branches.count, weight: branches.weight ?? null },
-                leaves: { count: leaves.count, weight: leaves.weight ?? null },
-                count: branches.count + leaves.count
+            if (this.#database.local) return await this.#database.local.prune({ strategy, limit })
+            const candidates = []
+            for (const types of this.#database.tree.values())
+                for (const index of types.values()) candidates.push(...index.prunableBranches())
+            candidates.sort(strategy === 'lru'
+                ? (a, b) => a.lastVisited - b.lastVisited || a.weight - b.weight || a.uuid.localeCompare(b.uuid)
+                : (a, b) => a.weight - b.weight || a.lastVisited - b.lastVisited || a.uuid.localeCompare(b.uuid))
+            const target = Math.min(candidates.length, limit ?? candidates.length)
+            let count = 0
+            for (let i = 0; i < target; i++) {
+                const branch = candidates[i]
+                const weight = branch.weight
+                const revision = branch.revision
+                if (this.persistence) {
+                    const file = await branch.getFile()
+                    await this.persistence.execute({ operation: 'write', kind: 'branch', uuid: branch.uuid, data: file.content })
+                }
+                if (branch.tree.pruneBranch(branch, { weight, revision })) count++
             }
+            return { strategy, target, candidates: candidates.length, count, skipped: target - count }
         })
-        this.#shedQueue = task.catch(() => {})
+        this.#pruneQueue = task.catch(() => {})
         return task
     }
 
-    /**
-     * Persist changed leaves first, then reconcile and persist derived indexes.
-     * External persistence is intentionally outside this Tree contract.
-     */
+    /** Persist local leaves first, then reconcile and persist derived indexes. */
     async flushLocal() {
         await this.#database.leaves.persistDeletes?.()
         await this.#database.leaves.persistDirty?.()
@@ -234,7 +355,7 @@ export class Tree {
         await this.#database.leaves.persistDirty?.()
         await this.#database.local?.persistDirty()
         this.#manager.syncIndexCatalog()
-        if (this.disk) await requestDisk(envelope => this.disk(envelope), 'disk.write', { kind: 'config', data: JSON.stringify(this.#database.config) })
+        if (this.disk) await this.#executeDisk({ operation: 'write', kind: 'config', data: JSON.stringify(this.#database.config) })
     }
 }
 

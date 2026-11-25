@@ -169,7 +169,7 @@ const summaryEntry = {
     legacyV2Compatibility: compatibility,
     failures: manifest.results.filter(run => run.status !== 'passed')
 }
-provider.standardized ??= { methodology: 'CoCreateDB-only phase; in-process, memory-resident, no persistence or network', runs: [] }
+provider.standardized ??= { methodology: 'Single-process CoCreateDB run; adaptive memory residency with local Disk write-through, no external persistence or network', runs: [] }
 const existingSummaryIndex = provider.standardized.runs.findIndex(run => run.runId === summaryEntry.runId)
 if (existingSummaryIndex === -1) provider.standardized.runs.push(summaryEntry)
 else provider.standardized.runs[existingSummaryIndex] = summaryEntry
@@ -193,7 +193,7 @@ const lines = [
     '## Historical v2 lifecycle comparison', '',
     historicalV2 && compatibility
         ? `The retained historical baseline and the current compatibility lane both use fixture v2 hash \`${historicalV2.fixtureHash}\` / \`${compatibility.fixtureHash}\`. Historical: ${historicalV2.runtime.node}, ${historicalV2.runtime.cpus} CPUs, ${historicalV2.samples} samples, ${historicalV2.runs ?? 5} independent runs. Current compatibility: ${compatibility.runtime.node}, ${compatibility.runtime.cpuCount} reported CPUs, ${compatibility.samples} samples, ${compatibility.runs} independent runs. The datasets and lifecycle query/update operations are equivalent, but runtime and hardware metadata differ, so this is a historical comparison rather than a controlled same-host comparison.`
-        : 'No v2 compatibility runs completed; historical results remain preserved in `providers/cocreatedb/results/summary.json` and `baselines/2026-11-19-final`.',
+        : 'No v2 compatibility runs completed; this report contains only the selected standard benchmark baseline.',
     '',
     '| v2 metric | Historical summary | Current compatibility median |', '| --- | ---: | ---: |',
     ...(historicalV2 && compatibility ? [
@@ -207,7 +207,7 @@ const lines = [
         `| RSS | ${miB(historicalV2.rssBytes)} | ${miB(compatibility.rssBytes)} |`
     ] : ['| n/a | retained only in the historical provider summary | n/a |']), '',
     '## Raw results and failures', '',
-    `Raw independent runs and the manifest are stored under \`${directory}\`. Status counts: ${JSON.stringify(manifest.summary)}. Provider summary appended to [summary.json](../summary.json) without replacing historical data.`,
+    `Raw independent runs and the manifest are stored under \`${directory}\`. Status counts: ${JSON.stringify(manifest.summary)}. The provider summary is recorded in [summary.json](../summary.json).`,
     '',
     '## Limits and follow-up', '',
     'This report measures a single-node CoCreateDB run with adaptive memory residency and local Warm writes. MongoDB and Redis have separate provider adapters and reports; compare their results by operation while accounting for transport, indexing and durability differences. Distributed synchronization, replication, sharding, external persistence durability, server/client separation, and transaction guarantees are out of scope.'

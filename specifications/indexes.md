@@ -10,7 +10,30 @@ Query selection uses the smallest usable scalar index and verifies candidates wi
 
 ## CRUD selection and execution
 
-Create with a supplied UUID, read, update, and delete use the tree's `visitMatches` path. It locates UUIDs directly or scans index candidates, verifies the complete query, and invokes CRUD's operation handler for each match before continuing the same traversal. Mutating operations queue index reconciliation while the traversal is active; the tree applies that work after the visit completes. Create without a UUID keeps the direct staged-insert path. CRUD responses still collect their result values in the response envelope. This is an internal cursor-style traversal, not a public resumable cursor API.
+The Tree surface separates direct resource lookup from query candidate selection:
+
+```js
+tree.roots.get(path)
+tree.roots.set(path, value)
+tree.branches.get(uuid)
+tree.getPrimaryBranch(payload)
+tree.leaves.get(uuid)
+tree.leaves.has(uuid)
+tree.getLeaves(plan)
+tree.planner(branch, payload)
+```
+
+`getPrimaryBranch` resolves the configured root and provides the index-bearing
+descriptor to the composed planner. The current planner returns one plan with
+`strategy`, index `key` and `type`, `min` and `max`, and candidate `branches`.
+`tree.getLeaves(plan)` streams those candidates (or local leaves for a scan);
+CRUD verifies the complete predicate and applies its operation while consuming
+the stream. Mutations defer index reconciliation until traversal completes.
+UUID requests use direct `tree.leaves.get(uuid)`. Supplied create UUIDs use
+`tree.leaves.has(uuid)` to check resident, Disk, or Persistence records without
+hydrating existing leaf data. Create inserts directly under the resolved root.
+The planner result shape and more advanced multi-plan behavior are intentionally
+left for a separate design pass.
 
 An explicit UUID uses direct lookup. Create without a UUID follows the staged insert path and does not perform an existence lookup for its generated UUID; a supplied UUID is checked before it is reserved. Create and upsert keep their distinct duplicate/create semantics even though they share leaf insertion primitives.
 
@@ -20,10 +43,10 @@ Maintain index consistency when values change, preserve type fidelity, avoid dup
 
 ## Local residency pressure
 
-Adaptive mode is the default. At startup, the default requested allocation is 25% of total system memory. The effective soft RSS budget is the smaller of that allocation and memory available to the OS at startup (Linux `MemAvailable`, falling back to the OS free-memory value). This target guides CoCreateDB's Hot/Warm residency; it is not a hard cap on total process RSS or an ingress safeguard. Each completed CRUD request samples process RSS against this budget. Below 90% of budget, eviction passes start at most every 100 ms by default, with internal thresholds at 10%, 20%, 30%, 40%, 50%, 60%, 80%, and 90%. Each pass evicts the complete lowest eligible weight group from both branches and leaves; group size is determined by current weights, not a fixed item count. At or above 90%, each request signals pruning immediately. Requests that arrive during a pass share one pending signal, which is cleared when pressure drops below the active threshold with hysteresis.
+Adaptive mode is the default. At startup, the default requested allocation is 25% of total system memory. The effective soft RSS budget is the smaller of that allocation and memory available to the OS at startup (Linux `MemAvailable`, falling back to the OS free-memory value). This target guides CoCreateDB's Hot/Warm residency; it is not a hard cap on total process RSS or an ingress safeguard. Index listens to primary-server telemetry and owns the pressure stages, hysteresis, and pruning schedule. Each newly crossed stage queues `tree.prune(config.prune)`; branch pruning does not depend on which storage adapters are attached.
 
-An index pass selects the complete lowest eligible branch weight group; the leaf pass independently selects the complete lowest eligible leaf weight group. Each tier runs one pass at a time with up to four concurrent writes. At 90% pressure, adaptive request handling temporarily uses disk-first processing. The request can return its in-memory result while the DB writes and sheds local state; the 2.5 percentage point hysteresis returns it to adaptive handling below 87.5%. There is no separate 100% stage: above 90%, each request can signal another weighted pass without a fixed item count. Index scans and explicit branch access increase view weight. Index inserts, updates, and deletes track changes separately. A branch read or modified during its offload is skipped and can be reconsidered in a later pass.
+`tree.prune({ strategy, limit })` prunes terminal branch contents only; leaves are not candidates. The default strategy is LFU, ranked by branch `weight`; LRU ranks by `lastVisited`. `limit` is the maximum number of branches to prune, and an omitted limit means all eligible branches. Pruning flushes pending index work, preserves routing paths, and skips branches touched or modified during an asynchronous offload. When attached, local Disk and Persistence each receive a branch write before Tree releases its contents. Without local Disk, Tree rebuilds the pruned branch from resident leaf index entries on demand; reading persisted branches is not yet implemented. At 90% pressure, adaptive request handling can also temporarily use disk-first processing; the 2.5 percentage point hysteresis returns it to adaptive handling below 87.5%. This only affects request residency and does not define the prune strategy.
 
-This eviction policy mitigates DB-managed memory growth; it cannot prevent memory consumed by network input, active requests or server-side queues. Total process protection requires server-level telemetry and ingress backpressure.
+This pruning policy mitigates DB-managed memory growth; it cannot prevent memory consumed by network input, active requests or server-side queues. Total process protection requires server-level telemetry and ingress backpressure.
 
 After a leaf write commits, document index slots reference a shared disk descriptor for that leaf. The routing node remains in the tree for range and neighbor lookup. Reload reconstructs the live entries from the indexed values and document UUIDs in the leaf file, without loading document payloads. A leaf with a pending index mutation keeps its live entries until that mutation is reconciled.

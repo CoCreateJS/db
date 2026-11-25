@@ -1,0 +1,65 @@
+{
+  "status": "passed",
+  "benchmark": "cocreatedb-create-acknowledgement-diagnostic",
+  "benchmarkVersion": 1,
+  "fixture": "shared lifecycle fixture v3",
+  "fixtureVersion": "3.0.0",
+  "datasetSize": 100000,
+  "runIndex": 1,
+  "batchSize": 1000,
+  "warmups": 10,
+  "samples": 40,
+  "uuidMode": "supplied",
+  "configuration": {
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 75,
+    "deferIndex": true
+  },
+  "sourceRevision": "b11817c6f6cc95218cc577e934eca2a38e4d82a7",
+  "startedAt": "2026-11-25T21:09:32.707Z",
+  "singleCreateAcknowledgement": {
+    "acknowledgedCreates": 40,
+    "elapsedMs": 38.47854799999985,
+    "opsPerSecond": 1039.540265396713,
+    "latencyMs": {
+      "p50": 0.7046809999999937,
+      "p95": 2.325004999999976,
+      "p99": 3.943218999999999
+    },
+    "pendingLeavesBeforeDrain": 50,
+    "indexDrainMs": 66.92789299999998
+  },
+  "fixtureHash": "79fd345261896883833b8e006eaf41bf1f1d8e5239f8eb8c24e3fc43abcaac6b",
+  "bulkCreateAcknowledgement": {
+    "acknowledgedRecords": 100000,
+    "requests": 100,
+    "requestAcknowledgementMs": 7457.610514,
+    "acknowledgementOpsPerSecond": 13409.120764924946,
+    "requestLatencyMs": {
+      "p50": 56.852333000000726,
+      "p95": 116.64484999999968,
+      "p99": 239.61749399999997
+    },
+    "fixturePreparationMs": 927.4736869999997,
+    "pendingLeavesAfterAcknowledgement": 100000
+  },
+  "uuidReadBeforeIndexMs": 1.250238000000536,
+  "indexDrainAfterAcknowledgementMs": 65353.661582,
+  "pendingLeavesAfterIndexDrain": 0,
+  "createToIndexedWallMs": 73767.49751599999,
+  "createToIndexedWallExcludingFixturePreparationMs": 72840.02382899998,
+  "memory": {
+    "rss": 1045057536,
+    "heapTotal": 967147520,
+    "heapUsed": 895604688,
+    "external": 2478878,
+    "arrayBuffers": 178543
+  },
+  "peakRssBytes": 1045057536,
+  "cpuUsageUs": {
+    "user": 73320819,
+    "system": 18922149
+  },
+  "completedAt": "2026-11-25T21:10:46.652Z"
+}
