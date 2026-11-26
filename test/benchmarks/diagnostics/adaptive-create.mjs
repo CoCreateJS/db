@@ -43,7 +43,6 @@ const result = {
     requestedBudgetBytes: db.memoryPolicy?.requestedBudget,
     effectiveBudgetBytes: db.memoryPolicy?.budget,
     availableMemoryAtStartBytes: db.memoryPolicy?.availableMemory,
-    deferIndex: true,
     datasetSize: records,
     batchSize,
     requests: Math.ceil(records / batchSize),

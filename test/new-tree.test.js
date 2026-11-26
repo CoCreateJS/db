@@ -1,17 +1,18 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { Tree, createTree } from '../src/index.js'
+import { Tree, createTree, planQuery } from '../src/index.js'
+import { Tree as IndexTree } from '../src/tree/btree.js'
 import { MemoryDisk } from '../test-support/memory-disk.mjs'
 
 const envelope = { organization_id: 'org', storage: 'test', database: 'app', array: 'items' }
 
-test('Tree creates a batch before deferred indexing and leaves.get returns it by UUID', async () => {
-    const tree = await createTree({ deferIndex: true })
+test('Tree acknowledges a create batch and indexes the queued leaves in the background', async () => {
+    const tree = await createTree()
     const inserted = await tree.createLeaves('object', [{ value: 'first' }, { value: 'second' }], envelope)
 
     assert.equal(inserted.length, 2)
     assert.equal(await tree.leaves.get(inserted[0].uuid), inserted[0])
-    assert.equal(tree.pendingIndexCount, 2)
+    assert.ok(tree.pendingIndexCount >= 2)
 
     await tree.flushIndex()
     assert.equal(tree.pendingIndexCount, 0)
@@ -20,8 +21,73 @@ test('Tree creates a batch before deferred indexing and leaves.get returns it by
     assert.deepEqual(matches.sort(), ['first', 'second'])
 })
 
+test('indexed reads do not wait for queued creates and omit them until the indexer catches up', async () => {
+    const tree = await createTree({ size: 4, leafSize: 4 })
+    await tree.createLeaf('object', { value: 'existing' }, envelope)
+    await tree.flushIndex()
+
+    const insertMany = IndexTree.prototype.insertMany
+    let startIndexing
+    let releaseIndexing
+    const started = new Promise(resolve => { startIndexing = resolve })
+    const gate = new Promise(resolve => { releaseIndexing = resolve })
+    IndexTree.prototype.insertMany = async function(entries) {
+        if (this.key === 'value') {
+            startIndexing()
+            await gate
+        }
+        return await insertMany.call(this, entries)
+    }
+    try {
+        const queued = await tree.createLeaf('object', { value: 'pending' }, envelope)
+        await started
+        const branch = await tree.getPrimaryBranch({ ...envelope, method: 'object.read' })
+        const plan = planQuery(branch, { value: 'pending' })
+        assert.equal(plan.strategy, 'index')
+        const results = []
+        for await (const leaf of tree.getLeaves(plan)) results.push(leaf)
+        assert.equal(results.some(leaf => leaf.uuid === queued.uuid), false)
+
+        releaseIndexing()
+        await tree.flushIndex()
+        const indexed = []
+        for await (const leaf of tree.getLeaves(planQuery(await tree.getPrimaryBranch({ ...envelope, method: 'object.read' }), { value: 'pending' }))) indexed.push(leaf)
+        assert.deepEqual(indexed.map(leaf => leaf.uuid), [queued.uuid])
+    } finally {
+        releaseIndexing()
+        IndexTree.prototype.insertMany = insertMany
+    }
+})
+
+test('queued changes coalesce by leaf and batch entries for the same index tree', async () => {
+    const batches = []
+    const insertMany = IndexTree.prototype.insertMany
+    IndexTree.prototype.insertMany = async function(entries) {
+        batches.push({ key: this.key, length: entries.length })
+        return await insertMany.call(this, entries)
+    }
+    try {
+        const tree = await createTree({ size: 16, leafSize: 16 })
+        const leaves = await tree.createLeaves('object', Array.from({ length: 12 }, (_, value) => ({ value, group: 'shared' })), envelope)
+        for (const leaf of leaves) {
+            await leaf.setValue('group', 'merged')
+            await leaf.setValue('group', 'merged')
+        }
+        await tree.flushIndex()
+        assert.ok(batches.some(batch => batch.key === 'group' && batch.length >= leaves.length))
+        const oldEntries = []
+        for await (const entry of tree.range('group', 'string', { min: 'shared', max: 'shared' })) oldEntries.push(entry)
+        assert.equal(oldEntries.length, 0)
+        const currentEntries = []
+        for await (const entry of tree.range('group', 'string', { min: 'merged', max: 'merged' })) currentEntries.push(entry)
+        assert.equal(currentEntries.length, leaves.length)
+    } finally {
+        IndexTree.prototype.insertMany = insertMany
+    }
+})
+
 test('new Tree streams sorted ranges across split branches and updates leaf indexes', async () => {
-    const tree = await createTree({ size: 4, leafSize: 4, deferIndex: false })
+    const tree = await createTree({ size: 4, leafSize: 4 })
     const expected = []
     for (let score = 0; score < 40; score++) {
         expected.push(await tree.createLeaf('object', { name: `item-${score}`, score }, envelope))
@@ -68,7 +134,7 @@ test('new Tree streams sorted ranges across split branches and updates leaf inde
 
 test('Tree pruning releases a bounded number of branches and retains leaves and query paths', async () => {
     const disk = new MemoryDisk()
-    const tree = Tree.prepare({ size: 4, leafSize: 4, deferIndex: false })
+    const tree = Tree.prepare({ size: 4, leafSize: 4 })
     tree.disk = disk
     await tree.initialize()
     const leaves = []
@@ -94,7 +160,7 @@ test('Tree pruning releases a bounded number of branches and retains leaves and 
 
 test('Tree prune defaults to LFU and an omitted limit prunes every eligible branch', async () => {
     const disk = new MemoryDisk()
-    const tree = Tree.prepare({ size: 4, leafSize: 4, deferIndex: false })
+    const tree = Tree.prepare({ size: 4, leafSize: 4 })
     tree.disk = disk
     await tree.initialize()
     for (let score = 0; score < 40; score++)
@@ -108,7 +174,7 @@ test('Tree prune defaults to LFU and an omitted limit prunes every eligible bran
 })
 
 test('Tree can prune and rebuild derived branches without a storage adapter', async () => {
-    const tree = Tree.prepare({ size: 4, leafSize: 4, deferIndex: false })
+    const tree = Tree.prepare({ size: 4, leafSize: 4 })
     await tree.initialize()
     const leaves = []
     for (let score = 0; score < 40; score++)

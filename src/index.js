@@ -1,6 +1,7 @@
 import { CRUD } from './crud.js'
 import { createPlanner, QueryPlanner } from './queryPlanner.js'
 import { createConfiguration, createTree, defaultConfiguration, Tree } from './tree/index.js'
+import { OrganizationTrees } from './organizations.js'
 
 const modes = new Set(['adaptive', 'disk-first', 'disk-cache'])
 const isNode = typeof globalThis.process?.versions?.node === 'string'
@@ -43,17 +44,26 @@ export async function createDB(server = {}, options = {}) {
         await Tree.clearDisk(disk)
     }
 
-    const db = await createIndex({
-        ...options,
-        server,
-        mode,
+    const config = await loadConfiguration(options, disk)
+    const tree = new OrganizationTrees({
+        config,
         disk,
+        persistence: options.persistence ?? server?.persistence,
         treeOptions: {
             size: options.size,
             leafSize: options.leafSize,
-            deferIndex: options.deferIndex,
             ...options.treeOptions
         }
+    })
+    const db = await createIndex({
+        ...options,
+        config,
+        tree,
+        crud: tree,
+        server,
+        mode,
+        disk,
+        persistence: options.persistence ?? server?.persistence
     })
     if (mode === 'disk-first') db.tree.setDiskFirst(true)
     return db
@@ -140,7 +150,7 @@ export class Index {
     #forwardListener
     #telemetryTimestamps = new Map()
     #memoryQueue = Promise.resolve()
-    #diskFirstLeaves = new Set()
+    #diskFirstLeaves = new Map()
     #diskQueue = Promise.resolve()
     #diskError
     #flushTimer
@@ -148,6 +158,18 @@ export class Index {
     constructor({ config, tree, planner, crud, server = {}, memoryPercent = 25, prune = { strategy: 'lfu' }, mode = 'adaptive' }) {
         this.initialConfig = config
         this.tree = tree
+        this.organization = Object.freeze({
+            get: async organizationId => {
+                if (typeof this.tree?.getOrganizationTree !== 'function')
+                    throw new Error('This DB Tree does not manage organization-scoped Trees')
+                return await this.tree.getOrganizationTree(organizationId)
+            },
+            release: async organizationId => {
+                if (typeof this.tree?.releaseOrganization !== 'function')
+                    throw new Error('This DB Tree does not manage organization-scoped Trees')
+                return await this.tree.releaseOrganization(organizationId)
+            }
+        })
         this.planner = planner
         this.crud = crud
         this.mode = mode
@@ -270,7 +292,12 @@ export class Index {
             const operation = String(request?.method ?? '').split('.')[1]
             if (this.tree.diskFirst) {
                 const root = String(request?.method ?? '').split('.')[0]
-                for (const leaf of response?.[root] ?? []) if (typeof leaf?.uuid === 'string') this.#diskFirstLeaves.add(leaf.uuid)
+                const organizationId = request?.organization_id
+                if (typeof organizationId === 'string') {
+                    let leaves = this.#diskFirstLeaves.get(organizationId)
+                    if (!leaves) this.#diskFirstLeaves.set(organizationId, leaves = new Set())
+                    for (const leaf of response?.[root] ?? []) if (typeof leaf?.uuid === 'string') leaves.add(leaf.uuid)
+                }
             }
             if ((operation !== 'read' || this.tree.diskFirst && this.#diskFirstLeaves.size) && this.#flushTimer === undefined) {
                 this.#flushTimer = setTimeout(() => {
@@ -287,9 +314,11 @@ export class Index {
 
     async #releaseDiskFirstLeaves() {
         if (!this.#diskFirstLeaves.size) return
-        const ids = [...this.#diskFirstLeaves]
+        const leaves = [...this.#diskFirstLeaves]
         this.#diskFirstLeaves.clear()
-        for (const id of ids) await this.tree.evictLeaf(id)
+        for (const [organizationId, ids] of leaves) {
+            for (const id of ids) await this.tree.evictLeaf(id, organizationId)
+        }
     }
 
     async flushIndex() { return await this.tree?.flushIndex?.() }
@@ -338,6 +367,7 @@ export class Index {
         }
         await this.flushMemory()
         await this.flushLocal()
+        await this.tree?.close?.()
     }
 }
 

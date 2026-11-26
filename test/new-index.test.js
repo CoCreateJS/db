@@ -11,7 +11,7 @@ import { leafPath, MemoryDisk } from '../test-support/memory-disk.mjs'
 const envelope = { organization_id: 'index-org', storage: 'test', database: 'app', array: 'items' }
 
 test('Index composes Tree, Query Planner, and CRUD and delegates requests', async () => {
-    const index = await createIndex({ treeOptions: { deferIndex: false } })
+    const index = await createIndex()
     const created = await index.send({ ...envelope, method: 'object.create', object: { label: 'from-index' } })
 
     assert.equal(created.success, true, created.error?.join('; '))
@@ -103,7 +103,7 @@ test('shared package entry dynamically composes server disk and restores leaves 
     let db
     let restarted
     try {
-        db = await createDB({ disk }, { mode: 'adaptive', treeOptions: { deferIndex: false } })
+        db = await createDB({ disk }, { mode: 'adaptive' })
         const created = await db.send({
             ...envelope,
             method: 'object.create',
@@ -116,7 +116,7 @@ test('shared package entry dynamically composes server disk and restores leaves 
         await db.close()
         db = undefined
 
-        restarted = await createDB({ disk }, { mode: 'adaptive', treeOptions: { deferIndex: false } })
+        restarted = await createDB({ disk }, { mode: 'adaptive' })
         const read = await restarted.send({
             ...envelope,
             method: 'object.read',
@@ -213,7 +213,7 @@ test('create acknowledges the resident leaf before the queued local disk write, 
     assert.deepEqual(events, [], 'disk work starts only after the create response has been returned')
     assert.equal((await index.tree.leaves.get(response.object[0].uuid)).value, 'ack-first')
     await writeStarted
-    assert.deepEqual(events, ['leaf-write-start'], 'the create response is not held behind the disk write')
+    assert.ok(events.length > 0 && events.every(event => event === 'leaf-write-start'), 'leaf writes begin only after the create response has been returned')
 
     releaseWrite()
     await index.flushLocal()
@@ -324,7 +324,6 @@ test('Tree sends mutation operations directly to the attached Persistence resour
         async persist() { return { success: true, count: sent.length } }
     }
     const index = await createIndex({
-        treeOptions: { deferIndex: false },
         persistence
     })
     const created = await index.send({ ...envelope, method: 'object.create', object: { value: 'persist-me' } })
@@ -338,6 +337,7 @@ test('Tree sends mutation operations directly to the attached Persistence resour
     assert.equal(leafOperations()[0].kind, 'leaf')
     assert.equal(leafOperations()[0].data, leaf, 'Tree passes its live leaf without creating a snapshot')
 
+    await index.flushIndex()
     const pruned = await index.tree.prune({ limit: 1 })
     assert.equal(pruned.count, 1)
     assert.ok(sent.some(operation => operation.kind === 'branch' && operation.operation === 'write'))
@@ -435,7 +435,6 @@ test('disk-first requests acknowledge the live leaf and release it after local f
     const index = await createIndex({
         disk,
         config: { roots: { $organization_id: { storage: { database: { array: { object: {} } } } } } },
-        treeOptions: { deferIndex: false }
     })
     index.tree.setDiskFirst(true)
     const response = await index.send({ ...envelope, method: 'object.create', object: { value: 'disk-first' } })

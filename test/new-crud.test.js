@@ -15,6 +15,7 @@ test('new CRUD performs full-query matching and mutations through the Tree visit
     assert.equal(created.success, true, created.error?.join('; '))
     assert.equal(created.object.length, 40)
 
+    await tree.flushIndex()
     const rootBranch = await tree.getPrimaryBranch({ ...path, method: 'object.read' })
     const plan = planQuery(rootBranch, { group: 'all', rank: { $gte: 10, $lt: 30 } })
     assert.equal(plan.strategy, 'index')
@@ -33,6 +34,7 @@ test('new CRUD performs full-query matching and mutations through the Tree visit
     assert.equal(updated.success, true, updated.error?.join('; '))
     assert.equal(updated.object.length, 20)
 
+    await tree.flushIndex()
     const selected = await crud.send({
         ...path,
         method: 'object.read',
@@ -48,6 +50,7 @@ test('new CRUD performs full-query matching and mutations through the Tree visit
     assert.equal(deleted.success, true, deleted.error?.join('; '))
     assert.equal(deleted.object.length, 20)
 
+    await tree.flushIndex()
     const remaining = await crud.send({ ...path, method: 'object.read', filter: { query: { group: 'all' }, limit: 0 } })
     assert.equal(remaining.object.length, 20)
     assert.ok(remaining.object.every(leaf => leaf.active === false))
@@ -70,7 +73,7 @@ test('new CRUD handles UUID finds, route constraints, uniqueness, and unindexed 
 })
 
 test('CRUD UUID create checks and read/update/delete bypass index planning', async () => {
-    const tree = await createTree({ deferIndex: true })
+    const tree = await createTree()
     const crud = createCRUD(tree, new QueryPlanner())
     const created = await crud.send({ ...path, method: 'object.create', object: { uuid: 'direct-path-leaf', value: 1 } })
     assert.equal(created.success, true, created.error?.join('; '))
@@ -93,7 +96,7 @@ test('CRUD UUID create checks and read/update/delete bypass index planning', asy
 })
 
 test('CRUD delegates timestamp reconciliation to Utils and indexes only the applied result', async () => {
-    const tree = await createTree({ deferIndex: true })
+    const tree = await createTree()
     const crud = createCRUD(tree, new QueryPlanner())
     const created = await crud.send({
         ...path,

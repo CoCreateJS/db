@@ -44,7 +44,7 @@ Raw trial JSON, manifests and reports are written inside that provider's `result
 
 The suite records initialization/readiness, first and bulk creation, create/index throughput, UUID/equality/nested/range/complex-filter reads, updates, deletion, latency percentiles, sustained read/write/mixed throughput, total time, memory, CPU, fixture hash, source revision, correctness status, and provider-specific outstanding work when the adapter exposes it. Sustained concurrency is outstanding requests; a single-process CoCreateDB result does not imply parallel database threads.
 
-The standard provider lane sets `deferIndex: false`; its create acknowledgement timings include synchronous index insertion. Use the separate deferred create acknowledgement diagnostic to measure memory acknowledgement independently from later index drain. Those create timing totals are different workloads and should not be compared directly.
+The standard provider lane uses the single queued, batched indexing path. The report separates create acknowledgement from the final index drain, and create-plus-index includes both. The standalone indexing-queue diagnostics measure different workloads and should not be compared directly with standard totals.
 
 The standard CoCreateDB lane is memory-only and in-process. Provider lanes use their documented transport, indexing, durability and process boundaries. Compare only matching fixture hashes and operation semantics; retain the provider-specific costs rather than treating the output as a direct ranking. The one-million case is included in standard runs and may fail under a host's memory limit; the manifest preserves failures and stops later sizes only when resource exhaustion makes continuing unsafe.
 

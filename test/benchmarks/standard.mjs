@@ -159,7 +159,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         benchmarkVersion: 1, fixture: 'shared lifecycle fixture v3', fixtureVersion: '3.0.0',
         runIndex, datasetSize: size, sampleCount: samples, warmupCount: warmups,
         sustainedDurationMs: sustainMs, concurrencyLevels: concurrency,
-        environment, configuration: { roots: 'default', indexSize: 64, chunkSize: 1000, deferIndex: false, mode: 'adaptive', acknowledgement: 'memory', memoryPercent, telemetry: 'process RSS sampled every 100 ms by the benchmark harness' },
+        environment, configuration: { roots: 'default', indexSize: 64, chunkSize: 1000, indexing: 'queued and batched', mode: 'adaptive', acknowledgement: 'memory', memoryPercent, telemetry: 'process RSS sampled every 100 ms by the benchmark harness' },
         startedAt: new Date().toISOString()
     }
     const cpuStart = process.cpuUsage()
@@ -173,7 +173,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         const server = new EventEmitter()
         server.id = `benchmark-${runIndex}`
         server.isPrimary = true
-        db = await createDB.init(server, { prompt: false, disk, config: { memory: memoryPercent }, size: 64, deferIndex: false })
+        db = await createDB.init(server, { prompt: false, disk, config: { memory: memoryPercent }, size: 64 })
         const memoryTotal = environment.memoryLimitBytes ?? totalmem()
         const emitTelemetry = () => server.emit('telemetry', { data: {
             serverId: server.id,
@@ -194,7 +194,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         const send = request => db.send(request)
         const idleMemory = process.memoryUsage()
         const readyStart = performance.now()
-        assertResponse(await send({ method: 'object.read', object: { uuid: 'readiness-probe' } }), 'database readiness')
+        assertResponse(await send({ ...root, method: 'object.read', object: { uuid: 'readiness-probe' } }), 'database readiness')
         result.readiness = { readyMs: performance.now() - readyStart, ready: true }
         result.memory = { idle: idleMemory }
 
@@ -239,6 +239,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             reportProgress(end)
         }
         hash.update(']')
+        const pendingAfterCreate = db.pendingIndexCount
         const indexDrainStart = performance.now()
         await db.flushIndex()
         const indexDrainWaitMs = performance.now() - indexDrainStart
@@ -251,14 +252,13 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         result.fixtureGenerationMs = fixtureGenerationMs
         result.indexDrainWaitMs = indexDrainWaitMs
         result.indexCreationAndMaintenance = {
-            synchronous: !db.tree.deferIndex,
-            deferredIndexing: Boolean(db.tree.deferIndex),
+            mode: 'queued and batched',
             uuidMode: 'supplied',
             includedInCreateAndIndexMs: true,
             createAcknowledgementMs,
             fixtureGenerationMs,
             finalDrainWaitMs: indexDrainWaitMs,
-            pendingAfterCreate: db.pendingIndexCount
+            pendingAfterCreate
         }
         assert.equal(db.pendingIndexCount, 0, 'standard run must complete index maintenance before timing proceeds')
         const loadedMemory = process.memoryUsage()
@@ -337,6 +337,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             return send({ ...root, method: 'object.update', object: { uuid: uuidFor(rank), '$inc.revision': 1 } })
         }, response => { assertResponse(response, 'numeric increment'); assert.equal(response.object.length, 1) }, { warmups, samples })
         phase('numeric-increment-done')
+        await db.flushIndex()
         const indexedCheckRank = indexedStart + warmups + samples
         const indexedValue = `updated-group-sample-${samples - 1}`
         assert.equal((await rootRead(send, root, { filter: { query: { group: indexedValue }, limit: 1 } })).object[0]?.uuid, uuidFor(indexedCheckRank))
@@ -356,16 +357,19 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             return send({ ...root, method: 'object.delete', object: { uuid } })
         }, response => { assertResponse(response, 'single delete'); assert.equal(response.object.length, 1) }, { warmups, samples })
         phase('single-delete-done')
+        await db.flushIndex()
         for (const uuid of deleteIds) assert.equal((await rootRead(send, root, { object: { uuid } })).object.length, 0)
 
         const deleteQuery = { bulkDelete: true }
         const expectedDelete = Math.min(size, 25)
+        await db.flushIndex()
         const deletePrecheck = await rootRead(send, root, { filter: { query: deleteQuery, limit: 0 } })
         assert.equal(deletePrecheck.object.length, expectedDelete)
         const deleteStart = performance.now()
         const deleted = assertResponse(await send({ ...root, method: 'object.delete', filter: { query: deleteQuery, limit: 0 } }), 'filtered bulk delete')
         const filteredBulkDeleteMs = performance.now() - deleteStart
         assert.equal(deleted.object.length, expectedDelete)
+        await db.flushIndex()
         assert.equal((await rootRead(send, root, { filter: { query: deleteQuery, limit: 0 } })).object.length, 0)
         result.operations.filteredBulkDelete = { deleted: expectedDelete, elapsedMs: filteredBulkDeleteMs, opsPerSecond: expectedDelete / filteredBulkDeleteMs * 1000 }
         phase('filtered-delete-done')
@@ -433,7 +437,7 @@ async function orchestrate() {
         sampleCount: samples, warmupCount: warmups, sustainedDurationMs: sustainMs,
         concurrencyLevels: concurrency, results: [],
         stallTimeoutMs: Number(process.env.BENCH_STALL_MS ?? 10 * 60 * 1000),
-        configuration: { mode: 'adaptive', acknowledgement: 'memory', memoryPercent },
+        configuration: { mode: 'adaptive', acknowledgement: 'memory', memoryPercent, indexing: 'queued and batched' },
         legacyCompatibility: { status: 'not-run', fixture: 'lifecycle fixture v2', runs: [] }
     }
     let stopLargerSizes = false

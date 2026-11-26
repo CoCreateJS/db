@@ -42,7 +42,7 @@ async function runOne(size, runIndex, outputFile, uuidMode) {
         status: 'running', benchmark: 'cocreatedb-create-acknowledgement-diagnostic',
         benchmarkVersion: 1, fixture: 'shared lifecycle fixture v3', fixtureVersion: '3.0.0',
         datasetSize: size, runIndex, batchSize, warmups, samples, uuidMode,
-        configuration: { mode: 'adaptive', acknowledgement: 'memory', memoryPercent, deferIndex: true },
+        configuration: { mode: 'adaptive', acknowledgement: 'memory', memoryPercent, indexing: 'queued and batched' },
         sourceRevision: gitRevision(), startedAt: startedAt.toISOString()
     }
     const hash = createHash('sha256')
@@ -55,7 +55,7 @@ async function runOne(size, runIndex, outputFile, uuidMode) {
     try {
         const disk = await Disk.init({ directory })
         db = await createDB.init(undefined, {
-            prompt: false, disk, config: { memory: memoryPercent }, size: 64, deferIndex: true
+            prompt: false, disk, config: { memory: memoryPercent }, size: 64
         })
         const send = request => db.send(request)
 
@@ -201,7 +201,7 @@ async function orchestrate(size, uuidMode) {
         benchmark: 'CoCreateDB deferred create acknowledgement and index drain',
         benchmarkVersion: 1, runId, startedAt: startedAt.toISOString(), datasetSize: size,
         fixture: `shared lifecycle fixture v3 (${uuidMode} UUIDs)`, fixtureHash: uuidMode === 'supplied' ? '79fd345261896883833b8e006eaf41bf1f1d8e5239f8eb8c24e3fc43abcaac6b' : null,
-        uuidMode, runsRequested: runs, configuration: { mode: 'adaptive', acknowledgement: 'memory', memoryPercent: Number(process.env.BENCH_MEMORY_PERCENT ?? 75), deferIndex: true },
+        uuidMode, runsRequested: runs, configuration: { mode: 'adaptive', acknowledgement: 'memory', memoryPercent: Number(process.env.BENCH_MEMORY_PERCENT ?? 75), indexing: 'queued and batched' },
         sourceRevision: gitRevision(), sourceWorkingTreeDirty: execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).trim().length > 0,
         sourceHashes: {}, results: []
     }

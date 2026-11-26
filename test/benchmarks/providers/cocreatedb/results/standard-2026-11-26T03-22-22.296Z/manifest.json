@@ -1,0 +1,56 @@
+{
+  "suite": "CoCreateDB standard single-node benchmark v2",
+  "runId": "2026-11-26T03-22-22.296Z",
+  "startedAt": "2026-11-26T03:22:22.296Z",
+  "sizes": [
+    100000
+  ],
+  "independentRunsRequested": 3,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 1000,
+  "concurrencyLevels": [
+    1
+  ],
+  "results": [
+    {
+      "size": 100000,
+      "runIndex": 1,
+      "status": "passed",
+      "file": "size-100000-run-01.json",
+      "elapsedMs": 48681.424905
+    },
+    {
+      "size": 100000,
+      "runIndex": 2,
+      "status": "passed",
+      "file": "size-100000-run-02.json",
+      "elapsedMs": 48260.325897
+    },
+    {
+      "size": 100000,
+      "runIndex": 3,
+      "status": "passed",
+      "file": "size-100000-run-03.json",
+      "elapsedMs": 48654.568127000006
+    }
+  ],
+  "stallTimeoutMs": 600000,
+  "configuration": {
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 25,
+    "indexing": "queued and batched"
+  },
+  "legacyCompatibility": {
+    "status": "not-run",
+    "fixture": "lifecycle fixture v2",
+    "runs": []
+  },
+  "completedAt": "2026-11-26T03:25:54.571Z",
+  "summary": {
+    "successfulRuns": 3,
+    "failedRuns": 0,
+    "notAttempted": 0
+  }
+}

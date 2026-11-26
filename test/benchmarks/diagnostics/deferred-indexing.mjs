@@ -20,7 +20,7 @@ const outputDir = resolve(process.env.BENCH_OUTPUT_DIR ?? join(here, 'results'))
 const outputFile = join(outputDir, `deferred-indexing-${runId}.json`)
 const directory = join(tmpdir(), `cocreatedb-deferred-${process.pid}-${Date.now()}`)
 const root = lifecycleRoot(size)
-const db = await createDB({}, { directory, deferIndex: true, mode: 'adaptive', size: 64 })
+const db = await createDB({}, { directory, mode: 'adaptive', size: 64 })
 const send = (method, extra) => db.send({ ...root, method: `object.${method}`, ...extra })
 const percentile = (values, ratio) => {
     const sorted = [...values].sort((a, b) => a - b)
@@ -52,7 +52,6 @@ const result = {
     datasetSize: size,
     createUuidMode: 'generated-by-database',
     chunkSize,
-    deferIndex: true,
     mode: 'adaptive',
     acknowledgement: 'memory',
     memoryPercent: db.memory.percent,

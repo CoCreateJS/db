@@ -138,13 +138,11 @@ Object.defineProperties(prototype,{
         if (key !== undefined) {
             const slot = index[key]
             if (slot instanceof DiskBranch) await slot.load()
-            else if (slot instanceof Entry && !slot.index) await this[ATTACH]?.(slot)
             return index[key]
         }
         for (const name of Object.keys(index)) {
             const slot = index[name]
             if (slot instanceof DiskBranch) await slot.load()
-            else if (slot instanceof Entry && !slot.index) await this[ATTACH]?.(slot)
         }
         return index
     }},
@@ -152,7 +150,7 @@ Object.defineProperties(prototype,{
     setValue:{value:async function(key,value){
         const current=await this.toMemory();if(current!==this)return await current.setValue(key,value)
         if(await this[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found")
-        await this.touch?.();await this[DEFER]?.flush(this)
+        await this.touch?.()
         if(['uuid','parent','root','_id'].includes(key)||this[STRUCTURAL]&&key==='name')throw Error(`immutable ${key}`);if(!scalar(value)||typeof value==='number'&&!Number.isFinite(value))throw Error('scalar update required')
         const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.');if(parts.some(k=>!k||['__proto__','constructor','prototype'].includes(k)))throw Error('invalid path')
         const parent=parts.length===1?this:get(this,parts.slice(0,-1).join('.')), property=parts.at(-1)
@@ -162,6 +160,11 @@ Object.defineProperties(prototype,{
         if (slot && Object.is(previous, value)) return this
         const entry = await this.getIndex(key)
         const write=()=>{parent[property]=value}
+        if(this[DEFER]){
+            if(entry?.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=previous
+            write();await this[Symbol.for("cocreate.markDirty")]?.();this[DEFER].queue(this,new Set([key]))
+            return this
+        }
         if(entry?.index&&type(entry.value)===type(value)){
             write();await this[Symbol.for("cocreate.markDirty")]?.()
             await entry.tree.move(entry,value,()=>{entry.value=value})
@@ -172,19 +175,42 @@ Object.defineProperties(prototype,{
         }
         return this
     }},
-    delete:{value:async function(key){const current=await this.toMemory();if(current!==this)return await current.delete(key);if(key===undefined)return await this[Symbol.for("cocreate.deleteLeaf")]();if(await this[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found");await this.touch?.();await this[DEFER]?.flush(this);if(['uuid','parent','root','_id'].includes(key)||this[STRUCTURAL]&&key==='name')throw Error(`immutable ${key}`);const entry=await this.getIndex(key);if(!entry)return false;const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.'),parent=parts.length===1?this:get(this,parts.slice(0,-1).join('.'));delete parent[parts.at(-1)];await this[Symbol.for("cocreate.markDirty")]?.();if(entry.index)await entry.tree.remove(entry);delete this[INDEX][key];return true}}
+    delete:{value:async function(key){const current=await this.toMemory();if(current!==this)return await current.delete(key);if(key===undefined)return await this[Symbol.for("cocreate.deleteLeaf")]();if(await this[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found");await this.touch?.();if(['uuid','parent','root','_id'].includes(key)||this[STRUCTURAL]&&key==='name')throw Error(`immutable ${key}`);const entry=await this.getIndex(key);if(!entry&&get(this,key)===undefined)return false;const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.'),parent=parts.length===1?this:get(this,parts.slice(0,-1).join('.'));delete parent[parts.at(-1)];await this[Symbol.for("cocreate.markDirty")]?.();if(this[DEFER]){if(entry?.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=entry.value;this[DEFER].queue(this,new Set([key]));return true}if(entry?.index)await entry.tree.remove(entry);delete this[INDEX][key];return true}}
 })
-export function createLeaf(object, structural = false, { deferIndex = false } = {}){
+export function createLeaf(object, structural = false){
     if(Object.getPrototypeOf(object)!==Object.prototype)throw Error('plain object required')
     for(const key of ['getValue','setValue','getIndex','delete','viewed','touch','toDisk','toMemory','getUuid','getData','getFile'])if(Object.hasOwn(object,key))throw Error('reserved key')
-    if(!deferIndex)pruneUndefined(object);const keys=deferIndex?undefined:paths(object);object.uuid??=uuid();if(typeof object.uuid!=='string'||!object.uuid)throw Error('invalid uuid')
+    object.uuid??=uuid();if(typeof object.uuid!=='string'||!object.uuid)throw Error('invalid uuid')
     Object.defineProperty(object,'uuid',{writable:false,configurable:false,enumerable:true,value:object.uuid})
     for(const key of structural?['parent','root','name']:['parent','root'])if(Object.hasOwn(object,key))Object.defineProperty(object,key,{writable:false,configurable:false,enumerable:true,value:object[key]})
-    const index=Object.create(null);if(keys)for(const key of keys.keys())if(key!=='uuid')index[key]=new Entry(object,key)
+    const index=Object.create(null)
     Object.defineProperties(object,{[STRUCTURAL]:{value:structural},[INDEX]:{value:index},[ATTACH]:{value:null,writable:true}});Object.setPrototypeOf(object,prototype);return object
 }
 export async function attach(object,insert){object[ATTACH]=insert;for(const entry of residentIndexEntries(object))await insert(entry)}
 export function initializeLeaf(object,insert){object[ATTACH]=insert;return object}
+
+export async function removeIndexedEntry(entry){
+    const tree=entry.tree
+    if(!tree||typeof entry.key!=='string')return false
+    const removeFrom=async node=>{
+        node=await node.toMemory()
+        for(const [value,entries] of node.entries??[]){
+            const indexed=entries.find(candidate=>candidate.uuid===entry.uuid)
+            if(!indexed)continue
+            indexed.value=value
+            await tree.remove(indexed)
+            entry.index=null
+            return true
+        }
+        return false
+    }
+    if(entry.index&&await removeFrom(entry.index))return true
+    for(const value of new Set([entry.value,entry._value])){
+        const node=await tree.locate({value,uuid:entry.uuid})
+        if(await removeFrom(node))return true
+    }
+    return false
+}
 
 export function deferLeaf(object,handler){
     if(object[DEFER])return undefined
@@ -193,8 +219,16 @@ export function deferLeaf(object,handler){
 }
 export async function reconcileLeaf(object,insert,changedPaths){
     const selective = changedPaths instanceof Set
+    const index=object[INDEX]
+    if(!selective&&!Object.keys(index).length){
+        pruneUndefined(object)
+        for(const [key,value] of paths(object))if(key!=='uuid')index[key]=new Entry(object,key,object.uuid,value)
+        object[ATTACH]=insert
+        for(const entry of residentIndexEntries(object))await insert(entry)
+        return
+    }
     if(!selective)pruneUndefined(object)
-    const after=selective?undefined:paths(object),index=object[INDEX]
+    const after=selective?undefined:paths(object)
     const keys=selective?changedPaths:new Set(Object.keys(index))
     if(!selective)for(const key of after.keys())keys.add(key)
     for(const key of keys){
@@ -203,7 +237,7 @@ export async function reconcileLeaf(object,insert,changedPaths){
         if(!entry)continue
         const exists=selective?get(object,key)!==undefined:after.has(key)
         const value=selective?get(object,key):after.get(key)
-        if(entry?.index&&(!exists||!Object.is(entry.value,value)))await entry.tree.remove(entry)
+        if(entry?.tree&&(!exists||!Object.is(entry.value,value)))await removeIndexedEntry(entry)
         delete entry[SNAPSHOT]
         if(exists)entry.value=value
         if(!exists)delete index[key]

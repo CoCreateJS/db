@@ -196,8 +196,18 @@ export class Tree {
         return node
     }
     async locate(entry,node=this.root){await this.initialize();await node.toMemory();node.touch();while(node.branches){const at=Math.min(lower(node.branches,entry,(p,e)=>order(lastOf(p),e)),node.branches.length-1);node=await this.resolveChild(node,at);node.touch()}return node.toMemory()}
-    async insert(entry,start=this.root){
-        const node=await this.locate(entry,start), i=lower(node.entries,entry.value,(g,v)=>compare(g[0],v))
+    locateResident(entry,node=this.root){
+        if(!this.initialized||node.onDisk)return
+        while(node.branches){
+            if(!node.branches.length)return node
+            const at=Math.min(lower(node.branches,entry,(branch,value)=>order(lastOf(branch),value)),node.branches.length-1)
+            node=node.branches[at]
+            if(!(node instanceof Branch)||node.onDisk)return
+        }
+        return node.entries?node:undefined
+    }
+    insertAt(node,entry){
+        const i=lower(node.entries,entry.value,(g,v)=>compare(g[0],v))
         let group=node.entries[i]
         if(!group||compare(group[0],entry.value)!==0){group=[entry.value,[]];node.entries.splice(i,0,group)}
         const j=lower(group[1],entry.uuid,(e,u)=>compare(e.uuid,u))
@@ -212,8 +222,16 @@ export class Tree {
         if(added){for(let branch=node;branch;branch=branch.parent)branch.length++;this.refreshInserted(node)}
         else this.refresh(node)
     }
+    insert(entry,start=this.root){
+        const node=this.locateResident(entry,start)
+        if(node)return this.insertAt(node,entry)
+        return this.locate(entry,start).then(node=>this.insertAt(node,entry))
+    }
     async insertMany(entries){
-        for(const entry of entries)await this.insert(entry)
+        for(const entry of entries){
+            const result=this.insert(entry)
+            if(result?.then)await result
+        }
         return entries.length
     }
     refreshInserted(node){

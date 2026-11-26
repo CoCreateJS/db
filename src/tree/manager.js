@@ -1,12 +1,11 @@
 import { uuid, getValueFromObject, dotNotationToObject } from '@cocreate/utils'
 import { defer, cancelDefer } from './defer.js'
-import { createLeaf, attach, initializeLeaf, residentIndexEntries, type, deferLeaf, reconcileLeaf } from './leaf.js'
+import { createLeaf, initializeLeaf, residentIndexEntries, type, deferLeaf, reconcileLeaf, removeIndexedEntry } from './leaf.js'
 import { Tree as IndexTree } from './btree.js'
 
 const uuidValue = () => uuid().replaceAll('-', '')
 const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const STOP = Symbol.for('cocreate.db.tree.stop')
-const INDEX_BATCH_SIZE = 1024
 
 export function defaultConfiguration() {
     return {
@@ -73,11 +72,20 @@ async function insertEntry(tree, size, leafSize, entry, local, leaves) {
     await entry.insert(index)
 }
 
-export async function createRootManager({ db, size = 1024, leafSize = size, deferIndex = false, persistConfig = () => {}, persist }) {
-    const pendingIndex = new Map()
+export async function createRootManager({ db, size = 1024, leafSize = size, persistConfig = () => {}, persist }) {
+    const pendingChanges = new Map()
+    const inFlight = new Set()
+    const pendingIndex = Object.freeze({
+        get size() {
+            let count=pendingChanges.size
+            for(const leaf of inFlight)if(!pendingChanges.has(leaf))count++
+            return count
+        },
+        has(leaf) { return pendingChanges.has(leaf)||inFlight.has(leaf) }
+    })
     const deleted = db.deleted = new Map()
     db.deleting ??= new Set()
-    let scheduled, indexError, activeTraversals = 0
+    let scheduled, indexError
     let workQueue = Promise.resolve()
     for (const route of db.config.indexes) {
         if (!route || typeof route.key !== 'string' || typeof route.type !== 'string' || typeof route.uuid !== 'string') throw Error('Invalid index root catalog')
@@ -99,41 +107,38 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
         }
         for (const [index, batch] of batches) await index.insertMany(batch)
     }
-    async function flushLeaf(leaf) {
+    async function flushLeaf(leaf, changedPaths, insertBatch) {
         if(indexError)throw indexError
-        if(!pendingIndex.has(leaf))return
         try {
             if(deleted.get(leaf.uuid) === leaf) {
                 if(db.deleting.has(leaf.uuid))return
-                for(const entry of Object.values(await leaf.getIndex()))if(entry.index)await entry.tree.remove(entry)
+                for(const entry of Object.values(await leaf.getIndex()))if(entry.tree)await removeIndexedEntry(entry)
                 deleted.delete(leaf.uuid)
             } else {
-                const changedPaths=pendingIndex.get(leaf)
-                await reconcileLeaf(leaf,insert,changedPaths instanceof Set?changedPaths:undefined)
+                await reconcileLeaf(leaf,entry=>{insertBatch.push(entry)},changedPaths instanceof Set?changedPaths:undefined)
             }
-            pendingIndex.delete(leaf)
         }
         catch(error){indexError=error;throw error}
-    }
-    async function persistLeaves() {
-        await db.leaves.persistDeletes?.()
-        await db.leaves.persistDirty?.()
     }
     function serializeWork(operation) {
         const task = workQueue.then(operation, operation)
         workQueue = task.catch(() => {})
         return task
     }
+    async function persistLeaves() {
+        await db.leaves.persistDeletes?.()
+        await db.leaves.persistDirty?.()
+    }
     function queueIndex(leaf, changedPaths) {
-        if (!pendingIndex.has(leaf)) pendingIndex.set(leaf, changedPaths === undefined ? undefined : new Set(changedPaths))
+        if (!pendingChanges.has(leaf)) pendingChanges.set(leaf, changedPaths === undefined ? undefined : new Set(changedPaths))
         else {
-            const pending=pendingIndex.get(leaf)
+            const pending=pendingChanges.get(leaf)
             if (pending instanceof Set && changedPaths !== undefined) for (const key of changedPaths) pending.add(key)
-            else pendingIndex.set(leaf, undefined)
+            else pendingChanges.set(leaf, undefined)
         }
         schedule()
     }
-    const handler={queue:queueIndex,flush:leaf=>serializeWork(async()=>{await persistLeaves();return await flushLeaf(leaf)})}
+    const handler={queue:queueIndex}
     function emitPersistence(leaf, operation = 'write') {
         const root = rootIds.get(leaf.uuid) ?? rootIds.get(leaf.parent) ?? leaf.parent ?? leaf.uuid
         return persist?.({
@@ -147,18 +152,38 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
     async function drain(limit = Infinity) {
         return await serializeWork(async () => {
         if (indexError) throw indexError
-        // Leaves are the recovery source: make pending leaf writes durable
-        // before constructing or changing any derived index entries.
+        // The response has already been acknowledged. Keep accepted leaves
+        // durable before applying their derived index work.
         await persistLeaves()
-        for (const leaf of pendingIndex.keys()) {
+        const batch=[]
+        for (const [leaf, changedPaths] of pendingChanges) {
             if (limit-- <= 0) break
-            try { await flushLeaf(leaf) }
-            catch (error) { indexError = error; throw error }
+            pendingChanges.delete(leaf)
+            inFlight.add(leaf)
+            batch.push({leaf,changedPaths})
+        }
+        if (!batch.length) return
+        // Keep queued leaves resident through reconciliation, then group the
+        // resulting entries by index tree for insertion.
+        const insertBatch=[]
+        try {
+            for (const {leaf,changedPaths} of batch) await flushLeaf(leaf,changedPaths,insertBatch)
+            if (insertBatch.length) await insertEntries(insertBatch)
+        } catch (error) {
+            for (const {leaf,changedPaths} of batch) {
+                if (!pendingChanges.has(leaf)) pendingChanges.set(leaf,changedPaths)
+            }
+            indexError = error
+            throw error
+        } finally {
+            for (const {leaf} of batch) {
+                inFlight.delete(leaf)
+            }
         }
         })
     }
     function schedule() {
-        if (scheduled || !pendingIndex.size || indexError || activeTraversals) return
+        if (scheduled || !pendingChanges.size || indexError) return
         scheduled = defer(async () => {
             scheduled = undefined
             try { await drain(64) } catch { return }
@@ -168,7 +193,7 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
     async function flushIndex() {
         if (scheduled) cancelDefer(scheduled)
         scheduled = undefined
-        await drain()
+        do { await drain() } while (pendingChanges.size || inFlight.size)
     }
 
     function syncIndexCatalog() {
@@ -183,30 +208,17 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
 
     async function visitRanges(key, valueType, ranges, { mutating = false } = {}, visit) {
         if (typeof visit !== 'function') throw new TypeError('visit must be a function')
-        await flushIndex()
         const index = db.tree.get(key)?.get(valueType)
         if (!index || !ranges?.length) return 0
-        activeTraversals++
         let count = 0
-        try {
-            for (const range of ranges) {
-                const branch = range.branchUuid ? await index.findUuid(range.branchUuid) : index.root
-                if (!branch) continue
-                for await (const entry of index.scan(range.min, range.max, branch)) {
-                    const leaf = await getLeaf(entry.uuid)
-                    if (!leaf || deleted.has(entry.uuid)) continue
-                    const restoreDefer = mutating ? deferLeaf(leaf, handler) : undefined
-                    try {
-                        count++
-                        if (await visit(leaf, entry) === STOP) return count
-                    } finally { restoreDefer?.() }
-                }
-            }
-        } finally {
-            activeTraversals--
-            if (!activeTraversals) {
-                if (deferIndex) schedule()
-                else await drain()
+        for (const range of ranges) {
+            const branch = range.branchUuid ? await index.findUuid(range.branchUuid) : index.root
+            if (!branch) continue
+            for await (const entry of index.scan(range.min, range.max, branch)) {
+                const leaf = await getLeaf(entry.uuid)
+                if (!leaf || deleted.has(entry.uuid)) continue
+                count++
+                if (await visit(leaf, entry) === STOP) return count
             }
         }
         return count
@@ -214,24 +226,11 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
 
     async function visitLeaves({ mutating = false } = {}, visit) {
         if (typeof visit !== 'function') throw new TypeError('visit must be a function')
-        await flushIndex()
-        activeTraversals++
         let count = 0
-        try {
-            for await (const leaf of db.leaves.values()) {
-                if (!leaf || deleted.has(leaf.uuid)) continue
-                const restoreDefer = mutating ? deferLeaf(leaf, handler) : undefined
-                try {
-                    count++
-                    if (await visit(leaf) === STOP) break
-                } finally { restoreDefer?.() }
-            }
-        } finally {
-            activeTraversals--
-            if (!activeTraversals) {
-                if (deferIndex) schedule()
-                else await drain()
-            }
+        for await (const leaf of db.leaves.values()) {
+            if (!leaf || deleted.has(leaf.uuid)) continue
+            count++
+            if (await visit(leaf) === STOP) break
         }
         return count
     }
@@ -240,36 +239,22 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
         if (!plan || !['none', 'scan', 'index'].includes(plan.strategy))
             throw new TypeError('Tree.getLeaves requires a query plan')
         if (plan.strategy === 'none') return
-        await flushIndex()
-        activeTraversals++
-        try {
-            if (plan.strategy === 'scan') {
-                for await (const leaf of db.leaves.values()) {
-                    if (!leaf || deleted.has(leaf.uuid)) continue
-                    const restoreDefer = deferLeaf(leaf, handler)
-                    try { yield leaf }
-                    finally { restoreDefer?.() }
-                }
-                return
+        if (plan.strategy === 'scan') {
+            for await (const leaf of db.leaves.values()) {
+                if (!leaf || deleted.has(leaf.uuid)) continue
+                yield leaf
             }
-            const index = db.tree.get(plan.key)?.get(plan.type)
-            if (!index) return
-            for (const range of plan.branches ?? []) {
-                const branch = range.uuid ? await index.findUuidDeep(range.uuid) : index.root
-                if (!branch) continue
-                for await (const entry of index.scan(plan.min, plan.max, branch)) {
-                    const leaf = await getLeaf(entry.uuid)
-                    if (!leaf || deleted.has(entry.uuid)) continue
-                    const restoreDefer = deferLeaf(leaf, handler)
-                    try { yield leaf }
-                    finally { restoreDefer?.() }
-                }
-            }
-        } finally {
-            activeTraversals--
-            if (!activeTraversals) {
-                if (deferIndex) schedule()
-                else await drain()
+            return
+        }
+        const index = db.tree.get(plan.key)?.get(plan.type)
+        if (!index) return
+        for (const range of plan.branches ?? []) {
+            const branch = range.uuid ? await index.findUuidDeep(range.uuid) : index.root
+            if (!branch) continue
+            for await (const entry of index.scan(plan.min, plan.max, branch)) {
+                const leaf = await getLeaf(entry.uuid)
+                if (!leaf || deleted.has(entry.uuid)) continue
+                yield leaf
             }
         }
     }
@@ -347,8 +332,7 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
         await configuration().setValue(configPath, value)
         return getRoots(path)
     }
-    async function create(value, parent, root, { identityChecked = false, structural: structuralValue, deferSchedule = false, batchEntries } = {}) {
-        if (indexError) throw indexError
+    async function create(value, parent, root, { identityChecked = false, structural: structuralValue } = {}) {
         if (!isRecord(value)) throw new TypeError(`${root} must contain an object`)
         const suppliedUuid = value.uuid !== undefined
         value.root = root
@@ -360,28 +344,22 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
         if (root === 'object') value._id ??= uuidValue().slice(0, 24)
         if (root === "object" && identities.has(identityKey(value.parent, value._id))) throw Error("duplicate identity")
         if (deleted.has(value.uuid) || suppliedUuid && !identityChecked && await db.leaves.has(value.uuid)) throw new Error(`Leaf UUID already exists: ${value.uuid}`)
-        const leaf = createLeaf(value, isRoot, { deferIndex: deferIndex && !isRoot })
+        const leaf = createLeaf(value, isRoot)
         db.leaves.set(leaf.uuid, leaf)
         db.leaves.markDirty?.(leaf)
         const persistenceRoot = rootIds.get(parent?.uuid) ?? parent?.uuid ?? leaf.uuid
         if (isRoot) rootIds.set(leaf.uuid, persistenceRoot)
         const persistenceWrite = emitPersistence(leaf)
         if (persistenceWrite) await persistenceWrite
-        if (deferIndex && !isRoot) {
-            deferLeaf(leaf,handler)
-            queueIndex(leaf)
-            if (!deferSchedule) schedule()
-        } else if (batchEntries) {
-            initializeLeaf(leaf, insert)
-            for (const entry of residentIndexEntries(leaf)) batchEntries.push(entry)
-        }
-        else await attach(leaf, insert)
+        deferLeaf(leaf,handler)
+        queueIndex(leaf)
         if (root === "object") identities.set(identityKey(leaf.parent, leaf._id), leaf.uuid)
         if (isRoot) register(leaf)
         bindLeaf(leaf)
         return leaf
     }
     function bindLeaf(leaf) {
+        deferLeaf(leaf,handler)
         Object.defineProperty(leaf, Symbol.for("cocreate.deleteLeaf"), {value:()=>remove(leaf)})
         Object.defineProperty(leaf, Symbol.for("cocreate.isLiveLeaf"), {value:async()=>await getLeaf(leaf.uuid)===leaf})
         Object.defineProperty(leaf, Symbol.for("cocreate.markDirty"), {value:async()=>{db.leaves.markDirty?.(leaf);const pending=emitPersistence(leaf);if(pending)await pending}})
@@ -391,14 +369,14 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
         if(restored){
             const add=e=>!e.index?insert(e):undefined
             initializeLeaf(leaf,add)
-            if(deferIndex){deferLeaf(leaf,handler);if(initializeIndexes)handler.queue(leaf)}
-            if(initializeIndexes&&!deferIndex)await attach(leaf,add)
+            deferLeaf(leaf,handler)
+            if(initializeIndexes)handler.queue(leaf)
         }
         return bindLeaf(leaf)
     }
     async function restoreLeaf(value){
         const structuralLeaf=Object.hasOwn(catalog,value.uuid)
-        const leaf=createLeaf(value,structuralLeaf,{deferIndex:deferIndex&&!structuralLeaf})
+        const leaf=createLeaf(value,structuralLeaf)
         await db.leaves.set(leaf.uuid,leaf)
         if (structuralLeaf) rootIds.set(leaf.uuid, rootIds.get(leaf.parent) ?? leaf.parent ?? leaf.uuid)
         if(leaf.root==='object')identities.set(identityKey(leaf.parent,leaf._id),leaf.uuid)
@@ -454,8 +432,7 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
             delete catalog[id]
             await persistConfig()
         }
-        if(deferIndex || activeTraversals){queueIndex(leaf)}
-        else {queueIndex(leaf);await flushLeaf(leaf)}
+        queueIndex(leaf)
         return true
     }
 
@@ -494,22 +471,15 @@ export async function createRootManager({ db, size = 1024, leafSize = size, defe
     async function createMany(values, parent, root, { identityChecked = false } = {}) {
         const structuralValue = await structural(parent, root)
         const leaves = []
-        let batchEntries = !deferIndex && !structuralValue && values.length >= 64 ? [] : undefined
         try {
             for (const value of values) {
-                const leaf = await create(value, parent, root, { identityChecked, structural: structuralValue, deferSchedule: true, batchEntries })
+                const leaf = await create(value, parent, root, { identityChecked, structural: structuralValue })
                 if (leaf) leaves.push(leaf)
-                if (batchEntries?.length >= INDEX_BATCH_SIZE) {
-                    await insertEntries(batchEntries)
-                    batchEntries.length = 0
-                }
             }
         } catch (error) {
-            if (batchEntries?.length) await insertEntries(batchEntries)
             throw error
         }
-        if (batchEntries?.length) await insertEntries(batchEntries)
-        if (deferIndex && !structuralValue && leaves.length) schedule()
+        if (leaves.length) schedule()
         return leaves
     }
 

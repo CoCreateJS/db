@@ -52,7 +52,7 @@ export class Tree {
     #manager
     #disk
     #pruneQueue = Promise.resolve()
-    static prepare({ config, roots, size = 1024, leafSize = size, deferIndex = true } = {}) {
+    static prepare({ config, roots, size = 1024, leafSize = size } = {}) {
         const configuration = createConfiguration({ config, roots })
         const database = {
             config: configuration,
@@ -61,14 +61,15 @@ export class Tree {
             deleting: new Set(),
             readExternal: undefined
         }
-        const tree = new Tree(database, { size, leafSize, deferIndex })
+        const tree = new Tree(database, { size, leafSize })
         tree.roots = Object.freeze({
             get: path => tree.#manager
                 ? tree.#manager.getRoots(path)
                 : structuredClone(path ? getValueFromObject(database.config.roots, path) : database.config.roots),
-            set: (path, value) => {
+            execute: ({ operation, path, data } = {}) => {
                 if (!tree.#manager) throw new Error('Tree must be initialized before updating roots')
-                return tree.#manager.setRoots(path, value)
+                if (operation !== 'set') throw new TypeError(`Unsupported Tree roots operation: ${operation}`)
+                return tree.#manager.setRoots(path, data)
             }
         })
         tree.branches = Object.freeze({ get: uuid => tree.#getBranch(uuid) })
@@ -93,7 +94,6 @@ export class Tree {
             db: this.#database,
             size: this.size,
             leafSize: this.leafSize,
-            deferIndex: this.deferIndex,
             persistConfig: async () => {
                 const data = JSON.stringify(this.#database.config)
                 const writes = []
@@ -113,7 +113,6 @@ export class Tree {
         this.#database = database
         this.size = options.size ?? 1024
         this.leafSize = options.leafSize ?? this.size
-        this.deferIndex = options.deferIndex ?? true
         this.#diskFirst = false
     }
 
@@ -184,7 +183,6 @@ export class Tree {
             if (!/Missing root reference|Ambiguous root path/.test(error.message)) throw error
             resolved = { target, path: undefined, parent: undefined, missing: false, incomplete: true }
         }
-        await this.flushIndex()
         const fields = []
         for (const [key, types] of this.#database.tree) {
             for (const [type, index] of types) {
@@ -220,7 +218,6 @@ export class Tree {
     /** Resolve a branch UUID across the configured field/type indexes. */
     async #getBranch(uuid) {
         if (typeof uuid !== 'string' || !uuid) throw new TypeError('Branch UUID is required')
-        await this.flushIndex()
         for (const types of this.#database.tree.values()) {
             for (const index of types.values()) {
                 const branch = await index.findUuidDeep(uuid)
@@ -232,7 +229,6 @@ export class Tree {
 
     /** Stream index entries in an inclusive value range without materializing them. */
     async *range(key, type, { min, max, branchUuid } = {}) {
-        await this.flushIndex()
         const index = this.#getIndex(key, type)
         if (!index) return
         const branch = branchUuid ? await index.findUuid(branchUuid) : index.root
@@ -319,7 +315,6 @@ export class Tree {
         if (strategy === 'noeviction' || limit === 0)
             return Promise.resolve({ strategy, target: 0, candidates: 0, count: 0, skipped: 0 })
         const task = this.#pruneQueue.then(async () => {
-            await this.flushIndex()
             if (this.#database.local) return await this.#database.local.prune({ strategy, limit })
             const candidates = []
             for (const types of this.#database.tree.values())

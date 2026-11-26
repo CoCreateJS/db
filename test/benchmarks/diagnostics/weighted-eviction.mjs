@@ -21,7 +21,7 @@ const outputDir = resolve(process.env.BENCH_OUTPUT_DIR ?? join(here, 'results'))
 const outputFile = join(outputDir, `weighted-eviction-${runId}.json`)
 const directory = join(tmpdir(), `cocreatedb-weighted-${process.pid}-${Date.now()}`)
 const root = lifecycleRoot(size)
-const db = await createDB({}, { directory, deferIndex: false, memoryPolicy: false })
+const db = await createDB({}, { directory, memoryPolicy: false })
 const send = (method, extra) => db.send({ ...root, method: `object.${method}`, ...extra })
 const progress = createProgressReporter('cocreatedb-weighted-eviction', size)
 const elapsed = start => performance.now() - start

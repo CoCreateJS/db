@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import DB from '../test-support/database.mjs'
 
-test('organization record and named organization root have independent identities', async () => {
+test('organization data uses separate trees and disk directories', async () => {
     const db = await DB()
     const platform = { organization_id: 'platform', storage: 'main', database: 'app', array: 'organizations' }
     const id = '507f1f77bcf86cd799439011'
@@ -13,28 +13,34 @@ test('organization record and named organization root have independent identitie
     assert.equal(result.success, true, result.error?.join('; '))
     await db.flushDisk()
     const config = JSON.parse(JSON.stringify(db.config))
-    const [rootId, root] = Object.entries(config.leaves).find(([, v]) => v.root === '$organization_id' && v.name === id)
-    assert.match(rootId, /^[a-f0-9]{32}$/)
-    assert.notEqual(rootId, id)
-    assert.equal(config.leaves[id], undefined)
-    assert.equal(root.parent, undefined)
+    assert.equal(Object.hasOwn(config.roots, '$organization_id'), false)
+    assert.deepEqual(Object.keys(config.leaves), [])
     assert.equal((await db.send({ ...platform, method: 'object.read', object: { uuid: id } })).object[0].name, 'Acme')
     assert.equal((await db.send({ ...context, method: 'object.read', object: { uuid: id } })).object.length, 0)
-    const copy = await DB({}, { config })
-    const created = await copy.send({ ...context, method: 'object.create', object: { uuid: 'another' } })
-    assert.equal(created.success, true)
-    await copy.flushDisk()
-    assert.equal(created.object[0].parent, result.object[0].parent)
-    assert.deepEqual(JSON.parse(JSON.stringify(copy.config)), config)
+    const platformTree = await db.tree.getOrganizationTree('platform')
+    const organizationTree = await db.tree.getOrganizationTree(id)
+    assert.notEqual(platformTree, organizationTree)
+    assert.equal(platformTree.config.leaves[result.object[0].uuid], undefined)
+    assert.equal(Object.hasOwn(result.object[0], 'organization_id'), false)
+    assert.ok(Object.hasOwn(organizationTree.config.roots, 'storage'))
+    await db.flushDisk()
+    const directories = await db.tree.disk.execute({ operation: 'list', kind: 'directory' })
+    assert.ok(directories.includes('platform'))
+    assert.ok(directories.includes(id))
+    const reopened = await DB({}, { disk: db.tree.disk, config })
+    const restored = await reopened.send({ ...context, method: 'object.read', object: { uuid: 'product' } })
+    assert.equal(restored.success, true, restored.error?.join('; '))
+    assert.equal(restored.object[0].uuid, 'product')
+    assert.equal((await reopened.send({ ...platform, method: 'object.read', object: { uuid: 'product' } })).object.length, 0)
 })
 
 test('arbitrary dynamic root names resolve generically at multiple depths', async () => {
-    const db = await DB({}, { roots: { $tenant_id: { $project_id: { object: {} } } } })
-    const context = { tenant_id: 'tenant', project_id: 'project' }
+    const db = await DB({}, { roots: { $organization_id: { $tenant_id: { $project_id: { object: {} } } } } })
+    const context = { organization_id: 'organization', tenant_id: 'tenant', project_id: 'project' }
     const creation = await db.send({ ...context, method: 'object.create', object: { uuid: 'item' } })
     assert.equal(creation.success, true, creation.error?.join('; '))
     await db.flushIndex()
-    const config = db.config.leaves
+    const config = (await db.tree.getOrganizationTree('organization')).config.leaves
     const project = config[creation.object[0].parent]
     assert.equal(project.root, '$project_id')
     assert.equal(project.name, 'project')

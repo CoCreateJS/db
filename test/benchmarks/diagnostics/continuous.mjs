@@ -25,7 +25,6 @@ const root = lifecycleRoot(target)
 const db = await createDB({}, {
     directory,
     size: 64,
-    deferIndex: true,
     config: { memory: 25 },
     memoryPolicy: { systemMemory, interval: 1000 }
 })
