@@ -1,3 +1,4 @@
+import { waitForIndex } from '../shared/wait-for-index.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
@@ -65,7 +66,7 @@ try {
         assert.equal(response.object.length, records.length)
         progress(end)
     }
-    await db.flushIndex()
+    await waitForIndex(db)
     result.createAndIndexMs = elapsed(createStart)
     result.memoryAfterCreate = memory()
 

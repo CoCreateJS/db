@@ -1,3 +1,4 @@
+import { waitForIndex } from '../shared/wait-for-index.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
@@ -120,12 +121,12 @@ async function createPhase() {
     result.pendingAfterCreate = db.pendingIndexCount
     result.createAcknowledgementMemory = process.memoryUsage()
     const drainStart = performance.now()
-    await db.flushIndex()
+    await waitForIndex(db)
     result.createIndexDrainMs = performance.now() - drainStart
     result.pendingAfterCreateDrain = db.pendingIndexCount
     assert.equal(result.pendingAfterCreateDrain, 0)
     const indexDiskStart = performance.now()
-    await db.flushDisk()
+    await waitForIndex(db)
     result.createLocalDiskFlushAfterIndexMs = performance.now() - indexDiskStart
     result.createDiskOperations = diskDifference(diskBefore)
 }
@@ -147,12 +148,12 @@ async function updatePhase() {
     result.updateAcknowledgementMemory = process.memoryUsage()
     result.pendingAfterUpdate = db.pendingIndexCount
     const drainStart = performance.now()
-    await db.flushIndex()
+    await waitForIndex(db)
     result.updateIndexDrainMs = performance.now() - drainStart
     result.pendingAfterUpdateDrain = db.pendingIndexCount
     assert.equal(result.pendingAfterUpdateDrain, 0)
     const indexDiskStart = performance.now()
-    await db.flushDisk()
+    await waitForIndex(db)
     result.updateLocalDiskFlushAfterIndexMs = performance.now() - indexDiskStart
     result.updateDiskOperations = diskDifference(diskBefore)
     const selected = await send('read', { filter: { query: { rank: { $gte: size, $lt: size + updateCount } }, limit: 0 } })
@@ -214,12 +215,12 @@ async function deletePhase() {
     result.deleteAcknowledgementMemory = process.memoryUsage()
     result.pendingAfterDelete = db.pendingIndexCount
     const drainStart = performance.now()
-    await db.flushIndex()
+    await waitForIndex(db)
     result.deleteIndexDrainMs = performance.now() - drainStart
     result.pendingAfterDeleteDrain = db.pendingIndexCount
     assert.equal(result.pendingAfterDeleteDrain, 0)
     const indexDiskStart = performance.now()
-    await db.flushDisk()
+    await waitForIndex(db)
     result.deleteLocalDiskFlushAfterIndexMs = performance.now() - indexDiskStart
     result.deleteDiskOperations = diskDifference(diskBefore)
     for (let rank = 0; rank < deleteCount; rank++) {

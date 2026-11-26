@@ -1,0 +1,86 @@
+{
+  "status": "failed",
+  "benchmark": "cocreatedb-standard-single-node-adaptive",
+  "benchmarkVersion": 1,
+  "fixture": "shared lifecycle fixture v3",
+  "fixtureVersion": "3.0.0",
+  "runIndex": 1,
+  "datasetSize": 100000,
+  "sampleCount": 40,
+  "warmupCount": 10,
+  "sustainedDurationMs": 5000,
+  "concurrencyLevels": [
+    1,
+    8
+  ],
+  "environment": {
+    "date": "2026-11-26T16:36:30.080Z",
+    "node": "v24.18.0",
+    "platform": "linux-x64",
+    "release": "7.0.0-1018-aws",
+    "os": "#19~24.04.1-Ubuntu SMP PREEMPT Thu Nov 12 17:17:32 UTC 2026",
+    "cpuModel": "AMD EPYC 7571",
+    "cpuCount": 2,
+    "totalMemoryBytes": 8218959872,
+    "freeMemoryBytesAtStart": 4609605632,
+    "databaseVersion": "1.1.0",
+    "sourceRevision": "8ebc6d156fb6c19878e0e04a1af1b2a91c8ce663",
+    "processModel": "single in-process Node process; benchmark client and database share CPU/RSS",
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 25,
+    "persistence": "external persistence not configured; local Warm disk writes enabled",
+    "durability": "local writes are queued after memory acknowledgement; disk drain excluded from request timings",
+    "diskUsageBytes": null,
+    "diskIO": null
+  },
+  "configuration": {
+    "roots": "default",
+    "indexSize": 64,
+    "chunkSize": 1000,
+    "indexing": "queued and batched",
+    "mode": "adaptive",
+    "acknowledgement": "memory",
+    "memoryPercent": 25,
+    "telemetry": "process RSS sampled every 100 ms by the benchmark harness"
+  },
+  "startedAt": "2026-11-26T16:36:30.088Z",
+  "memoryPolicy": {
+    "requestedPercent": 25,
+    "totalMemoryBytes": 8218959872,
+    "availableMemoryBytes": 8155455488,
+    "requestedBudgetBytes": 2054739968,
+    "effectiveBudgetBytes": 2054739968
+  },
+  "initializationMs": 2.933014000000014,
+  "readiness": {
+    "readyMs": 5.244807999999978,
+    "ready": true
+  },
+  "memory": {
+    "idle": {
+      "rss": 63504384,
+      "heapTotal": 11513856,
+      "heapUsed": 7815456,
+      "external": 2494696,
+      "arrayBuffers": 174604
+    }
+  },
+  "firstObjectCreateMs": 4.485877000000016,
+  "failure": {
+    "name": "Error",
+    "message": "Index queue did not catch up within 30000ms (96100 pending)",
+    "stack": "Error: Index queue did not catch up within 30000ms (96100 pending)\n    at waitForIndex (file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/shared/wait-for-index.mjs:6:19)\n    at async runOne (file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/standard.mjs:245:9)\n    at async file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/standard.mjs:531:20"
+  },
+  "completedAt": "2026-11-26T16:37:09.488Z",
+  "totalElapsedMs": 39397.922638000004,
+  "cpuUsageUs": {
+    "user": 32848637,
+    "system": 25046121
+  },
+  "subprocess": {
+    "exitCode": 1,
+    "signal": null,
+    "stderr": ""
+  }
+}

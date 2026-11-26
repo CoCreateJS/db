@@ -1,3 +1,4 @@
+import { waitForIndex } from '../shared/wait-for-index.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
@@ -79,12 +80,12 @@ try {
     result.peakRssBeforeDrainMiB = process.resourceUsage().maxRSS / 1024
 
     const indexStart = performance.now()
-    await db.flushIndex()
+    await waitForIndex(db)
     result.indexDrainMs = performance.now() - indexStart
     result.pendingIndexAfterDrain = db.pendingIndexCount
 
     const diskStart = performance.now()
-    await db.flushDisk()
+    await waitForIndex(db)
     result.diskDrainMs = performance.now() - diskStart
     result.fullElapsedMs = performance.now() - started
     result.effectiveModeAtEnd = db.effectiveMode

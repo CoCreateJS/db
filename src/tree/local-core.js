@@ -97,6 +97,12 @@ export class LocalTier {
         index.onDisk = true
     }
 
+    releasePersisted(index) {
+        if (this.active.has(index) || !index.entries || index.branches || this.dirty.has(index) || !this.weights.has(index) || !this.canRelease(index)) return false
+        this.release(index)
+        return true
+    }
+
     async restore(id, index, value) {
         if (this.resolveLeaf) return restoreIndexEntry(await this.resolveLeaf(id), index, value, id)
         return this.resolve(id, index.tree.key)

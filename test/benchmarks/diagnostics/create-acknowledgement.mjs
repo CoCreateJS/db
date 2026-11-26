@@ -1,3 +1,4 @@
+import { waitForIndex } from '../shared/wait-for-index.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
@@ -68,7 +69,7 @@ async function runOne(size, runIndex, outputFile, uuidMode) {
         }
         const seedResponse = await send({ ...root, method: 'object.create', object: seed })
         assert.equal(seedResponse.success, true, JSON.stringify(seedResponse.error))
-        await db.flushIndex()
+        await waitForIndex(db)
 
         const singleCreateTimes = []
         let singleCreateAcknowledgementMs = 0
@@ -97,7 +98,7 @@ async function runOne(size, runIndex, outputFile, uuidMode) {
             pendingLeavesBeforeDrain: db.pendingIndexCount
         }
         const singleDrainStart = performance.now()
-        await db.flushIndex()
+        await waitForIndex(db)
         result.singleCreateAcknowledgement.indexDrainMs = performance.now() - singleDrainStart
         assert.equal(db.pendingIndexCount, 0)
 
@@ -159,7 +160,7 @@ async function runOne(size, runIndex, outputFile, uuidMode) {
         assert.equal(directRead.object[0].uuid, lastUuid)
 
         const drainStart = performance.now()
-        await db.flushIndex()
+        await waitForIndex(db)
         result.indexDrainAfterAcknowledgementMs = performance.now() - drainStart
         result.pendingLeavesAfterIndexDrain = db.pendingIndexCount
         result.createToIndexedWallMs = performance.now() - phaseStart
@@ -179,7 +180,7 @@ async function runOne(size, runIndex, outputFile, uuidMode) {
         result.completedAt = new Date().toISOString()
     } finally {
         if (db) {
-            try { await db.flushDisk?.() }
+            try { await waitForIndex(db) }
             catch (error) { result.cleanupFailure = error.message; result.status = 'failed' }
             await db.close?.()
         }
@@ -244,7 +245,7 @@ async function orchestrate(size, uuidMode) {
         `- Fixture: shared lifecycle fixture v3 with ${uuidMode} UUIDs, ${size}; hash is recorded per run.`,
         `- Mode: adaptive; acknowledgement: memory; memory allocation: ${manifest.configuration.memoryPercent}%; deferred tree indexing enabled.`,
         '- Each trial uses a fresh Node process and isolated temporary DB directory. Values are medians across independent trials.',
-        '- Create acknowledgement measures elapsed time awaiting `object.create` responses. Index drain measures the remaining `flushIndex()` time after the create responses; background indexing may already have progressed during creation.',
+        '- Create acknowledgement measures elapsed time awaiting `object.create` responses. Index drain measures the remaining `waitForIndex()` time after the create responses; background indexing may already have progressed during creation.',
         '- The benchmark verifies the last created leaf can be read directly by UUID before the index drain finishes.',
         '- New leaves enter the resident map before deferred index entries are constructed; the UUID read check confirms map availability before index drain.',
         '',

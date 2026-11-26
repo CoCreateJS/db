@@ -243,6 +243,16 @@ export class LeafTier extends Map {
         } finally { record.active = false }
     }
 
+    releasePersisted(object) {
+        const record = object && this.refs.get(object)
+        if (!record || record.object !== object || record.evicted || record.active || this.dirty.get(record.id) === object || this.pendingDeletes.has(record.id) || this.pending?.has(object)) return false
+        for (const entry of residentIndexEntries(object)) entry.releaseObject()
+        this.remove(record)
+        super.delete(record.id)
+        record.evicted = true
+        return true
+    }
+
     evictBatch(limit, options) {
         return this.weights.evictBatch(limit, record => !!record.object && !record.evicted && !record.active && !this.pending?.has(record.object), record => this.evictOne(record), options)
     }

@@ -1,3 +1,4 @@
+import { waitForIndex } from '../shared/wait-for-index.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdir, mkdtemp, rm, statfs, writeFile } from 'node:fs/promises'
@@ -168,7 +169,7 @@ function snapshot() {
         pendingIndex: db.pendingIndexCount }
 }
 async function idleWindow(durationMs, label) {
-    await db.flushDisk()
+    await waitForIndex(db)
     const started = performance.now()
     const samples = []
     let nextSample = 0
@@ -181,7 +182,7 @@ async function idleWindow(durationMs, label) {
             nextSample += 5000
         }
     }
-    await db.flushDisk()
+    await waitForIndex(db)
     const beforeGc = snapshot()
     if (typeof global.gc === 'function') {
         for (let i = 0; i < 3; i++) {
@@ -203,7 +204,7 @@ async function idleWindow(durationMs, label) {
 }
 
 async function checkpoint() {
-    await db.flushDisk()
+    await waitForIndex(db)
     const disk = await statfs(directory)
     const state = { ...snapshot(), diskFreeMiB: disk.bavail * disk.bsize / 2 ** 20 }
     result.checkpoints.push(state)
@@ -269,7 +270,7 @@ try {
         assert.equal(match?.uuid, uuid(rank))
         if (gcEvery && Math.floor(created / gcEvery) > Math.floor((created - length) / gcEvery)) {
             await idleWindow(idleMs, 'records-' + created)
-            await db.flushDisk()
+            await waitForIndex(db)
             const beforeGc = snapshot()
             if (typeof global.gc === 'function') {
                 for (let i = 0; i < 3; i++) {
@@ -291,8 +292,8 @@ try {
         if (Math.floor(created / 10_000) !== Math.floor(offset / 10_000) || created === records) await checkpoint()
     }
     const indexDrainStart = performance.now()
-    await db.flushIndex()
-    await db.flushDisk()
+    await waitForIndex(db)
+    await waitForIndex(db)
     result.indexDrainMs = performance.now() - indexDrainStart
     result.growth = snapshot()
     result.growthFields = indexDetails()
@@ -341,8 +342,8 @@ try {
     assert.equal(db.leafTier.totalSize - 4, live)
     phase = 'drain'
     const drainStart = performance.now()
-    await db.flushIndex()
-    await db.flushDisk()
+    await waitForIndex(db)
+    await waitForIndex(db)
     result.finalDrainMs = performance.now() - drainStart
     result.beforeProbeFields = indexDetails()
     const keysToProbe = fieldNames.filter(key => !selectedFields.includes(key))
@@ -352,7 +353,7 @@ try {
         const [row] = await send('read', { filter: { query: { [key]: value(0, fieldIndex) }, limit: 1 } }, 'warmField')
         assert.equal(row?.uuid, uuid(0))
         assert.ok(db.local.reads > reads, 'point query should reload warm index data')
-        await db.flushDisk()
+        await waitForIndex(db)
         result.warmFieldProbe = { key, indexReads: db.local.reads - reads }
     }
     for (const tree of fieldTrees) {
@@ -366,7 +367,7 @@ try {
         assert.equal(object?.uuid, leaf.firstUuid)
         assert.equal(leaf.onDisk, false)
         result.warmFieldProbe = { key: tree.key, indexReads: db.local.reads - reads }
-        await db.flushDisk()
+        await waitForIndex(db)
         break
     }
     await idleWindow(finalIdleMs, 'final')
@@ -376,7 +377,7 @@ try {
     result.error = error.stack
     console.error(error)
     process.exitCode = 1
-    try { await db.flushDisk() } catch {}
+    try { await waitForIndex(db) } catch {}
 } finally {
     result.final = snapshot()
     if (offloadedEntrySamples) {

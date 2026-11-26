@@ -1,3 +1,4 @@
+import { waitForIndex } from '../shared/wait-for-index.mjs'
 import assert from 'node:assert/strict'
 import {queryData} from '@cocreate/utils'
 import {Tree} from '../../../src/tree/index.js'

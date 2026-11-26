@@ -1,31 +1,37 @@
 # CoCreateDB source architecture
 
 The source tree is organized around the active implementation. `src/index.js`
-is the single package entry point and composition root. It resolves explicit or
-stored configuration, initializes Tree, and wires the Query Planner, CRUD,
-Persistence, and disk resources. `Index.send()` delegates to CRUD; Index does
-not contain query planning or operation logic.
+is the single package entry point and composition root. It resolves explicit
+configuration and creates the DB runtime. The DB routes requests to an
+organization-scoped Tree and composes the Query Planner, CRUD, Persistence,
+and disk resources. `db.send()` delegates CRUD work to the selected Tree.
 
 `Tree.persistence` is an optional resource attached by the composition root.
-Tree sends each leaf read, write, or delete to its `execute(operation)` method.
-The attached resource owns any queue, grouping, storage mapping, and provider
-policy. Tree has no external persistence journal. Without a resource, it sends
-no external persistence operations. Tree owns its `disk`
-property, and Index composes it by assigning the initialized Disk resource
+Both `tree.disk` and `tree.persistence` expose a default `execute(request)`
+when unattached. Writes and deletes return the request, reads return
+`undefined`, existence checks return `false`, and lists return `[]`.
+These default responses complete the call without establishing durability.
+Tree sends leaf reads to its `execute(operation)` method. After indexing has
+written the local leaf and changed branches, Tree notifies the adapter of their
+UUIDs and whether each was written or deleted. It does not send leaf or branch
+snapshots in those notifications; the adapter owns the queue, grouping, and
+storage policy. Tree has no external persistence journal. Without a resource,
+it sends no external persistence notifications. Tree owns its `disk`
+property, and DB composes it by assigning the initialized Disk resource
 directly: `tree.disk = disk`. Tree maps logical leaf, branch and config
 operations to provider requests internally. Without an attached resource, Tree
 operates in memory.
-Index composes persistence by assigning the supplied resource directly:
+DB composes persistence by assigning the supplied resource directly:
 `tree.persistence = persistence`. A resource may expose `persist()` for an
 adapter-owned drain; `db.persist()` delegates to it. The DB does not include a
 Workflow integration; Workflow can be composed as an adapter by its host.
 
-Index owns memory pressure policy. It listens to primary-server telemetry,
+DB owns memory pressure policy. It listens to primary-server telemetry,
 establishes a baseline from the first valid sample, and uses a default budget of
 25% of system memory capped by memory available at that baseline. Each newly
-crossed pressure stage queues `tree.prune(...)`. Index passes its pruning
+crossed pressure stage queues `tree.prune(...)`. DB passes its pruning
 configuration through; the default strategy is LFU regardless of storage.
-At 90% of budget, Index also temporarily
+At 90% of budget, DB also temporarily
 enables Tree's disk-first request path; it clears below the hysteresis point.
 This is a runtime pressure override and does not rewrite the configured
 database mode.
@@ -34,8 +40,8 @@ database mode.
 `limit` bounds the number of branches released; omitting it prunes every
 eligible branch selected by the strategy. LFU is Tree's default when called
 without a strategy. LRU uses `lastVisited`; LFU uses branch `weight`. Pruning
-flushes pending index work and releases eligible branch contents, while leaving
-leaf objects resident and preserving routing paths. When attached, local Disk
+releases eligible branch contents, while leaving leaf objects resident and
+preserving routing paths. When attached, local Disk
 and Persistence each receive a branch write before Tree releases its contents.
 Without local Disk, Tree rebuilds a pruned branch from resident leaves' index
 entries when it is next needed; Persistence branch reads are not yet part of the
@@ -44,7 +50,7 @@ recovery path.
 ## Tree and CRUD boundaries
 
 `tree/` owns root configuration, live leaves, field/type indexes, branch
-splitting, range traversal, and the disk operation boundary. Index assigns an
+splitting, range traversal, and the disk operation boundary. DB assigns an
 initialized Disk resource directly to Tree, so Tree does not import Node or
 browser APIs. Its public structure is:
 
@@ -75,16 +81,29 @@ cannot shift the active range underneath the loop.
 
 When local storage is enabled, initialize Disk in the host and pass it as
 `server.disk` or `options.disk`. If no disk resource is supplied, the database
-stays in memory.
+stays in memory. A standalone Tree is composed before initialization:
 
-`Tree.flushLocal()` completes pending index work before writing dirty leaves,
-branches and the index catalog. External persistence policy belongs to the
+```js
+const tree = new Tree()
+tree.disk = disk
+tree.persistence = persistence
+await tree.init({ roots, indexes, leaves, prune, size, leafSize })
+```
+
+Mutations acknowledge the live memory change, then the single background
+indexer keeps consuming queued leaf changes. It writes dirty leaves before
+their derived index branches and root catalog, and yields between bounded
+batches so later changes coalesce by leaf. There is no public flush API for
+indexing, memory, local storage, or disk; callers do not control this continuous
+work loop. `Tree.close()` waits for outstanding work as a lifecycle boundary.
+Tests and benchmarks may observe `pendingIndexCount` to coordinate checks
+without invoking a flush operation. External persistence policy belongs to the
 attached resource. `crud/` and `query-planner/` are independent resources composed by
-Index. The planner chooses one index or a full scan, and CRUD verifies the
-complete query and applies its operation in the Tree visitor. Index passes the
-resolved config to Tree, then injects Tree and the planner into CRUD. CRUD
-depends on their APIs rather than importing their implementations; none of
-these modules import Index or depend on its setup details.
+DB. The planner chooses one index or a full scan, and CRUD verifies the
+complete query and applies its operation in the Tree visitor. DB creates the
+organization-scoped Tree and composes the planner and CRUD. CRUD depends on
+their APIs rather than importing their implementations; these modules do not
+depend on DB setup details.
 
 For indexed reads or mutations, CRUD resolves the request root, calls the
 composed planner, and passes its plan to `tree.getLeaves(plan)`. The visitor

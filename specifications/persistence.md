@@ -1,11 +1,11 @@
 # Persistence contract
 
-Persistence is a Tree resource, separate from local Disk. Index composes the
+Persistence is a Tree resource, separate from local Disk. DB composes the
 initialized resource directly onto Tree:
 
 ```js
 const db = await createDB(server, { persistence })
-// Composition performed by Index:
+// Composition performed by DB:
 tree.persistence = persistence
 ```
 

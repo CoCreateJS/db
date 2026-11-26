@@ -1,3 +1,4 @@
+import { waitForIndex } from '../shared/wait-for-index.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -56,8 +57,8 @@ try {
         assert.equal(response.success, true, JSON.stringify(response.error))
         assert.equal(response.object.length, object.length)
     }
-    await db.flushIndex()
-    await db.flushDisk()
+    await waitForIndex(db)
+    await waitForIndex(db)
     result.createAndIndexMs = performance.now() - started
     result.peakRssMiB = process.resourceUsage().maxRSS / 1024
     result.leafFiles = db.leafTier.warm.size

@@ -23,7 +23,7 @@ CoCreateDB runs as a local database in both browser clients and Node.js servers.
 
 ## Client-server database model
 
-Application code imports the same `@cocreate/db` entry in both environments. The entry composes Tree, CRUD, query planning, optional Persistence and optional Disk. Index maps Tree disk operations to paths; the attached Disk resource performs platform I/O through `execute()`.
+Application code imports the same `@cocreate/db` entry in both environments. The entry composes Tree, CRUD, query planning, optional Persistence and optional Disk. Tree maps its disk operations to paths; the attached Disk resource performs platform I/O through `execute()`.
 
 | Runtime | Storage and default | Processing model |
 | --- | --- | --- |
@@ -97,6 +97,7 @@ A UUID identifies a leaf directly. Supplied root constraints are still checked. 
 
 ```js
 const result = await database.send({
+    ...context,
     method: 'object.update',
     object: { uuid, '$inc.quantity': 5, price: 90 }
 })
@@ -108,6 +109,7 @@ The update response preserves the applied patch in `object` and provides complet
 
 ```js
 const result = await database.send({
+    ...context,
     method: 'object.delete',
     object: { uuid }
 })
@@ -125,13 +127,11 @@ The default configuration is:
 {
     version: '1.0.0',
     roots: {
-        $organization_id: {
-            storage: {
-                database: {
-                    array: {
-                        object: {},
-                        index: {}
-                    }
+        storage: {
+            database: {
+                array: {
+                    object: {},
+                    index: {}
                 }
             }
         }
@@ -140,7 +140,7 @@ The default configuration is:
 }
 ```
 
-A root beginning with `$` resolves its name from the corresponding request property. For example, `$organization_id` resolves `organization_id`. The value names the structural leaf; it does not become its UUID. Other dynamic root names work the same way.
+The DB composer uses each request's `organization_id` to select or create an organization Tree. Organization is not a configured root; the Tree carries `tree.organizationId`, and its Disk paths are rooted under that ID. Other roots beginning with `$` resolve their names from request properties, such as `$tenant_id` or `$project_id`. A dynamic root value names the structural leaf; it does not become its UUID.
 
 ```js
 const database = await db({}, {
@@ -150,10 +150,10 @@ const database = await db({}, {
 })
 ```
 
-Create and upsert can establish missing ancestors; reads do not create them. Structural identities are recorded in `db.config.leaves`, independently from ordinary object data. Configuration can be transferred to another engine to reuse structural UUIDs:
+Create and upsert can establish missing ancestors; reads do not create them. Structural identities are recorded in the organization's Tree config at `tree.config.leaves`, independently from ordinary object data. Configuration can be transferred to another engine to reuse structural UUIDs:
 
 ```js
-const config = JSON.parse(JSON.stringify(database.config))
+const config = (await database.organization.get(context.organization_id)).config
 const replica = await db({}, { config })
 ```
 
@@ -169,7 +169,7 @@ The index primitives are independently usable from the source modules. Their low
 
 ## Runtime integration
 
-The public engine exposes `send()` and `config`. `createDB(server, options)` is asynchronous and must be awaited because it resolves configuration before composing Tree. Attach an initialized Disk resource as `server.disk` or `options.disk`; otherwise the database stays in memory. It accepts an optional living server object and configuration. The initializer also integrates with `@cocreate/config`:
+The public engine exposes `send()`, `config`, and `organization.get(id)`, which returns that organization's Tree. `createDB(server, options)` is asynchronous and must be awaited because it resolves configuration before composing Tree. Attach an initialized Disk resource as `server.disk` or `options.disk`; otherwise the database stays in memory. It accepts an optional living server object and configuration. The initializer also integrates with `@cocreate/config`:
 
 ```js
 import db from './src/index.js'

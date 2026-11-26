@@ -1,3 +1,4 @@
+import { waitForIndex } from '../shared/wait-for-index.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
@@ -201,7 +202,7 @@ try {
 
     sample()
     const drainStart = performance.now()
-    await db.flushIndex()
+    await waitForIndex(db)
     result.indexDrainMs = performance.now() - drainStart
     const policyDrainStart = performance.now()
     await db.memoryPolicy.flush()

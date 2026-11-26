@@ -1,4 +1,4 @@
-export const leafPath = uuid => `leaves/${Buffer.from(uuid).toString('hex')}.json`
+export const leafPath = (uuid, organizationId) => `${organizationId === undefined ? '' : `${encodeURIComponent(organizationId).replaceAll('.', '%2E')}/`}leaves/${Buffer.from(uuid).toString('hex')}.json`
 
 export class MemoryDisk {
     constructor(config) {
@@ -21,7 +21,7 @@ export class MemoryDisk {
         }
 
         if (kind !== 'file') throw new Error(`Unexpected memory disk kind: ${kind}`)
-        const resource = path === 'config.json' ? 'config' : path.startsWith('branches/') ? 'branch' : 'leaf'
+        const resource = path.endsWith('/config.json') || path === 'config.json' ? 'config' : path.includes('/branches/') || path.startsWith('branches/') ? 'branch' : 'leaf'
         const action = `${resource}-${operation}`
         this.events.push(action)
 
@@ -45,6 +45,6 @@ export class MemoryDisk {
         throw new Error(`Unsupported memory disk operation: ${operation}`)
     }
 
-    hasLeaf(uuid) { return this.files.has(leafPath(uuid)) }
-    readLeaf(uuid) { return this.files.get(leafPath(uuid)) }
+    hasLeaf(uuid) { return [...this.files.keys()].some(path => path.endsWith(leafPath(uuid))) }
+    readLeaf(uuid) { return [...this.files].find(([path]) => path.endsWith(leafPath(uuid)))?.[1] }
 }

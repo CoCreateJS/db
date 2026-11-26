@@ -1,0 +1,37 @@
+[
+  {
+    "storage": "disk",
+    "acknowledgementAndFixtureMs": 1200.998528,
+    "drainMs": 9241.634494999998,
+    "totalMs": 10442.633022999999,
+    "metrics": {
+      "has.leaf": {
+        "count": 10000,
+        "totalMs": 483063.7600669987,
+        "bytes": 0
+      },
+      "write.leaf": {
+        "count": 10003,
+        "totalMs": 61777.89463599977,
+        "bytes": 5134845
+      },
+      "write.branch": {
+        "count": 7031,
+        "totalMs": 4760.170027000034,
+        "bytes": 15605305
+      },
+      "write.config": {
+        "count": 3,
+        "totalMs": 2.8443429999997534,
+        "bytes": 5778
+      }
+    }
+  },
+  {
+    "storage": "memory",
+    "acknowledgementAndFixtureMs": 246.58825699999943,
+    "drainMs": 1233.002845000001,
+    "totalMs": 1479.5911020000003,
+    "metrics": {}
+  }
+]

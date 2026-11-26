@@ -7,6 +7,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Disk from '@cocreate/disk'
 import { createDB } from '../../src/index.js'
+import { waitForIndex } from './shared/wait-for-index.mjs'
 import { benchmarkUuid, createBenchmarkRecord, lifecycleRoot } from '../fixtures/lifecycle.mjs'
 import { launch } from './shared/child-process.mjs'
 import { createProgressReporter, expectedUuids, parseStandardSizes, STANDARD_SIZES, standardWorkloads } from './shared/workloads.mjs'
@@ -241,7 +242,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         hash.update(']')
         const pendingAfterCreate = db.pendingIndexCount
         const indexDrainStart = performance.now()
-        await db.flushIndex()
+        await waitForIndex(db)
         const indexDrainWaitMs = performance.now() - indexDrainStart
         const createAndIndexMs = performance.now() - createLifecycleStart
         indexEntriesPerObject = Object.keys(await firstBatch[0].getIndex()).length
@@ -337,7 +338,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             return send({ ...root, method: 'object.update', object: { uuid: uuidFor(rank), '$inc.revision': 1 } })
         }, response => { assertResponse(response, 'numeric increment'); assert.equal(response.object.length, 1) }, { warmups, samples })
         phase('numeric-increment-done')
-        await db.flushIndex()
+        await waitForIndex(db)
         const indexedCheckRank = indexedStart + warmups + samples
         const indexedValue = `updated-group-sample-${samples - 1}`
         assert.equal((await rootRead(send, root, { filter: { query: { group: indexedValue }, limit: 1 } })).object[0]?.uuid, uuidFor(indexedCheckRank))
@@ -357,19 +358,19 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             return send({ ...root, method: 'object.delete', object: { uuid } })
         }, response => { assertResponse(response, 'single delete'); assert.equal(response.object.length, 1) }, { warmups, samples })
         phase('single-delete-done')
-        await db.flushIndex()
+        await waitForIndex(db)
         for (const uuid of deleteIds) assert.equal((await rootRead(send, root, { object: { uuid } })).object.length, 0)
 
         const deleteQuery = { bulkDelete: true }
         const expectedDelete = Math.min(size, 25)
-        await db.flushIndex()
+        await waitForIndex(db)
         const deletePrecheck = await rootRead(send, root, { filter: { query: deleteQuery, limit: 0 } })
         assert.equal(deletePrecheck.object.length, expectedDelete)
         const deleteStart = performance.now()
         const deleted = assertResponse(await send({ ...root, method: 'object.delete', filter: { query: deleteQuery, limit: 0 } }), 'filtered bulk delete')
         const filteredBulkDeleteMs = performance.now() - deleteStart
         assert.equal(deleted.object.length, expectedDelete)
-        await db.flushIndex()
+        await waitForIndex(db)
         assert.equal((await rootRead(send, root, { filter: { query: deleteQuery, limit: 0 } })).object.length, 0)
         result.operations.filteredBulkDelete = { deleted: expectedDelete, elapsedMs: filteredBulkDeleteMs, opsPerSecond: expectedDelete / filteredBulkDeleteMs * 1000 }
         phase('filtered-delete-done')
@@ -392,8 +393,8 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         result.status = 'passed'
         clearInterval(telemetryTimer)
         telemetryTimer = undefined
-        await db.flushDisk?.()
-        await db.flushMemory?.()
+        await waitForIndex(db)
+        await db.close?.()
         result.memoryPolicy.telemetry = {
             baselineReady: db.memory?.baselineReady ?? false,
             peakPressure: db.memory?.peakPressure,
@@ -403,7 +404,6 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             leavesShed: db.memory?.leavesShed,
             diskFirstActivations: db.memory?.diskFirstActivations
         }
-        await db.close?.()
         await writeFile(outputFile, `${JSON.stringify(result, null, 2)}\n`)
         return result
     } catch (error) {

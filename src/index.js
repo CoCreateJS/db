@@ -1,15 +1,39 @@
 import { CRUD } from './crud.js'
 import { createPlanner, QueryPlanner } from './queryPlanner.js'
-import { createConfiguration, createTree, defaultConfiguration, Tree } from './tree/index.js'
-import { OrganizationTrees } from './organizations.js'
+import { Tree } from './tree/index.js'
 
 const modes = new Set(['adaptive', 'disk-first', 'disk-cache'])
 const isNode = typeof globalThis.process?.versions?.node === 'string'
+const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value)
+
+export function defaultConfiguration() {
+    return {
+        version: '1.0.0',
+        roots: {
+            storage: { database: { array: { object: {}, index: {} } } }
+        },
+        indexes: [],
+        prune: { strategy: 'lfu' }
+    }
+}
+
+export function createConfiguration(config = {}) {
+    const defaults = defaultConfiguration()
+    const source = isRecord(config) ? config : {}
+    const roots = source.roots ?? defaults.roots
+    if (!isRecord(roots)) throw new TypeError('roots must be an ordinary object')
+    return {
+        version: source.version ?? defaults.version,
+        roots: structuredClone(roots),
+        leaves: structuredClone(source.leaves ?? {}),
+        indexes: structuredClone(source.indexes ?? []),
+        prune: { ...defaults.prune, ...(isRecord(source.prune) ? structuredClone(source.prune) : {}) }
+    }
+}
 
 /** Compose the platform disk adapter, tree engine, persistence, planner, and CRUD. */
 export async function createDB(server = {}, options = {}) {
-    const primary = server?.isPrimary ?? (server?.isWorker === true ? false : true)
-    if (!primary) {
+    if (server.isPrimary === false) {
         const forward = options.forward ?? (typeof server?.send === 'function'
             ? async request => {
                 const response = await server.send({
@@ -28,9 +52,7 @@ export async function createDB(server = {}, options = {}) {
             config: structuredClone(options.config ?? defaultConfiguration()),
             mode: options.mode ?? options.config?.mode ?? (isNode ? 'adaptive' : 'disk-first'),
             send: async request => await forward(request),
-            flushIndex: async () => {},
-            flushDisk: async () => {},
-            close: async () => {}
+            close: async () => { }
         }
     }
 
@@ -44,35 +66,22 @@ export async function createDB(server = {}, options = {}) {
         await Tree.clearDisk(disk)
     }
 
-    const config = await loadConfiguration(options, disk)
-    const tree = new OrganizationTrees({
-        config,
-        disk,
-        persistence: options.persistence ?? server?.persistence,
-        treeOptions: {
-            size: options.size,
-            leafSize: options.leafSize,
-            ...options.treeOptions
-        }
-    })
-    const db = await createIndex({
+    const config = await loadConfiguration(options)
+    const db = new DB({
         ...options,
         config,
-        tree,
-        crud: tree,
         server,
         mode,
         disk,
         persistence: options.persistence ?? server?.persistence
     })
-    if (mode === 'disk-first') db.tree.setDiskFirst(true)
+    if (mode === 'disk-first') db.setDiskFirst(true)
     return db
 }
 
 export async function init(server = {}, options = {}) {
-    const primary = server?.isPrimary ?? (server?.isWorker === true ? false : true)
     let config = options.config
-    if (config === undefined && options.prompt !== false && primary) {
+    if (config === undefined && options.prompt !== false && server.isPrimary !== false) {
         const { default: Config } = await import('@cocreate/config')
         const result = await Config.prompt(options.questions ?? { db: {} }, true, options.questions !== undefined)
         config = result?.db
@@ -85,90 +94,71 @@ createDB.init = init
 const pressureStages = [0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.80, 0.90]
 const diskFirstPressure = 0.90
 const memoryHysteresis = 0.025
-const isMissingConfig = error => error?.code === 'ENOENT' || error?.name === 'NotFoundError'
-
-async function loadConfiguration(options, disk) {
+async function loadConfiguration(options) {
     if (options.config !== undefined || options.roots !== undefined) {
-        return createConfiguration({ config: options.config, roots: options.roots })
+        return createConfiguration({ ...(options.config ?? {}), ...(options.roots === undefined ? {} : { roots: options.roots }) })
     }
 
-    if (disk) {
-        try {
-            const saved = await Tree.readDiskConfig(disk)
-            return createConfiguration({ config: typeof saved === 'string' ? JSON.parse(saved) : saved })
-        } catch (error) {
-            if (!isMissingConfig(error)) throw error
-        }
-    }
     return defaultConfiguration()
 }
 
-/**
- * Index is the composition root: resolve config, initialize Tree, then wire
- * the planner and CRUD resource. It does not plan or execute data operations.
- */
-export class Index {
-    static async create(options = {}) {
-        const disk = options.disk ?? options.server?.disk ?? options.tree?.disk
-        const persistence = options.persistence ?? options.server?.persistence ?? options.tree?.persistence
-        const config = options.tree?.config ?? await loadConfiguration(options, disk)
-        let tree
-        if (persistence !== undefined && persistence !== null && typeof persistence.execute !== 'function')
-            throw new TypeError('Index requires a Tree Persistence resource with execute(operation)')
-        tree = options.tree ?? Tree.prepare({
-            ...options.treeOptions,
-            config,
-        })
-        if (disk) tree.disk = disk
-        if (persistence) tree.persistence = persistence
-        if (!options.tree) await tree.initialize()
-        if (options.tree) {
-            if (persistence) tree.persistence = persistence
-        }
-        const configuredPrune = options.prune ?? options.config?.prune
-        if (configuredPrune !== undefined && (!configuredPrune || typeof configuredPrune !== 'object' || Array.isArray(configuredPrune)))
-            throw new TypeError('Prune configuration must be an object')
-        const prune = configuredPrune === undefined
-            ? { strategy: 'lfu' }
-            : { ...configuredPrune, strategy: configuredPrune.strategy ?? 'lfu' }
-        const planner = createPlanner(options.planner ?? new QueryPlanner())
-        tree.planner = planner
-        const crud = options.crud ?? new CRUD(tree)
-        if (typeof crud.send !== 'function') throw new TypeError('Index requires a CRUD resource with send(request)')
-        const configuredMemory = options.memoryPercent
-            ?? options.memory?.percent
-            ?? (typeof options.memory === 'number' ? options.memory : undefined)
-            ?? (typeof options.config?.memory === 'number' ? options.config.memory : undefined)
-        const memoryPercent = configuredMemory === undefined ? 25 : Number(configuredMemory)
-        if (!Number.isFinite(memoryPercent) || memoryPercent < 0 || memoryPercent > 100)
-            throw new Error('memoryPercent must be between 0 and 100')
-        return new Index({ config, tree, planner, crud, server: options.server, memoryPercent, prune, mode: options.mode ?? options.config?.mode ?? 'adaptive' })
-    }
+class DB {
 
     #server
     #telemetryListener
     #forwardListener
     #telemetryTimestamps = new Map()
     #memoryQueue = Promise.resolve()
-    #diskFirstLeaves = new Map()
-    #diskQueue = Promise.resolve()
-    #diskError
-    #flushTimer
+    #organizations = new Map()
+    #disk
+    #persistence
+    #treeOptions
+    #diskFirst = false
 
-    constructor({ config, tree, planner, crud, server = {}, memoryPercent = 25, prune = { strategy: 'lfu' }, mode = 'adaptive' }) {
+    constructor(options = {}) {
+        const {
+            config,
+            tree,
+            crud,
+            disk = options.server?.disk,
+            persistence = options.server?.persistence,
+            server = {},
+            mode = 'adaptive'
+        } = options
+        if (persistence != null && typeof persistence.execute !== 'function')
+            throw new TypeError('DB requires a Tree Persistence resource with execute(operation)')
+        if (tree && disk) tree.disk = disk
+        if (tree && persistence) tree.persistence = persistence
+        const configuredPrune = options.prune ?? config?.prune
+        if (configuredPrune !== undefined && (!configuredPrune || typeof configuredPrune !== 'object' || Array.isArray(configuredPrune)))
+            throw new TypeError('Prune configuration must be an object')
+        const prune = { ...(config?.prune ?? {}), ...(configuredPrune ?? {}), strategy: configuredPrune?.strategy ?? config?.prune?.strategy ?? 'lfu' }
+        const planner = createPlanner(options.planner ?? new QueryPlanner())
+        if (tree) tree.planner = planner
+        if (crud && typeof crud.send !== 'function') throw new TypeError('DB requires a CRUD resource with send(request)')
+        const memory = options.memory
+        const configuredMemory = options.memoryPercent
+            ?? memory?.percent
+            ?? (typeof memory === 'number' ? memory : undefined)
+            ?? (typeof config?.memory === 'number' ? config.memory : undefined)
+        const memoryPercent = configuredMemory === undefined ? 25 : Number(configuredMemory)
+        if (!Number.isFinite(memoryPercent) || memoryPercent < 0 || memoryPercent > 100)
+            throw new Error('memoryPercent must be between 0 and 100')
+        const treeOptions = {
+            ...options.treeOptions,
+            size: options.treeOptions?.size ?? options.size,
+            leafSize: options.treeOptions?.leafSize ?? options.leafSize,
+            prune
+        }
         this.initialConfig = config
         this.tree = tree
+        this.#disk = disk
+        this.#persistence = persistence
+        this.#treeOptions = treeOptions
+        this.#diskFirst = mode === 'disk-first'
         this.organization = Object.freeze({
-            get: async organizationId => {
-                if (typeof this.tree?.getOrganizationTree !== 'function')
-                    throw new Error('This DB Tree does not manage organization-scoped Trees')
-                return await this.tree.getOrganizationTree(organizationId)
-            },
-            release: async organizationId => {
-                if (typeof this.tree?.releaseOrganization !== 'function')
-                    throw new Error('This DB Tree does not manage organization-scoped Trees')
-                return await this.tree.releaseOrganization(organizationId)
-            }
+            get: organizationId => this.#organizationTree(organizationId),
+            release: organizationId => this.#releaseOrganization(organizationId)
         })
         this.planner = planner
         this.crud = crud
@@ -197,12 +187,11 @@ export class Index {
         }
         this.memoryPolicy = this.memory
 
-        const primary = server?.isPrimary ?? (server?.isWorker === true ? false : true)
-        if (primary && typeof server.on === 'function') {
+        if (server.isPrimary && typeof server.on === 'function') {
             this.#telemetryListener = message => this.#onTelemetry(message)
             server.on('telemetry', this.#telemetryListener)
         }
-        if (primary && typeof server.on === 'function') {
+        if (server.isPrimary && typeof server.on === 'function') {
             this.#forwardListener = async payload => {
                 try { return { uuid: payload.uuid, result: await this.send(payload.request) } }
                 catch (error) { return { uuid: payload.uuid, success: false, error: error.message || String(error) } }
@@ -211,17 +200,68 @@ export class Index {
         }
     }
 
+    #organizationContext(organizationId) {
+        if (typeof organizationId !== 'string' || !organizationId)
+            throw new TypeError('organization_id is required to select a database Tree')
+        if (this.tree) {
+            this.tree.organizationId ??= organizationId
+            return Promise.resolve({ tree: this.tree, crud: this.crud ?? new CRUD(this.tree, this.planner) })
+        }
+        let pending = this.#organizations.get(organizationId)
+        if (!pending) {
+            pending = this.#storeOrganization(organizationId)
+        }
+        return pending
+    }
+
+    #storeOrganization(organizationId) {
+        const pending = this.#createOrganizationTree(organizationId)
+        this.#organizations.set(organizationId, pending)
+        pending.then(({ tree }) => { pending.tree = tree }).catch(() => {
+            if (this.#organizations.get(organizationId) === pending) this.#organizations.delete(organizationId)
+        })
+        return pending
+    }
+
+    async #organizationTree(organizationId) {
+        return (await this.#organizationContext(organizationId)).tree
+    }
+
+    async #createOrganizationTree(organizationId) {
+        const tree = new Tree()
+        tree.organizationId = organizationId
+        if (this.#disk) tree.disk = this.#disk
+        if (this.#persistence) tree.persistence = this.#persistence
+        tree.planner = this.planner
+        await tree.init({ ...this.initialConfig, ...this.#treeOptions })
+        if (this.#diskFirst && this.#disk) tree.setDiskFirst(true)
+        return { tree, crud: new CRUD(tree, this.planner) }
+    }
+
+    async #releaseOrganization(organizationId) {
+        const pending = this.#organizations.get(organizationId)
+        if (!pending) return false
+        const { tree } = await pending
+        await tree.close()
+        if (this.#organizations.get(organizationId) === pending) this.#organizations.delete(organizationId)
+        return true
+    }
+
+    async #eachTree(callback) {
+        if (this.tree) return await callback(this.tree)
+        for (const pending of this.#organizations.values()) await callback((await pending).tree)
+    }
+
     #onTelemetry(message) {
-        const sample = message?.data
-        if (!sample || (this.#server.id != null && String(sample.serverId) !== String(this.#server.id))) return
+        const sample = message.data
+        if (this.#server.id != null && String(sample.serverId) !== String(this.#server.id)) return
         const timestamp = sample.timestamp
-        const workerId = String(sample.workerId ?? message.workerId ?? 0)
-        if (typeof timestamp !== 'string' || this.#telemetryTimestamps.get(workerId) === timestamp) return
+        const workerId = sample.workerId
+        if (this.#telemetryTimestamps.get(workerId) === timestamp) return
         this.#telemetryTimestamps.set(workerId, timestamp)
 
-        const total = Number(sample.memory?.total)
-        const maximum = Number(sample.memory?.max)
-        if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(maximum) || maximum < 0 || maximum > 100) return
+        const total = sample.memory.total
+        const maximum = sample.memory.max
         const usedMemory = total * maximum / 100
         const memory = this.memory
         memory.usedMemory = usedMemory
@@ -252,13 +292,13 @@ export class Index {
         memory.stage = stage
         memory.peakStage = Math.max(memory.peakStage, stage)
 
-        if (typeof this.tree.disk?.execute === 'function') {
+        if (typeof this.#disk?.execute === 'function') {
             const diskFirst = memory.diskFirst
                 ? pressure >= diskFirstPressure - memoryHysteresis
                 : pressure >= diskFirstPressure
             if (diskFirst !== memory.diskFirst) {
                 try {
-                    this.tree.setDiskFirst(diskFirst)
+                    this.setDiskFirst(diskFirst)
                     memory.diskFirst = diskFirst
                     if (diskFirst) memory.diskFirstActivations++
                 } catch (error) {
@@ -271,7 +311,7 @@ export class Index {
         if (!prunes || memory.pruneError) return
         this.#memoryQueue = this.#memoryQueue.then(async () => {
             for (let count = 0; count < prunes; count++) {
-                memory.lastPrune = await this.tree.prune(this.prune)
+                memory.lastPrune = await this.#pruneTrees(this.prune)
                 memory.pruneCycles++
                 memory.branchesPruned += memory.lastPrune?.count ?? 0
             }
@@ -279,79 +319,64 @@ export class Index {
     }
 
     get config() {
-        const config = this.tree?.config ?? structuredClone(this.initialConfig)
-        return { ...config, prune: this.prune }
+        return structuredClone(this.initialConfig)
     }
 
-    get disk() { return this.tree?.disk }
-    set disk(handler) { if (this.tree) this.tree.disk = handler }
+    get disk() { return this.#disk }
+    set disk(handler) {
+        this.#disk = handler
+        this.#eachTree(tree => { tree.disk = handler }).catch(() => {})
+    }
+
+    get persistence() { return this.#persistence }
+
+    setDiskFirst(enabled) {
+        this.#diskFirst = Boolean(enabled)
+        this.#eachTree(tree => tree.setDiskFirst(this.#diskFirst)).catch(() => {})
+        return this.#diskFirst
+    }
+
+    async #pruneTrees(options = {}) {
+        let remaining = options.limit
+        const results = []
+        await this.#eachTree(async tree => {
+            if (remaining === 0) return
+            const result = await tree.prune({ ...options, ...(remaining === undefined ? {} : { limit: remaining }) })
+            results.push(result)
+            if (remaining !== undefined) remaining = Math.max(0, remaining - result.count)
+        })
+        return {
+            strategy: options.strategy ?? 'lfu',
+            target: results.reduce((sum, result) => sum + result.target, 0),
+            candidates: results.reduce((sum, result) => sum + result.candidates, 0),
+            count: results.reduce((sum, result) => sum + result.count, 0),
+            skipped: results.reduce((sum, result) => sum + result.skipped, 0)
+        }
+    }
 
     async send(request) {
-        const response = await this.crud.send(request)
-        if (response?.success !== false) {
-            const operation = String(request?.method ?? '').split('.')[1]
-            if (this.tree.diskFirst) {
-                const root = String(request?.method ?? '').split('.')[0]
-                const organizationId = request?.organization_id
-                if (typeof organizationId === 'string') {
-                    let leaves = this.#diskFirstLeaves.get(organizationId)
-                    if (!leaves) this.#diskFirstLeaves.set(organizationId, leaves = new Set())
-                    for (const leaf of response?.[root] ?? []) if (typeof leaf?.uuid === 'string') leaves.add(leaf.uuid)
-                }
-            }
-            if ((operation !== 'read' || this.tree.diskFirst && this.#diskFirstLeaves.size) && this.#flushTimer === undefined) {
-                this.#flushTimer = setTimeout(() => {
-                    this.#flushTimer = undefined
-                    this.#diskQueue = this.#diskQueue.then(async () => {
-                        await this.tree.flushLocal()
-                        await this.#releaseDiskFirstLeaves()
-                    }).catch(error => { this.#diskError = error })
-                }, 0)
-            }
-        }
-        return response
+        if (this.crud) return await this.crud.send(request)
+        const object = request?.object
+        const organizationId = request?.organization_id
+            ?? object?.organization_id
+            ?? (Array.isArray(object) ? object.find(item => item?.organization_id)?.organization_id : undefined)
+        if (typeof organizationId !== 'string' || !organizationId)
+            return { ...request, success: false, error: ['organization_id is required to select a database Tree'] }
+        const { crud } = await this.#organizationContext(organizationId)
+        return await crud.send(request)
     }
 
-    async #releaseDiskFirstLeaves() {
-        if (!this.#diskFirstLeaves.size) return
-        const leaves = [...this.#diskFirstLeaves]
-        this.#diskFirstLeaves.clear()
-        for (const [organizationId, ids] of leaves) {
-            for (const id of ids) await this.tree.evictLeaf(id, organizationId)
-        }
+    get pendingIndexCount() {
+        let count = 0
+        for (const pending of this.#organizations.values()) count += pending.tree?.pendingIndexCount ?? 0
+        return count || this.tree?.pendingIndexCount || 0
     }
-
-    async flushIndex() { return await this.tree?.flushIndex?.() }
-
-    async flushLocal() {
-        if (this.#flushTimer !== undefined) {
-            clearTimeout(this.#flushTimer)
-            this.#flushTimer = undefined
-        }
-        await this.#diskQueue
-        if (this.#diskError) throw this.#diskError
-        const result = await this.tree?.flushLocal?.()
-        await this.#releaseDiskFirstLeaves()
-        return result
-    }
-
-    get pendingIndexCount() { return this.tree?.pendingIndexCount ?? 0 }
-
-    async flushDisk() { return await this.flushLocal() }
 
     async persist() {
         const persistence = this.persistence
         if (!persistence) return { success: false, skipped: true }
         if (typeof persistence.persist !== 'function') return { success: true, skipped: true }
         return await persistence.persist()
-    }
-
-    get persistence() { return this.tree?.persistence }
-
-    async flushMemory() {
-        await this.#memoryQueue
-        if (this.memory.pruneError) throw this.memory.pruneError
-        return this.memory.lastPrune
     }
 
     async close() {
@@ -365,15 +390,16 @@ export class Index {
             else this.#server.removeListener?.('telemetry', this.#telemetryListener)
             this.#telemetryListener = undefined
         }
-        await this.flushMemory()
-        await this.flushLocal()
-        await this.tree?.close?.()
+        await this.#memoryQueue
+        if (this.memory.pruneError) throw this.memory.pruneError
+        const contexts = [...this.#organizations.values()]
+        this.#organizations.clear()
+        await Promise.all(contexts.map(async pending => await (await pending).tree.close()))
+        if (this.tree) await this.tree.close?.()
     }
 }
 
-export async function createIndex(options) { return await Index.create(options) }
-
-export { Tree, createTree, createConfiguration, defaultConfiguration }
+export { Tree }
 export { CRUD, createCRUD } from './crud.js'
 export { QueryPlanner, planQuery } from './queryPlanner.js'
 
