@@ -111,3 +111,19 @@ checks the complete Utils predicate and applies the requested CRUD operation
 for each leaf before continuing. UUID requests use `tree.leaves.get(uuid)`. A
 create without a supplied UUID skips candidate lookup and inserts directly
 into the configured root.
+
+## Pending index groups
+
+The pending queue uses plain objects keyed by the owning parent branch UUID,
+then leaf UUID. A top-level leaf without a parent uses its own UUID as the group
+key. Each record contains `operation: 'write' | 'delete'` and `paths`, an array
+of changed field paths or `null` for full reconciliation. Repeated changes merge
+into the existing record. Processing takes up to 1,024 leaves across these
+groups per cycle; a group can span multiple cycles. Field/type index entries
+are still grouped separately during reconciliation.
+
+The manager's internal `pendingIndex.toJSON()` includes queued and in-flight
+records, so they can be serialized without converting Maps, Sets, or live leaf
+objects. This is pending-work metadata, not a recovery journal. Delete cleanup
+still uses the existing deleted-leaf map for live index references. Shutdown
+logging and replay are not implemented here.

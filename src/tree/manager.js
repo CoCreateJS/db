@@ -56,15 +56,31 @@ async function insertEntry(tree, size, leafSize, entry, local, leaves) {
 }
 
 export async function createRootManager({ db, size = 1024, leafSize = size, persistConfig = () => {}, persist, shouldReleaseIndexed = () => false }) {
-    const pendingChanges = new Map()
-    const inFlight = new Set()
+    const pendingChanges = Object.create(null)
+    const inFlight = Object.create(null)
+    let queuedCount = 0
+    let pendingCount = 0
+    const branchId = leaf => leaf.parent ?? leaf.uuid
+    const queued = leaf => pendingChanges[branchId(leaf)]?.[leaf.uuid]
     const pendingIndex = Object.freeze({
-        get size() {
-            let count=pendingChanges.size
-            for(const leaf of inFlight)if(!pendingChanges.has(leaf))count++
-            return count
-        },
-        has(leaf) { return pendingChanges.has(leaf)||inFlight.has(leaf) }
+        get size() { return pendingCount },
+        has(leaf) { return !!queued(leaf) || Object.hasOwn(inFlight, leaf.uuid) },
+        toJSON() {
+            const snapshot = Object.create(null)
+            for (const [branch, records] of Object.entries(pendingChanges)) {
+                const group = snapshot[branch] = Object.create(null)
+                for (const [id, record] of Object.entries(records))
+                    group[id] = { ...record, paths: record.paths === null ? null : [...record.paths] }
+            }
+            for (const [id, { branch, record }] of Object.entries(inFlight)) {
+                const group = snapshot[branch] ??= Object.create(null)
+                const current = group[id]
+                if (!current) group[id] = { ...record, paths: record.paths === null ? null : [...record.paths] }
+                else current.paths = current.paths === null || record.paths === null
+                    ? null : [...new Set([...record.paths, ...current.paths])]
+            }
+            return snapshot
+        }
     })
     const deleted = db.deleted = new Map()
     db.deleting ??= new Set()
@@ -103,7 +119,6 @@ export async function createRootManager({ db, size = 1024, leafSize = size, pers
             if(deleted.get(leaf.uuid) === leaf) {
                 if(db.deleting.has(leaf.uuid))return
                 for(const entry of Object.values(await leaf.getIndex()))if(entry.tree)await removeIndexedEntry(entry)
-                deleted.delete(leaf.uuid)
             } else {
                 await reconcileLeaf(leaf,entry=>{insertBatch.push(entry)},changedPaths instanceof Set?changedPaths:undefined)
             }
@@ -119,13 +134,25 @@ export async function createRootManager({ db, size = 1024, leafSize = size, pers
         await db.leaves.persistDeletes?.()
         await db.leaves.persistDirty?.()
     }
-    function queueIndex(leaf, changedPaths) {
-        if (!pendingChanges.has(leaf)) pendingChanges.set(leaf, changedPaths === undefined ? undefined : new Set(changedPaths))
-        else {
-            const pending=pendingChanges.get(leaf)
-            if (pending instanceof Set && changedPaths !== undefined) for (const key of changedPaths) pending.add(key)
-            else pendingChanges.set(leaf, undefined)
+    function enqueue(leaf, record, retry = false) {
+        const branch = branchId(leaf)
+        const group = pendingChanges[branch] ??= Object.create(null)
+        const current = group[leaf.uuid]
+        if (!current) {
+            group[leaf.uuid] = record
+            queuedCount++
+            if (!Object.hasOwn(inFlight, leaf.uuid)) pendingCount++
+        } else {
+            if (!retry) current.operation = record.operation
+            if (current.paths === null || record.paths === null) current.paths = null
+            else for (const path of record.paths) if (!current.paths.includes(path)) current.paths.push(path)
         }
+    }
+    function queueIndex(leaf, changedPaths) {
+        enqueue(leaf, {
+            operation: deleted.get(leaf.uuid) === leaf ? 'delete' : 'write',
+            paths: changedPaths === undefined ? null : [...changedPaths]
+        })
         schedule()
     }
     const handler={queue:queueIndex}
@@ -139,11 +166,21 @@ export async function createRootManager({ db, size = 1024, leafSize = size, pers
         // durable before applying their derived index work.
         await persistLeaves()
         const batch=[]
-        for (const [leaf, changedPaths] of pendingChanges) {
-            if (limit-- <= 0) break
-            pendingChanges.delete(leaf)
-            inFlight.add(leaf)
-            batch.push({leaf,changedPaths})
+        takeBatch:
+        for (const branch in pendingChanges) {
+            const group = pendingChanges[branch]
+            for (const id in group) {
+                if (batch.length >= limit) break takeBatch
+                const record = group[id]
+                delete group[id]
+                queuedCount--
+                inFlight[id] = { branch, record }
+                // Queued leaves are pinned in memory until reconciliation ends.
+                const leaf = deleted.get(id) ?? Map.prototype.get.call(db.leaves, id)
+                if (!leaf) throw Error(`Queued leaf not found: ${id}`)
+                batch.push({ leaf, record, changedPaths: record.paths === null ? undefined : new Set(record.paths) })
+            }
+            delete pendingChanges[branch]
         }
         if (!batch.length) return
         const leafChanges = batch.map(({ leaf }) => ({
@@ -166,26 +203,26 @@ export async function createRootManager({ db, size = 1024, leafSize = size, pers
             await db.local?.persistDiscards()
             await db.local?.persistDirty()
             await persistConfigIfChanged()
-            indexed = true
             if (persist) await Promise.all([
                 ...removedBranches.map(uuid => emitPersistence({ operation: 'delete', kind: 'branch', uuid })),
                 ...changedBranches.map(uuid => emitPersistence({ operation: 'write', kind: 'branch', uuid })),
                 ...leafChanges.map(emitPersistence)
             ])
+            for (const {leaf} of batch) if (deleted.get(leaf.uuid) === leaf && !queued(leaf)) deleted.delete(leaf.uuid)
+            indexed = true
         } catch (error) {
-            for (const {leaf,changedPaths} of batch) {
-                if (!pendingChanges.has(leaf)) pendingChanges.set(leaf,changedPaths)
-            }
+            for (const {leaf,record} of batch) enqueue(leaf, record, true)
             indexError = error
             throw error
         } finally {
             for (const {leaf} of batch) {
-                inFlight.delete(leaf)
+                delete inFlight[leaf.uuid]
+                if (!queued(leaf)) pendingCount--
             }
         }
         if (indexed && shouldReleaseIndexed() && db.local && db.leaves.releasePersisted) {
             for (const { leaf } of batch) {
-                if (deleted.get(leaf.uuid) === leaf || pendingChanges.has(leaf)) continue
+                if (deleted.get(leaf.uuid) === leaf || queued(leaf)) continue
                 for (const entry of residentIndexEntries(leaf)) entry.index?.tree?.local?.releasePersisted(entry.index)
                 db.leaves.releasePersisted(leaf)
             }
@@ -193,7 +230,7 @@ export async function createRootManager({ db, size = 1024, leafSize = size, pers
         })
     }
     function schedule() {
-        if (closed || scheduled || !pendingChanges.size || indexError) return
+        if (closed || scheduled || !queuedCount || indexError) return
         scheduled = defer(async () => {
             scheduled = undefined
             try { await drain(INDEX_BATCH_SIZE) } catch { return }
@@ -212,7 +249,7 @@ export async function createRootManager({ db, size = 1024, leafSize = size, pers
         closed = true
         if (scheduled) cancelDefer(scheduled)
         scheduled = undefined
-        do { await drain() } while (pendingChanges.size || inFlight.size)
+        do { await drain() } while (pendingCount)
         await persistLeaves()
         await db.local?.persistDiscards()
         await db.local?.persistDirty()

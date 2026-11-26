@@ -1,6 +1,6 @@
 # CoCreateDB benchmarks
 
-The benchmark layout separates same-fixture provider comparisons from CoCreateDB-only diagnostics. The v3 provider fixture and historical results are retained unchanged.
+The benchmark layout separates same-fixture provider comparisons from CoCreateDB-only diagnostics. The v3 provider fixture is shared across providers. Current CoCreateDB baselines are listed in [the baseline catalog](providers/cocreatedb/results/README.md).
 
 ```text
 test/
@@ -12,8 +12,6 @@ test/
     ├── shared/                             Sizes, expected workloads, progress, child watchdog
     ├── diagnostics/                       CoCreateDB-only range/residency diagnostics
     │   ├── fixtures/residency.mjs          Diagnostic-only fixture; separate from v3
-    │   └── results/                        Diagnostic result files and prior diagnostic logs
-    ├── baselines/                          Preserved historical baselines
     └── providers/<provider>/               Adapter, configuration, summary and raw results
 ```
 
@@ -65,7 +63,9 @@ The default requested memory budget is 25% of detected system RAM, capped at sta
 
 ## Selected CoCreateDB baseline
 
-The selected current-dev baseline is the three-run 100K standard measurement in [`providers/cocreatedb/results/baseline-dev-100k-2026-11-25/`](providers/cocreatedb/results/baseline-dev-100k-2026-11-25/). It uses the shared v3 fixture, adaptive mode, memory acknowledgement, 40 samples and 10 warmups per latency operation, 1-second sustained phases, and concurrency 1. Earlier CoCreateDB standard result artifacts were removed when this baseline was selected. Separate diagnostic outputs and other provider comparison results remain separate from this baseline. Regenerate its report only from its raw run manifest and result files.
+The current baseline catalog is [`providers/cocreatedb/results/README.md`](providers/cocreatedb/results/README.md). It retains the latest 10K, 100K, 200K, and concurrent two-organization measurements, with their raw results. The primary 100K baseline is [`standard-2026-11-26T18-39-36.192Z/`](providers/cocreatedb/results/standard-2026-11-26T18-39-36.192Z/). Superseded CoCreateDB results and diagnostic logs were removed; other provider results remain separate. Regenerate reports from their retained manifests and raw files. These are single-run baselines; match workload settings and repeat measurements for comparisons.
+
+The runner also accepts an explicit 200K size (`node test/benchmarks/standard.mjs 200000`). To repeat the concurrent organization diagnostic, run `node test/benchmarks/diagnostics/parallel-organizations.mjs 100000`.
 
 ### Query field locality
 

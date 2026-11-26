@@ -1,7 +1,0 @@
-
-> benchmark:ranges
-> node test/benchmarks/ranges.mjs
-
-{"size":1000,"matches":200,"p50Ms":{"binaryDirect":0.013640000000009422,"binaryQueryData":0.05132600000000309,"fullQueryData":0.281447}}
-{"size":10000,"matches":2000,"p50Ms":{"binaryDirect":0.1756610000000478,"binaryQueryData":0.5714950000000272,"fullQueryData":2.7844780000000355}}
-{"size":100000,"matches":20000,"p50Ms":{"binaryDirect":2.660233999999946,"binaryQueryData":6.830600000000231,"fullQueryData":36.70926299999974}}

@@ -225,7 +225,7 @@ BENCH_MODE=restored npm run benchmark -- 1000
 npm run benchmark:ranges
 ```
 
-Correctness tests and Node.js benchmarks live under `test/`. See [benchmark instructions](test/benchmarks/README.md), [baseline report](test/benchmarks/baselines/2026-11-19-final/README.md) and [provider references](test/benchmarks/providers/README.md).
+Correctness tests and Node.js benchmarks live under `test/`. See [benchmark instructions](test/benchmarks/README.md), [baseline reports](test/benchmarks/providers/cocreatedb/results/README.md) and [provider references](test/benchmarks/providers/README.md).
 
 ### Local benchmark baseline
 

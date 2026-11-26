@@ -1,9 +1,10 @@
 export const STANDARD_SIZES = Object.freeze([10_000, 100_000, 1_000_000])
+const supportedSizes = [...STANDARD_SIZES, 200_000].sort((a, b) => a - b)
 
 export function parseStandardSizes(argument) {
     const sizes = (argument ?? STANDARD_SIZES.join(',')).split(',').map(Number)
-    if (!sizes.length || sizes.some(size => !STANDARD_SIZES.includes(size)))
-        throw Error(`Standard dataset sizes must be ${STANDARD_SIZES.join(', ')}`)
+    if (!sizes.length || sizes.some(size => !supportedSizes.includes(size)))
+        throw Error(`Supported dataset sizes are ${supportedSizes.join(', ')}`)
     return sizes
 }
 
