@@ -18,8 +18,8 @@ test('organization data uses separate trees and disk directories', async () => {
     assert.deepEqual(Object.keys(config.leaves), [])
     assert.equal((await db.send({ ...platform, method: 'object.read', object: { uuid: id } })).object[0].name, 'Acme')
     assert.equal((await db.send({ ...context, method: 'object.read', object: { uuid: id } })).object.length, 0)
-    const platformTree = await db.organization.get('platform')
-    const organizationTree = await db.organization.get(id)
+    const platformTree = await db.organizations.get('platform')
+    const organizationTree = await db.organizations.get(id)
     assert.notEqual(platformTree, organizationTree)
     assert.equal(platformTree.config.leaves[result.object[0].uuid], undefined)
     assert.equal(Object.hasOwn(result.object[0], 'organization_id'), false)
@@ -43,7 +43,7 @@ test('arbitrary dynamic root names resolve generically at multiple depths', asyn
     const creation = await db.send({ ...context, method: 'object.create', object: { uuid: 'item' } })
     assert.equal(creation.success, true, creation.error?.join('; '))
     await waitForIndex(db)
-    const config = (await db.organization.get('organization')).config.leaves
+    const config = (await db.organizations.get('organization')).config.leaves
     const project = config[creation.object[0].parent]
     assert.equal(project.root, '$project_id')
     assert.equal(project.name, 'project')

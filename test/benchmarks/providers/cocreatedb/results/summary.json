@@ -3,240 +3,6 @@
     "methodology": "Single-process adaptive CoCreateDB with local Disk write-through and no external persistence. Keep workload size and sustained settings matched when comparing.",
     "runs": [
       {
-        "runId": "2026-11-26T18-18-51.007Z",
-        "date": "2026-11-26T18:18:51.007Z",
-        "sourceRevision": "febb049d5068ff338436dd55acf39411d272a62c",
-        "runtime": {
-          "date": "2026-11-26T18:18:51.150Z",
-          "node": "v24.18.0",
-          "platform": "linux-x64",
-          "release": "7.0.0-1018-aws",
-          "os": "#19~24.04.1-Ubuntu SMP PREEMPT Thu Nov 12 17:17:32 UTC 2026",
-          "cpuModel": "AMD EPYC 7571",
-          "cpuCount": 2,
-          "totalMemoryBytes": 8218959872,
-          "freeMemoryBytesAtStart": 5227225088,
-          "databaseVersion": "1.1.0",
-          "sourceRevision": "febb049d5068ff338436dd55acf39411d272a62c",
-          "processModel": "single in-process Node process; benchmark client and database share CPU/RSS",
-          "mode": "adaptive",
-          "acknowledgement": "memory",
-          "memoryPercent": 25,
-          "persistence": "external persistence not configured; local Warm disk writes enabled",
-          "durability": "local writes are queued after memory acknowledgement; disk drain excluded from request timings",
-          "diskUsageBytes": null,
-          "diskIO": null
-        },
-        "fixtureVersion": "3.0.0",
-        "sizes": {
-          "10000": {
-            "requestedRuns": 1,
-            "successfulRuns": 1,
-            "failedOrSkipped": [],
-            "fixtureVersion": "3.0.0",
-            "fixtureHash": "767927150f41a6967e99ab0e05f11128ba4f408f1b9bfc5e1fc753a84119ac8f",
-            "initializationMs": 3.795406999999983,
-            "readinessMs": 5.076006000000007,
-            "firstObjectCreateMs": 4.875822999999997,
-            "createAndIndexMs": 10504.007255999999,
-            "createAcknowledgementMs": 1170.725569,
-            "fixtureGenerationMs": 98.15379000000019,
-            "indexDrainWaitMs": 9233.234769,
-            "createRecordsPerSecond": 952.0176211119708,
-            "totalElapsedMs": 18215.184536,
-            "operations": {
-              "singleCreate": {
-                "first": 1.4192199999997683,
-                "min": 0.23754299999927753,
-                "max": 1.6448029999992286,
-                "mean": 0.3559281749998718,
-                "p50": 0.30314399999952,
-                "p95": 0.5729579999988346,
-                "p99": 1.6448029999992286,
-                "ops": 2784.5845399867544
-              },
-              "uuidRead": {
-                "first": 0.21059299999978975,
-                "min": 0.015219999999317224,
-                "max": 0.46638699999857636,
-                "mean": 0.04332737499985342,
-                "p50": 0.028870000000097207,
-                "p95": 0.06163100000048871,
-                "p99": 0.46638699999857636,
-                "ops": 20474.73750106036
-              },
-              "equality": {
-                "first": 2.3686630000011064,
-                "min": 1.061824999998862,
-                "max": 7.287901000001511,
-                "mean": 1.7148049749998335,
-                "p50": 1.6007019999997283,
-                "p95": 1.8537059999998746,
-                "p99": 7.287901000001511,
-                "ops": 567.2507453781212
-              },
-              "nestedEquality": {
-                "first": 2.7504180000014458,
-                "min": 1.4061299999993935,
-                "max": 4.996839000001273,
-                "mean": 2.240243499999906,
-                "p50": 2.223740999999791,
-                "p95": 2.510425000000396,
-                "p99": 4.996839000001273,
-                "ops": 436.1189862994204
-              },
-              "numericRange": {
-                "first": 1.9342569999989792,
-                "min": 1.1004350000002887,
-                "max": 3.767311999999947,
-                "mean": 1.5287055250002595,
-                "p50": 1.3869990000002872,
-                "p95": 2.548506000000998,
-                "p99": 3.767311999999947,
-                "ops": 638.3990687800298
-              },
-              "and": {
-                "first": 1.7845649999999296,
-                "min": 0.9880530000009458,
-                "max": 1.9317670000000362,
-                "mean": 1.1601609250000364,
-                "p50": 1.0961950000000797,
-                "p95": 1.6284130000003643,
-                "p99": 1.9317670000000362,
-                "ops": 838.3324845915404
-              },
-              "or": {
-                "first": 3.475908000000345,
-                "min": 2.501265000000785,
-                "max": 4.708135000000766,
-                "mean": 3.164893875000189,
-                "p50": 2.9820120000003953,
-                "p95": 4.007354999999734,
-                "p99": 4.708135000000766,
-                "ops": 308.2505731919418
-              },
-              "singleKeyUpdate": {
-                "first": 3.3676370000011957,
-                "min": 0.06970100000035018,
-                "max": 0.391036000000895,
-                "mean": 0.11308035000024574,
-                "p50": 0.10025099999984377,
-                "p95": 0.1779630000000907,
-                "p99": 0.391036000000895,
-                "ops": 8651.463881760777
-              },
-              "indexedKeyUpdate": {
-                "first": 0.7236099999990984,
-                "min": 0.07237100000020291,
-                "max": 0.3733849999989616,
-                "mean": 0.11545012499991572,
-                "p50": 0.09347100000013597,
-                "p95": 0.21479299999919022,
-                "p99": 0.3733849999989616,
-                "ops": 8519.80161642067
-              },
-              "numericIncrement": {
-                "first": 1.5006410000005417,
-                "min": 0.0773910000007163,
-                "max": 0.21733300000050804,
-                "mean": 0.10662037500001134,
-                "p50": 0.0922420000006241,
-                "p95": 0.16510199999902397,
-                "p99": 0.21733300000050804,
-                "ops": 9226.217866527946
-              },
-              "singleDelete": {
-                "first": 0.6327190000010887,
-                "min": 0.01876099999935832,
-                "max": 0.06650100000115344,
-                "mean": 0.021997825000107697,
-                "p50": 0.020161000000371132,
-                "p95": 0.02628999999978987,
-                "p99": 0.06650100000115344,
-                "ops": 43576.639870622625
-              }
-            },
-            "filteredBulkDeleteMs": 1.3417589999990014,
-            "filteredBulkDeleteCount": 25,
-            "memory": {
-              "idleRssBytes": 63770624,
-              "loadedRssBytes": 285249536,
-              "peakRssBytes": 308428800,
-              "incrementalRssBytes": 221478912,
-              "incrementalHeapBytes": 102246240,
-              "rssBytesPerObject": 22147.8912
-            },
-            "memoryPolicy": {
-              "requestedBudgetBytes": 2054739968,
-              "effectiveBudgetBytes": 2054739968
-            },
-            "cpu": {
-              "userUs": 18129323,
-              "systemUs": 5705595,
-              "utilizationPercent": 130.85191617407614
-            },
-            "sustained": [
-              {
-                "mode": "read",
-                "concurrency": 1,
-                "operationsPerSecond": 69226.03660172637,
-                "p50Ms": 0.010270000000673463,
-                "p95Ms": 0.018579999999928987,
-                "p99Ms": 0.03874999999970896,
-                "cpuUtilizationPercent": 132.7975969391823
-              },
-              {
-                "mode": "write",
-                "concurrency": 1,
-                "operationsPerSecond": 12325.569332281962,
-                "p50Ms": 0.06878099999994447,
-                "p95Ms": 0.11514200000056007,
-                "p99Ms": 0.16609199999948032,
-                "cpuUtilizationPercent": 121.42035745129031
-              },
-              {
-                "mode": "mixed",
-                "concurrency": 1,
-                "operationsPerSecond": 14619.551764542894,
-                "p50Ms": 0.05473100000017439,
-                "p95Ms": 0.1052319999998872,
-                "p99Ms": 0.1658530000004248,
-                "cpuUtilizationPercent": 100.30072477977822
-              },
-              {
-                "mode": "read",
-                "concurrency": 8,
-                "operationsPerSecond": 111119.16671736866,
-                "p50Ms": 0.0594810000002326,
-                "p95Ms": 0.09111099999972794,
-                "p99Ms": 0.16824300000007497,
-                "cpuUtilizationPercent": 102.95812791699863
-              },
-              {
-                "mode": "write",
-                "concurrency": 8,
-                "operationsPerSecond": 23804.753382754992,
-                "p50Ms": 0.296544000000722,
-                "p95Ms": 0.4520169999996142,
-                "p99Ms": 0.5804779999998573,
-                "cpuUtilizationPercent": 108.00268109222407
-              },
-              {
-                "mode": "mixed",
-                "concurrency": 8,
-                "operationsPerSecond": 37612.68871738816,
-                "p50Ms": 0.17434199999843258,
-                "p95Ms": 0.25309399999969173,
-                "p99Ms": 0.3416350000006787,
-                "cpuUtilizationPercent": 100.65786695549303
-              }
-            ]
-          }
-        },
-        "legacyV2Compatibility": null,
-        "failures": []
-      },
-      {
         "runId": "2026-11-26T18-22-05.815Z",
         "date": "2026-11-26T18:22:05.815Z",
         "sourceRevision": "febb049d5068ff338436dd55acf39411d272a62c",
@@ -471,11 +237,11 @@
         "failures": []
       },
       {
-        "runId": "2026-11-26T18-39-36.192Z",
-        "date": "2026-11-26T18:39:36.192Z",
-        "sourceRevision": "febb049d5068ff338436dd55acf39411d272a62c",
+        "runId": "2026-11-26T21-11-41.069Z",
+        "date": "2026-11-26T21:11:41.069Z",
+        "sourceRevision": "fc17a1171a7d51489aec493f9501031ff75e547e",
         "runtime": {
-          "date": "2026-11-26T18:39:36.321Z",
+          "date": "2026-11-26T21:11:41.215Z",
           "node": "v24.18.0",
           "platform": "linux-x64",
           "release": "7.0.0-1018-aws",
@@ -483,17 +249,34 @@
           "cpuModel": "AMD EPYC 7571",
           "cpuCount": 2,
           "totalMemoryBytes": 8218959872,
-          "freeMemoryBytesAtStart": 5762891776,
+          "freeMemoryBytesAtStart": 5421780992,
           "databaseVersion": "1.1.0",
-          "sourceRevision": "febb049d5068ff338436dd55acf39411d272a62c",
+          "sourceRevision": "fc17a1171a7d51489aec493f9501031ff75e547e",
+          "sourceWorkingTreeDirty": true,
           "processModel": "single in-process Node process; benchmark client and database share CPU/RSS",
           "mode": "adaptive",
           "acknowledgement": "memory",
-          "memoryPercent": 25,
+          "memoryPolicy": "node-wide thresholds",
           "persistence": "external persistence not configured; local Warm disk writes enabled",
           "durability": "local writes are queued after memory acknowledgement; disk drain excluded from request timings",
           "diskUsageBytes": null,
           "diskIO": null
+        },
+        "configuration": {
+          "mode": "adaptive",
+          "acknowledgement": "memory",
+          "memory": {
+            "stages": [
+              25,
+              50,
+              75,
+              90
+            ],
+            "diskFirst": 90,
+            "hysteresis": 2.5
+          },
+          "indexing": "queued and batched",
+          "entryPoint": "DB.init -> db.send -> tree.execute"
         },
         "fixtureVersion": "3.0.0",
         "sizes": {
@@ -503,200 +286,210 @@
             "failedOrSkipped": [],
             "fixtureVersion": "3.0.0",
             "fixtureHash": "79fd345261896883833b8e006eaf41bf1f1d8e5239f8eb8c24e3fc43abcaac6b",
-            "initializationMs": 2.999225999999993,
-            "readinessMs": 5.051376999999974,
-            "firstObjectCreateMs": 4.591109999999986,
-            "createAndIndexMs": 96504.55416700001,
-            "createAcknowledgementMs": 8388.077836999995,
-            "fixtureGenerationMs": 896.6955959999952,
-            "indexDrainWaitMs": 87214.65779,
-            "createRecordsPerSecond": 1036.2205272401047,
-            "totalElapsedMs": 134408.168154,
+            "initializationMs": 4.148157999999995,
+            "readinessMs": 6.039755000000014,
+            "firstObjectCreateMs": 4.480805000000004,
+            "createAndIndexMs": 89345.240341,
+            "createAcknowledgementMs": 8021.490650000003,
+            "fixtureGenerationMs": 878.7815470000014,
+            "indexDrainWaitMs": 80439.407707,
+            "createRecordsPerSecond": 1119.2538026461673,
+            "totalElapsedMs": 121389.428293,
             "operations": {
               "singleCreate": {
-                "first": 2.9838159999926575,
-                "min": 0.45380600000498816,
-                "max": 1.2344689999881666,
-                "mean": 0.9360306999980821,
-                "p50": 0.9836349999968661,
-                "p95": 1.1987780000054045,
-                "p99": 1.2344689999881666,
-                "ops": 1062.136301296173
+                "first": 1.2262989999871934,
+                "min": 0.2284440000075847,
+                "max": 0.5595679999969434,
+                "mean": 0.3088066499996785,
+                "p50": 0.2818040000129258,
+                "p95": 0.466906999994535,
+                "p99": 0.5595679999969434,
+                "ops": 3204.692182108257
               },
               "uuidRead": {
-                "first": 0.2205229999963194,
-                "min": 0.022251000002142973,
-                "max": 1.0309350000025006,
-                "mean": 0.06498169999977108,
-                "p50": 0.0396210000035353,
-                "p95": 0.07701100000122096,
-                "p99": 1.0309350000025006,
-                "ops": 14642.671233208557
+                "first": 0.2762439999933122,
+                "min": 0.023610000003827736,
+                "max": 0.18844300000637304,
+                "mean": 0.04590667500087875,
+                "p50": 0.04020000000309665,
+                "p95": 0.09348100000352133,
+                "p99": 0.18844300000637304,
+                "ops": 13147.22991153018
               },
               "equality": {
-                "first": 2.4457370000018273,
-                "min": 1.0233549999975367,
-                "max": 10.79657400000724,
-                "mean": 1.560148974999538,
-                "p50": 1.2712289999908535,
-                "p95": 1.7981480000016745,
-                "p99": 10.79657400000724,
-                "ops": 623.311789236578
+                "first": 3.5952240000042366,
+                "min": 0.9149939999915659,
+                "max": 8.435717000000295,
+                "mean": 1.5304940250007348,
+                "p50": 1.3580610000062734,
+                "p95": 1.7834969999967143,
+                "p99": 8.435717000000295,
+                "ops": 635.0455272076878
               },
               "nestedEquality": {
-                "first": 5.910218999997596,
-                "min": 3.9437200000102166,
-                "max": 8.948815999989165,
-                "mean": 4.775617550000243,
-                "p50": 4.395735999991302,
-                "p95": 5.825117999993381,
-                "p99": 8.948815999989165,
-                "ops": 207.48669252974247
+                "first": 6.449287000010372,
+                "min": 4.06277200000477,
+                "max": 6.611198999991757,
+                "mean": 4.822635899998931,
+                "p50": 4.580858999994234,
+                "p95": 6.047810999996727,
+                "p99": 6.611198999991757,
+                "ops": 205.6739107503251
               },
               "numericRange": {
-                "first": 4.536058999990928,
-                "min": 3.0268660000001546,
-                "max": 5.0569069999910425,
-                "mean": 3.4087741999999706,
-                "p50": 3.2738400000089314,
-                "p95": 4.16356299999461,
-                "p99": 5.0569069999910425,
-                "ops": 289.60579951832005
+                "first": 4.214353999996092,
+                "min": 2.810312999994494,
+                "max": 4.166503000000375,
+                "mean": 3.1677593499996872,
+                "p50": 3.060965999990003,
+                "p95": 3.596994999999879,
+                "p99": 4.166503000000375,
+                "ops": 311.19141336381534
               },
               "and": {
-                "first": 8.218183999997564,
-                "min": 7.130237999997917,
-                "max": 9.493333999998868,
-                "mean": 7.761485699998957,
-                "p50": 7.480682999987039,
-                "p95": 8.771793000007165,
-                "p99": 9.493333999998868,
-                "ops": 128.08499679399662
+                "first": 7.665445999999065,
+                "min": 6.806342999989283,
+                "max": 8.371076000010362,
+                "mean": 7.130589125000552,
+                "p50": 6.924013999989256,
+                "p95": 8.087881999992533,
+                "p99": 8.371076000010362,
+                "ops": 139.32727975576427
               },
               "or": {
-                "first": 3.4193910000030883,
-                "min": 2.6519699999917066,
-                "max": 4.45039800000086,
-                "mean": 2.9480868999995438,
-                "p50": 2.762531999993371,
-                "p95": 3.671795000002021,
-                "p99": 4.45039800000086,
-                "ops": 329.2109022898262
+                "first": 3.1722680000093533,
+                "min": 2.3165550000121584,
+                "max": 4.3992659999930765,
+                "mean": 2.7588501499991254,
+                "p50": 2.505148000011104,
+                "p95": 3.421351999990293,
+                "p99": 4.3992659999930765,
+                "ops": 352.12844124341336
               },
               "singleKeyUpdate": {
-                "first": 4.208654000001843,
-                "min": 0.07136100000934675,
-                "max": 0.2551039999962086,
-                "mean": 0.11043439999994006,
-                "p50": 0.10115200000291225,
-                "p95": 0.16995199999655597,
-                "p99": 0.2551039999962086,
-                "ops": 8818.305214317394
+                "first": 3.26087899999402,
+                "min": 0.07220100000267848,
+                "max": 0.18737299999338575,
+                "mean": 0.1070043749987235,
+                "p50": 0.09698099999513943,
+                "p95": 0.17226300000038464,
+                "p99": 0.18737299999338575,
+                "ops": 9194.778744897008
               },
               "indexedKeyUpdate": {
-                "first": 0.36120600000140257,
-                "min": 0.07212099999014754,
-                "max": 0.23614400000951719,
-                "mean": 0.09987105000036536,
-                "p50": 0.07925099998828955,
-                "p95": 0.16507200000341982,
-                "p99": 0.23614400000951719,
-                "ops": 9843.87127957338
+                "first": 0.3778560000064317,
+                "min": 0.07261099999595899,
+                "max": 0.1778820000035921,
+                "mean": 0.09753600000040023,
+                "p50": 0.08054100000299513,
+                "p95": 0.15160300000570714,
+                "p99": 0.1778820000035921,
+                "ops": 10086.746015745748
               },
               "numericIncrement": {
-                "first": 1.334869999991497,
-                "min": 0.07581100000243168,
-                "max": 0.18208299999241717,
-                "mean": 0.09305670000067039,
-                "p50": 0.082181000005221,
-                "p95": 0.14043200000014622,
-                "p99": 0.18208299999241717,
-                "ops": 10557.716661531775
+                "first": 1.2970490000006976,
+                "min": 0.07695100001001265,
+                "max": 0.23937399999704212,
+                "mean": 0.09794750000000932,
+                "p50": 0.0840710000047693,
+                "p95": 0.16095299999869894,
+                "p99": 0.23937399999704212,
+                "ops": 10056.821038861019
               },
               "singleDelete": {
-                "first": 0.6872000000003027,
-                "min": 0.020281000004615635,
-                "max": 0.1122719999984838,
-                "mean": 0.03070847500130185,
-                "p50": 0.022570000000996515,
-                "p95": 0.06355099999927916,
-                "p99": 0.1122719999984838,
-                "ops": 30299.128142442456
+                "first": 0.6029089999938151,
+                "min": 0.019020000007003546,
+                "max": 0.06721100000140723,
+                "mean": 0.023870625000199652,
+                "p50": 0.020790999988093972,
+                "p95": 0.033670999997411855,
+                "p99": 0.06721100000140723,
+                "ops": 38492.07303878017
               }
             },
-            "filteredBulkDeleteMs": 3.6889160000137053,
+            "filteredBulkDeleteMs": 2.9583940000011353,
             "filteredBulkDeleteCount": 25,
             "memory": {
               "idleRssBytes": 64036864,
-              "loadedRssBytes": 1070960640,
-              "peakRssBytes": 1326473216,
-              "incrementalRssBytes": 1006923776,
-              "incrementalHeapBytes": 881474888,
-              "rssBytesPerObject": 10069.23776
+              "loadedRssBytes": 765075456,
+              "peakRssBytes": 981049344,
+              "incrementalRssBytes": 701038592,
+              "incrementalHeapBytes": 526261448,
+              "rssBytesPerObject": 7010.38592
             },
             "memoryPolicy": {
-              "requestedBudgetBytes": 2054739968,
-              "effectiveBudgetBytes": 2054739968
+              "scope": "node",
+              "configuration": {
+                "stages": [
+                  25,
+                  50,
+                  75,
+                  90
+                ],
+                "diskFirst": 90,
+                "hysteresis": 2.5
+              },
+              "peakNodeUsedPercent": 45.28167799770954
             },
             "cpu": {
-              "userUs": 122091477,
-              "systemUs": 59466318,
-              "utilizationPercent": 135.07943564261487
+              "userUs": 112672153,
+              "systemUs": 47145184,
+              "utilizationPercent": 131.65671776148892
             },
             "sustained": [
               {
                 "mode": "read",
                 "concurrency": 1,
-                "operationsPerSecond": 83604.56933958999,
-                "p50Ms": 0.00930000000516884,
-                "p95Ms": 0.014530999993439764,
-                "p99Ms": 0.030920000004698522,
-                "cpuUtilizationPercent": 105.50735932637556
+                "operationsPerSecond": 81834.3930605272,
+                "p50Ms": 0.009120000002440065,
+                "p95Ms": 0.014769999994314276,
+                "p99Ms": 0.033610999991651624,
+                "cpuUtilizationPercent": 105.25892483103361
               },
               {
                 "mode": "write",
                 "concurrency": 1,
-                "operationsPerSecond": 18978.16470820489,
-                "p50Ms": 0.04392999999981839,
-                "p95Ms": 0.07610099999874365,
-                "p99Ms": 0.10896099999081343,
-                "cpuUtilizationPercent": 107.39028029703468
+                "operationsPerSecond": 16335.457074551907,
+                "p50Ms": 0.04795100000046659,
+                "p95Ms": 0.08998200000496581,
+                "p99Ms": 0.14420199999585748,
+                "cpuUtilizationPercent": 110.03091729549246
               },
               {
                 "mode": "mixed",
                 "concurrency": 1,
-                "operationsPerSecond": 29771.5414691495,
-                "p50Ms": 0.04078000001027249,
-                "p95Ms": 0.06836099999782164,
-                "p99Ms": 0.09627199999522418,
-                "cpuUtilizationPercent": 101.56722031884496
+                "operationsPerSecond": 28153.38999428521,
+                "p50Ms": 0.04255100000591483,
+                "p95Ms": 0.07036100000550505,
+                "p99Ms": 0.10328200001094956,
+                "cpuUtilizationPercent": 102.70348349918201
               },
               {
                 "mode": "read",
                 "concurrency": 8,
-                "operationsPerSecond": 109215.25511504263,
-                "p50Ms": 0.060410999998566695,
-                "p95Ms": 0.0919010000070557,
-                "p99Ms": 0.14269200000853743,
-                "cpuUtilizationPercent": 100.17510710770297
+                "operationsPerSecond": 111272.05265354803,
+                "p50Ms": 0.058220999999321066,
+                "p95Ms": 0.08822099999815691,
+                "p99Ms": 0.16222199999901932,
+                "cpuUtilizationPercent": 100.23832726440718
               },
               {
                 "mode": "write",
                 "concurrency": 8,
-                "operationsPerSecond": 25995.986882425004,
-                "p50Ms": 0.279065000009723,
-                "p95Ms": 0.36358499999914784,
-                "p99Ms": 0.49534700000367593,
-                "cpuUtilizationPercent": 100.79832913716307
+                "operationsPerSecond": 24826.59532763473,
+                "p50Ms": 0.28973400000541005,
+                "p95Ms": 0.405585999993491,
+                "p99Ms": 0.5609889999905135,
+                "cpuUtilizationPercent": 101.784260844202
               },
               {
                 "mode": "mixed",
                 "concurrency": 8,
-                "operationsPerSecond": 38519.13844641689,
-                "p50Ms": 0.16920200000458863,
-                "p95Ms": 0.23911399999633431,
-                "p99Ms": 0.3096650000079535,
-                "cpuUtilizationPercent": 100.58975925756503
+                "operationsPerSecond": 38149.88134623912,
+                "p50Ms": 0.16995199999655597,
+                "p95Ms": 0.24088299999129958,
+                "p99Ms": 0.320834999991348,
+                "cpuUtilizationPercent": 101.20592522933156
               }
             ]
           }
@@ -707,15 +500,10 @@
     ]
   },
   "baselines": {
-    "10000": {
-      "directory": "queue-object-10k-2026-11-26T18-18-21",
-      "report": "queue-object-10k-2026-11-26T18-18-21/report.md",
-      "raw": "queue-object-10k-2026-11-26T18-18-21/manifest.json"
-    },
     "100000": {
-      "directory": "standard-2026-11-26T18-39-36.192Z",
-      "report": "standard-2026-11-26T18-39-36.192Z/report.md",
-      "raw": "standard-2026-11-26T18-39-36.192Z/manifest.json"
+      "directory": "standard-2026-11-26T21-11-41.069Z",
+      "report": "standard-2026-11-26T21-11-41.069Z/report.md",
+      "raw": "standard-2026-11-26T21-11-41.069Z/manifest.json"
     },
     "200000": {
       "directory": "standard-2026-11-26T18-22-05.815Z",
@@ -723,9 +511,24 @@
       "raw": "standard-2026-11-26T18-22-05.815Z/manifest.json"
     },
     "parallel-100000-per-organization": {
-      "directory": "parallel-organizations-100000-2026-11-26T18-45-37.524Z",
-      "report": "parallel-organizations-100000-2026-11-26T18-45-37.524Z/report.md",
-      "raw": "parallel-organizations-100000-2026-11-26T18-45-37.524Z/result.json"
+      "directory": "parallel-organizations-2x100k-2026-11-26T21-15-31.602Z",
+      "report": "parallel-organizations-2x100k-2026-11-26T21-15-31.602Z/report.md",
+      "raw": "parallel-organizations-2x100k-2026-11-26T21-15-31.602Z/result.json"
+    },
+    "parallel-4-organizations-100000-each": {
+      "directory": "parallel-organizations-4x100k-2026-11-26T22-55-03.886Z",
+      "report": "parallel-organizations-4x100k-2026-11-26T22-55-03.886Z/report.md",
+      "raw": "parallel-organizations-4x100k-2026-11-26T22-55-03.886Z/result.json"
+    },
+    "parallel-8-organizations-100000-each": {
+      "directory": "parallel-organizations-8x100k-2026-11-26T21-58-36.676Z",
+      "report": "parallel-organizations-8x100k-2026-11-26T21-58-36.676Z/report.md",
+      "raw": "parallel-organizations-8x100k-2026-11-26T21-58-36.676Z/result.json"
+    },
+    "parallel-10-organizations-100000-each": {
+      "directory": "parallel-organizations-10x100k-2026-11-26T22-22-58.010Z",
+      "report": "parallel-organizations-10x100k-2026-11-26T22-22-58.010Z/report.md",
+      "raw": "parallel-organizations-10x100k-2026-11-26T22-22-58.010Z/result.json"
     }
   }
 }

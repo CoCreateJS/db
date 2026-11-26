@@ -47,5 +47,9 @@
     "@cocreate/coson": "^1.0.0",
     "@cocreate/config": "^2.0.2",
     "@cocreate/utils": "^2.0.2"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./tree": "./src/tree/index.js"
   }
 }

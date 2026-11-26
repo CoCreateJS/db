@@ -1,7 +1,7 @@
 {
   "suite": "CoCreateDB standard single-node benchmark v2",
-  "runId": "2026-11-26T18-39-36.192Z",
-  "startedAt": "2026-11-26T18:39:36.192Z",
+  "runId": "2026-11-26T21-11-41.069Z",
+  "startedAt": "2026-11-26T21:11:41.069Z",
   "sizes": [
     100000
   ],
@@ -19,22 +19,32 @@
       "runIndex": 1,
       "status": "passed",
       "file": "size-100000-run-01.json",
-      "elapsedMs": 134408.168154
+      "elapsedMs": 121389.428293
     }
   ],
   "stallTimeoutMs": 600000,
   "configuration": {
     "mode": "adaptive",
     "acknowledgement": "memory",
-    "memoryPercent": 25,
-    "indexing": "queued and batched"
+    "memory": {
+      "stages": [
+        25,
+        50,
+        75,
+        90
+      ],
+      "diskFirst": 90,
+      "hysteresis": 2.5
+    },
+    "indexing": "queued and batched",
+    "entryPoint": "DB.init -> db.send -> tree.execute"
   },
   "legacyCompatibility": {
     "status": "not-run",
     "fixture": "lifecycle fixture v2",
     "runs": []
   },
-  "completedAt": "2026-11-26T18:42:04.322Z",
+  "completedAt": "2026-11-26T21:13:54.555Z",
   "summary": {
     "successfulRuns": 1,
     "failedRuns": 0,

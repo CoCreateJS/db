@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, rm, statfs, writeFile } from 'node:fs/promises'
 import { totalmem } from 'node:os'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
-import createDB from '../../../src/index.js'
+import { createRuntime } from '../../../src/runtime.js'
 
 const { values } = parseArgs({ options: {
     mode: { type: 'string', default: 'focused' },
@@ -18,14 +18,13 @@ const { values } = parseArgs({ options: {
     'final-idle-ms': { type: 'string', default: '180000' },
     fields: { type: 'string', default: '42' },
     'focused-fields': { type: 'string', default: '4' },
-    memory: { type: 'string', default: '25' },
     'database-mode': { type: 'string' },
     acknowledgement: { type: 'string', default: 'memory' }
 } })
 const { mode } = values
 const records = Number(values.records), requests = Number(values.requests)
 const fieldCount = Number(values.fields), focusedCount = Number(values['focused-fields'])
-const memory = Number(values.memory), batchSize = Number(values['batch-size'])
+const batchSize = Number(values['batch-size'])
 const branchSize = 1024, leafSize = Number(values['leaf-size'])
 const gcEvery = Number(values['gc-every'])
 const idleMs = Number(values['idle-ms']), finalIdleMs = Number(values['final-idle-ms'])
@@ -56,14 +55,14 @@ await mkdir(output, { recursive: true })
 const directory = await mkdtemp(join(output, 'locality-data-'))
 const resultFile = join(output, 'query-locality-' + mode + '-' + Date.now() + '.json')
 const root = { organization_id: 'locality', storage: 'benchmark', database: 'local', array: 'records' }
-const db = await createDB({}, { directory, size: branchSize, leafSize, config: { memory }, mode: databaseMode, acknowledgement })
+const db = await createRuntime({}, { directory, size: branchSize, leafSize, mode: databaseMode, acknowledgement })
 const uuid = rank => rank.toString(16).padStart(32, '0')
 const value = (rank, fieldIndex) => rank + fieldIndex * records
 const revisions = new Uint32Array(records)
 const deleted = new Uint8Array(records)
 const result = {
-    status: 'running', mode, databaseMode, acknowledgement, records, requests, fieldCount, selectedFields, batchSize, branchSize, leafSize, memoryPercent: memory,
-    budgetBytes: db.memoryPolicy.budget, systemMemoryBytes: totalmem(), node: process.version,
+    status: 'running', mode, databaseMode, acknowledgement, records, requests, fieldCount, selectedFields, batchSize, branchSize, leafSize, memoryPolicy: 'node-wide thresholds',
+    systemMemoryBytes: totalmem(), node: process.version,
     engineRevision: execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
     startedAt: new Date().toISOString(), checkpoints: [], gcSegments: [], idleWindows: []
 }
@@ -165,7 +164,7 @@ function snapshot() {
         hotIndexBranches: db.local.weights.size,
         warmLeaves: db.leafTier.warm.size, warmBranches: warmBranches.size,
         leafReads: db.leafTier.reads, leafWrites: db.leafTier.writes,
-        indexReads: db.local.reads, indexWrites: db.local.writes, stage: db.memoryPolicy.stage,
+        indexReads: db.local.reads, indexWrites: db.local.writes, stage: db.memory.stage,
         pendingIndex: db.pendingIndexCount }
 }
 async function idleWindow(durationMs, label) {
@@ -394,8 +393,7 @@ try {
         }
     }
     result.finishedAt = new Date().toISOString()
-    result.policySamples = db.memoryPolicy.samples.slice()
-    result.leafPolicySamples = db.memoryPolicy.leafSamples.slice()
+    result.memoryPolicyState = { ...db.memory }
     result.byKey = Object.fromEntries([...byKey].sort(([a], [b]) => a.localeCompare(b)))
     result.operations = Object.fromEntries([...metrics].map(([label, times]) => {
         times.sort((a,b) => a-b)

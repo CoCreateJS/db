@@ -17,7 +17,7 @@ Update applies shared createUpdate to the live leaf, validates identity and valu
 }
 ```
 
-The snapshot is abbreviated; actual updated entries contain the complete resulting leaf, including parent and other fields when present. Existing updates preserve request patch operators for communication and return independent structuredClone snapshots. When a Persistence resource is attached, Tree sends it a write operation containing the live leaf after a mutation, or a delete operation containing the leaf identity. The resource owns any queueing and snapshot policy; Tree does not keep a persistence journal. `db.persist()` delegates to the resource's optional `persist()` method. Upsert creation returns a created leaf, not necessarily an updated snapshot. Deletes identify removed leaves. Persistence of root/index branches is not yet implemented by Tree.
+The snapshot is abbreviated; actual updated entries contain the complete resulting leaf, including parent and other fields when present. Existing updates preserve request patch operators for communication and return independent structuredClone snapshots. When a Persistence resource is attached, Tree sends it a write operation containing the live leaf after a mutation, or a delete operation containing the leaf identity. The resource owns any queueing and snapshot policy; Tree does not keep a persistence journal. `tree.persist()` delegates to the resource's optional `persist()` method. Upsert creation returns a created leaf, not necessarily an updated snapshot. Deletes identify removed leaves. Persistence of root/index branches is not yet implemented by Tree.
 
 ## Planned
 

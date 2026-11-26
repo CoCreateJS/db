@@ -47,9 +47,9 @@ npm test
 The examples below use the development source. Once this implementation is published, use the package import `@cocreate/db` instead.
 
 ```js
-import db from './src/index.js'
+import DB from '@cocreate/db'
 
-const database = await db()
+const database = await DB.init({}, { prompt: false })
 const context = {
     organization_id: 'example',
     storage: 'production',
@@ -66,6 +66,7 @@ const created = await database.send({
 const uuid = created.object[0].uuid
 
 const result = await database.send({
+    ...context,
     method: 'object.read',
     object: { uuid }
 })
@@ -103,7 +104,7 @@ const result = await database.send({
 })
 ```
 
-The update response preserves the applied patch in `object` and provides complete resulting object snapshots in `updated`. For example, the patch includes `$inc.quantity: 5`, while the corresponding resulting snapshot contains `quantity: 15`. These are two representations of the same mutation, not two mutations. The applied operators are useful for communication; snapshots are useful for whole-object persistence. Snapshots are independent of later mutations. An upsert that creates a leaf returns the created object instead.
+The update response contains resulting live leaves under `object` and accepted mutations under `$update`. Utils owns the shared operator and timestamp reconciliation semantics.
 
 ### Delete
 
@@ -143,7 +144,7 @@ The default configuration is:
 The DB composer uses each request's `organization_id` to select or create an organization Tree. Organization is not a configured root; the Tree carries `tree.organizationId`, and its Disk paths are rooted under that ID. Other roots beginning with `$` resolve their names from request properties, such as `$tenant_id` or `$project_id`. A dynamic root value names the structural leaf; it does not become its UUID.
 
 ```js
-const database = await db({}, {
+const database = await DB.init({}, {
     config: {
         roots: { $tenant_id: { $project_id: { object: {} } } }
     }
@@ -153,36 +154,36 @@ const database = await db({}, {
 Create and upsert can establish missing ancestors; reads do not create them. Structural identities are recorded in the organization's Tree config at `tree.config.leaves`, independently from ordinary object data. Configuration can be transferred to another engine to reuse structural UUIDs:
 
 ```js
-const config = (await database.organization.get(context.organization_id)).config
-const replica = await db({}, { config })
+const config = (await database.organizations.get(context.organization_id)).config
+const replica = await DB.init({}, { config })
 ```
 
-This restores structural configuration, not the ordinary objects of the original database. Configuration access uses `getValue(path)` and `setValue(path, value)`; the returned enumerable properties are defensive snapshots. Only root definitions can currently be edited via `setValue`, subject to structural validation. Occupied roots cannot be removed or converted between structural and leaf status. Structural renaming and reparenting are not supported.
+This restores structural configuration, not the ordinary objects of the original database. Configuration snapshots are read through `tree.config`; root definitions use `tree.roots.get(path)` and `tree.roots.execute({ operation: 'set', path, data })`, subject to structural validation. Occupied roots cannot be removed or converted between structural and leaf status. Structural renaming and reparenting are not supported.
 
 ## Living leaves and automatic indexing
 
 The engine maintains a UUID-keyed leaf map and grouped index trees internally. Index entries reference their original object rather than storing a second complete copy. Each tree has a root branch and index branches that organize scalar values and support ordered range traversal. Query planning selects an available candidate index and verifies matching objects against the query.
 
-An leaf exposes `getValue`, `setValue`, `getIndex` and `delete` methods through its prototype. Use the mutation interface or CRUD operations rather than assigning directly to object properties, which can bypass index maintenance. UUID, root and parent are immutable through updates; structural names are also protected.
+A live leaf internally exposes `getValue`, `setValue`, `getIndex` and `delete` methods through its prototype. Use `tree.execute(payload)` or `db.send(payload)` for supported mutations; direct property assignment bypasses index maintenance. UUID, root and parent are immutable through updates; structural names are also protected.
 
-The index primitives are independently usable from the source modules. Their low-level interfaces are not yet a stable package-level contract. Current CRUD updates validate and reconcile a cloned object before modifying its living leaf; update snapshots add another allocation. Further reducing that cost is an optimization target.
+The index primitives are independently usable from the source modules. Their low-level interfaces are not yet a stable package-level contract. The stateless Tree execution function applies updates through Utils. Ordinary updates mutate live leaves directly; timestamp reconciliation uses cloning only when required by its merge semantics.
 
 ## Runtime integration
 
-The public engine exposes `send()`, `config`, and `organization.get(id)`, which returns that organization's Tree. `createDB(server, options)` is asynchronous and must be awaited because it resolves configuration before composing Tree. Attach an initialized Disk resource as `server.disk` or `options.disk`; otherwise the database stays in memory. It accepts an optional living server object and configuration. The initializer also integrates with `@cocreate/config`:
+The public entry is `import DB from '@cocreate/db'` followed by `await DB.init(server, options)`. The returned object exposes only `config`, `organizations`, and `send`. `db.organizations.get(id)` returns the organization's Tree, which owns execution, planning, storage ports, pruning and lifecycle. Attach an initialized Disk resource as `server.disk` or `options.disk`; otherwise the database stays in memory. Initialization can optionally prompt through `@cocreate/config`:
 
 ```js
-import db from './src/index.js'
+import DB from '@cocreate/db'
 
-const server = { isPrimary: true }
-server.db = await db.init(server, { prompt: false })
+// server is the existing CoCreate Server instance.
+server.db = await DB.init(server, { prompt: false })
 ```
 
 In standalone usage no server is required. When given a worker Server, DB composes its `send()` interface into a primary-forwarding path; a custom `forward(request)` adapter can override that transport. The primary DB handles those forwarded requests. The `size` option controls index branch sizing.
 
-Local state defaults to `mode: 'adaptive'` with memory acknowledgement. Without a disk resource, the DB operates in memory and Tree can rebuild pruned index branches from resident leaves. When a disk resource is attached, adaptive uses Hot memory and Warm local disk; branch pruning writes branch data to Disk before releasing its in-memory contents. LFU is the default prune strategy; LRU and a branch limit can be configured independently of storage. Pruning does not evict leaves. The default requested budget is 25% of total system memory, capped by memory available at startup; this is a soft residency target, not a hard cap on process memory. At high pressure, adaptive temporarily uses disk-first request handling, which can release processed leaves after local flushing. `mode: 'disk-first'` remains available explicitly when a disk is attached; `mode: 'disk-cache'` clears the DB-managed base on startup and starts fresh. Directory selection belongs to Disk initialization; DB composes the initialized resource onto Tree.
+Local state defaults to `mode: 'adaptive'` with memory acknowledgement. Without a disk resource, the DB operates in memory and Tree can rebuild pruned index branches from resident leaves. When a disk resource is attached, adaptive uses Hot memory and Warm local disk; branch pruning writes branch data to Disk before releasing its in-memory contents. LFU is the default prune strategy; LRU and a branch limit can be configured independently of storage. Pruning does not evict leaves. Pruning follows node-wide memory usage from Telemetry, with default stages at 25%, 50%, 75%, and 90%. Each upward stage crossing requests a prune cycle on every managed Tree using the configured strategy and per-Tree limit. There is no DB allocation, startup memory baseline, or DB-specific budget. At high pressure, adaptive temporarily uses disk-first request handling, which can release processed leaves after local flushing. `mode: 'disk-first'` remains available explicitly when a disk is attached; `mode: 'disk-cache'` clears the DB-managed base on startup and starts fresh. Directory selection belongs to Disk initialization; DB composes the initialized resource onto Tree.
 
-The DB's memory policy manages its Hot/Warm working set. It cannot cap total server RSS or prevent unbounded ingress from consuming memory in sockets, HTTP handlers or queues. Process-level OOM protection belongs to server telemetry and traffic management: bound in-flight work, drain or throttle ingress under pressure, and have clients retry with backoff.
+The composer reacts to node memory by requesting Tree cleanup; Tree itself only executes pruning and its storage lifecycle. Traffic routing, backoff, admission and coordination remain responsibilities of the surrounding application.
 
 ### Browser storage
 
@@ -195,13 +196,13 @@ This is local client-side database storage, not an implicit synchronization chan
 Persistence is an optional resource assigned directly to Tree. Tree sends accepted leaf mutations to its `execute(operation)` method; the resource decides whether to write immediately or queue/group work. Workflow integration can be composed outside the DB:
 
 ```js
-const database = await createDB(server, {
+const database = await DB.init(server, {
     persistence: provider
 })
 const persisted = await database.persist()
 ```
 
-The resource receives `{ operation, kind, uuid, root, data }`, with `kind` set to `leaf`. Writes include the live leaf reference; deletes include the UUID and root. If the resource retains a write for later processing, it must capture the revision it needs. Tree does not clone, group, or queue these operations. `db.persist()` delegates to the resource's optional `persist()` method. Without an attached resource, no external persistence operations are sent.
+Tree sends the resource logical operations through `execute(request)`. Leaf and branch write/delete notifications contain their UUID and organization ID after indexing completes; configuration writes and explicit pruning can also carry serialized data. The adapter owns grouping and storage policy. `tree.persist()` delegates to its optional `persist()` method. Without an attached adapter, the default port completes the call without storing data.
 
 ```text
 CoCreate CRUD → CoCreateDB → CRUD workflow / AST

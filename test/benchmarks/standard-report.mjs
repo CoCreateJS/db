@@ -70,8 +70,9 @@ for (const size of sizes) {
             rssBytesPerObject: median(runs.map(run => run.memory?.rssBytesPerObject))
         },
         memoryPolicy: {
-            requestedBudgetBytes: median(runs.map(run => run.memoryPolicy?.requestedBudgetBytes)),
-            effectiveBudgetBytes: median(runs.map(run => run.memoryPolicy?.effectiveBudgetBytes))
+            scope: runs[0]?.memoryPolicy?.scope ?? 'historical',
+            configuration: runs[0]?.memoryPolicy?.configuration,
+            peakNodeUsedPercent: median(runs.map(run => run.memoryPolicy?.telemetry?.peakNodeUsedPercent).filter(Number.isFinite))
         },
         cpu: {
             userUs: median(runs.map(run => run.cpuUsageUs?.user)),
@@ -114,7 +115,7 @@ for (const size of sizes) {
         `- Total independent run time: ${fmt(summary.totalElapsedMs)} ms.`,
         `- Index entries/object: ${runs[0]?.indexEntriesPerObject ?? 'n/a'}; create acknowledgement returns before leaf/index finalization, which is drained before query measurements.`,
         `- Memory (idle / loaded / peak RSS): ${miB(summary.memory.idleRssBytes)} / ${miB(summary.memory.loadedRssBytes)} / ${miB(summary.memory.peakRssBytes)}.`,
-        `- Memory allocation: ${manifest.configuration?.memoryPercent ?? runs[0]?.configuration?.memoryPercent ?? 'unknown'}% of system memory; requested / effective budget: ${miB(summary.memoryPolicy.requestedBudgetBytes)} / ${miB(summary.memoryPolicy.effectiveBudgetBytes)}.`,
+        `- Memory policy: ${JSON.stringify(summary.memoryPolicy.configuration ?? 'historical policy; see raw result')}; peak node usage: ${fmt(summary.memoryPolicy.peakNodeUsedPercent)}%.`,
         `- Incremental memory/object: ${fmt(summary.memory.rssBytesPerObject)} bytes RSS; incremental heap: ${miB(summary.memory.incrementalHeapBytes)}.`,
         `- CPU: ${fmt(summary.cpu.userUs / 1000)} ms user + ${fmt(summary.cpu.systemUs / 1000)} ms system; ${fmt(summary.cpu.utilizationPercent)}% utilization.`, '',
         '| Operation | First ms | Warm min ms | Warm max ms | Warm mean ms | Warm p50 ms | p95 ms | p99 ms | Warm ops/s |', '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |', ...operationRows, '',
@@ -164,6 +165,7 @@ const summaryEntry = {
     date: manifest.startedAt,
     sourceRevision: rawRuns[0]?.environment?.sourceRevision ?? null,
     runtime: rawRuns[0]?.environment ?? null,
+    configuration: manifest.configuration,
     fixtureVersion: '3.0.0',
     sizes: summaries,
     legacyV2Compatibility: compatibility,
@@ -178,10 +180,12 @@ await writeFile(providerPath, `${JSON.stringify(provider, null, 2)}\n`)
 const lines = [
     '# CoCreateDB standardized benchmark results', '',
     `- Run ID: \`${manifest.runId}\`; executed: ${manifest.startedAt} to ${manifest.completedAt}.`,
-    `- Source revision: \`${summaryEntry.sourceRevision ?? 'unavailable'}\`; DB version ${summaryEntry.runtime?.databaseVersion ?? 'unknown'}.`,
+    `- Source revision: \`${summaryEntry.sourceRevision ?? 'unavailable'}\`; DB version ${summaryEntry.runtime?.databaseVersion ?? 'unknown'}.${summaryEntry.runtime?.sourceWorkingTreeDirty ? ' Measured with uncommitted working-tree changes.' : ''}`,
+    ...(manifest.configuration?.entryPoint ? [`- Public request path: ${manifest.configuration.entryPoint}. Internal instrumentation observes queue completion and telemetry only.`] : []),
+    ...(rawRuns[0]?.publicApiChecks ? [`- Public API checks: ${JSON.stringify(rawRuns[0].publicApiChecks)}.`] : []),
     `- Runtime: ${summaryEntry.runtime?.node ?? 'unknown'} / ${summaryEntry.runtime?.platform ?? 'unknown'}; CPU: ${summaryEntry.runtime?.cpuModel ?? 'unknown'} (${summaryEntry.runtime?.cpuCount ?? '?'} logical CPUs); RAM: ${miB(summaryEntry.runtime?.totalMemoryBytes)}; limit: ${miB(summaryEntry.runtime?.memoryLimitBytes)}.`,
     `- Method: ${manifest.independentRunsRequested} independent runs/size; ${manifest.warmupCount} warmups and ${manifest.sampleCount} samples per latency operation; ${manifest.sustainedDurationMs} ms sustained runs per workload/concurrency.`,
-    `- Process model: ${summaryEntry.runtime?.processModel}; mode: ${manifest.configuration?.mode ?? 'adaptive'}; acknowledgement: ${manifest.configuration?.acknowledgement ?? 'memory'}; memory allocation: ${manifest.configuration?.memoryPercent ?? 'unknown'}%. ${summaryEntry.runtime?.durability}.`,
+    `- Process model: ${summaryEntry.runtime?.processModel}; mode: ${manifest.configuration?.mode ?? 'adaptive'}; acknowledgement: ${manifest.configuration?.acknowledgement ?? 'memory'}; memory policy: ${manifest.configuration?.memory ? 'node-wide thresholds' : 'historical (see raw result)'}. ${summaryEntry.runtime?.durability}.`,
     '- No competitor databases, containers, dependencies or datasets were installed or launched.', '',
     'Each run is a fresh child process and database. Fixture data is generated and hashed in 1,000-record batches. The create/index lifecycle timer spans batch generation, create acknowledgements, and the final index drain; fixture generation time and cumulative time awaiting create acknowledgements are reported separately, and background work can overlap those intervals. The fixture hash is over the canonical pre-ingestion JSON dataset. Correctness checks compare UUID result sets before query timings are accepted. Measured request latency stops before result assertions. Sustained modes are read-only, increment-only writes, or alternating read/write calls; concurrency means outstanding in-process requests, not parallel database threads.', '',
     'Initialization and readiness are reported separately. Object create acknowledges before leaf finalization and index attachment; the standard runner drains this background work before beginning query measurements. The full create/index lifecycle includes the final drain. Local Warm writes are queued after memory acknowledgement; their disk drain is not included in request timings. External persistence is not configured. CPU and RSS include both the benchmark client and database in the same Node process. Incremental memory/object is an approximate loaded-minus-idle RSS ratio.', '',

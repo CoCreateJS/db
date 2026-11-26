@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { availableParallelism } from 'node:os'
 import { join, resolve } from 'node:path'
-import createDB from '../../src/index.js'
+import { createRuntime } from '../../src/runtime.js'
 import { createLifecycleFixture, createLifecycleRecord, lifecycleFixtureHash, lifecycleQueries, lifecycleRoot } from '../fixtures/lifecycle.mjs'
 
 const sizes = process.argv[2]?.split(',').map(Number) ?? [1000]
@@ -60,13 +60,13 @@ const assertCount = (response, count, label) => {
 
 for (const size of sizes) {
     const root = lifecycleRoot(size)
-    const seed = await createDB.init()
+    const seed = await createRuntime()
     const seedResponse = await seed.send({ ...root, method: 'object.create', object: { uuid: 'seed-only', rank: -1 } })
     assert.equal(seedResponse.success, true)
     const config = JSON.parse(JSON.stringify(seed.config))
     const restored = process.env.BENCH_MODE === 'restored'
     const initStart = performance.now()
-    const db = await createDB.init(undefined, restored ? { config } : { config: {} })
+    const db = await createRuntime(undefined, restored ? { config } : { config: {} })
     const initMs = performance.now() - initStart
     const beforeConfig = JSON.parse(JSON.stringify(db.config))
     assert.equal(Object.keys(beforeConfig.leaves).length, restored ? 4 : 0)

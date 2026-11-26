@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { availableParallelism, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
-import createDB from '../../../src/index.js'
+import { createRuntime } from '../../../src/runtime.js'
 import { lifecycleRoot } from '../../fixtures/lifecycle.mjs'
 import { createResidencyRecord } from './fixtures/residency.mjs'
 
@@ -25,7 +25,7 @@ const outputFile = join(outputDir, `adaptive-create-${sizeLabel}-${startedAt.toI
 const directory = await mkdtemp(join(tmpdir(), 'cocreatedb-adaptive-create-'))
 const root = lifecycleRoot(records)
 // Intentionally pass no mode, acknowledgement, memory-policy, or indexing options.
-const db = await createDB({}, { directory })
+const db = await createRuntime({}, { directory })
 const result = {
     benchmark: 'cocreatedb-adaptive-default-create-diagnostic',
     benchmarkVersion: 1,
@@ -40,10 +40,6 @@ const result = {
     databaseMode: db.mode,
     effectiveModeAtStart: db.effectiveMode,
     acknowledgement: db.acknowledgement,
-    defaultMemoryPercent: db.memoryPolicy?.requestedBudget / db.memoryPolicy?.totalMemory * 100,
-    requestedBudgetBytes: db.memoryPolicy?.requestedBudget,
-    effectiveBudgetBytes: db.memoryPolicy?.budget,
-    availableMemoryAtStartBytes: db.memoryPolicy?.availableMemory,
     datasetSize: records,
     batchSize,
     requests: Math.ceil(records / batchSize),
@@ -96,14 +92,7 @@ try {
     result.branchFiles = db.local.warmBranches.size
     result.leafWrites = db.leafTier.writes
     result.branchWrites = db.local.writes
-    result.memoryPolicy = {
-        stage: db.memoryPolicy?.stage,
-        diskFirst: db.memoryPolicy?.diskFirst,
-        indexEvictionSamples: db.memoryPolicy?.samples.length,
-        leafEvictionSamples: db.memoryPolicy?.leafSamples.length,
-        lastIndexEviction: db.memoryPolicy?.samples.at(-1),
-        lastLeafEviction: db.memoryPolicy?.leafSamples.at(-1)
-    }
+    result.memoryPolicy = { ...db.memory }
     const leafFiles = await readdir(join(directory, 'leaves'))
     result.objectLeafFilesOnDisk = leafFiles.filter(name => name.endsWith('.json')).length - Object.keys(db.config.leaves).length
     assert.equal(result.totalLeafFiles, records + Object.keys(db.config.leaves).length)

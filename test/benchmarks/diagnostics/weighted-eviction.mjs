@@ -5,7 +5,7 @@ import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { availableParallelism, tmpdir, totalmem } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import createDB from '../../../src/index.js'
+import { createRuntime } from '../../../src/runtime.js'
 import { benchmarkUuid, lifecycleRoot } from '../../fixtures/lifecycle.mjs'
 import { createProgressReporter } from '../shared/workloads.mjs'
 import { createResidencyRecord } from './fixtures/residency.mjs'
@@ -22,7 +22,7 @@ const outputDir = resolve(process.env.BENCH_OUTPUT_DIR ?? join(here, 'results'))
 const outputFile = join(outputDir, `weighted-eviction-${runId}.json`)
 const directory = join(tmpdir(), `cocreatedb-weighted-${process.pid}-${Date.now()}`)
 const root = lifecycleRoot(size)
-const db = await createDB({}, { directory, memoryPolicy: false })
+const db = await createRuntime({}, { directory, memoryPolicy: false })
 const send = (method, extra) => db.send({ ...root, method: `object.${method}`, ...extra })
 const progress = createProgressReporter('cocreatedb-weighted-eviction', size)
 const elapsed = start => performance.now() - start

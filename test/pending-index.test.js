@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRootManager } from '../src/tree/manager.js'
-import { createConfiguration } from '../src/index.js'
+import { createConfiguration } from '../src/runtime.js'
 import { Tree as IndexTree } from '../src/tree/btree.js'
 import { waitForIndex } from './benchmarks/shared/wait-for-index.mjs'
 

@@ -6,7 +6,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { availableParallelism, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import createDB from '../../../src/index.js'
+import { createRuntime } from '../../../src/runtime.js'
 import { lifecycleRoot } from '../../fixtures/lifecycle.mjs'
 import { createProgressReporter } from '../shared/workloads.mjs'
 import { createResidencyRecord } from './fixtures/residency.mjs'
@@ -21,7 +21,7 @@ const outputDir = resolve(process.env.BENCH_OUTPUT_DIR ?? join(here, 'results'))
 const outputFile = join(outputDir, `deferred-indexing-${runId}.json`)
 const directory = join(tmpdir(), `cocreatedb-deferred-${process.pid}-${Date.now()}`)
 const root = lifecycleRoot(size)
-const db = await createDB({}, { directory, mode: 'adaptive', size: 64 })
+const db = await createRuntime({}, { directory, mode: 'adaptive', size: 64 })
 const send = (method, extra) => db.send({ ...root, method: `object.${method}`, ...extra })
 const percentile = (values, ratio) => {
     const sorted = [...values].sort((a, b) => a - b)
@@ -55,7 +55,7 @@ const result = {
     chunkSize,
     mode: 'adaptive',
     acknowledgement: 'memory',
-    memoryPercent: db.memory.percent,
+    memoryPolicy: db.config.memory,
     updateCount,
     deleteCount,
     directReadCount,

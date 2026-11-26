@@ -1,171 +1,62 @@
-import {
-    createDB,
-    init,
-    Tree,
-    CRUD,
-    createCRUD,
-    QueryPlanner,
-    planQuery
-} from '@cocreate/db'
+import DB, { Tree } from '@cocreate/db'
 
-// DB setup.
-const db = await createDB(server, {
-    config,
-    disk,
-    persistence,
-    size: 64,
-    leafSize: 64
-})
+// DB is initialized only through DB.init().
+export async function example(server = {}, options = {}) {
+    const db = await DB.init(server, options)
 
-// Select an organization-scoped Tree.
-const organizationTree = await db.organization.get(organizationId)
+    // The complete DB interface is { config, organizations, send }.
+    const tree = await db.organizations.get('example')
+    const config = db.config // Defaults used to compose organization Trees.
+    const organizationConfig = tree.config // This Tree's current configuration.
 
-// Create and initialize another Tree instance.
-const persistenceTree = new Tree()
-persistenceTree.disk = persistenceDisk
-persistenceTree.persistence = persistenceAdapter
-
-const persistencePlanner = new QueryPlanner()
-persistenceTree.planner = (branch, payload = {}) =>
-    persistencePlanner.plan(
-        branch,
-        payload.query ?? payload.filter?.query ?? {}
-    )
-
-await persistenceTree.init({
-    ...organizationTree.config,
-    size: organizationTree.size,
-    leafSize: organizationTree.leafSize
-})
-
-// Tree configuration and composition.
-const configSnapshot = persistenceTree.config
-const roots = await persistenceTree.roots.get()
-const oneRoot = await persistenceTree.roots.get('storage.database')
-
-await persistenceTree.roots.execute({
-    operation: 'set',
-    path: 'storage.database',
-    data: updatedRootDefinition
-})
-
-persistenceTree.disk = anotherDiskAdapter
-persistenceTree.persistence = anotherPersistenceAdapter
-persistenceTree.setDiskFirst(false)
-
-const pendingIndexes = persistenceTree.pendingIndexCount
-
-// Branch, planner, and leaf query flow.
-const payload = {
-    method: 'object.read',
-    organization_id: organizationId,
-    storage: 'storage-name',
-    database: 'database-name',
-    array: 'contacts'
-}
-
-const primaryBranch = await persistenceTree.getPrimaryBranch(payload)
-const plan = await persistenceTree.planner(primaryBranch, {
-    ...payload,
-    query: { status: 'active' }
-})
-
-const planFromHelper = planQuery(primaryBranch, { status: 'active' })
-
-for await (const leaf of persistenceTree.getLeaves(plan)) {
-    // Process a leaf returned by the plan.
-}
-
-// Direct branch and leaf access.
-const branch = await persistenceTree.branches.get(branchUuid)
-const leaf = await persistenceTree.leaves.get(leafUuid)
-const hasLeaf = await persistenceTree.leaves.has(leafUuid)
-const sameLeaf = await persistenceTree.getLeaf(leafUuid)
-
-// Tree index range and visitor APIs.
-for await (const entry of persistenceTree.range('status', 'string', {
-    min: 'active',
-    max: 'active'
-})) {
-    // Process an index entry.
-}
-
-for await (const matchingLeaf of persistenceTree.rangeLeaves(
-    'status',
-    'string',
-    { min: 'active', max: 'active' }
-)) {
-    // Process a leaf from the range.
-}
-
-await persistenceTree.visitRange(
-    'status',
-    'string',
-    { min: 'active', max: 'active' },
-    async (matchingLeaf, entry) => {
-        // Visit one indexed match.
+    const payload = {
+        organization_id: 'example',
+        storage: 'main',
+        database: 'app',
+        array: 'contacts',
+        method: 'object.create',
+        object: { name: 'Example' }
     }
-)
+    const response = await db.send(payload)
+    const uuid = response.object[0].uuid
 
-await persistenceTree.visitRanges(
-    'status',
-    'string',
-    [{ min: 'active', max: 'active' }],
-    async matchingLeaf => {
-        // Visit matches across ranges.
+    // Tree owns the execution path and can execute the same envelope directly.
+    await tree.execute({ ...payload, method: 'object.read', object: { uuid } })
+    await tree.leaves.has(uuid)
+    const leaf = await tree.leaves.get(uuid)
+
+    tree.roots.get()
+    tree.roots.get('storage.database')
+    // Update a root definition when needed:
+    // await tree.roots.execute({ operation: 'set', path, data: definition })
+
+    // Replaceable stateless functions. Neither requires constructing an instance.
+    const execute = tree.execute
+    tree.execute = async function(data) {
+        return await execute.call(this, data)
     }
-)
+    const planner = tree.planner
+    tree.planner = (branch, query) => planner(branch, query)
 
-await persistenceTree.visitLeaves(async currentLeaf => {
-    // Visit every resident leaf.
-})
+    // Resource objects are assigned directly.
+    // tree.disk = disk
+    // tree.persistence = persistence
 
-// Direct leaf mutations and Tree lifecycle.
-const createdLeaf = await persistenceTree.createLeaf(
-    'object',
-    { status: 'active' },
-    payload
-)
+    const { size, leafSize, diskFirst, prune } = tree.config
+    tree.setDiskFirst(false)
+    await tree.prune() // Uses the configured strategy and limit.
+    await tree.prune({ strategy: 'lfu', limit: 100 })
+    await tree.persist() // Delegates to the attached persistence adapter.
 
-const createdLeaves = await persistenceTree.createLeaves(
-    'object',
-    [{ status: 'active' }, { status: 'pending' }],
-    payload
-)
+    // A standalone Tree accepts configuration from its composer.
+    const temporaryTree = new Tree()
+    temporaryTree.organizationId = 'temporary'
+    if (options.disk) temporaryTree.disk = options.disk
+    if (options.persistence) temporaryTree.persistence = options.persistence
+    await temporaryTree.init({ roots: config.roots, size, leafSize, prune })
+    await temporaryTree.close()
 
-await persistenceTree.updateLeaf(createdLeaf.uuid, { status: 'pending' })
-await persistenceTree.matchesRoot(payload, 'object', createdLeaf)
-await persistenceTree.removeLeaf(createdLeaf.uuid)
-await persistenceTree.evictLeaf(createdLeaf.uuid)
-
-await persistenceTree.prune({ strategy: 'lfu', limit: 100 })
-await persistenceTree.close()
-
-// CRUD composed with a Tree.
-const planner = new QueryPlanner()
-const crud = createCRUD(persistenceTree, planner)
-const crudInstance = new CRUD(persistenceTree, planner)
-
-await crud.send({
-    ...payload,
-    method: 'object.read',
-    filter: { query: { status: 'active' } }
-})
-
-// DB-level organization and lifecycle APIs.
-await db.send({ ...payload, method: 'object.read' })
-await db.organization.release(organizationId)
-await db.persist()
-await db.close()
-
-// Initialize another Tree with a configuration supplied by its composer.
-const initializedTree = new Tree()
-await initializedTree.init(config)
-
-// Static Tree helpers.
-await Tree.readDiskConfig(disk)
-await Tree.clearDisk(disk)
-
-// Other DB composition entry points.
-const composedDB = await createDB(server, { tree: initializedTree })
-const initializedDB = await init(server, options)
+    // Closing an organization Tree completes its work and removes it from DB's map.
+    await tree.close()
+    return { db, leaf, organizationConfig, diskFirst }
+}

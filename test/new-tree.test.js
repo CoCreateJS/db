@@ -1,23 +1,25 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { waitForIndex, waitForCondition } from './benchmarks/shared/wait-for-index.mjs'
-import { Tree, createConfiguration, planQuery } from '../src/index.js'
-import { createTestTree } from '../test-support/tree.mjs'
+import { Tree } from '../src/index.js'
+import { createConfiguration } from '../src/runtime.js'
+import planQuery from '../src/tree/planner.js'
+import { createTestTree, inspectTree } from '../test-support/tree.mjs'
 import { Tree as IndexTree } from '../src/tree/btree.js'
 import { MemoryDisk } from '../test-support/memory-disk.mjs'
 
 const envelope = { organization_id: 'org', storage: 'test', database: 'app', array: 'items' }
 
 test('Tree initializes through init and exposes no manual flush endpoints', async () => {
-    const tree = new Tree()
+    const tree = inspectTree(new Tree())
     assert.equal(typeof tree.init, 'function')
     assert.equal('flushIndex' in tree, false)
     assert.equal('flushLocal' in tree, false)
     assert.equal('flushDisk' in tree, false)
     assert.equal('flushMemory' in tree, false)
     await tree.init({ ...createConfiguration(), size: 4, leafSize: 4 })
-    assert.equal(tree.size, 4)
-    assert.equal(tree.leafSize, 4)
+    assert.equal(tree.config.size, 4)
+    assert.equal(tree.config.leafSize, 4)
     await tree.close()
 })
 
@@ -126,7 +128,7 @@ test('new Tree streams sorted ranges across split branches and updates leaf inde
     const matching = []
     const stoppedAfter = await tree.visitRange('score', 'number', { min: 0, max: 39 }, async leaf => {
         if (leaf.score % 2 === 0) matching.push(leaf.score)
-        if (matching.length === 3) return Tree.stop
+        if (matching.length === 3) return Symbol.for('cocreate.db.tree.stop')
     })
     assert.deepEqual(matching, [0, 2, 4])
     assert.equal(stoppedAfter, 5)
@@ -149,7 +151,7 @@ test('new Tree streams sorted ranges across split branches and updates leaf inde
 
 test('Tree pruning releases a bounded number of branches and retains leaves and query paths', async () => {
     const disk = new MemoryDisk()
-    const tree = new Tree()
+    const tree = inspectTree(new Tree())
     tree.disk = disk
     await tree.init({ ...createConfiguration(), size: 4, leafSize: 4 })
     const leaves = []
@@ -175,7 +177,7 @@ test('Tree pruning releases a bounded number of branches and retains leaves and 
 
 test('Tree prune defaults to LFU and an omitted limit prunes every eligible branch', async () => {
     const disk = new MemoryDisk()
-    const tree = new Tree()
+    const tree = inspectTree(new Tree())
     tree.disk = disk
     await tree.init({ ...createConfiguration(), size: 4, leafSize: 4 })
     for (let score = 0; score < 40; score++)
@@ -189,7 +191,7 @@ test('Tree prune defaults to LFU and an omitted limit prunes every eligible bran
 })
 
 test('Tree can prune and rebuild derived branches without a storage adapter', async () => {
-    const tree = new Tree()
+    const tree = inspectTree(new Tree())
     await tree.init({ ...createConfiguration(), size: 4, leafSize: 4 })
     const leaves = []
     for (let score = 0; score < 40; score++)
@@ -211,7 +213,7 @@ test('Tree can prune and rebuild derived branches without a storage adapter', as
 
 test('new Tree persists leaf deletion after the queued index work', async () => {
     const disk = new MemoryDisk()
-    const tree = new Tree()
+    const tree = inspectTree(new Tree())
     tree.disk = disk
     await tree.init({ ...createConfiguration(), size: 4, leafSize: 4 })
     const leaf = await tree.createLeaf('object', { name: 'remove-me', score: 7 }, envelope)

@@ -25,6 +25,17 @@ Run CoCreateDB:
 npm run benchmark:standard
 ```
 
+The CoCreateDB runner uses the public `DB.init()` entry and sends timed requests through `db.send()` to the organization's `tree.execute()`. It asserts the thin DB shape, verifies organization Tree access, and runs direct Tree create/read/update/delete checks after the timed workloads. Queue completion and telemetry are observed through internal diagnostics; request processing uses the public API. Raw metadata records whether the working tree contains uncommitted changes.
+
+Run one 100K public API pass with the standard sustained settings:
+
+```sh
+BENCH_RUNS=1 BENCH_INDEX_PROGRESS_MS=10000 \
+  npm run benchmark:standard -- 100000
+```
+
+The queue observation timeout defaults to ten minutes in the benchmark and can be overridden with `BENCH_INDEX_TIMEOUT_MS`. This does not alter engine scheduling.
+
 Run one standard size for a smoke/correctness pass:
 
 ```sh
@@ -65,7 +76,7 @@ The default requested memory budget is 25% of detected system RAM, capped at sta
 
 The current baseline catalog is [`providers/cocreatedb/results/README.md`](providers/cocreatedb/results/README.md). It retains the latest 10K, 100K, 200K, and concurrent two-organization measurements, with their raw results. The primary 100K baseline is [`standard-2026-11-26T18-39-36.192Z/`](providers/cocreatedb/results/standard-2026-11-26T18-39-36.192Z/). Superseded CoCreateDB results and diagnostic logs were removed; other provider results remain separate. Regenerate reports from their retained manifests and raw files. These are single-run baselines; match workload settings and repeat measurements for comparisons.
 
-The runner also accepts an explicit 200K size (`node test/benchmarks/standard.mjs 200000`). To repeat the concurrent organization diagnostic, run `node test/benchmarks/diagnostics/parallel-organizations.mjs 100000`.
+The runner also accepts an explicit 200K size (`node test/benchmarks/standard.mjs 200000`). To run the concurrent organization diagnostic, set `BENCH_ORGANIZATIONS` (default 2) and pass the records per organization: `BENCH_ORGANIZATIONS=4 node test/benchmarks/diagnostics/parallel-organizations.mjs 100000`.
 
 ### Query field locality
 
@@ -78,4 +89,10 @@ node test/benchmarks/diagnostics/query-locality.mjs --mode=scattered --records=1
 
 By default, each record has 40 queryable fields plus a revision and a variable size payload, and both modes run one equality read per create batch, followed by 12,000 mixed requests after loading. Focused mode queries four fixed fields. Scattered mode selects from all 40. Both modes select records from the same broad set so the comparison isolates field choice. Set `--focused-fields` to 1–4, `--fields` to change fixture width, `--requests` to change the steady phase length, or `--leaf-size` to compare leaf capacities with branch capacity fixed at 1,024.
 
-The diagnostic defaults to the engine’s 25% memory budget and reports Hot leaves, Warm leaves, and Warm index branches with their read/write counts. Adaptive mode offloads under memory pressure; disk-first uses local Warm state per request and prunes it after processing. The independent acknowledgement setting controls whether the call returns after the Hot mutation or waits for local Warm writes. Results contain RSS, operation latency, and index branch reads and writes by field. The diagnostic also reports total and Warm index entries per field after growth and before a point query verifies that a previously unused Warm index branch can reload. Reads are attributed to the synchronous CRUD path or background processing. Use `BENCH_OUTPUT_DIR` to place the result and temporary DB files outside the checkout. Run Node with `--expose-gc` to sample whether offloaded entries are still reachable and report heap and RSS after a final forced collection. The forced collection runs after the timed workload.
+The diagnostic uses the composer’s node-wide memory policy and reports Hot leaves, Warm leaves, and Warm index branches with their read/write counts. Adaptive mode offloads under memory pressure; disk-first uses local Warm state per request and prunes it after processing. The independent acknowledgement setting controls whether the call returns after the Hot mutation or waits for local Warm writes. Results contain RSS, operation latency, and index branch reads and writes by field. The diagnostic also reports total and Warm index entries per field after growth and before a point query verifies that a previously unused Warm index branch can reload. Reads are attributed to the synchronous CRUD path or background processing. Use `BENCH_OUTPUT_DIR` to place the result and temporary DB files outside the checkout. Run Node with `--expose-gc` to sample whether offloaded entries are still reachable and report heap and RSS after a final forced collection. The forced collection runs after the timed workload.
+
+Memory policy instrumentation uses node-wide used-memory percentages, matching
+Telemetry's contract. On Linux the benchmark uses `MemAvailable` so reclaimable
+page cache is accounted for. Process RSS and heap are reported separately and
+are not used as a DB memory allocation. Results from the earlier allocation
+policy remain historical measurements and should be identified when compared.

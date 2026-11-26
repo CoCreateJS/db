@@ -3,7 +3,7 @@ import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Disk from '@cocreate/disk'
-import sourceDB from '../src/index.js'
+import { createRuntime as sourceDB } from '../src/runtime.js'
 
 let sequence = 0
 const directories = new Set()
@@ -15,10 +15,10 @@ function testDirectory() {
     return directory
 }
 
-export async function createDB(server = {}, options = {}) {
-    const worker = server?.isPrimary === false || server?.isWorker === true && server?.isPrimary !== true
+export async function createTestDatabase(server = {}, options = {}) {
+    const worker = server.isPrimary === false
     const configured = { ...options }
-    if (!worker && !configured.disk && !server?.disk) {
+    if (!worker && !configured.disk && !server.disk) {
         const directory = configured.directory ?? testDirectory()
         directories.add(directory)
         configured.disk = await Disk.init({ directory })
@@ -30,28 +30,13 @@ export async function createDB(server = {}, options = {}) {
 }
 
 export async function flushCreatedDatabases() {
-    await Promise.all([...instances].map(db => db.flushDisk?.().catch(() => {})))
+    await Promise.all([...instances].map(db => db.close?.().catch(() => {})))
 }
 
-createDB.init = async (server = {}, options = {}) => {
-    const worker = server?.isPrimary === false || server?.isWorker === true && server?.isPrimary !== true
-    const configured = { ...options }
-    if (!worker && !configured.disk && !server?.disk) {
-        const directory = configured.directory ?? testDirectory()
-        directories.add(directory)
-        configured.disk = await Disk.init({ directory })
-    }
-    delete configured.directory
-    const db = await sourceDB.init(server, configured)
-    instances.add(db)
-    return db
-}
-
-createDB.defaultPath = sourceDB
 
 after(async () => {
     await flushCreatedDatabases()
     await Promise.all([...directories].map(directory => rm(directory, { recursive: true, force: true })))
 })
 
-export default createDB
+export default createTestDatabase

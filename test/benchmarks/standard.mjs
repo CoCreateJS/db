@@ -6,11 +6,15 @@ import { EventEmitter } from 'node:events'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Disk from '@cocreate/disk'
-import { createDB } from '../../src/index.js'
-import { waitForIndex } from './shared/wait-for-index.mjs'
+import { nodeMemory } from './shared/node-memory.mjs'
+import DB from '@cocreate/db'
+import { defaultConfiguration, databaseRuntimes } from '../../src/runtime.js'
+import { waitForIndex as observeIndexQueue } from './shared/wait-for-index.mjs'
 import { benchmarkUuid, createBenchmarkRecord, lifecycleRoot } from '../fixtures/lifecycle.mjs'
 import { launch } from './shared/child-process.mjs'
 import { createProgressReporter, expectedUuids, parseStandardSizes, STANDARD_SIZES, standardWorkloads } from './shared/workloads.mjs'
+
+const waitForIndex = resource => observeIndexQueue(resource, { timeoutMs: Number(process.env.BENCH_INDEX_TIMEOUT_MS ?? 600000) })
 
 const script = fileURLToPath(import.meta.url)
 const root = resolve(dirname(script), '../..')
@@ -50,10 +54,11 @@ const recordEnvironment = () => {
         memoryLimitBytes,
         databaseVersion: JSON.parse(readFileSync(join(root, 'package.json'))).version,
         sourceRevision: gitRevision(),
+        sourceWorkingTreeDirty: workingTreeDirty(),
         processModel: 'single in-process Node process; benchmark client and database share CPU/RSS',
         mode: 'adaptive',
         acknowledgement: 'memory',
-        memoryPercent: Number(process.env.BENCH_MEMORY_PERCENT ?? 25),
+        memoryPolicy: 'node-wide thresholds',
         persistence: 'external persistence not configured; local Warm disk writes enabled',
         durability: 'local writes are queued after memory acknowledgement; disk drain excluded from request timings',
         diskUsageBytes: null,
@@ -68,6 +73,10 @@ function gitRevision() {
     try { return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim() }
     catch { return null }
 }
+function workingTreeDirty() {
+    try { return execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim().length > 0 }
+    catch { return null }
+}
 const { execFileSync } = await import('node:child_process')
 const assertResponse = (response, label) => {
     if (!response || response.success === false)
@@ -75,9 +84,7 @@ const assertResponse = (response, label) => {
     return response
 }
 const uuidFor = benchmarkUuid
-const memoryPercent = Number(process.env.BENCH_MEMORY_PERCENT ?? 25)
-if (!Number.isFinite(memoryPercent) || memoryPercent <= 0 || memoryPercent > 100)
-    throw Error('BENCH_MEMORY_PERCENT must be a number greater than 0 and at most 100')
+const memoryPolicy = defaultConfiguration().memory
 const verifyIds = (response, expected, label) => {
     assertResponse(response, label)
     assert.deepEqual(response.object.map(value => value.uuid).sort(), [...expected].sort(), `${label} result ids`)
@@ -160,12 +167,12 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         benchmarkVersion: 1, fixture: 'shared lifecycle fixture v3', fixtureVersion: '3.0.0',
         runIndex, datasetSize: size, sampleCount: samples, warmupCount: warmups,
         sustainedDurationMs: sustainMs, concurrencyLevels: concurrency,
-        environment, configuration: { roots: 'default', indexSize: 64, chunkSize: 1000, indexing: 'queued and batched', mode: 'adaptive', acknowledgement: 'memory', memoryPercent, telemetry: 'process RSS sampled every 100 ms by the benchmark harness' },
+        environment, configuration: { roots: 'default', indexSize: 64, chunkSize: 1000, indexing: 'queued and batched', mode: 'adaptive', acknowledgement: 'memory', memory: memoryPolicy, telemetry: 'node used-memory percentage sampled every 100 ms by the benchmark harness' },
         startedAt: new Date().toISOString()
     }
     const cpuStart = process.cpuUsage()
     const wallStart = performance.now()
-    let db
+    let db, tree, runtime
     let telemetryTimer
     try {
         const initStart = performance.now()
@@ -174,22 +181,22 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         const server = new EventEmitter()
         server.id = `benchmark-${runIndex}`
         server.isPrimary = true
-        db = await createDB.init(server, { prompt: false, disk, config: { memory: memoryPercent }, size: 64 })
-        const memoryTotal = environment.memoryLimitBytes ?? totalmem()
+        db = await DB.init(server, { prompt: false, disk, config: { memory: memoryPolicy }, size: 64 })
+        assert.deepEqual(Object.keys(db).sort(), ['config', 'organizations', 'send'])
+        runtime = databaseRuntimes.get(db) // Observation and process cleanup only; requests use the public API.
+        result.configuration.entryPoint = 'DB.init -> db.send -> tree.execute'
         const emitTelemetry = () => server.emit('telemetry', { data: {
             serverId: server.id,
             workerId: 0,
             timestamp: new Date().toISOString(),
-            memory: { total: memoryTotal, max: Math.min(100, process.memoryUsage().rss / memoryTotal * 100) }
+            memory: nodeMemory()
         } })
         emitTelemetry()
         telemetryTimer = setInterval(emitTelemetry, 100)
         result.memoryPolicy = {
-            requestedPercent: memoryPercent,
-            totalMemoryBytes: db.memoryPolicy?.totalMemory,
-            availableMemoryBytes: db.memoryPolicy?.availableMemory,
-            requestedBudgetBytes: db.memoryPolicy?.requestedBudget,
-            effectiveBudgetBytes: db.memoryPolicy?.budget
+            scope: 'node',
+            configuration: db.config.memory,
+            initialNodeUsedPercent: runtime.memory.nodeUsedPercent
         }
         result.initializationMs = performance.now() - initStart
         const send = request => db.send(request)
@@ -197,6 +204,9 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         const readyStart = performance.now()
         assertResponse(await send({ ...root, method: 'object.read', object: { uuid: 'readiness-probe' } }), 'database readiness')
         result.readiness = { readyMs: performance.now() - readyStart, ready: true }
+        tree = await db.organizations.get(root.organization_id)
+        assert.equal(typeof tree.execute, 'function')
+        assert.equal(typeof tree.planner, 'function')
         result.memory = { idle: idleMemory }
 
         const seed = {
@@ -240,9 +250,9 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             reportProgress(end)
         }
         hash.update(']')
-        const pendingAfterCreate = db.pendingIndexCount
+        const pendingAfterCreate = runtime.pendingIndexCount
         const indexDrainStart = performance.now()
-        await waitForIndex(db)
+        await waitForIndex(runtime)
         const indexDrainWaitMs = performance.now() - indexDrainStart
         const createAndIndexMs = performance.now() - createLifecycleStart
         indexEntriesPerObject = Object.keys(await firstBatch[0].getIndex()).length
@@ -261,7 +271,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             finalDrainWaitMs: indexDrainWaitMs,
             pendingAfterCreate
         }
-        assert.equal(db.pendingIndexCount, 0, 'standard run must complete index maintenance before timing proceeds')
+        assert.equal(runtime.pendingIndexCount, 0, 'standard run must complete index maintenance before timing proceeds')
         const loadedMemory = process.memoryUsage()
         const peakRssBytes = process.resourceUsage().maxRSS * 1024
         result.memory.loaded = loadedMemory
@@ -338,7 +348,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             return send({ ...root, method: 'object.update', object: { uuid: uuidFor(rank), '$inc.revision': 1 } })
         }, response => { assertResponse(response, 'numeric increment'); assert.equal(response.object.length, 1) }, { warmups, samples })
         phase('numeric-increment-done')
-        await waitForIndex(db)
+        await waitForIndex(runtime)
         const indexedCheckRank = indexedStart + warmups + samples
         const indexedValue = `updated-group-sample-${samples - 1}`
         assert.equal((await rootRead(send, root, { filter: { query: { group: indexedValue }, limit: 1 } })).object[0]?.uuid, uuidFor(indexedCheckRank))
@@ -358,19 +368,19 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             return send({ ...root, method: 'object.delete', object: { uuid } })
         }, response => { assertResponse(response, 'single delete'); assert.equal(response.object.length, 1) }, { warmups, samples })
         phase('single-delete-done')
-        await waitForIndex(db)
+        await waitForIndex(runtime)
         for (const uuid of deleteIds) assert.equal((await rootRead(send, root, { object: { uuid } })).object.length, 0)
 
         const deleteQuery = { bulkDelete: true }
         const expectedDelete = Math.min(size, 25)
-        await waitForIndex(db)
+        await waitForIndex(runtime)
         const deletePrecheck = await rootRead(send, root, { filter: { query: deleteQuery, limit: 0 } })
         assert.equal(deletePrecheck.object.length, expectedDelete)
         const deleteStart = performance.now()
         const deleted = assertResponse(await send({ ...root, method: 'object.delete', filter: { query: deleteQuery, limit: 0 } }), 'filtered bulk delete')
         const filteredBulkDeleteMs = performance.now() - deleteStart
         assert.equal(deleted.object.length, expectedDelete)
-        await waitForIndex(db)
+        await waitForIndex(runtime)
         assert.equal((await rootRead(send, root, { filter: { query: deleteQuery, limit: 0 } })).object.length, 0)
         result.operations.filteredBulkDelete = { deleted: expectedDelete, elapsedMs: filteredBulkDeleteMs, opsPerSecond: expectedDelete / filteredBulkDeleteMs * 1000 }
         phase('filtered-delete-done')
@@ -384,6 +394,21 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
             }
         }
 
+        // Direct Tree API checks use a separate record after timed workloads;
+        // the canonical fixture and measured operations stay unchanged.
+        const direct = request => tree.execute({ ...root, ...request })
+        const probe = createBenchmarkRecord(size + 10000000, size, root.organization_id)
+        const createdDirect = assertResponse(await direct({ method: 'object.create', object: probe }), 'direct Tree create')
+        const probeUuid = createdDirect.object[0].uuid
+        const updatedDirect = assertResponse(await direct({ method: 'object.update', object: { uuid: probeUuid, '$inc.revision': 1 } }), 'direct Tree update')
+        assert.equal(updatedDirect.object[0].revision, 1)
+        const readDirect = assertResponse(await direct({ method: 'object.read', object: { uuid: probeUuid } }), 'direct Tree read')
+        assert.equal(readDirect.object[0].revision, 1)
+        assertResponse(await direct({ method: 'object.delete', object: { uuid: probeUuid } }), 'direct Tree delete')
+        assert.equal(assertResponse(await direct({ method: 'object.read', object: { uuid: probeUuid } }), 'direct Tree deleted read').object.length, 0)
+        result.publicApiChecks = { thinDB: 'passed', organizationTree: 'passed', directTreeCRUD: 'passed', timing: 'direct Tree probes are outside operation latency and create/index measurements' }
+        phase('public-api-checked')
+
         result.cpuUsageUs = process.cpuUsage(cpuStart)
         result.totalElapsedMs = performance.now() - wallStart
         result.cpuUtilizationPercent = (result.cpuUsageUs.user + result.cpuUsageUs.system) / 1000 / result.totalElapsedMs * 100
@@ -393,16 +418,16 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         result.status = 'passed'
         clearInterval(telemetryTimer)
         telemetryTimer = undefined
-        await waitForIndex(db)
-        await db.close?.()
+        await waitForIndex(runtime)
+        await tree.close()
+        await runtime.close()
         result.memoryPolicy.telemetry = {
-            baselineReady: db.memory?.baselineReady ?? false,
-            peakPressure: db.memory?.peakPressure,
-            peakStage: db.memory?.peakStage,
-            shedCycles: db.memory?.shedCycles,
-            branchesShed: db.memory?.branchesShed,
-            leavesShed: db.memory?.leavesShed,
-            diskFirstActivations: db.memory?.diskFirstActivations
+            nodeUsedPercent: runtime.memory.nodeUsedPercent,
+            peakNodeUsedPercent: runtime.memory.peakNodeUsedPercent,
+            peakStage: runtime.memory.peakStage,
+            pruneCycles: runtime.memory.pruneCycles,
+            branchesPruned: runtime.memory.branchesPruned,
+            diskFirstActivations: runtime.memory.diskFirstActivations
         }
         await writeFile(outputFile, `${JSON.stringify(result, null, 2)}\n`)
         return result
@@ -416,6 +441,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         return result
     } finally {
         clearInterval(telemetryTimer)
+        await runtime?.close().catch(() => {})
         if (databaseDirectory) await rm(databaseDirectory, { recursive: true, force: true })
     }
 }
@@ -437,7 +463,7 @@ async function orchestrate() {
         sampleCount: samples, warmupCount: warmups, sustainedDurationMs: sustainMs,
         concurrencyLevels: concurrency, results: [],
         stallTimeoutMs: Number(process.env.BENCH_STALL_MS ?? 10 * 60 * 1000),
-        configuration: { mode: 'adaptive', acknowledgement: 'memory', memoryPercent, indexing: 'queued and batched' },
+        configuration: { mode: 'adaptive', acknowledgement: 'memory', memory: memoryPolicy, indexing: 'queued and batched', entryPoint: 'DB.init -> db.send -> tree.execute' },
         legacyCompatibility: { status: 'not-run', fixture: 'lifecycle fixture v2', runs: [] }
     }
     let stopLargerSizes = false

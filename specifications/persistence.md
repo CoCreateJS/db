@@ -1,64 +1,44 @@
 # Persistence contract
 
-Persistence is a Tree resource, separate from local Disk. DB composes the
-initialized resource directly onto Tree:
+Persistence is a Tree resource, separate from local Disk. Compose it through
+DB initialization or assign it directly to a standalone Tree:
 
 ```js
-const db = await createDB(server, { persistence })
-// Composition performed by DB:
+import DB from '@cocreate/db'
+
+const db = await DB.init(server, { persistence })
+const tree = await db.organizations.get(organizationId)
 tree.persistence = persistence
+await tree.persist()
 ```
 
-The optional resource must expose `execute(operation)`. It may expose
-`persist()` for an adapter-owned drain. The DB does not create a persistence
-journal or choose a provider. When no resource is attached, Tree sends no
-external persistence operations.
+The adapter exposes `execute(request)` and can optionally expose `persist()`.
+Tree's `persist()` delegates to that adapter method; the adapter owns timing,
+grouping, storage mapping and provider selection. Tree has no persistence
+journal and no Workflow dependency.
 
 ## Operations
 
-Tree sends leaf operations using the same operation envelope:
-
 ```js
-{ operation: 'read', kind: 'leaf', uuid }
-{ operation: 'write', kind: 'leaf', uuid, root, data: leaf }
-{ operation: 'delete', kind: 'leaf', uuid, root }
+{ operation: 'read', kind: 'leaf', uuid, organization_id }
+{ operation: 'write', kind: 'leaf', uuid, organization_id }
+{ operation: 'delete', kind: 'leaf', uuid, organization_id }
+{ operation: 'write', kind: 'branch', uuid, organization_id }
+{ operation: 'delete', kind: 'branch', uuid, organization_id }
+{ operation: 'write', kind: 'config', data, organization_id }
 ```
 
-When `tree.prune()` offloads a branch, Tree also sends an optional branch write:
+The organization property is included when assigned to the Tree. Leaf reads
+can acquire missing data from the adapter. After indexing and local writes,
+Tree notifies persistence of changed leaf and branch UUIDs; these notifications
+do not carry live object snapshots. Configuration writes and explicit branch
+pruning writes can carry serialized `data`.
 
-```js
-{ operation: 'write', kind: 'branch', uuid, data: serializedBranch }
-```
+Tree awaits adapter responses. An adapter can stage its own work and respond
+promptly, or complete storage before resolving. Without an adapter, the default
+port returns write/delete requests and returns `undefined` for reads. Those
+responses complete the call without establishing external durability.
 
-Leaf reads are sent when local Tree storage misses and a leaf may be acquired
-from external persistence. Leaf writes and deletes are sent as Tree applies
-mutations. Leaf write `data` is the live leaf reference. Branch write `data` is
-the serialized branch content captured for pruning. If an adapter defers leaf
-work and needs a stable revision, it must capture that revision itself. Tree
-does not clone, group, queue, retry, or map persistence operations to a provider
-format.
-
-Tree awaits `execute(operation)` as part of the operation path. The adapter
-chooses how that call completes: it can stage work and return promptly, or
-perform its own operation before resolving. Errors and retries belong to the
-adapter or surrounding application policy.
-
-`db.persist()` delegates to the attached resource's optional `persist()` method.
-With no resource it returns `{ success: false, skipped: true }`; with a resource
-that has no `persist()` method it returns `{ success: true, skipped: true }`.
-Tree does not inspect adapter queues or results.
-
-## Boundaries
-
-Local Disk and external Persistence remain independent. Disk is Tree's local
-storage tier for leaves and derived branches. Persistence is an optional
-resource for externally managed storage, grouping, or workflow integration.
-Workflow is not built into the Persistence contract.
-
-Tree emits branch writes during pruning and writes root configuration through
-Persistence when `tree.roots.set(path, value)` changes it. Tree does not yet read
-branches from Persistence. Without local Disk, pruned branches are rebuilt from
-resident leaf index entries. A persistence provider that needs a complete
-durable Tree must define how branch reads and root configuration are stored and
-restored. Inter-node acquisition, distributed ordering, conflict policy,
-authorization, retries, and durable acknowledgement are outside this contract.
+A separate Tree can be initialized with an organization's configuration and
+independently composed storage adapters. Its configuration and lifetime belong
+to its composer.

@@ -6,7 +6,7 @@ import { availableParallelism, tmpdir, totalmem } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PerformanceObserver } from 'node:perf_hooks'
-import createDB from '../../../src/index.js'
+import { createRuntime } from '../../../src/runtime.js'
 import { benchmarkUuid, lifecycleRoot } from '../../fixtures/lifecycle.mjs'
 import { createProgressReporter } from '../shared/workloads.mjs'
 import { createResidencyRecord } from './fixtures/residency.mjs'
@@ -23,7 +23,7 @@ const outputDir = resolve(process.env.BENCH_OUTPUT_DIR ?? join(here, 'results'))
 const outputFile = join(outputDir, `continuous-${runId}.json`)
 const directory = join(tmpdir(), `cocreatedb-continuous-${process.pid}-${Date.now()}`)
 const root = lifecycleRoot(target)
-const db = await createDB({}, {
+const db = await createRuntime({}, {
     directory,
     size: 64,
     config: { memory: 25 },
@@ -129,9 +129,8 @@ const result = {
     node: process.version,
     platform: `${process.platform}-${process.arch}`,
     cpuCount: availableParallelism(),
-    systemMemoryBudgetBytes: systemMemory,
-    memoryBudgetBytes: db.memoryPolicy.budget,
-    memoryPercent: 25,
+    systemMemoryBytes: systemMemory,
+    memoryPolicy: db.config.memory,
     targetCreations: target
 }
 
@@ -205,7 +204,7 @@ try {
     await waitForIndex(db)
     result.indexDrainMs = performance.now() - drainStart
     const policyDrainStart = performance.now()
-    await db.memoryPolicy.flush()
+    // The composer consumes telemetry continuously; no manual memory flush.
     result.memoryPolicyDrainMs = performance.now() - policyDrainStart
     result.elapsedMs = performance.now() - start
     result.created = created
@@ -227,8 +226,6 @@ try {
         residentLeaves: db.leafTier.size,
         warmLeaves: db.leafTier.warm.size,
         pendingIndexCount: db.pendingIndexCount,
-        policySamples: db.memoryPolicy.samples,
-        leafPolicySamples: db.memoryPolicy.leafSamples
     }
     result.status = 'passed'
 } catch (error) {

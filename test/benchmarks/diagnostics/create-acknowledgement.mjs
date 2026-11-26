@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Disk from '@cocreate/disk'
-import createDB from '../../../src/index.js'
+import { createRuntime } from '../../../src/runtime.js'
 import { benchmarkUuid, createBenchmarkRecord, lifecycleRoot } from '../../fixtures/lifecycle.mjs'
 import { launch } from '../shared/child-process.mjs'
 
@@ -31,7 +31,6 @@ async function runOne(size, runIndex, outputFile, uuidMode) {
     const batchSize = 1000
     const warmups = 10
     const samples = 40
-    const memoryPercent = Number(process.env.BENCH_MEMORY_PERCENT ?? 75)
     const generatedUuid = uuidMode === 'generated'
     const makeRecord = rank => {
         const record = createBenchmarkRecord(rank, size, root.organization_id)
@@ -43,7 +42,7 @@ async function runOne(size, runIndex, outputFile, uuidMode) {
         status: 'running', benchmark: 'cocreatedb-create-acknowledgement-diagnostic',
         benchmarkVersion: 1, fixture: 'shared lifecycle fixture v3', fixtureVersion: '3.0.0',
         datasetSize: size, runIndex, batchSize, warmups, samples, uuidMode,
-        configuration: { mode: 'adaptive', acknowledgement: 'memory', memoryPercent, indexing: 'queued and batched' },
+        configuration: { mode: 'adaptive', acknowledgement: 'memory', memoryPolicy: 'node-wide thresholds', indexing: 'queued and batched' },
         sourceRevision: gitRevision(), startedAt: startedAt.toISOString()
     }
     const hash = createHash('sha256')
@@ -55,8 +54,8 @@ async function runOne(size, runIndex, outputFile, uuidMode) {
 
     try {
         const disk = await Disk.init({ directory })
-        db = await createDB.init(undefined, {
-            prompt: false, disk, config: { memory: memoryPercent }, size: 64
+        db = await createRuntime(undefined, {
+            prompt: false, disk, size: 64
         })
         const send = request => db.send(request)
 
@@ -202,11 +201,11 @@ async function orchestrate(size, uuidMode) {
         benchmark: 'CoCreateDB deferred create acknowledgement and index drain',
         benchmarkVersion: 1, runId, startedAt: startedAt.toISOString(), datasetSize: size,
         fixture: `shared lifecycle fixture v3 (${uuidMode} UUIDs)`, fixtureHash: uuidMode === 'supplied' ? '79fd345261896883833b8e006eaf41bf1f1d8e5239f8eb8c24e3fc43abcaac6b' : null,
-        uuidMode, runsRequested: runs, configuration: { mode: 'adaptive', acknowledgement: 'memory', memoryPercent: Number(process.env.BENCH_MEMORY_PERCENT ?? 75), indexing: 'queued and batched' },
+        uuidMode, runsRequested: runs, configuration: { mode: 'adaptive', acknowledgement: 'memory', memoryPolicy: 'node-wide thresholds', indexing: 'queued and batched' },
         sourceRevision: gitRevision(), sourceWorkingTreeDirty: execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).trim().length > 0,
         sourceHashes: {}, results: []
     }
-    for (const file of ['src/index.js', 'src/crud.js', 'src/queryPlanner.js', 'src/tree/index.js', 'src/tree/manager.js', 'src/tree/leaf.js', 'test/fixtures/lifecycle.mjs', 'test/benchmarks/diagnostics/create-acknowledgement.mjs']) {
+    for (const file of ['src/index.js', 'src/runtime.js', 'src/tree/execute.js', 'src/tree/planner.js', 'src/tree/index.js', 'src/tree/manager.js', 'src/tree/leaf.js', 'test/fixtures/lifecycle.mjs', 'test/benchmarks/diagnostics/create-acknowledgement.mjs']) {
         manifest.sourceHashes[file] = createHash('sha256').update(await readFile(join(repo, file))).digest('hex')
     }
     for (let runIndex = 1; runIndex <= runs; runIndex++) {
@@ -243,7 +242,7 @@ async function orchestrate(size, uuidMode) {
         '# CoCreateDB Create Acknowledgement and Index Drain', '',
         `- Run: ${runId}; passed ${passed.length}/${runs}.`,
         `- Fixture: shared lifecycle fixture v3 with ${uuidMode} UUIDs, ${size}; hash is recorded per run.`,
-        `- Mode: adaptive; acknowledgement: memory; memory allocation: ${manifest.configuration.memoryPercent}%; deferred tree indexing enabled.`,
+        `- Mode: adaptive; acknowledgement: memory; memory policy: node-wide thresholds; deferred tree indexing enabled.`,
         '- Each trial uses a fresh Node process and isolated temporary DB directory. Values are medians across independent trials.',
         '- Create acknowledgement measures elapsed time awaiting `object.create` responses. Index drain measures the remaining `waitForIndex()` time after the create responses; background indexing may already have progressed during creation.',
         '- The benchmark verifies the last created leaf can be read directly by UUID before the index drain finishes.',

@@ -6,14 +6,15 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Disk from '@cocreate/disk'
-import { createDB } from '../src/index.js'
+import { createRuntime } from '../src/runtime.js'
+import { inspectTree } from '../test-support/tree.mjs'
 import { leafPath, MemoryDisk } from '../test-support/memory-disk.mjs'
 
 const envelope = { organization_id: 'index-org', storage: 'test', database: 'app', array: 'items' }
-const treeFor = index => index.organization.get(envelope.organization_id)
+const treeFor = async index => inspectTree(await index.organizations.get(envelope.organization_id))
 const createDatabase = async (options = {}) => {
     const { server = {}, ...dbOptions } = options
-    return await createDB(server, dbOptions)
+    return await createRuntime(server, dbOptions)
 }
 
 test('DB composes Tree, Query Planner, and CRUD and delegates requests', async () => {
@@ -25,9 +26,9 @@ test('DB composes Tree, Query Planner, and CRUD and delegates requests', async (
     const read = await index.send({ ...envelope, method: 'object.read', object: { uuid: created.object[0].uuid } })
     assert.equal(read.success, true, read.error?.join('; '))
     assert.equal(read.object[0].label, 'from-index')
-    const tree = await index.organization.get(envelope.organization_id)
+    const tree = inspectTree(await index.organizations.get(envelope.organization_id))
     assert.equal(tree.organizationId, envelope.organization_id)
-    assert.ok(index.planner)
+    assert.equal(typeof index.planner, 'function')
     await index.close()
 })
 
@@ -41,7 +42,7 @@ test('DB uses supplied config ahead of stored config', async () => {
     assert.ok(index.config.roots.storage)
 })
 
-test('DB falls back to config read from its Disk instance', async () => {
+test('DB composes organization Trees from its supplied defaults rather than stored config', async () => {
     const stored = {
         version: 'stored',
         roots: { storage: { database: { array: { object: {} } } } }
@@ -51,24 +52,24 @@ test('DB falls back to config read from its Disk instance', async () => {
     disk.files.set(`${envelope.organization_id}/config.json`, JSON.stringify(stored))
     const index = await createDatabase({ disk })
 
-    await index.organization.get(envelope.organization_id)
-    assert.equal((await treeFor(index)).config.version, 'stored')
+    await index.organizations.get(envelope.organization_id)
+    assert.equal((await treeFor(index)).config.version, '1.0.0')
     await index.close()
 })
 
-test('DB delegates send to an injected CRUD resource', async () => {
+test('DB delegates send to the Tree execution function', async () => {
     const tree = { config: { version: 'test', roots: {} } }
-    const planner = { plan() { throw new Error('DB must not plan requests') } }
-    const request = { method: 'object.read' }
-    const crud = { async send(value) { assert.equal(value, request); return { success: true } } }
-    const index = await createDatabase({ tree, planner, crud })
+    const planner = () => { throw new Error('DB must not plan requests') }
+    const request = { ...envelope, method: 'object.read' }
+    const execute = async value => { assert.equal(value, request); return { success: true } }
+    const index = await createDatabase({ tree, planner, execute })
 
     assert.deepEqual(await index.send(request), { success: true })
 })
 
 test('worker DB forwards requests through the supplied Server send primitive', async () => {
     const sent = []
-    const worker = await createDB({
+    const worker = await createRuntime({
         isPrimary: false,
         isWorker: true,
         async send(envelope) {
@@ -95,7 +96,7 @@ test('primary DB handles db.forward requests and unregisters its listener on clo
         for (const listener of server.listeners(event)) result = await listener(payload)
         return result
     }
-    const db = await createDB(server)
+    const db = await createRuntime(server)
     const response = await server.emitAsync('db.forward', {
         uuid: 'forwarded-create',
         request: { ...envelope, method: 'object.create', object: { value: 'primary-db' } }
@@ -114,7 +115,7 @@ test('shared package entry dynamically composes server disk and restores leaves 
     let db
     let restarted
     try {
-        db = await createDB({ disk }, { mode: 'adaptive' })
+        db = await createRuntime({ disk }, { mode: 'adaptive' })
         const created = await db.send({
             ...envelope,
             method: 'object.create',
@@ -127,7 +128,7 @@ test('shared package entry dynamically composes server disk and restores leaves 
         await db.close()
         db = undefined
 
-        restarted = await createDB({ disk }, { mode: 'adaptive' })
+        restarted = await createRuntime({ disk }, { mode: 'adaptive' })
         const read = await restarted.send({
             ...envelope,
             method: 'object.read',
@@ -187,7 +188,7 @@ test('DB attaches the Disk resource to Tree and Tree can replace it', async () =
 })
 
 test('DB without an attached disk operates in memory', async () => {
-    const db = await createDB()
+    const db = await createRuntime()
     const created = await db.send({ ...envelope, method: 'object.create', object: { value: 'memory-only' } })
     assert.equal(created.success, true, created.error?.join('; '))
     assert.equal(db.disk, undefined)
@@ -369,7 +370,7 @@ test('Tree queues changed leaf and branch IDs to Persistence after local index w
     assert.equal(leafOperations()[1].operation, 'write')
     assert.equal(Object.hasOwn(leafOperations()[1], 'data'), false)
 
-    const flushed = await index.persist()
+    const flushed = await (await treeFor(index)).persist()
     assert.equal(flushed.success, true)
     assert.equal(flushed.count, sent.length)
 
@@ -395,67 +396,56 @@ test('Tree emits no Persistence operations when no resource is attached', async 
     assert.deepEqual(await tree.disk.execute({ operation: 'list', kind: 'directory' }), [])
     assert.throws(() => tree.setDiskFirst(true), /requires a disk handler/)
     assert.equal(index.persistence, undefined)
-    assert.deepEqual(await index.persist(), { success: false, skipped: true })
+    assert.deepEqual(await (await treeFor(index)).persist(), { success: false, skipped: true })
     await index.close()
 })
 
-test('DB derives its memory budget from telemetry and asks Tree to prune at pressure stages', async () => {
+test('DB prunes from node-wide memory thresholds without allocation or startup baseline', async () => {
     const server = new EventEmitter()
+    server.isPrimary = true
     server.id = 'memory-server'
     const calls = []
     const tree = {
-        config: { version: 'test', roots: {} },
+        config: { roots: {} },
+        async close() {},
         disk: { async execute() { return true } },
-        diskFirst: false,
-        async prune(options) { calls.push(options); return { count: 1 } },
-        setDiskFirst(value) { this.diskFirst = value; calls.push(`diskFirst:${value}`); return value }
+        async prune(options) { calls.push(options); return { count: 1, target: 1, candidates: 1, skipped: 0 } },
+        setDiskFirst(value) { calls.push(`diskFirst:${value}`) }
     }
-    const index = await createDatabase({
-        tree,
-        server,
-        memoryPercent: 25,
-        planner: { plan() { return { strategy: 'scan', branches: [] } } },
-        crud: { async send() { return { success: true } } }
-    })
+    const db = await createDatabase({ tree, disk: tree.disk, server })
     const sample = (timestamp, max) => server.emit('telemetry', {
         data: { serverId: server.id, workerId: 1, timestamp, memory: { total: 1000, max } }
     })
-
-    sample('t0', 50)
-    assert.equal(index.memory.baselineUsedMemory, 500)
-    assert.equal(index.memory.availableMemory, 500)
-    assert.equal(index.memory.budget, 250)
-
-    sample('t1', 52.5)
-    await waitForCondition(() => index.memory.pruneCycles === 1)
-    assert.equal(index.memory.stage, 1)
-    assert.equal(calls.filter(call => typeof call === 'object').length, 1)
-    assert.deepEqual(index.prune, { strategy: 'lfu' })
-    assert.equal(calls[0].strategy, 'lfu')
-    sample('t1', 52.5)
-    await waitForCondition(() => index.memory.pruneCycles === 1)
-    assert.equal(calls.filter(call => typeof call === 'object').length, 1, 'duplicate telemetry samples are ignored')
-
-    sample('t2', 55)
-    sample('t3', 72.5)
-    await waitForCondition(() => index.memory.pruneCycles === 8)
-    assert.equal(index.memory.stage, 8)
-    assert.equal(calls.filter(call => typeof call === 'object').length, 8, 'each crossed pressure stage requests one prune cycle')
-    assert.equal(index.memory.branchesPruned, 8)
-    assert.equal(index.memory.diskFirst, true)
-
-    sample('t4', 71.8)
-    assert.equal(index.memory.diskFirst, false, 'disk-first clears below the hysteresis threshold')
-    await index.close()
+    try {
+        sample('t0', 75)
+        await waitForCondition(() => db.memory.pruneCycles === 3)
+        assert.equal(db.memory.nodeUsedPercent, 75)
+        assert.equal(db.memory.stage, 3)
+        for (const key of ['budget', 'percent', 'baselineUsedMemory', 'baselineReady', 'requestedBudget']) assert.equal(key in db.memory, false)
+        sample('t0', 75)
+        sample('t1', 76)
+        assert.equal(db.memory.pruneCycles, 3, 'samples within a stage do not repeatedly prune')
+        sample('t2', 92)
+        await waitForCondition(() => db.memory.pruneCycles === 4)
+        assert.equal(db.memory.diskFirst, true)
+        sample('t3', 88)
+        assert.equal(db.memory.diskFirst, true, 'hysteresis avoids mode churn')
+        sample('t4', 87)
+        assert.equal(db.memory.diskFirst, false)
+        sample('t5', 90)
+        await waitForCondition(() => db.memory.pruneCycles === 5)
+        assert.equal(db.memory.branchesPruned, 5)
+        assert.equal(db.memory.peakNodeUsedPercent, 92)
+    } finally { await db.close() }
 })
 
 test('DB uses LFU for explicit prune configuration without a strategy', async () => {
-    const tree = { config: { version: 'test', roots: {} }, disk: { async execute() {} }, async prune() {} }
+    const tree = { config: { version: 'test', roots: {} }, disk: { async execute() {} }, async prune() {}, async close() {} }
     const index = await createDatabase({
         tree,
         prune: { limit: 12 },
-        planner: { plan() { return { strategy: 'scan', branches: [] } } },
-        crud: { async send() { return { success: true } } }
+        planner: () => ({ strategy: 'scan', branches: [] }),
+        execute: async () => ({ success: true })
     })
     assert.deepEqual(index.prune, { limit: 12, strategy: 'lfu' })
     await index.close()
