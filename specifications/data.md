@@ -2,7 +2,7 @@
 
 ## Current
 
-Leaves are ordinary JavaScript objects with a live prototype, UUID, root and optional parent. Structural leaves also have a name. UUID is globally unique within an engine instance, not a filename or a tenant-local address. `_id` is a separate object identity (generated for object creates if omitted). UUID, root and parent are protected; structural name is immutable. CRUD update also protects `_id`.
+Leaves are ordinary JavaScript objects with a live prototype, UUID, root and optional parent. Structural leaves also have a name. Leaf UUIDs are unique within an organization, including across its primary Trees. Each Tree owns only the leaves of its primary. `_id` is a separate object identity (generated for object creates if omitted). UUID, root and parent are protected; structural name is immutable. CRUD update also protects `_id`.
 
 Creation attaches methods to the input object. Read and create results can expose live references. Use CRUD or supported leaf methods (`getValue`, `setValue`, `getIndex`, `delete`) to maintain indexes; direct assignments bypass maintenance. Leaf.delete(key) removes a key, not a whole leaf. CRUD delete removes the leaf and its index entries.
 

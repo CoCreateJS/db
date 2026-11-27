@@ -7,7 +7,8 @@ DB initialization or assign it directly to a standalone Tree:
 import DB from '@cocreate/db'
 
 const db = await DB.init(server, { persistence })
-const tree = await db.organizations.get(organizationId)
+const organization = await db.organizations.get(organizationId)
+const tree = await organization.getTree(primaryUuid)
 tree.persistence = persistence
 await tree.persist()
 ```
@@ -25,7 +26,8 @@ journal and no Workflow dependency.
 { operation: 'delete', kind: 'leaf', uuid, organization_id }
 { operation: 'write', kind: 'branch', uuid, organization_id }
 { operation: 'delete', kind: 'branch', uuid, organization_id }
-{ operation: 'write', kind: 'config', data, organization_id }
+{ operation: 'write', kind: 'config', uuid: primaryUuid, data, organization_id }
+{ operation: 'write', kind: 'roots', data, organization_id }
 ```
 
 The organization property is included when assigned to the Tree. Leaf reads
@@ -38,6 +40,6 @@ promptly, or complete storage before resolving. Without an adapter, the default
 port returns write/delete requests and returns `undefined` for reads. Those
 responses complete the call without establishing external durability.
 
-A separate Tree can be initialized with an organization's configuration and
+A separate Tree can be initialized with one primary's local configuration and
 independently composed storage adapters. Its configuration and lifetime belong
 to its composer.

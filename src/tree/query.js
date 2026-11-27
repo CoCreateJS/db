@@ -32,14 +32,12 @@ export default async function* getLeaves(plan, operation) {
     const ownOperation = !operation
     operation ??= this.operation()
     const roots = plan.fields.filter(field => field.key === 'root' && field.type === 'string')
-    if (plan.primary !== undefined) operation.pin(plan.primary)
-    else for (const root of roots) operation.pin(root.primary)
     let universe
     const all = async () => {
         if (universe) return universe
         universe = new Set()
         for (const source of roots) {
-            const index = this.readIndex(source.primary, source.key, source.type)
+            const index = this.readIndex(source.key, source.type)
             for await (const entry of index.scan(plan.target, plan.target)) universe.add(entry.uuid)
         }
         return universe
@@ -47,7 +45,7 @@ export default async function* getLeaves(plan, operation) {
     const inScope = async uuid => {
         if (universe) return universe.has(uuid)
         for (const source of roots) {
-            const index = this.readIndex(source.primary, source.key, source.type)
+            const index = this.readIndex(source.key, source.type)
             if (await index.lookup(plan.target, uuid)) return true
         }
         return false
@@ -64,7 +62,7 @@ export default async function* getLeaves(plan, operation) {
         const present = missing ? new Set() : undefined
         let previous = Symbol(), accepted = false
         for (const source of node.sources) {
-            const index = this.readIndex(source.primary, source.key, source.type)
+            const index = this.readIndex(source.key, source.type)
             for (const [min, max] of missing ? [[undefined, undefined]] : ranges(node.condition, source.type)) {
                 for await (const entry of index.scan(min, max)) {
                     present?.add(entry.uuid)
@@ -126,7 +124,7 @@ export default async function* getLeaves(plan, operation) {
         if (equal?.every(scalar)) {
             for (const value of equal) for (const source of node.sources) {
                 if (source.type !== type(value)) continue
-                const entry = await this.readIndex(source.primary, source.key, source.type).lookup(value, uuid)
+                const entry = await this.readIndex(source.key, source.type).lookup(value, uuid)
                 if (entry && queryData({ value: entry.value }, { value: node.condition })) return true
             }
             return false
@@ -138,7 +136,7 @@ export default async function* getLeaves(plan, operation) {
     const stream = async function* (node) {
         if (node.kind === 'none') return
         if (node.kind === 'all') {
-            for (const source of roots) for await (const entry of this.readIndex(source.primary, source.key, source.type).scan(plan.target, plan.target)) yield entry.uuid
+            for (const source of roots) for await (const entry of this.readIndex(source.key, source.type).scan(plan.target, plan.target)) yield entry.uuid
         } else if (node.kind === 'field') yield* fieldEntries(node)
         else if (node.kind === 'or') { for (const child of node.nodes) yield* stream(child) }
         else if (node.kind === 'not') { for await (const uuid of stream({ kind: 'all' })) if (!await contains(node.node, uuid)) yield uuid }
@@ -181,7 +179,7 @@ export default async function* getLeaves(plan, operation) {
             for (const { key } of plan.sort) {
                 if (key === 'uuid') continue
                 for (const source of plan.fields.filter(field => path(field.key) === path(key))) {
-                    const index = this.readIndex(source.primary, source.key, source.type)
+                    const index = this.readIndex(source.key, source.type)
                     for await (const entry of index.scan()) {
                         const row = rows.get(entry.uuid)
                         if (row) dotNotationToObject({ [key]: entry.value }, row)
@@ -198,7 +196,7 @@ export default async function* getLeaves(plan, operation) {
             if (!(cursor && scopeKnown) && !await inScope(uuid)) continue
             // Settled, covered predicates have already been evaluated by indexes.
             // Pending mutations and residual predicates still need current data.
-            const pending = this.pendingIndex.has({ uuid, parent: Map.prototype.get.call(this.leaves, uuid)?.parent ?? this.deleted.get(uuid)?.parent ?? plan.primary })
+            const pending = this.pendingIndex.has({ uuid })
             let leaf
             if (residual || pending) {
                 leaf = await this.getLeaf(uuid, operation)

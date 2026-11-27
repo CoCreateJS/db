@@ -12,16 +12,6 @@ export class LocalTier {
         this.writes = 0
     }
 
-    get warmBranches() {
-        const local = this
-        return {
-            get size() { return local.listBranches().then(items => items.length) },
-            has(id) { return local.disk({ operation: 'has', kind: 'branch', uuid: id }) },
-            keys() { return (async function* () { yield* await local.listBranches() })() }
-        }
-    }
-
-    async listBranches() { return await this.disk({ operation: 'list', kind: 'branch' }) }
     async deleteLeaf(id) { return await this.disk({ operation: 'delete', kind: 'leaf', uuid: id }) }
     add(index) { this.pendingDiscards.delete(index.uuid); this.resident.add(index) }
     remove(index) { this.resident.delete(index) }

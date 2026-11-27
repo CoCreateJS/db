@@ -1,22 +1,84 @@
-import { Tree } from '../src/index.js'
+import { after } from 'node:test'
 import { createConfiguration } from '../src/runtime.js'
+import { Organization } from '../src/organization.js'
 import { treeContexts } from '../src/tree/internal.js'
+
+const organizations = new Set()
+after(async () => { for (const organization of organizations) await organization.close() })
 
 export async function createTestTree(options = {}) {
     const { disk, persistence, config, ...treeOptions } = options
-    const tree = new Tree()
-    if (disk) tree.disk = disk
-    if (persistence) tree.persistence = persistence
-    await tree.init({
-        ...createConfiguration(config ?? treeOptions),
-        ...treeOptions
-    })
-    return inspectTree(tree)
+    const organization = await new Organization(undefined, { disk, persistence, treeOptions }).init(createConfiguration(config ?? treeOptions))
+    organizations.add(organization)
+    return inspectOrganization(organization)
 }
 
-// Internal engine inspection for tests; callers of @cocreate/db use Tree's
-// public execute/config/ports/lifecycle interface directly.
+// Test-only inspection of the organization router and its independent engines.
+export function inspectOrganization(organization) {
+    const engines = () => [...organization.trees.values()]
+    const contexts = () => engines().map(tree => treeContexts.get(tree)).filter(Boolean)
+    const locate = async id => {
+        for (const tree of engines()) if (treeContexts.get(tree)?.referenceLeaf(id)) return tree
+        for (const tree of engines()) if (await tree.leaves.get(id)) return tree
+    }
+    const create = async (root, values, payload) => {
+        const result = await organization.execute({ ...payload, method: `${root}.create`, [root]: values })
+        if (!result.success) throw new Error(result.error.join('; '))
+        return result[root]
+    }
+    return new Proxy(organization, {
+        get(target, property) {
+            if (property === 'config') {
+                const config = organization.config
+                config.indexes = engines().flatMap(tree => tree.config.indexes.map(index => ({ ...index, primary: tree.uuid })))
+                config.diskFirst = false
+                return config
+            }
+            if (property === 'leaves') return {
+                get: async id => { const tree = await locate(id); return tree?.leaves.get(id) },
+                has: async id => !!await locate(id)
+            }
+            if (property === 'createLeaf') return async (root, value, payload) => (await create(root, [value], payload))[0]
+            if (property === 'createLeaves') return create
+            if (property === 'getLeaf') return async id => (await locate(id))?.leaves.get(id)
+            if (property === 'updateLeaf' || property === 'removeLeaf') return async (id, patch) => treeContexts.get(await locate(id))[property](id, patch)
+            if (property === 'getPrimaryBranch') return async payload => {
+                // Route a read without performing query I/O, then inspect its engine.
+                const root = payload.method.split('.')[0]
+                const read = await organization.execute({ ...payload, method: `${root}.read` })
+                if (!read.success) throw Error(read.error.join('; '))
+                const config = organization.config
+                const candidates = engines().filter(tree => Object.hasOwn(tree.config.roots, root))
+                const tree = candidates.find(tree => {
+                    let id = tree.config.parent
+                    while (id !== undefined) {
+                        const node = config.leaves[id]
+                        const ref = payload[node.root.startsWith('$') ? node.root.slice(1) : node.root]
+                        if (ref && (typeof ref === 'string' ? ref !== node.name : ref.uuid ? ref.uuid !== id : ref.name !== node.name)) return false
+                        id = node.parent
+                    }
+                    return true
+                })
+                return await treeContexts.get(tree).getPrimaryBranch(payload)
+            }
+            if (property === 'getLeaves') return async function* (plan) { const tree = await organization.getTree(plan.primary); yield* treeContexts.get(tree).getLeaves(plan) }
+            if (property === 'planner') return engines().at(-1)?.planner
+            if (property === 'branches') return { get: async id => { for (const context of contexts()) { const branch = await context.branches.get(id); if (branch) return branch } } }
+            if (property === 'range' || property === 'rangeLeaves') return async function* (...args) { for (const context of contexts()) yield* context[property](...args) }
+            if (['visitLeaves','visitRange','visitRanges'].includes(property)) return async (...args) => { let count = 0; for (const context of contexts()) count += await context[property](...args); return count }
+            if (property === 'setReadExternal') return read => { for (const context of contexts()) context.setReadExternal(read) }
+            const value = Reflect.get(target, property, target)
+            return typeof value === 'function' ? value.bind(target) : value
+        },
+        set(target, property, value) {
+            if (property === 'persistence' || property === 'disk') for (const tree of engines()) tree[property] = value
+            return Reflect.set(target, property, value, target)
+        }
+    })
+}
+
 export function inspectTree(tree) {
+    if (tree instanceof Organization) return inspectOrganization(tree)
     return new Proxy(tree, {
         get(target, key) {
             const context = treeContexts.get(target)

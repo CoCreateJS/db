@@ -24,8 +24,11 @@ test('node pressure starts at 75%, removes the globally lowest-weight table, and
     try {
         const hot = await db.organizations.get('hot'), cold = await db.organizations.get('cold')
         const hotLeaf = (await create(hot)).object[0], coldLeaf = (await create(cold)).object[0]
-        await Promise.all([hot, cold].map(tree => waitForIndex(treeContexts.get(tree))))
-        for (let i = 0; i < 20; i++) await hot.leaves.get(hotLeaf.uuid)
+        await Promise.all([hot, cold].map(tree => waitForIndex(tree)))
+        const hotTree = await hot.getTree(hotLeaf.parent)
+        for (let i = 0; i < 20; i++) await hotTree.leaves.get(hotLeaf.uuid)
+        // Rank data tables, keeping structural tables hot for this assertion.
+        for (const org of [hot, cold]) for (const table of org.trees.values()) if (table.uuid !== hotLeaf.parent && table.uuid !== coldLeaf.parent) table.weight = 100
         const removals = []
         for (const tree of [hot, cold]) {
             const prune = tree.prune.bind(tree)
@@ -44,9 +47,9 @@ test('node pressure starts at 75%, removes the globally lowest-weight table, and
         assert.equal(runtime.memory.pruning, false)
         sample(74)
         assert.equal(runtime.memory.pruning, false, 'recovery requires a fresh 75% crossing')
-        assert.equal(await hot.leaves.get(hotLeaf.uuid), hotLeaf)
+        assert.equal(await (await hot.getTree(hotLeaf.parent)).leaves.get(hotLeaf.uuid), hotLeaf)
         assert.deepEqual(db.config.memory, { pruneAt: 75, retainAt: 50 })
-        assert.equal(hot.config.diskFirst, false)
+        assert.equal(hotTree.config.diskFirst, false)
     } finally { await runtime.close() }
 })
 
@@ -71,7 +74,8 @@ test('a queued group remains protected through storage, then becomes eligible wi
         const leaf = (await create(tree, 'items', 1030)).object[0]
         await started
         sample(75)
-        assert.equal(treeContexts.get(tree).pruneCandidates.length, 0)
+        assert.equal(tree.pruneCandidates.some(candidate => candidate.uuid === leaf.parent), false)
+        for (const table of tree.trees.values()) if (table.uuid !== leaf.parent) table.active++
         assert.deepEqual(await tree.prune({ uuid: leaf.parent }), { count: 0 })
         sample(60)
         assert.equal(runtime.memory.pruning, true)
@@ -81,7 +85,7 @@ test('a queued group remains protected through storage, then becomes eligible wi
         const prune = tree.prune.bind(tree)
         const pruned = []
         tree.prune = async options => {
-            assert.equal(treeContexts.get(tree).pendingIndexCount, 0, 'a batch is not a completed table')
+            assert.equal(treeContexts.get(tree.trees.get(options.uuid)).pendingIndexCount, 0, 'a batch is not a completed table')
             const result = await prune(options)
             pruned.push(options.uuid)
             sample(50)
@@ -91,7 +95,7 @@ test('a queued group remains protected through storage, then becomes eligible wi
         await waitForCondition(() => runtime.memory.branchesPruned === 1)
         assert.deepEqual(pruned, [leaf.parent])
         assert.equal(runtime.memory.pruning, false)
-        assert.equal((await tree.leaves.get(leaf.uuid)).score, 2000)
+        assert.equal((await (await tree.getTree(leaf.parent)).leaves.get(leaf.uuid)).score, 2000)
     } finally { release(); await runtime.close() }
 })
 
@@ -113,8 +117,8 @@ test('dropping below the low watermark while storage is pending prevents evictio
         sample(80)
         sample(50)
         release()
-        await waitForIndex(treeContexts.get(tree))
-        assert.equal(await tree.leaves.get(leaf.uuid), leaf)
+        await waitForIndex(tree)
+        assert.equal(await (await tree.getTree(leaf.parent)).leaves.get(leaf.uuid), leaf)
         assert.equal(runtime.memory.branchesPruned, 0)
     } finally { release(); await runtime.close() }
 })
@@ -126,13 +130,13 @@ test('memory-only trees retain their only copy under pressure and pressure never
     try {
         const tree = await db.organizations.get('a')
         const leaf = (await create(tree)).object[0]
-        await waitForIndex(treeContexts.get(tree))
+        await waitForIndex(tree)
         sample(95)
         await new Promise(resolve => setTimeout(resolve, 5))
         assert.equal(runtime.memory.pruning, true)
         assert.equal(runtime.memory.branchesPruned, 0)
-        assert.equal(tree.config.diskFirst, false)
-        assert.equal(await tree.leaves.get(leaf.uuid), leaf)
+        assert.equal((await tree.getTree(leaf.parent)).config.diskFirst, false)
+        assert.equal(await (await tree.getTree(leaf.parent)).leaves.get(leaf.uuid), leaf)
         assert.equal(runtime.memory.pruneError, undefined)
     } finally { await runtime.close() }
 })

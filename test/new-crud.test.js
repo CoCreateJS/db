@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { waitForIndex, waitForCondition } from './benchmarks/shared/wait-for-index.mjs'
 import planQuery from '../src/tree/planner.js'
-import { createTestTree } from '../test-support/tree.mjs'
+import { createTestTree, inspectTree } from '../test-support/tree.mjs'
 
 const path = { organization_id: 'crud-org', storage: 'test', database: 'app', array: 'items' }
 
@@ -78,8 +78,9 @@ test('CRUD UUID create checks and read/update/delete bypass index planning', asy
     const created = await tree.execute({ ...path, method: 'object.create', object: { uuid: 'direct-path-leaf', value: 1 } })
     assert.equal(created.success, true, created.error?.join('; '))
 
-    const getPrimaryBranch = tree.getPrimaryBranch
-    tree.getPrimaryBranch = async () => { throw new Error('UUID operation must bypass index planning') }
+    const engine = inspectTree(tree.trees.get(created.object[0].parent))
+    const getPrimaryBranch = engine.getPrimaryBranch
+    engine.getPrimaryBranch = async () => { throw new Error('UUID operation must bypass index planning') }
     try {
         const read = await tree.execute({ ...path, method: 'object.read', object: { uuid: 'direct-path-leaf' } })
         assert.equal(read.success, true, read.error?.join('; '))
@@ -92,7 +93,7 @@ test('CRUD UUID create checks and read/update/delete bypass index planning', asy
         const deleted = await tree.execute({ ...path, method: 'object.delete', object: { uuid: 'direct-path-leaf' } })
         assert.equal(deleted.success, true, deleted.error?.join('; '))
         assert.equal(deleted.object.length, 1)
-    } finally { tree.getPrimaryBranch = getPrimaryBranch }
+    } finally { engine.getPrimaryBranch = getPrimaryBranch }
 })
 
 test('CRUD delegates timestamp reconciliation to Utils and indexes only the applied result', async () => {

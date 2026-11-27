@@ -1,4 +1,4 @@
-import { bindLeafTier, createLeaf, residentIndexEntries } from './leaf.js'
+import { bindLeafTier, createLeaf } from './leaf.js'
 
 const residentHas = (tier, id) => Map.prototype.has.call(tier, id)
 
@@ -13,17 +13,6 @@ export class LeafTier extends Map {
         this.writeLocks = new Map()
         this.reads = 0
         this.writes = 0
-    }
-
-    files() { return this.disk({ operation: 'list', kind: 'leaf' }) }
-
-    get warm() {
-        const tier = this
-        return {
-            get size() { return tier.files().then(files => files.length) },
-            has(id) { return tier.disk({ operation: 'has', kind: 'leaf', uuid: id }) },
-            keys() { return (async function* () { yield* await tier.files() })() }
-        }
     }
 
     markDirty(object) { this.dirty.set(object.uuid, object) }
@@ -63,15 +52,14 @@ export class LeafTier extends Map {
         if (typeof id !== 'string' || !id) return undefined
         if (this.pendingDeletes.has(id)) return undefined
         let object = super.get(id)
-        if (object) operation?.pin(object.parent ?? object.uuid)
         if (!object) {
             let source
             try { source = await this.disk({ operation: 'read', kind: 'leaf', uuid: id }) }
             catch (error) { if (error.code === 'ENOENT' || error.name === 'NotFoundError') return undefined; throw error }
             if (source === undefined || source === null) return undefined
-            if (residentHas(this, id)) { const object = super.get(id); operation?.pin(object.parent ?? object.uuid); return object }
+            if (residentHas(this, id)) return super.get(id)
             const data = JSON.parse(source)
-            operation?.pin(data.object.parent ?? data.object.uuid)
+            if (!this.belongs(data.object)) return undefined
             object = (await this.restore?.(data, id)) ?? createLeaf(data.object, data.object.root !== 'object')
             if (!residentHas(this, id)) this.set(id, object)
             this.reads++
@@ -102,14 +90,6 @@ export class LeafTier extends Map {
             })) count++
         }
         return count
-    }
-
-    get totalSize() { return this.count() }
-
-    async count() {
-        let total = this.size
-        for (const id of await this.files()) if (!residentHas(this, id) && !this.pendingDeletes.has(id)) total++
-        return total
     }
 
     async persistAll() {
@@ -163,39 +143,7 @@ export class LeafTier extends Map {
         return count
     }
 
-    async *references() {
-        yield* Map.prototype.values.call(this)
-        for (const id of await this.files()) {
-            if (residentHas(this, id) || this.pendingDeletes.has(id)) continue
-            const data = JSON.parse(await this.disk({ operation: 'read', kind: 'leaf', uuid: id }))
-            if (data?.object) yield data.object
-        }
-    }
-
-    async *values() {
-        yield* Map.prototype.values.call(this)
-        for (const id of await this.files()) {
-            if (residentHas(this, id) || this.pendingDeletes.has(id)) continue
-            const object = await this.get(id)
-            if (object) yield object
-        }
-    }
-
-    hydrate(record) {
-        if (!record.evicted) return record.object
-        return this.get(record.id)
-    }
-
-    releasePersisted(object) {
-        const record = object && this.refs.get(object)
-        if (!record) return Map.prototype.delete.call(this, object.uuid)
-        if (record.object !== object || record.evicted || this.dirty.get(record.id) === object || this.pendingDeletes.has(record.id) || this.pending?.has(object)) return false
-        for (const entry of residentIndexEntries(object)) entry.releaseObject()
-        super.delete(record.id)
-        record.evicted = true
-        return true
-    }
-
+    hydrate(record) { return record.object ?? this.get(record.id) }
 }
 
 export default LeafTier

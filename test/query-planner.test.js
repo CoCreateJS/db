@@ -111,7 +111,7 @@ test('cold UUID reads leave the queue empty; later scalar updates and deletes ke
     } finally { await tree.close() }
 })
 
-test('active reads pin their primary subtree, concurrent counts release independently, and errors release pins', async () => {
+test('active reads protect their primary Tree, concurrent counts release independently, and errors release pins', async () => {
     const { tree, disk, primary, values } = await fixture(32)
     const neighbor = (await tree.execute({ ...scope, array: 'neighbor', method: 'object.create', object: { rank: 0 } })).object[0]
     await waitForIndex(tree)

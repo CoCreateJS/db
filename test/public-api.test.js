@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import DB, { Tree } from '@cocreate/db'
 import * as api from '@cocreate/db'
+import { Organization } from '../src/organization.js'
 import { treeContexts } from '../src/tree/internal.js'
 import { databaseRuntimes } from '../src/runtime.js'
 import { waitForIndex } from './benchmarks/shared/wait-for-index.mjs'
@@ -19,44 +20,44 @@ test('DB.init is the only DB constructor and returns the thin public interface',
         assert.deepEqual(Object.keys(db).sort(), ['config', 'organizations', 'send'])
         assert.deepEqual(Object.keys(db.organizations), ['get'])
         const tree = await db.organizations.get(payload.organization_id)
-        assert.ok(tree instanceof Tree)
+        assert.ok(tree instanceof Organization)
         assert.equal(tree, await db.organizations.get(payload.organization_id))
         const created = await db.send({ ...payload, method: 'object.create', object: { value: 1 } })
         assert.equal(created.success, true)
-        assert.equal((await tree.leaves.get(created.object[0].uuid)).value, 1)
-        await tree.close()
-        assert.notEqual(tree, await db.organizations.get(payload.organization_id))
+        const primary = await tree.getTree(created.object[0].parent)
+        assert.ok(primary instanceof Tree)
+        assert.equal((await primary.leaves.get(created.object[0].uuid)).value, 1)
+        await waitForIndex(tree)
+        assert.equal(tree.trees.get(primary.uuid), primary)
     } finally { await databaseRuntimes.get(db).close() }
 })
 
-test('Tree owns replaceable stateless execute and planner functions', async () => {
+test('each primary Tree owns replaceable stateless execute and planner functions', async () => {
     const db = await DB.init({}, { prompt: false })
     try {
-        const tree = await db.organizations.get(payload.organization_id)
-        const other = await db.organizations.get('another-org')
+        const created = await db.send({ ...payload, method: 'object.create', object: { value: 'planned' } })
+        assert.equal(created.success, true)
+        const organization = await db.organizations.get(payload.organization_id)
+        const tree = await organization.getTree(created.object[0].parent)
+        const neighbor = await db.send({ ...payload, array: 'neighbor', method: 'object.create', object: { value: 'other' } })
+        const other = await organization.getTree(neighbor.object[0].parent)
+        assert.notEqual(tree, other)
         assert.equal(tree.execute, other.execute)
         assert.equal(tree.planner, other.planner)
-        for (const key of ['getLeaf', 'createLeaf', 'updateLeaf', 'removeLeaf', 'getPrimaryBranch', 'getLeaves', 'range', 'branches', 'pendingIndexCount', 'size', 'leafSize', 'diskFirst'])
-            assert.equal(key in tree, false, `${key} is an internal implementation detail`)
+        for (const key of ['getLeaf', 'createLeaf', 'updateLeaf', 'removeLeaf', 'getPrimaryBranch', 'getLeaves', 'range', 'branches', 'pendingIndexCount', 'roots'])
+            assert.equal(key in tree, false, `${key} is internal or belongs to Organization`)
         const execute = tree.execute
         let calls = 0
         tree.execute = async function(request) { calls++; return execute.call(this, request) }
-        const created = await db.send({ ...payload, method: 'object.create', object: { value: 'planned' } })
-        assert.equal(created.success, true)
-        await waitForIndex(treeContexts.get(tree))
+        await waitForIndex(organization)
         const planner = tree.planner
-        const query = { value: 'planned' }
         let planned = 0
-        tree.planner = (branch, suppliedQuery) => {
-            planned++
-            assert.deepEqual(suppliedQuery, query)
-            return planner(branch, suppliedQuery)
-        }
-        const read = await db.send({ ...payload, method: 'object.read', filter: { query } })
+        tree.planner = (branch, query, filter) => { planned++; return planner(branch, query, filter) }
+        const read = await db.send({ ...payload, method: 'object.read', filter: { query: { value: 'planned' } } })
         assert.equal(read.success, true, read.error?.join('; '))
         assert.equal(read.object[0].uuid, created.object[0].uuid)
         assert.equal(planned, 1)
-        assert.equal(calls, 2)
+        assert.equal(calls, 1)
     } finally { await databaseRuntimes.get(db).close() }
 })
 
@@ -68,7 +69,7 @@ test('standalone Tree executes CRUD, exposes configuration flags, and delegates 
         async execute(request) { return request.operation === 'read' ? undefined : request },
         async persist() { persisted++; return { success: true } }
     }
-    await tree.init({ roots: { object: {} }, size: 8, leafSize: 4, diskFirst: true })
+    await tree.init({ uuid: 'standalone', roots: { object: {} }, size: 8, leafSize: 4, diskFirst: true })
     try {
         assert.equal(tree.config.size, 8)
         assert.equal(tree.config.leafSize, 4)
@@ -107,19 +108,19 @@ test('combined primary/worker uses local Tree execution; worker forwards through
     } finally { await databaseRuntimes.get(primary).close() }
 })
 
-test('concurrent organization lookups reuse one Tree and clean up on close', async () => {
+test('concurrent organization lookups reuse one router and closing clears its resident Trees', async () => {
     const db = await DB.init({}, { prompt: false })
     try {
         const trees = await Promise.all(Array.from({ length: 32 }, () => db.organizations.get('same-org')))
         assert.equal(new Set(trees).size, 1)
         await trees[0].close()
-        assert.notEqual(await db.organizations.get('same-org'), trees[0])
+        assert.equal(trees[0].trees.size, 0)
     } finally { await databaseRuntimes.get(db).close() }
 })
 
 test('Tree read ports and standalone close work as detached function references', async () => {
     const tree = new Tree()
-    await tree.init({ roots: { object: {} } })
+    await tree.init({ uuid: 'standalone', roots: { object: {} } })
     const close = tree.close
     try {
         assert.throws(() => { tree.disk = {} }, /must expose execute/)
@@ -128,9 +129,8 @@ test('Tree read ports and standalone close work as detached function references'
         const created = await tree.execute({ method: 'object.create', object: { value: 'direct' } })
         const get = tree.leaves.get
         const has = tree.leaves.has
-        const roots = tree.roots.get
         assert.equal((await get(created.object[0].uuid)).value, 'direct')
         assert.equal(await has(created.object[0].uuid), true)
-        assert.deepEqual(roots(), { object: {} })
+        assert.deepEqual(tree.config.roots, { object: {} })
     } finally { await close() }
 })

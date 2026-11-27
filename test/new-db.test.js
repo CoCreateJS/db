@@ -59,14 +59,15 @@ test('DB composes organization Trees from its supplied defaults rather than stor
     await index.close()
 })
 
-test('DB delegates send to the Tree execution function', async () => {
-    const tree = await new Tree().init(createConfiguration())
-    const planner = () => { throw new Error('DB must not plan requests') }
+test('DB composes a custom execution function onto each selected primary Tree', async () => {
+    const index = await createDatabase()
+    const created = await index.send({ ...envelope, method: 'object.create', object: { value: 1 } })
+    const organization = await index.organizations.get(envelope.organization_id)
+    const tree = await organization.getTree(created.object[0].parent)
     const request = { ...envelope, method: 'object.read' }
-    const execute = async value => { assert.equal(value, request); return { success: true } }
-    const index = await createDatabase({ tree, planner, execute })
-
+    tree.execute = async value => { assert.equal(value, request); return { success: true } }
     assert.deepEqual(await index.send(request), { success: true })
+    await index.close()
 })
 
 test('worker DB forwards requests through the supplied Server send primitive', async () => {
@@ -320,6 +321,9 @@ test('UUID reads resolve resident memory, local disk, then external persistence 
         }
     })
 
+    const seed = await index.send({ ...envelope, method: 'object.create', object: { value: 'local' } })
+    externalLeaf.parent = seed.object[0].parent
+    await waitForIndex(index)
     const first = await index.send({ ...envelope, method: 'object.read', object: { uuid: externalLeaf.uuid } })
     assert.equal(first.success, true, first.error?.join('; '))
     assert.equal(first.object[0].value, 'from-persistence')
@@ -375,7 +379,7 @@ test('Tree queues changed leaf and branch IDs to Persistence after local index w
     assert.equal(leafOperations()[1].operation, 'write')
     assert.equal(Object.hasOwn(leafOperations()[1], 'data'), false)
 
-    const flushed = await (await treeFor(index)).persist()
+    const flushed = await (await (await index.organizations.get(envelope.organization_id)).getTree(leaf.parent)).persist()
     assert.equal(flushed.success, true)
     assert.equal(flushed.count, sent.length)
 
@@ -399,9 +403,10 @@ test('Tree emits no Persistence operations when no resource is attached', async 
     assert.equal(await tree.persistence.execute({ operation: 'read', kind: 'leaf', uuid: 'missing' }), undefined)
     assert.equal(await tree.disk.execute({ operation: 'has', kind: 'file', path: 'missing' }), false)
     assert.deepEqual(await tree.disk.execute({ operation: 'list', kind: 'directory' }), [])
-    assert.throws(() => tree.setDiskFirst(true), /requires a disk handler/)
+    const primary = await tree.getTree(created.object[0].parent)
+    assert.throws(() => primary.setDiskFirst(true), /requires a disk handler/)
     assert.equal(index.persistence, undefined)
-    assert.deepEqual(await (await treeFor(index)).persist(), { success: false, skipped: true })
+    assert.deepEqual(await primary.persist(), { success: false, skipped: true })
     await index.close()
 })
 
@@ -418,7 +423,7 @@ test('disk-first requests acknowledge the live leaf and release it after queued 
         config: { roots: { storage: { database: { array: { object: {} } } } } },
     })
     const tree = await treeFor(index)
-    tree.setDiskFirst(true)
+    index.setDiskFirst(true)
     const response = await index.send({ ...envelope, method: 'object.create', object: { value: 'disk-first' } })
 
     assert.equal(response.success, true, response.error?.join('; '))
@@ -426,7 +431,7 @@ test('disk-first requests acknowledge the live leaf and release it after queued 
     await waitForIndex(index)
     assert.equal(disk.hasLeaf(response.object[0].uuid), true)
     assert.equal(leafReads, 0, 'index completion releases the in-memory leaf without rereading it')
-    const hydrated = await tree.getLeaf(response.object[0].uuid)
-    assert.equal(hydrated.value, 'disk-first')
+    const hydrated = await index.send({ ...envelope, method: 'object.read', object: { uuid: response.object[0].uuid } })
+    assert.equal(hydrated.object[0].value, 'disk-first')
     assert.equal(leafReads, 1, 'the next access hydrates the released leaf from disk')
 })

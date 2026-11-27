@@ -73,7 +73,7 @@ export default async function execute(request = {}) {
                 if (exists.some(Boolean)) throw new Error('duplicate identity')
             }
             const leaves = values.length
-                ? await tree.createLeaves(root, values, request, { identityChecked: true, operation: activity })
+                ? await tree.createLeaves(root, values, { identityChecked: true })
                 : []
             for (const leaf of leaves) {
                 output.push(leaf)
@@ -160,7 +160,7 @@ export default async function execute(request = {}) {
         }
 
         if (operation === 'update' && matched === 0 && request.upsert && values.length === 1) {
-            const created = await tree.createLeaf(root, values[0], request, { operation: activity })
+            const created = await tree.createLeaf(root, values[0])
             if (created) {
                 output.push(created)
                 addAwareness(created, awareness, true)

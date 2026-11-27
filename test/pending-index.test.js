@@ -1,21 +1,21 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRootManager } from '../src/tree/manager.js'
+import { createManager } from '../src/tree/manager.js'
 import { createConfiguration } from '../src/runtime.js'
 import { Tree as IndexTree } from '../src/tree/btree.js'
 import { waitForIndex } from './benchmarks/shared/wait-for-index.mjs'
 
 async function setup() {
-    const db = { config: createConfiguration({ roots: { array: { object: {} } } }), leaves: new Map(), tree: new Map() }
-    const manager = await createRootManager({ db })
-    const parent = await manager.create({ name: 'items' }, undefined, 'array')
-    const leaves = await manager.createMany([{ status: 'initial', score: 0 }, { status: 'deleted' }], parent, 'object')
+    const db = { config: createConfiguration({ roots: { object: {} }, parent: 'primary' }), leaves: new Map(), tree: new Map() }
+    const parent = { uuid: 'primary' }
+    const manager = await createManager({ db, owner: { uuid: parent.uuid, active: 0, weight: 0 } })
+    const leaves = await manager.createMany('object', [{ status: 'initial', score: 0 }, { status: 'deleted' }])
     const resource = { get pendingIndexCount() { return manager.pendingIndex.size } }
     await waitForIndex(resource)
     return { db, manager, parent, leaves, resource }
 }
 
-test('pending index records group by parent UUID, coalesce fields, and serialize deletions', async () => {
+test('each primary Tree owns flat pending index records that coalesce fields, and serialize deletions', async () => {
     const { db, manager, parent, leaves, resource } = await setup()
     try {
         const [changed, removed] = leaves
@@ -24,9 +24,9 @@ test('pending index records group by parent UUID, coalesce fields, and serialize
         await changed.setValue('score', 1)
         await manager.remove(removed)
         const snapshot = JSON.parse(JSON.stringify(manager.pendingIndex))
-        assert.deepEqual(Object.keys(snapshot), [parent.uuid])
-        assert.deepEqual(snapshot[parent.uuid][changed.uuid], { operation: 'write', paths: ['status', 'score'] })
-        assert.deepEqual(snapshot[parent.uuid][removed.uuid], { operation: 'delete', paths: null })
+        assert.deepEqual(Object.keys(snapshot).sort(), [changed.uuid, removed.uuid].sort())
+        assert.deepEqual(snapshot[changed.uuid], { operation: 'write', paths: ['status', 'score'] })
+        assert.deepEqual(snapshot[removed.uuid], { operation: 'delete', paths: null })
         assert.equal(manager.pendingIndex.size, 2)
         assert.equal(manager.pendingIndex.has(removed), true)
         assert.equal(db.deleted.get(removed.uuid), removed)
@@ -35,7 +35,7 @@ test('pending index records group by parent UUID, coalesce fields, and serialize
         assert.deepEqual(JSON.parse(JSON.stringify(manager.pendingIndex)), {})
         assert.equal(db.leaves.has(removed.uuid), false)
         const entries = []
-        for await (const entry of db.tree.get(parent.uuid).get('status').get('string').scan()) entries.push(entry)
+        for await (const entry of db.tree.get('status').get('string').scan()) entries.push(entry)
         assert.equal(entries.some(entry => entry.uuid === removed.uuid), false)
         assert.equal(entries.find(entry => entry.uuid === changed.uuid).value, 'final')
     } finally { await manager.close() }
@@ -59,12 +59,12 @@ test('a new change while indexing remains queued and visible in the serializable
         await leaf.setValue('score', 3)
         const snapshot = JSON.parse(JSON.stringify(manager.pendingIndex))
         assert.equal(manager.pendingIndex.size, 1)
-        assert.deepEqual(snapshot[parent.uuid][leaf.uuid].paths.sort(), ['score', 'status'])
+        assert.deepEqual(snapshot[leaf.uuid].paths.sort(), ['score', 'status'])
         release()
         await waitForIndex(resource)
         assert.equal(manager.pendingIndex.size, 0)
         const entries = []
-        for await (const entry of db.tree.get(parent.uuid).get('score').get('number').scan()) entries.push(entry)
+        for await (const entry of db.tree.get('score').get('number').scan()) entries.push(entry)
         assert.equal(entries.find(entry => entry.uuid === leaf.uuid).value, 3)
     } finally {
         release()
@@ -90,13 +90,13 @@ test('deleting an in-flight leaf retains its cleanup references until the delete
         await started
         await manager.remove(leaf)
         const snapshot = JSON.parse(JSON.stringify(manager.pendingIndex))
-        assert.equal(snapshot[parent.uuid][leaf.uuid].operation, 'delete')
+        assert.equal(snapshot[leaf.uuid].operation, 'delete')
         assert.equal(manager.pendingIndex.size, 1)
         release()
         await waitForIndex(resource)
         assert.equal(db.deleted.size, 0)
         assert.equal(db.leaves.has(leaf.uuid), false)
-        for await (const entry of db.tree.get(parent.uuid).get('status').get('string').scan()) assert.notEqual(entry.uuid, leaf.uuid)
+        for await (const entry of db.tree.get('status').get('string').scan()) assert.notEqual(entry.uuid, leaf.uuid)
     } finally {
         release()
         IndexTree.prototype.insertMany = insertMany

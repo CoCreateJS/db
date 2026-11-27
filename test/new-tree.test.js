@@ -17,7 +17,7 @@ test('Tree initializes through init and exposes no manual flush endpoints', asyn
     assert.equal('flushLocal' in tree, false)
     assert.equal('flushDisk' in tree, false)
     assert.equal('flushMemory' in tree, false)
-    await tree.init({ ...createConfiguration(), size: 4, leafSize: 4 })
+    await tree.init({ uuid: 'primary', parent: 'primary', roots: { object: {} }, size: 4, leafSize: 4 })
     assert.equal(tree.config.size, 4)
     assert.equal(tree.config.leafSize, 4)
     await tree.close()
@@ -190,7 +190,7 @@ test('new Tree persists leaf deletion after the queued index work', async () => 
     const disk = new MemoryDisk()
     const tree = inspectTree(new Tree())
     tree.disk = disk
-    await tree.init({ ...createConfiguration(), size: 4, leafSize: 4 })
+    await tree.init({ uuid: 'primary', parent: 'primary', roots: { object: {} }, size: 4, leafSize: 4 })
     const leaf = await tree.createLeaf('object', { name: 'remove-me', score: 7 }, envelope)
 
     await waitForIndex(tree)
@@ -209,7 +209,7 @@ test('new Tree persists leaf deletion after the queued index work', async () => 
 })
 
 
-test('pruning a primary branch includes nested tables and protects unfinished descendant storage', async () => {
+test('nested tables own independent Trees and unfinished storage protects only its own primary', async () => {
     const tree = await createTestTree({ disk: new MemoryDisk(), roots: {
         storage: { database: { array: { child: { object: {} } } } }
     } })
@@ -217,7 +217,7 @@ test('pruning a primary branch includes nested tables and protects unfinished de
     const nested = await tree.createLeaf('object', { score: 7 }, scope)
     const neighbor = await tree.createLeaf('object', { score: 9 }, { ...scope, array: 'neighbor' })
     await waitForIndex(tree)
-    const primary = Object.entries(tree.config.leaves).find(([, value]) => value.root === 'array' && value.name === 'items')[0]
+    const primary = nested.parent
     let release, entered
     const gate = new Promise(resolve => { release = resolve })
     const started = new Promise(resolve => { entered = resolve })

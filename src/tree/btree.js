@@ -126,22 +126,6 @@ export class Tree {
         await node.restore(data)
         return node
     }
-    release() {
-        const visit = branch => {
-            if (!branch.tree) return
-            for (const child of branch.branches ?? []) visit(child)
-            this.local?.remove(branch)
-            this.local?.dirty.delete(branch)
-            delete branch.entries
-            delete branch.branches
-            branch.parent = null
-        }
-        visit(this.root)
-        this.rootUuid = this.root.uuid
-        this.root = new Branch(null, this, { uuid: this.rootUuid })
-        this.local?.remove(this.root)
-        this.initialized = false
-    }
     async findUuid(id,node=this.root){
         if(node.uuid===id)return node
         await node.toMemory()

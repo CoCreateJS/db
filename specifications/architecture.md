@@ -1,31 +1,110 @@
 # Architecture
 
-## Current engine
+## Composition and ownership
 
-CoCreateDB is a client-server database engine for building distributed databases. The same asynchronous CRUD engine runs locally in a browser client or a Node server. `import DB from '@cocreate/db'` and `await DB.init(server, options)` expose only `config`, `organizations`, and `send(request)`. `db.organizations.get(id)` returns a Tree with replaceable stateless `execute(payload)` and `planner(branch, query)` functions. Traversal and mutation helpers are internal. A standalone instance requires no server. Primary server instances execute local CRUD; DB composes a worker Server's `send()` with the `db.forward` request and registers the matching primary handler. A custom `forward(request)` can replace the worker transport. Explicit primary status takes precedence. Cluster retains ownership of IPC transport; DB owns its primary/worker request composition.
+`import DB from '@cocreate/db'` and `await DB.init(server, options)` expose only
+`config`, `organizations`, and `send(payload)`. Standalone, combined primary/worker,
+and worker forwarding use the same contract. DB owns its primary/worker request
+composition over Server's existing `send()` transport.
 
-Internally one UUID-keyed leaf Map, one primary/key/type tree catalog and a root manager maintain live data. Index entries reference leaves directly. Stored index branches are separate from leaves; configuration retains their root UUIDs for lazy hydration. Configuration defines allowed hierarchy and structural identities; it is not a data snapshot.
+`db.organizations.get(id)` returns an organization context. The organization owns
+its roots configuration, structural identity catalog, and `trees`, a Map from
+primary branch UUID to Tree. It resolves the envelope's root references using
+configuration before selecting an engine. Existing structural paths require no
+Tree or leaf hydration for discovery. Create/upsert can establish missing named
+ancestors. Concurrent creation of the same ancestor shares one pending result.
 
-## Local residency and defaults
+Each primary branch has one independent `Tree`. Its UUID identifies that primary;
+its local `roots` describe only the row categories that belong to it. A Tree owns
+its leaf Map, field/type indexes, queue, active-operation count and weight. It
+has no organization registry, sibling/child Trees, ancestor resolver or shared
+organization leaf Map. Nested tables are separate Trees. Structural rows live
+in their parent's table, while the organization catalog retains the addressing
+information for their child tables. Parentless row categories have primary
+UUIDs in `organization.config.top`.
 
-The default mode is `adaptive`; requests acknowledge their memory mutation before background indexing and storage. Disk-first remains an explicit residency choice, and disk-cache clears the DB-managed local base on startup.
+The organization obtains engines through `await organization.getTree(uuid)`.
+Initialization is shared for concurrent requests. A standalone engine uses:
 
-The composer consumes Telemetry's node-wide `memory.max` percentage. At 75% it starts pruning; pruning stays active until usage reaches 50%. It selects the lowest-weight eligible primary branch across the managed organization Trees. A primary branch represents an entire table, potentially containing nested tables. Removal releases its resident index trees, descendant branches and leaves together. Stored files and configuration UUIDs remain available for hydration.
+```js
+const tree = new Tree()
+tree.disk = disk
+tree.persistence = persistence
+await tree.init({ uuid: primaryUuid, parent: primaryUuid, roots: { object: {} }, size: 64 })
+await tree.execute({ method: 'object.create', object: { value: 1 } })
+```
 
-Active operations and queued/in-flight indexing protect the entire affected subtree. Each primary group has an active count; completion and errors release it without a separate process registry. A group becomes eligible only after leaf writes, index reconciliation, branch/configuration writes and attached Persistence responses have completed. Completing a 1,024-leaf batch does not complete a larger group. Index completion requests another pruning pass while pressure remains active; it does not bypass weight ordering. Pruning does not drain the index queue or wait for busy tables. Memory-only Trees retain their only copy; this implementation requires local Disk for whole-table removal and hydration. Persistence notifications alone do not establish a reloadable local index.
+`execute` and `planner` are shared stateless functions assigned to each instance
+and can be replaced. Internal traversal/mutation helpers are not package APIs.
+Organization-wide partial queries combine table results before final pagination;
+filtered mutations select their page before applying changes. Full-scope requests
+execute directly against the selected Tree.
 
-Primary-group weight counts access through that group, including access through nested groups. There is no LRU strategy, terminal-branch ranking, per-stage cleanup or automatic 90% disk-first transition. `tree.prune({ uuid, limit })` uses the same whole-primary-group removal path; UUID selects a primary group and the optional limit counts groups. A standalone Tree's composer decides when to invoke it. Explicit disk-first mode also releases completed groups through this path. Traffic routing, backoff and emergency node protection remain outside DB.
+## Residency and pruning
 
-The package has one `src/index.js` entry and one composition lifecycle for both environments. It wires Tree, CRUD, query planning, optional Persistence and optional Disk. DB composes Disk by assigning the initialized resource directly to `tree.disk`. Tree maps config, branch and leaf operations to provider requests internally. Tree and CRUD do not import platform APIs. Without an attached Disk resource, the DB operates in memory and retains its only data copy. Disk initialization and directory selection belong to the Disk provider. OPFS is scoped to the browser origin, requires a secure context and is subject to browser quota management.
+The composer consumes Telemetry's node-wide `memory.max` percentage. At 75% it
+starts pruning and remains active until usage reaches 50%. It selects the
+lowest-weight eligible Tree across organizations. Weight counts operations on
+that Tree; accessing one table does not increment another table's weight.
 
-Successful `object.create`, `object.update`, and `object.delete` requests in adaptive mode acknowledge after their in-memory leaf-map mutation. Create assigns or accepts a UUID and stores the leaf; update mutates the leaf; delete removes it from the resident map and records a pending local deletion. Supplied-UUID create, cold-leaf hydration, and query matching can require work before the mutation itself is applied.
+Active requests and query iterators protect their engine. Pending and in-flight
+index records protect it through leaf writes, index reconciliation, branch/config
+writes and attached Persistence responses. Partial batch completion does not make
+a still-busy Tree eligible. Organization metadata writes also protect routing.
+Index/storage completion requests another pruning pass while pressure remains.
 
-After acknowledgement, Warm local work proceeds in order: persist changed or deleted leaves, reconcile the derived in-memory indexes, then persist changed index branches and config. `tree.close()` completes outstanding work; no public flush endpoints exist. Disk-first uses the same memory acknowledgement and local flush path, then releases processed leaves and resident index branches while retaining their disk files. Memory acknowledgement means the mutation was accepted in this DB's memory; it does not certify that this server's disk write has completed. Client copies and peer delivery may add system-level redundancy, but are owned by the surrounding distributed application. Neither acknowledgement is a multi-object transaction. External Persistence is a separately attached resource; `tree.persist()` delegates to that resource if it exposes `persist()`. It is separate from the local durability boundary. The separate Persistence Tree and Cold archives remain outside the implemented engine.
+`await organization.prune({ uuid, limit })` removes eligible Trees from the
+registry. UUID optionally selects one engine; limit counts Trees. Selection
+ranks resident engines, but removal itself is one Map deletion. It does not walk
+index nodes or leaves, drain busy queues, close an idle Tree, or delete files.
+Other nested/neighboring Trees stay independent. Unreferenced graphs become
+eligible for JavaScript garbage collection; retained application references can
+keep an old Tree/leaf alive. A later request creates a fresh engine using saved
+configuration and hydrates only the indexes and documents it needs.
+
+Local Disk is required for eviction in this implementation. Memory-only engines
+retain their only copy; Persistence notifications alone do not establish complete
+reloadable index storage. Explicit disk-first mode uses the same eligible-Tree
+registry removal. `tree.setDiskFirst(true)` marks that engine's residency preference;
+its registry-owning composer performs removal. Standalone Tree owners control
+retention themselves. Traffic routing, backoff and emergency node protection
+remain outside DB.
+
+Independent queues can make progress while another Tree waits for I/O; this does
+not introduce worker threads or CPU parallel execution within one JS process.
+
+## Storage lifecycle
+
+Successful mutations acknowledge their in-memory change. Background work writes
+leaves/deletions, reconciles queued indexes in batches, writes changed branches
+and the Tree config, and notifies Persistence. Repeated changes to a queued leaf
+coalesce within its own Tree. There are no public flush endpoints. `tree.close()`
+completes outstanding local work; the organization closes its resident engines
+and routing writes. A memory acknowledgement does not certify disk durability.
+
+Disk initialization and the base directory belong to the adapter. DB maps logical
+storage operations to these paths under the encoded organization directory:
+
+- `config.json`: organization roots, structural identities and top primary IDs.
+- `trees/<primary UUID>/config.json`: that engine's local row definitions and index catalog.
+- `leaves/<hex encoded leaf UUID>.json`: leaf payloads.
+- `branches/<branch UUID>.json`: index nodes.
+
+Leaf/branch files are UUID-addressed; the in-memory ownership boundary is the
+primary Tree. A direct UUID request without named scope reads its leaf metadata
+to select the owning primary. Supplied ancestry constraints are still checked.
+The new configuration layout has no compatibility/migration path for older
+organization-wide index catalogs. Existing historical files are not rewritten.
 
 ## Integration boundary
 
-CoCreateDB supplies the local database at either end of a client-server application. CoCreate CRUD routes authorized requests to an instance, then invokes a configurable workflow with the request and response. Workflow/AST can acquire missing data and schedule or await persistence orchestration. Socket, IPC and Mesh own transport, awareness, recipient selection and peer communication; DB composes primary/worker DB requests over the Server's generic send interface. These surrounding layers use database instances to form a distributed database; the DB package itself does not open connections, discover peers or replicate changes automatically. Persistence accepts an adapter supplied by its host; Workflow integration is external to the DB package.
+Disk and Persistence are replaceable resources exposing `execute(request)`.
+Without adapters, empty ports complete calls without storing anything. Persistence
+owns provider selection, grouping and timing; `tree.persist()` delegates to its
+optional `persist()` method. Browser/Node imports share the same engine; platform
+I/O stays in the adapter. OPFS remains origin-scoped and quota-managed.
 
-Local success does not establish global completeness or external durability. See [CRUD](crud.md), [indexes](indexes.md), [persistence](persistence.md) and [awareness](awareness.md).
-
-Read hydration restores UUID/value index entries without loading documents or queuing reconciliation. The stateless planner describes index algebra and sorting; its executor selects and paginates UUIDs before document hydration. Whole-document residuals still use Utils. See [indexes](indexes.md) for the query coverage contract.
+CRUD, Socket, IPC and Mesh own authorization, transport, recipient awareness and
+replication. DB does not open connections, discover peers or promise transactional
+snapshots or atomic multi-object batches. See [indexes](indexes.md),
+[roots](roots.md), [CRUD](crud.md) and [persistence](persistence.md).

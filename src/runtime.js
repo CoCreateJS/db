@@ -1,6 +1,6 @@
 import planner from './tree/planner.js'
 import { treeContexts } from './tree/internal.js'
-import { Tree } from './tree/index.js'
+import { Organization } from './organization.js'
 
 const modes = new Set(['adaptive', 'disk-first', 'disk-cache'])
 const isNode = typeof globalThis.process?.versions?.node === 'string'
@@ -109,18 +109,14 @@ class DB {
     constructor(options) {
         const {
             config,
-            tree,
             execute,
             disk,
             persistence,
             server,
             mode
         } = options
-        if (tree && disk) tree.disk = disk
-        if (tree && persistence) tree.persistence = persistence
         const plan = options.planner ?? planner
         if (typeof plan !== 'function') throw new TypeError('planner must be a function')
-        if (tree) tree.planner = plan
         if (execute && typeof execute !== 'function') throw new TypeError('execute must be a function')
         const configuredMemory = options.memory ?? config.memory ?? {}
         if (!isRecord(configuredMemory)) throw new TypeError('memory must describe node thresholds')
@@ -135,7 +131,6 @@ class DB {
             leafSize: options.treeOptions?.leafSize ?? options.leafSize
         }
         this.initialConfig = config
-        this.tree = tree
         this.#disk = disk
         this.#persistence = persistence
         this.#treeOptions = treeOptions
@@ -145,7 +140,6 @@ class DB {
         })
         this.planner = plan
         this.execute = execute
-        if (tree && execute) tree.execute = execute
         this.mode = mode
         this.#server = server
         this.memory = {
@@ -158,7 +152,6 @@ class DB {
             lastPrune: undefined
         }
 
-        if (tree) treeContexts.get(tree).onIndexed = () => this.#schedulePrune()
 
         if (server.isPrimary) {
             this.#telemetryListener = message => this.#onTelemetry(message)
@@ -174,41 +167,31 @@ class DB {
     #getOrganization(organizationId) {
         if (typeof organizationId !== 'string' || !organizationId)
             throw new TypeError('organization_id is required to select a database Tree')
-        if (this.tree) {
-            this.tree.organizationId ??= organizationId
-            return Promise.resolve(this.tree)
-        }
         let pending = this.#organizations.get(organizationId)
         if (!pending) {
-            pending = this.#createOrganizationTree(organizationId)
+            pending = this.#createOrganization(organizationId)
             this.#organizations.set(organizationId, pending)
-            pending.then(tree => { pending.tree = tree }).catch(() => {
+            pending.then(organization => { pending.organization = organization }).catch(() => {
                 if (this.#organizations.get(organizationId) === pending) this.#organizations.delete(organizationId)
             })
         }
         return pending
     }
 
-    async #createOrganizationTree(organizationId) {
-        const tree = new Tree()
-        tree.organizationId = organizationId
-        if (this.#disk) tree.disk = this.#disk
-        if (this.#persistence) tree.persistence = this.#persistence
-        tree.planner = this.planner
-        if (this.execute) tree.execute = this.execute
-        await tree.init({ ...this.initialConfig, ...this.#treeOptions })
-        treeContexts.get(tree).onIndexed = () => this.#schedulePrune()
-        if (this.#diskFirst && this.#disk) tree.setDiskFirst(true)
-        const close = tree.close
-        tree.close = async () => {
-            await close()
-            if (this.#organizations.get(organizationId)?.tree === tree) this.#organizations.delete(organizationId)
-        }
-        return tree
+    async #createOrganization(organizationId) {
+        return await new Organization(organizationId, {
+            disk: this.#disk, persistence: this.#persistence, planner: this.planner, execute: this.execute,
+            treeOptions: this.#treeOptions,
+            onIndexed: (organization, completed) => {
+                if (this.#diskFirst) organization.prune(completed ? { uuid: completed.uuid } : undefined).catch(error => { this.memory.pruneError = error })
+                else if (completed && treeContexts.get(completed).diskFirst)
+                    organization.prune({ uuid: completed.uuid }).catch(error => { this.memory.pruneError = error })
+                this.#schedulePrune()
+            }
+        }).init(this.initialConfig)
     }
 
-    async #eachTree(callback) {
-        if (this.tree) return await callback(this.tree)
+    async #eachOrganization(callback) {
         for (const pending of this.#organizations.values()) await callback(await pending)
     }
 
@@ -238,14 +221,17 @@ class DB {
         this.#pruning = true
         this.#pruneQueue = (async () => {
             while (this.memory.pruning) {
-                const candidates = []
-                await this.#eachTree(tree => {
-                    for (const group of treeContexts.get(tree).pruneCandidates) candidates.push({ tree, group })
+                let candidate
+                await this.#eachOrganization(organization => {
+                    for (const tree of organization.pruneCandidates) {
+                        if (!candidate || tree.weight < candidate.tree.weight ||
+                            tree.weight === candidate.tree.weight && tree.uuid < candidate.tree.uuid)
+                            candidate = { organization, tree }
+                    }
                 })
-                candidates.sort((a, b) => a.group.weight - b.group.weight || a.group.uuid.localeCompare(b.group.uuid))
-                if (!this.memory.pruning || !candidates.length) break
-                const { tree, group } = candidates[0]
-                const result = await tree.prune({ uuid: group.uuid })
+                if (!this.memory.pruning || !candidate) break
+                const { organization, tree } = candidate
+                const result = await organization.prune({ uuid: tree.uuid })
                 this.memory.lastPrune = result
                 this.memory.pruneCycles++
                 this.memory.branchesPruned += result.count
@@ -263,15 +249,16 @@ class DB {
     get disk() { return this.#disk }
     set disk(handler) {
         this.#disk = handler
-        this.#eachTree(tree => { tree.disk = handler }).catch(() => {})
+        this.#eachOrganization(organization => {
+            organization.disk = handler
+            for (const tree of organization.trees.values()) tree.disk = handler
+        }).catch(() => {})
     }
 
     get persistence() { return this.#persistence }
 
     setDiskFirst(enabled) {
         this.#diskFirst = Boolean(enabled)
-        if (this.tree) this.tree.setDiskFirst(this.#diskFirst)
-        for (const pending of this.#organizations.values()) pending.tree?.setDiskFirst(this.#diskFirst)
         return this.#diskFirst
     }
 
@@ -290,8 +277,8 @@ class DB {
 
     get pendingIndexCount() {
         let count = 0
-        for (const pending of this.#organizations.values()) count += (pending.tree ? treeContexts.get(pending.tree).pendingIndexCount : 0)
-        return count || (this.tree ? treeContexts.get(this.tree).pendingIndexCount : 0)
+        for (const pending of this.#organizations.values()) count += pending.organization?.pendingIndexCount ?? 0
+        return count
     }
 
     async close() {
@@ -309,7 +296,6 @@ class DB {
         const contexts = [...this.#organizations.values()]
         this.#organizations.clear()
         await Promise.all(contexts.map(async pending => await (await pending).close()))
-        if (this.tree) await this.tree.close()
     }
 }
 

@@ -2,7 +2,7 @@
 
 ## Stored structure
 
-Each primary branch owns field/type index trees. The configuration catalog records primary UUID, field key, value type and index-root UUID, plus count/bounds for planning. Catalog lookup does not hydrate column roots. UUIDs identify leaves directly. Flattened scalar paths, including explicit array positions, are indexed. Empty arrays and objects have separate type buckets so they remain distinct from absent fields for predicates and ordering.
+Each primary branch owns field/type index trees. Each Tree's configuration catalog records field key, value type and index-root UUID, plus count/bounds for planning. Its primary UUID is already fixed by the owning Tree. Catalog lookup does not hydrate column roots. UUIDs identify leaves directly. Flattened scalar paths, including explicit array positions, are indexed. Empty arrays and objects have separate type buckets so they remain distinct from absent fields for predicates and ordering.
 
 Stored terminal branches contain indexed values and leaf UUIDs. Routing branches contain child UUIDs, bounds and counts. Reading a branch reconstructs index entries without loading its document payloads. The default routing and terminal capacities are 1,024; `size` and `leafSize` can override them. Splits and removals maintain routing references; configuration preserves the current index-root UUIDs for hydration.
 
@@ -26,6 +26,6 @@ Before mutating a cold document, affected old index entries are attached by fiel
 
 ## Pruning and active operations
 
-The composer starts pruning at 75% node memory and stops at 50%. Whole primary subtrees are selected by lowest weight. Queued/in-flight indexing includes its local writes and Persistence responses. Active operations are counted on each primary group; an active nested group protects its ancestors from subtree removal. Counts are released in `finally`, including errors and early iterator closure. No second operation registry or read-repair queue is maintained.
+The composer starts pruning at 75% node memory and stops at 50%. It ranks independent primary Trees by weight. Queued/in-flight work includes local writes and Persistence responses. Active requests and query iterators protect their own engine; counts release in `finally`, including errors and early iterator closure.
 
-A subtree is eligible only when it has no active operations and no unfinished indexing/storage. `tree.prune({ uuid, limit })` uses that same removal primitive and retains saved files/configuration UUIDs. Whole-tree recovery currently requires local Disk; persistence notifications alone do not provide index hydration. Explicit disk-first residency uses the same removal path. Traffic routing, backoff and emergency node protection belong to the surrounding server.
+An eligible Tree has no active operations or unfinished storage/indexing. Organization pruning deletes its registry entry, without traversing indexes or leaves. Nested tables are independent engines and remain available. Saved files/configuration UUIDs support selective hydration into a fresh engine. See [architecture](architecture.md) for residency and retention policy.
