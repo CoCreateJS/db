@@ -151,7 +151,7 @@ function indexResidency() {
 }
 function indexDetails() {
     return databaseMode === 'disk-first'
-        ? { note: 'Per-field tree traversal omitted because it hydrates index branches', residentIndexBranches: db.local.weights.size }
+        ? { note: 'Per-field tree traversal omitted because it hydrates index branches', residentIndexBranches: db.local.resident.size }
         : indexResidency()
 }
 
@@ -161,7 +161,7 @@ function snapshot() {
         rssMiB: rss.rss / 2 ** 20, heapMiB: rss.heapUsed / 2 ** 20,
         peakRssMiB: process.resourceUsage().maxRSS / 1024,
         databaseMode, hotLeaves: db.leafTier.size, totalLeaves: db.leafTier.totalSize,
-        hotIndexBranches: db.local.weights.size,
+        hotIndexBranches: db.local.resident.size,
         warmLeaves: db.leafTier.warm.size, warmBranches: warmBranches.size,
         leafReads: db.leafTier.reads, leafWrites: db.leafTier.writes,
         indexReads: db.local.reads, indexWrites: db.local.writes, stage: db.memory.stage,

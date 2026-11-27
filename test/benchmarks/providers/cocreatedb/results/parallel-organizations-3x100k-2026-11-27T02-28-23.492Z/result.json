@@ -1,0 +1,100 @@
+{
+  "status": "passed",
+  "startedAt": "2026-11-27T02:28:23.492Z",
+  "recordsPerOrganization": 100000,
+  "organizationCount": 3,
+  "totalRecords": 300000,
+  "batchSize": 1000,
+  "processModel": "one primary DB process, 3 concurrent ingestion loops, 3 organization Trees, one disk adapter with separate organization directories",
+  "node": "v24.18.0",
+  "totalMemoryBytes": 8218959872,
+  "configuration": {
+    "mode": "adaptive",
+    "memoryPolicy": "node-wide thresholds",
+    "telemetry": "node used-memory percentage every 100ms",
+    "memory": {
+      "pruneAt": 75,
+      "retainAt": 50
+    }
+  },
+  "organizations": [
+    {
+      "organization_id": "000000000000000000000001",
+      "records": 100000,
+      "acknowledgementMs": 24166.88572800001,
+      "fixtureGenerationMs": 705.7155460000226,
+      "fixtureHash": "713210fae7a6df46d37cb0a1beb84f4d8708da6d02263c5f1287104f2c4aefe3",
+      "allAcknowledgedAtMs": 24877.728564,
+      "pendingAfterAcknowledgement": 100003,
+      "remainingIndexDrainMs": 175522.96210399998,
+      "createAndIndexMs": 200400.708249,
+      "pendingAfterIndexing": 0,
+      "leafFiles": 100003
+    },
+    {
+      "organization_id": "000000000000000000000002",
+      "records": 100000,
+      "acknowledgementMs": 24244.581869999995,
+      "fixtureGenerationMs": 655.4258789999807,
+      "fixtureHash": "97736612a80d445dde657ca135d95ce35c5a44d7043e2683cd38d597330e1ca6",
+      "allAcknowledgedAtMs": 24916.764785,
+      "pendingAfterAcknowledgement": 100003,
+      "remainingIndexDrainMs": 175459.088138,
+      "createAndIndexMs": 200375.896843,
+      "pendingAfterIndexing": 0,
+      "leafFiles": 100003
+    },
+    {
+      "organization_id": "000000000000000000000003",
+      "records": 100000,
+      "acknowledgementMs": 24195.684278000015,
+      "fixtureGenerationMs": 732.8442649999924,
+      "fixtureHash": "79f260213bcbee8c7dfa325871f9dea32c2e8827fec185e6b81bf95beb255549",
+      "allAcknowledgedAtMs": 24956.471475,
+      "pendingAfterAcknowledgement": 100003,
+      "remainingIndexDrainMs": 175476.181079,
+      "createAndIndexMs": 200432.674694,
+      "pendingAfterIndexing": 0,
+      "leafFiles": 100003
+    }
+  ],
+  "memory": {
+    "idle": {
+      "rss": 60817408,
+      "heapTotal": 11513856,
+      "heapUsed": 7956616,
+      "external": 2356485,
+      "arrayBuffers": 174755
+    },
+    "loaded": {
+      "rss": 2598690816,
+      "heapTotal": 2477035520,
+      "heapUsed": 2382593304,
+      "external": 6670283,
+      "arrayBuffers": 4427759
+    },
+    "peakRssBytes": 2598690816
+  },
+  "createAndIndexMs": 200432.692374,
+  "allAcknowledgedAtMs": 24956.471475,
+  "recordsPerSecond": 1496.7618128893419,
+  "pendingBeforeReadChecks": 0,
+  "pendingAfterReadChecks": 0,
+  "pendingBeforeFinalWait": 1,
+  "finalDrainMs": 354.82408799999394,
+  "pendingAfterFinalWait": 0,
+  "correctness": {
+    "uuidReads": "passed",
+    "indexedReads": "passed",
+    "separateDirectories": "passed",
+    "updateAndDeleteIsolation": "passed"
+  },
+  "telemetry": {
+    "nodeUsedPercent": 54.11804750565887,
+    "peakNodeUsedPercent": 54.11809734164863,
+    "pruning": false,
+    "pruneCycles": 0,
+    "branchesPruned": 0
+  },
+  "completedAt": "2026-11-27T02:31:44.993Z"
+}

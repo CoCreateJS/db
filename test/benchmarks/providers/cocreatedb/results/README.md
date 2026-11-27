@@ -1,16 +1,22 @@
 # Current CoCreateDB benchmark results
 
-This directory retains the latest requested result for each workload: 100K and 200K single-organization standard runs, plus concurrent 100K-per-organization runs with 2, 4, 8, and 10 organizations. Superseded CoCreateDB result folders were removed; the CockroachDB provider history is maintained separately.
+One newest passing result is retained for each distinct workload. When the same organization count and records per organization were run more than once, the newest run replaces the earlier result. Workloads with the same total records but different organization/record distributions remain separate.
 
-| Workload | Total records | Create + index | Throughput | Peak RSS | Report |
+| Workload | Total records | Create + index | Throughput (records/s) | Peak process RSS | Report |
 | --- | ---: | ---: | ---: | ---: | --- |
-| 100K, one organization | 100,000 | 89.35 s | 1,119 records/s | 935 MiB | [Report](standard-2026-11-26T21-11-41.069Z/report.md) |
-| 200K, one organization | 200,000 | 204.96 s | 976 records/s | 1,552 MiB | [Report](standard-2026-11-26T18-22-05.815Z/report.md) |
-| 2 organizations × 100K | 200,000 | 155.87 s | 1,283 records/s | 1,401 MiB | [Report](parallel-organizations-2x100k-2026-11-26T21-15-31.602Z/report.md) |
-| 4 organizations × 100K | 400,000 | 285.03 s | 1,403 records/s | 2,956 MiB | [Report](parallel-organizations-4x100k-2026-11-26T22-55-03.886Z/report.md) |
-| 8 organizations × 100K | 800,000 | 670.57 s | 1,193 records/s | 4,152 MiB | [Report](parallel-organizations-8x100k-2026-11-26T21-58-36.676Z/report.md) |
-| 10 organizations × 100K | 1,000,000 | 1,091.13 s | 916 records/s | 5,082 MiB | [Report](parallel-organizations-10x100k-2026-11-26T22-22-58.010Z/report.md) |
+| 10 × 1,000 | 10,000 | 5.95 s | 1,681 | 285.9 MiB | [Report](parallel-organizations-1000-2026-11-27T01-24-10.235Z/report.md) |
+| 10,000, one organization | 10,000 | 8.77 s | 1,140 | 264.0 MiB | [Report](standard-2026-11-27T01-25-19.202Z/comparison.md) |
+| 100,000, one organization | 100,000 | 89.35 s | 1,119 | 935.6 MiB | [Report](standard-2026-11-26T21-11-41.069Z/report.md) |
+| 2 × 100,000 | 200,000 | 155.87 s | 1,283 | 1401.4 MiB | [Report](parallel-organizations-2x100k-2026-11-26T21-15-31.602Z/report.md) |
+| 200,000, one organization | 200,000 | 204.96 s | 976 | 1552.0 MiB | [Report](standard-2026-11-26T18-22-05.815Z/report.md) |
+| 3 × 100,000 | 300,000 | 200.43 s | 1,497 | 2478.3 MiB | [Report](parallel-organizations-3x100k-2026-11-27T02-28-23.492Z/report.md) |
+| 1 × 400,000 | 400,000 | 392.20 s | 1,020 | 2163.0 MiB | [Report](single-organization-400k-2026-11-27T02-35-21.844Z/report.md) |
+| 16 × 25,000 | 400,000 | 231.57 s | 1,727 | 2852.9 MiB | [Report](parallel-organizations-16x25k-2026-11-27T02-53-13.516Z/report.md) |
+| 4 × 100,000 | 400,000 | 262.44 s | 1,524 | 2750.4 MiB | [Report](parallel-organizations-4x100k-2026-11-27T02-11-27.956Z/report.md) |
+| 40 × 10,000 | 400,000 | 227.99 s | 1,754 | 2827.0 MiB | [Report](parallel-organizations-40x10k-2026-11-27T03-02-12.476Z/report.md) |
+| 8 × 50,000 | 400,000 | 239.81 s | 1,668 | 3000.5 MiB | [Report](parallel-organizations-8x50k-2026-11-27T02-47-01.100Z/report.md) |
+| 5 × 100,000 | 500,000 | 339.01 s | 1,475 | 3125.0 MiB | [Report](parallel-organizations-5x100k-2026-11-27T02-18-07.582Z/report.md) |
+| 8 × 100,000 | 800,000 | 670.57 s | 1,193 | 4152.3 MiB | [Report](parallel-organizations-8x100k-2026-11-26T21-58-36.676Z/report.md) |
+| 10 × 100,000 | 1,000,000 | 927.76 s | 1,078 | 5422.9 MiB | [Report](parallel-organizations-10x100k-2026-11-27T01-30-11.568Z/report.md) |
 
-The 100K and 200K standard results each contain one independent run. The parallel diagnostics also use one Node process, with concurrent organization Trees and separate directories; per-organization durations overlap and must not be added. The 4-, 8-, and 10-organization runs use the approved-branch updates and were launched with `NODE_OPTIONS=--max-old-space-size-percentage=75`. Each parallel report records its own correctness checks.
-
-`summary.json` indexes the retained standard runs and all six result sets. Raw JSON and manifests are stored alongside each report. These are single-host diagnostics, not multi-node cluster benchmarks.
+The parallel diagnostics use one Node process, concurrent organization Trees, and separate organization directories. Their per-organization timings overlap and must not be summed. They measure create plus index drain, include telemetry and local disk writes, and do not include the standard sustained workload. The 10K standard comparison is a single run on each side; see its report for the comparison limits. These are single-host diagnostics, not multi-node cluster benchmarks. Raw results and run manifests are stored alongside each report.

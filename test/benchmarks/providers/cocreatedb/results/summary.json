@@ -500,6 +500,11 @@
     ]
   },
   "baselines": {
+    "10000": {
+      "directory": "standard-2026-11-27T01-25-19.202Z",
+      "report": "standard-2026-11-27T01-25-19.202Z/comparison.md",
+      "raw": "standard-2026-11-27T01-25-19.202Z/size-10000-run-01.json"
+    },
     "100000": {
       "directory": "standard-2026-11-26T21-11-41.069Z",
       "report": "standard-2026-11-26T21-11-41.069Z/report.md",
@@ -516,9 +521,9 @@
       "raw": "parallel-organizations-2x100k-2026-11-26T21-15-31.602Z/result.json"
     },
     "parallel-4-organizations-100000-each": {
-      "directory": "parallel-organizations-4x100k-2026-11-26T22-55-03.886Z",
-      "report": "parallel-organizations-4x100k-2026-11-26T22-55-03.886Z/report.md",
-      "raw": "parallel-organizations-4x100k-2026-11-26T22-55-03.886Z/result.json"
+      "directory": "parallel-organizations-4x100k-2026-11-27T02-11-27.956Z",
+      "report": "parallel-organizations-4x100k-2026-11-27T02-11-27.956Z/report.md",
+      "raw": "parallel-organizations-4x100k-2026-11-27T02-11-27.956Z/result.json"
     },
     "parallel-8-organizations-100000-each": {
       "directory": "parallel-organizations-8x100k-2026-11-26T21-58-36.676Z",
@@ -526,9 +531,152 @@
       "raw": "parallel-organizations-8x100k-2026-11-26T21-58-36.676Z/result.json"
     },
     "parallel-10-organizations-100000-each": {
-      "directory": "parallel-organizations-10x100k-2026-11-26T22-22-58.010Z",
-      "report": "parallel-organizations-10x100k-2026-11-26T22-22-58.010Z/report.md",
-      "raw": "parallel-organizations-10x100k-2026-11-26T22-22-58.010Z/result.json"
+      "directory": "parallel-organizations-10x100k-2026-11-27T01-30-11.568Z",
+      "report": "parallel-organizations-10x100k-2026-11-27T01-30-11.568Z/report.md",
+      "raw": "parallel-organizations-10x100k-2026-11-27T01-30-11.568Z/result.json"
     }
-  }
+  },
+  "latestParallelResults": [
+    {
+      "directory": "parallel-organizations-1000-2026-11-27T01-24-10.235Z",
+      "status": "passed",
+      "organizations": 10,
+      "recordsPerOrganization": 1000,
+      "totalRecords": 10000,
+      "createAndIndexMs": 5947.611511,
+      "recordsPerSecond": 1681.3472066064135,
+      "peakRssBytes": 299778048,
+      "pruning": false,
+      "report": "parallel-organizations-1000-2026-11-27T01-24-10.235Z/report.md",
+      "raw": "parallel-organizations-1000-2026-11-27T01-24-10.235Z/result.json"
+    },
+    {
+      "directory": "parallel-organizations-2x100k-2026-11-26T21-15-31.602Z",
+      "status": "passed",
+      "recordsPerOrganization": 100000,
+      "totalRecords": 200000,
+      "createAndIndexMs": 155874.977584,
+      "recordsPerSecond": 1283.0795750538043,
+      "peakRssBytes": 1469440000,
+      "report": "parallel-organizations-2x100k-2026-11-26T21-15-31.602Z/report.md",
+      "raw": "parallel-organizations-2x100k-2026-11-26T21-15-31.602Z/result.json",
+      "organizations": 2
+    },
+    {
+      "directory": "parallel-organizations-8x100k-2026-11-26T21-58-36.676Z",
+      "status": "passed",
+      "organizations": 8,
+      "recordsPerOrganization": 100000,
+      "totalRecords": 800000,
+      "createAndIndexMs": 670565.3400300001,
+      "recordsPerSecond": 1193.0231884102586,
+      "peakRssBytes": 4354031616,
+      "report": "parallel-organizations-8x100k-2026-11-26T21-58-36.676Z/report.md",
+      "raw": "parallel-organizations-8x100k-2026-11-26T21-58-36.676Z/result.json"
+    },
+    {
+      "directory": "single-organization-400k-2026-11-27T02-35-21.844Z",
+      "status": "passed",
+      "organizations": 1,
+      "recordsPerOrganization": 400000,
+      "totalRecords": 400000,
+      "createAndIndexMs": 392199.716194,
+      "recordsPerSecond": 1019.8885503582101,
+      "peakRssBytes": 2268090368,
+      "pruning": false,
+      "report": "single-organization-400k-2026-11-27T02-35-21.844Z/report.md",
+      "raw": "single-organization-400k-2026-11-27T02-35-21.844Z/result.json"
+    },
+    {
+      "directory": "parallel-organizations-3x100k-2026-11-27T02-28-23.492Z",
+      "status": "passed",
+      "organizations": 3,
+      "recordsPerOrganization": 100000,
+      "totalRecords": 300000,
+      "createAndIndexMs": 200432.692374,
+      "recordsPerSecond": 1496.7618128893419,
+      "peakRssBytes": 2598690816,
+      "pruning": false,
+      "report": "parallel-organizations-3x100k-2026-11-27T02-28-23.492Z/report.md",
+      "raw": "parallel-organizations-3x100k-2026-11-27T02-28-23.492Z/result.json"
+    },
+    {
+      "directory": "parallel-organizations-4x100k-2026-11-27T02-11-27.956Z",
+      "status": "passed",
+      "organizations": 4,
+      "recordsPerOrganization": 100000,
+      "totalRecords": 400000,
+      "createAndIndexMs": 262436.027399,
+      "recordsPerSecond": 1524.1809745574749,
+      "peakRssBytes": 2884034560,
+      "pruning": false,
+      "report": "parallel-organizations-4x100k-2026-11-27T02-11-27.956Z/report.md",
+      "raw": "parallel-organizations-4x100k-2026-11-27T02-11-27.956Z/result.json"
+    },
+    {
+      "directory": "parallel-organizations-5x100k-2026-11-27T02-18-07.582Z",
+      "status": "passed",
+      "organizations": 5,
+      "recordsPerOrganization": 100000,
+      "totalRecords": 500000,
+      "createAndIndexMs": 339008.71845999995,
+      "recordsPerSecond": 1474.8883222571033,
+      "peakRssBytes": 3276767232,
+      "pruning": false,
+      "report": "parallel-organizations-5x100k-2026-11-27T02-18-07.582Z/report.md",
+      "raw": "parallel-organizations-5x100k-2026-11-27T02-18-07.582Z/result.json"
+    },
+    {
+      "directory": "parallel-organizations-8x50k-2026-11-27T02-47-01.100Z",
+      "status": "passed",
+      "organizations": 8,
+      "recordsPerOrganization": 50000,
+      "totalRecords": 400000,
+      "createAndIndexMs": 239814.11996100002,
+      "recordsPerSecond": 1667.9585007965768,
+      "peakRssBytes": 3146219520,
+      "pruning": false,
+      "report": "parallel-organizations-8x50k-2026-11-27T02-47-01.100Z/report.md",
+      "raw": "parallel-organizations-8x50k-2026-11-27T02-47-01.100Z/result.json"
+    },
+    {
+      "directory": "parallel-organizations-10x100k-2026-11-27T01-30-11.568Z",
+      "status": "passed",
+      "organizations": 10,
+      "recordsPerOrganization": 100000,
+      "totalRecords": 1000000,
+      "createAndIndexMs": 927763.408266,
+      "recordsPerSecond": 1077.8610053925397,
+      "peakRssBytes": 5686353920,
+      "pruning": true,
+      "report": "parallel-organizations-10x100k-2026-11-27T01-30-11.568Z/report.md",
+      "raw": "parallel-organizations-10x100k-2026-11-27T01-30-11.568Z/result.json"
+    },
+    {
+      "directory": "parallel-organizations-16x25k-2026-11-27T02-53-13.516Z",
+      "status": "passed",
+      "organizations": 16,
+      "recordsPerOrganization": 25000,
+      "totalRecords": 400000,
+      "createAndIndexMs": 231565.39231999998,
+      "recordsPerSecond": 1727.373835928127,
+      "peakRssBytes": 2991468544,
+      "pruning": false,
+      "report": "parallel-organizations-16x25k-2026-11-27T02-53-13.516Z/report.md",
+      "raw": "parallel-organizations-16x25k-2026-11-27T02-53-13.516Z/result.json"
+    },
+    {
+      "directory": "parallel-organizations-40x10k-2026-11-27T03-02-12.476Z",
+      "status": "passed",
+      "organizations": 40,
+      "recordsPerOrganization": 10000,
+      "totalRecords": 400000,
+      "createAndIndexMs": 227987.57631,
+      "recordsPerSecond": 1754.48156638198,
+      "peakRssBytes": 2964312064,
+      "pruning": false,
+      "report": "parallel-organizations-40x10k-2026-11-27T03-02-12.476Z/report.md",
+      "raw": "parallel-organizations-40x10k-2026-11-27T03-02-12.476Z/result.json"
+    }
+  ]
 }

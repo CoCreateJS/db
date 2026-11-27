@@ -60,7 +60,7 @@ test('indexed reads do not wait for queued creates and omit them until the index
         await started
         const branch = await tree.getPrimaryBranch({ ...envelope, method: 'object.read' })
         const plan = planQuery(branch, { value: 'pending' })
-        assert.equal(plan.strategy, 'index')
+        assert.equal(plan.kind, 'query')
         const results = []
         for await (const leaf of tree.getLeaves(plan)) results.push(leaf)
         assert.equal(results.some(leaf => leaf.uuid === queued.uuid), false)
@@ -149,66 +149,41 @@ test('new Tree streams sorted ranges across split branches and updates leaf inde
     assert.deepEqual(updated, ['item-0'])
 })
 
-test('Tree pruning releases a bounded number of branches and retains leaves and query paths', async () => {
-    const disk = new MemoryDisk()
-    const tree = inspectTree(new Tree())
-    tree.disk = disk
-    await tree.init({ ...createConfiguration(), size: 4, leafSize: 4 })
-    const leaves = []
-    for (let score = 0; score < 40; score++)
-        leaves.push(await tree.createLeaf('object', { name: `prune-${score}`, score }, envelope))
+test('Tree prunes a complete primary table and hydrates it without disturbing its neighbor', async () => {
+    const tree = await createTestTree({ disk: new MemoryDisk(), size: 4, leafSize: 4 })
+    const first = [], second = []
+    for (let score = 0; score < 20; score++) {
+        first.push(await tree.createLeaf('object', { score }, envelope))
+        second.push(await tree.createLeaf('object', { score }, { ...envelope, array: 'neighbor' }))
+    }
     await waitForIndex(tree)
-
-    const result = await tree.prune({ limit: 2 })
-    assert.equal(result.strategy, 'lfu')
-    assert.equal(result.count, 2)
-    assert.equal(result.target, 2)
-    assert.equal((await Promise.all(leaves.map(leaf => tree.leaves.get(leaf.uuid)))).every((leaf, index) => leaf === leaves[index]), true)
-
-    const entries = []
-    for await (const entry of tree.range('score', 'number', { min: 0, max: 39 })) entries.push(entry)
-    assert.equal(entries.length, 40)
-    await tree.updateLeaf(leaves[0].uuid, { score: 41 })
+    const uuid = first[0].parent
+    const before = tree.config.indexes.filter(index => index.primary === uuid)
+    assert.ok(before.length > 0)
+    assert.deepEqual(await tree.prune({ uuid }), { count: 1 })
+    assert.equal(tree.pruneCandidates.some(group => group.uuid === uuid), false)
+    assert.equal(await tree.leaves.get(second[0].uuid), second[0], 'neighbor remains resident')
+    const response = await tree.execute({ ...envelope, method: 'object.read', filter: { query: { score: { $gte: 0 } }, limit: 0 } })
+    assert.equal(response.success, true)
+    assert.equal(response.object.length, 20)
+    assert.notEqual(response.object.find(leaf => leaf.uuid === first[0].uuid), first[0])
     await waitForIndex(tree)
-    const updated = []
-    for await (const entry of tree.range('score', 'number', { min: 41, max: 41 })) updated.push(entry.uuid)
-    assert.deepEqual(updated, [leaves[0].uuid])
+    assert.deepEqual(tree.config.indexes.filter(index => index.primary === uuid), before, 'hydration preserves index UUIDs')
+    const updated = await tree.execute({ ...envelope, method: 'object.update', object: { uuid: first[0].uuid, score: 41 } })
+    assert.equal(updated.success, true)
+    await waitForIndex(tree)
+    const read = await tree.execute({ ...envelope, method: 'object.read', filter: { query: { score: 41 } } })
+    assert.deepEqual(read.object.map(leaf => leaf.uuid), [first[0].uuid])
+    await tree.close()
 })
 
-test('Tree prune defaults to LFU and an omitted limit prunes every eligible branch', async () => {
-    const disk = new MemoryDisk()
-    const tree = inspectTree(new Tree())
-    tree.disk = disk
-    await tree.init({ ...createConfiguration(), size: 4, leafSize: 4 })
-    for (let score = 0; score < 40; score++)
-        await tree.createLeaf('object', { score }, envelope)
+test('Tree protects memory-only data when no recoverable storage is attached', async () => {
+    const tree = await createTestTree()
+    const leaf = await tree.createLeaf('object', { score: 1 }, envelope)
     await waitForIndex(tree)
-
-    const result = await tree.prune()
-    assert.equal(result.strategy, 'lfu')
-    assert.equal(result.count, result.candidates)
-    assert.ok(result.count > 0)
-})
-
-test('Tree can prune and rebuild derived branches without a storage adapter', async () => {
-    const tree = inspectTree(new Tree())
-    await tree.init({ ...createConfiguration(), size: 4, leafSize: 4 })
-    const leaves = []
-    for (let score = 0; score < 40; score++)
-        leaves.push(await tree.createLeaf('object', { score }, envelope))
-    await waitForIndex(tree)
-
-    const result = await tree.prune()
-    assert.ok(result.count > 0)
-    assert.equal((await Promise.all(leaves.map(leaf => tree.leaves.get(leaf.uuid)))).every((leaf, index) => leaf === leaves[index]), true)
-    const entries = []
-    for await (const entry of tree.range('score', 'number', { min: 0, max: 39 })) entries.push(entry)
-    assert.equal(entries.length, 40)
-    await tree.updateLeaf(leaves[0].uuid, { score: 41 })
-    await waitForIndex(tree)
-    const updated = []
-    for await (const entry of tree.range('score', 'number', { min: 41, max: 41 })) updated.push(entry.uuid)
-    assert.deepEqual(updated, [leaves[0].uuid])
+    assert.deepEqual(await tree.prune(), { count: 0 })
+    assert.equal(await tree.leaves.get(leaf.uuid), leaf)
+    await tree.close()
 })
 
 test('new Tree persists leaf deletion after the queued index work', async () => {
@@ -231,4 +206,35 @@ test('new Tree persists leaf deletion after the queued index work', async () => 
     assert.ok(disk.events.includes('branch-write'))
     assert.ok(disk.events.includes('leaf-delete'))
     assert.ok(disk.events.lastIndexOf('leaf-delete') < disk.events.lastIndexOf('branch-write'), 'leaf deletion reaches disk before derived index changes')
+})
+
+
+test('pruning a primary branch includes nested tables and protects unfinished descendant storage', async () => {
+    const tree = await createTestTree({ disk: new MemoryDisk(), roots: {
+        storage: { database: { array: { child: { object: {} } } } }
+    } })
+    const scope = { ...envelope, child: 'nested' }
+    const nested = await tree.createLeaf('object', { score: 7 }, scope)
+    const neighbor = await tree.createLeaf('object', { score: 9 }, { ...scope, array: 'neighbor' })
+    await waitForIndex(tree)
+    const primary = Object.entries(tree.config.leaves).find(([, value]) => value.root === 'array' && value.name === 'items')[0]
+    let release, entered
+    const gate = new Promise(resolve => { release = resolve })
+    const started = new Promise(resolve => { entered = resolve })
+    tree.persistence = { async execute(request) {
+        if (request.kind === 'leaf') { entered(); await gate }
+        return request
+    } }
+    try {
+        await tree.updateLeaf(nested.uuid, { score: 8 })
+        await started
+        assert.deepEqual(await tree.prune({ uuid: primary }), { count: 0 })
+        release()
+        await waitForIndex(tree)
+        assert.deepEqual(await tree.prune({ uuid: primary }), { count: 1 })
+        assert.equal(await tree.leaves.get(neighbor.uuid), neighbor)
+        const read = await tree.execute({ ...scope, method: 'object.read', filter: { query: { score: 8 } } })
+        assert.equal(read.success, true)
+        assert.deepEqual(read.object.map(leaf => leaf.uuid), [nested.uuid])
+    } finally { release(); await tree.close() }
 })

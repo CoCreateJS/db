@@ -1,77 +1,52 @@
-const indexedTypes = new Set(['string', 'number', 'boolean'])
-const rangeOperators = new Set(['$gt', '$gte', '$lt', '$lte'])
-const hasOwn = (value, key) => Object.hasOwn(value, key)
+const path = key => key.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean).join('.')
+const scalar = value => value === null || value === undefined || ['string', 'number', 'boolean'].includes(typeof value)
+const operators = new Set(['$eq', '$ne', '$gt', '$gte', '$lt', '$lte', '$in', '$nin', '$exists', '$type', '$not', '$includes', '$regex', '$options', '$mod'])
+const every = nodes => nodes.length ? { kind: 'and', nodes, estimate: Math.min(...nodes.map(node => node.estimate ?? Infinity)) } : { kind: 'all' }
 
-function bounds(condition) {
-    if (condition === null || typeof condition !== 'object' || Array.isArray(condition)) {
-        return { min: condition, max: condition, equality: true }
-    }
-
-    if (hasOwn(condition, '$eq')) return { min: condition.$eq, max: condition.$eq, equality: true }
-    const keys = Object.keys(condition)
-    if (!keys.length || keys.some(key => !rangeOperators.has(key))) return undefined
-    const lower = hasOwn(condition, '$gte') ? condition.$gte : condition.$gt
-    const upper = hasOwn(condition, '$lte') ? condition.$lte : condition.$lt
-    const min = lower
-    const max = upper
-    const values = [min, max].filter(value => value !== undefined)
-    if (!values.length || values.some(value => value === null || !indexedTypes.has(typeof value))) return undefined
-    if (values.some(value => typeof value === 'number' && !Number.isFinite(value))) return undefined
-    if (values.some(value => typeof value !== typeof values[0])) return undefined
-    return { min, max, equality: false }
+function indexedCondition(value) {
+    if (scalar(value)) return true
+    if (Array.isArray(value)) return value.length === 0
+    if (!value || typeof value !== 'object') return false
+    const keys = Object.keys(value)
+    return keys.every(key => operators.has(key) && (key !== '$not' || indexedCondition(value[key])))
 }
 
-function overlaps(branch, min, max) {
-    if (min !== undefined && branch.lastValue < min) return false
-    if (max !== undefined && branch.firstValue > max) return false
-    return true
+function expression(query, fields) {
+    if (query == null) return { kind: 'all' }
+    if (Array.isArray(query)) return every(query.map(part => expression(part, fields)))
+    if (typeof query !== 'object') return { kind: 'none' }
+    return every(Object.entries(query).map(([key, condition]) => {
+        if (['$and', '$or', '$nor'].includes(key)) {
+            if (!Array.isArray(condition)) return { kind: 'none' }
+            const nodes = condition.map(part => expression(part, fields))
+            if (key === '$and') return every(nodes)
+            const union = { kind: 'or', nodes }
+            return key === '$nor' ? { kind: 'not', node: union } : union
+        }
+        if (key === '$where') return { kind: 'residual' }
+        if (key.startsWith('$')) return { kind: 'none' }
+        const sources = fields.filter(field => path(field.key) === path(key))
+        const container = fields.some(field => path(field.key).startsWith(`${path(key)}.`))
+        if (container || !indexedCondition(condition)) return { kind: 'residual' }
+        return { kind: 'field', key: path(key), condition, sources, estimate: sources.reduce((sum, field) => sum + (field.count ?? Infinity), 0) / (scalar(condition) ? typeof condition === 'boolean' ? 2 : 16 : 1) }
+    }))
 }
 
-function conjunctions(query, output = []) {
-    for (const [key, value] of Object.entries(query ?? {})) {
-        if (key === '$and' && Array.isArray(value)) {
-            for (const clause of value) {
-                if (clause && typeof clause === 'object' && !Array.isArray(clause)) conjunctions(clause, output)
-            }
-        } else if (!key.startsWith('$')) output.push([key, value])
+/** Pure query planning. Index I/O and leaf hydration belong to getLeaves(plan). */
+export default function planner(branch, query = {}, filter = { limit: 0 }) {
+    const start = filter.startingIndex ?? filter.index ?? 0
+    const limit = filter.limit ?? 50
+    if (!Number.isSafeInteger(start) || start < 0 || !Number.isSafeInteger(limit) || limit < 0)
+        throw new Error('invalid pagination')
+    if (filter.sort !== undefined && !Array.isArray(filter.sort)) throw new TypeError('filter.sort must be an array')
+    const sort = (filter.sort ?? []).filter(item => item?.key).map(({ key, direction }) => {
+        if (typeof key !== 'string') throw new TypeError('Sort keys must be strings')
+        return { key, direction: direction === 'desc' ? 'desc' : 'asc' }
+    })
+    const fields = branch?.fields ?? []
+    return {
+        kind: 'query', target: branch?.target, primary: branch?.parent?.uuid, fields,
+        expression: !branch || branch.missing ? { kind: 'none' } : expression(query, fields),
+        query, sort, start, limit: limit || Infinity, search: filter.search
     }
-    return output
-}
-
-/** Choose one safe indexed candidate; CRUD verifies the complete predicate. */
-export default function planner(rootBranch, query = {}) {
-    if (!rootBranch || rootBranch.missing) return { strategy: 'none', branches: [], estimatedCount: 0 }
-    if (!query || typeof query !== 'object' || Array.isArray(query)) return { strategy: 'scan', branches: [], estimatedCount: Infinity }
-
-    const candidates = []
-    for (const [key, condition] of conjunctions(query)) {
-        // A conjunctive clause is a safe superset candidate. `$or` is omitted
-        // here because it requires union semantics to avoid missing matches.
-        if (key.includes('[') || /(^|\.)\d+(\.|$)|^\.|\.$|\.\./.test(key)) continue
-        const range = bounds(condition)
-        if (!range) continue
-        const type = typeof range.min === 'object' || range.min === undefined
-            ? typeof range.max
-            : typeof range.min
-        if (type === 'object' || type === 'undefined' || !indexedTypes.has(type)) continue
-        const field = rootBranch.fields.find(item => item.key === key && item.type === type)
-        if (!field) continue
-        const branches = field.branches.length
-            ? field.branches.filter(branch => overlaps(branch, range.min, range.max))
-            : [{ uuid: field.uuid, length: field.count, firstValue: field.min, lastValue: field.max }]
-        candidates.push({
-            strategy: 'index',
-            key,
-            type,
-            min: range.min,
-            max: range.max,
-            equality: range.equality,
-            branches,
-            estimatedCount: branches.reduce((count, branch) => count + branch.length, 0)
-        })
-    }
-
-    if (!candidates.length) return { strategy: 'scan', branches: [], estimatedCount: Infinity }
-    candidates.sort((a, b) => a.estimatedCount - b.estimatedCount || a.key.localeCompare(b.key))
-    return candidates[0]
 }

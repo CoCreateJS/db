@@ -1,52 +1,31 @@
-# Indexes
+# Indexes and query execution
 
-## Current runtime structure
+## Stored structure
 
-Each indexed key has a Map of value-type trees, not one mixed-type tree. UUID is excluded from ordinary indexing and resolved directly through the leaf Map. Scalar flattened keys, including root and parent, are indexed. Entries hold the original object, key, tree and branch references. Equal values group leaf references ordered by UUID.
+Each primary branch owns field/type index trees. The configuration catalog records primary UUID, field key, value type and index-root UUID, plus count/bounds for planning. Catalog lookup does not hydrate column roots. UUIDs identify leaves directly. Flattened scalar paths, including explicit array positions, are indexed. Empty arrays and objects have separate type buckets so they remain distinct from absent fields for predicates and ordering.
 
-Offloaded terminal branches are stored under `branches/`; data leaves are stored under `leaves/`. A terminal branch holds `[value, leafReferences]` groups, while a nonterminal branch holds child branch references. The root and parent branch catalog is not yet restored on restart. Branch metadata includes firstValue, firstUuid, lastValue, lastUuid and length. The default capacity is 1,024 leaf entries per terminal branch and 1,024 children per nonterminal branch. The `leafSize` option controls leaf-entry capacity independently. Insert splits oversized branches; removal prunes empty branches and collapses single-child roots. Moves can reuse entries. Branches have no persistent identity beyond their UUID.
+Stored terminal branches contain indexed values and leaf UUIDs. Routing branches contain child UUIDs, bounds and counts. Reading a branch reconstructs index entries without loading its document payloads. The default routing and terminal capacities are 1,024; `size` and `leafSize` can override them. Splits and removals maintain routing references; configuration preserves the current index-root UUIDs for hydration.
 
-Query selection uses the smallest usable scalar index and verifies candidates with shared queryData. A range scans the matching type index first when the bounds have that type, then checks leaves outside that index for matches under JavaScript coercion. Coverage includes Hot and Warm leaves and accounts for pending index changes. The fallback can inspect a Warm leaf’s index entry before loading its payload. Queries without a usable index scan local leaves. UUID queries use direct lookup. Sorting and search are not implemented. Pagination applies to local matches. Do not infer global coverage from local trees.
+## Planning and selection
 
-## CRUD selection and execution
+`tree.planner(branch, query, filter)` is a replaceable stateless function. The internal primary-branch resolver supplies scoped catalog descriptors without initializing every column. The planner returns one `kind: 'query'` plan containing its target root, primary scope, fields, query expression, sorting and pagination. Expression nodes describe fields, AND, OR, NOT, all/none, or document residuals. There is no compatibility path for the former single-candidate plan.
 
-The Tree surface separates direct resource lookup from query candidate selection:
+The internal `getLeaves(plan)` executor evaluates index values and UUIDs. AND intersects identity sets, OR unions and deduplicates, and NOT/NOR use the scoped root index as the complement universe. Scalar comparisons use Utils `queryData`; bounds narrow scans only where they preserve its type/coercion semantics. Missing fields and null remain distinct. Covered unsorted plans stream matching UUIDs and probe other indexes, stopping at the page boundary. Explicit sorting collects the necessary candidate values before applying ordering and pagination. Filtered mutations collect matching UUIDs before changing documents so index movement cannot change their own traversal.
 
-```js
-tree.roots.get(path)
-tree.roots.set(path, value)
-tree.branches.get(uuid)
-tree.getPrimaryBranch(payload)
-tree.leaves.get(uuid)
-tree.leaves.has(uuid)
-tree.getLeaves(plan)
-tree.planner(branch, payload)
-```
+For covered queries, multi-field ordering uses indexed values in the order given by `filter.sort`. UUID ascending breaks ties for explicit sorting. Without a sort, results follow the chosen index traversal order. Offset and limit apply after membership and ordering. Only the selected documents are hydrated. Fields and branches unrelated to the query/sort are not initialized merely to describe the primary branch.
 
-`getPrimaryBranch` resolves the configured root and provides the index-bearing
-descriptor to the composed planner. The current planner returns one plan with
-`strategy`, index `key` and `type`, `min` and `max`, and candidate `branches`.
-`tree.getLeaves(plan)` streams those candidates (or local leaves for a scan);
-CRUD verifies the complete predicate and applies its operation while consuming
-the stream. Mutations defer index reconciliation until traversal completes.
-UUID requests use direct `tree.leaves.get(uuid)`. Supplied create UUIDs use
-`tree.leaves.has(uuid)` to check resident, Disk, or Persistence records without
-hydrating existing leaf data. Create inserts directly under the resolved root.
-The planner result shape and more advanced multi-plan behavior are intentionally
-left for a separate design pass.
+Nonempty container predicates, whole-document predicates and search can require residual evaluation through shared Utils. Container sorting may also require document values. Such plans can hydrate additional candidates before filtering/sorting and pagination; they must not claim index-only coverage. Fully covered, settled candidates are not queried against their document payloads a second time.
 
-An explicit UUID uses direct lookup. Create without a UUID follows the staged insert path and does not perform an existence lookup for its generated UUID; a supplied UUID is checked before it is reserved. Create and upsert keep their distinct duplicate/create semantics even though they share leaf insertion primitives.
+Reads use the currently indexed view and never drain or wait for indexing. Pending payload mutations may be newer than their indexed entries; those payload predicates are rechecked before returning the document. Ordering is still based on the index view, not a transactional snapshot. Unindexed creates need not appear yet.
 
-## Requirements and optimization targets
+## Hydration and mutation
 
-Maintain index consistency when values change, preserve type fidelity, avoid duplicate candidates and verify nested predicates. Mixed-type unified trees, richer container/binary semantics and stronger planner guarantees require additional implementation and tests. Current CRUD update clones and reconciles state; reducing traversal and allocation is a future optimization. The runtime index catalog is rebuilt from data; the root/parent branch catalog is not yet persisted for restart recovery.
+Disk reads bind live leaf behavior and lazy index lookup; they do not enqueue reconciliation. Index-branch restoration creates UUID/value references and only links a document if it is already resident. A cold UUID read does not restore all its columns or neighboring documents. External leaf acquisition can cache the fetched payload to local Disk without adding index work.
 
-## Local residency pressure
+Before mutating a cold document, affected old index entries are attached by field value and UUID. Scalar updates resolve only their affected paths. Complex updates and deletion can require all affected old entries. The ordinary queued indexer then removes old positions and inserts new ones. Reading a saved tree does not rebuild it.
 
-Adaptive mode is the default. The composer consumes Telemetry's node-wide `memory.max` percentage directly. Default pruning stages are 25%, 50%, 75%, and 90%; each newly crossed stage requests a prune cycle on every managed organization Tree. The branch limit applies independently to each Tree. There is no DB allocation or startup baseline. The composer re-arms stages after usage falls 2.5 percentage points below the corresponding threshold. With local Disk attached, 90% enables disk-first operation for current and future Trees; it clears below 87.5% unless disk-first was explicitly configured. Tree contains no node-telemetry or traffic-management logic.
+## Pruning and active operations
 
-`tree.prune({ strategy, limit })` prunes terminal branch contents only; leaves are not candidates. The default strategy is LFU, ranked by branch `weight`; LRU ranks by `lastVisited`. `limit` is the maximum number of branches to prune, and an omitted limit means all eligible branches. Pruning flushes pending index work, preserves routing paths, and skips branches touched or modified during an asynchronous offload. When attached, local Disk and Persistence each receive a branch write before Tree releases its contents. Without local Disk, Tree rebuilds the pruned branch from resident leaf index entries on demand; reading persisted branches is not yet implemented. At 90% pressure, adaptive request handling can also temporarily use disk-first processing; the 2.5 percentage point hysteresis returns it to adaptive handling below 87.5%. This only affects request residency and does not define the prune strategy.
+The composer starts pruning at 75% node memory and stops at 50%. Whole primary subtrees are selected by lowest weight. Queued/in-flight indexing includes its local writes and Persistence responses. Active operations are counted on each primary group; an active nested group protects its ancestors from subtree removal. Counts are released in `finally`, including errors and early iterator closure. No second operation registry or read-repair queue is maintained.
 
-This pruning policy mitigates DB-managed memory growth; it cannot prevent memory consumed by network input, active requests or server-side queues. Total process protection requires server-level telemetry and ingress backpressure.
-
-After a leaf write commits, document index slots reference a shared disk descriptor for that leaf. The routing node remains in the tree for range and neighbor lookup. Reload reconstructs the live entries from the indexed values and document UUIDs in the leaf file, without loading document payloads. A leaf with a pending index mutation keeps its live entries until that mutation is reconciled.
+A subtree is eligible only when it has no active operations and no unfinished indexing/storage. `tree.prune({ uuid, limit })` uses that same removal primitive and retains saved files/configuration UUIDs. Whole-tree recovery currently requires local Disk; persistence notifications alone do not provide index hydration. Explicit disk-first residency uses the same removal path. Traffic routing, backoff and emergency node protection belong to the surrounding server.

@@ -31,8 +31,7 @@ journal and no Workflow dependency.
 The organization property is included when assigned to the Tree. Leaf reads
 can acquire missing data from the adapter. After indexing and local writes,
 Tree notifies persistence of changed leaf and branch UUIDs; these notifications
-do not carry live object snapshots. Configuration writes and explicit branch
-pruning writes can carry serialized `data`.
+do not carry live object snapshots. Configuration writes carry serialized `data`. Pruning does not send additional persistence writes; it waits for the existing indexing/storage lifecycle.
 
 Tree awaits adapter responses. An adapter can stage its own work and respond
 promptly, or complete storage before resolving. Without an adapter, the default

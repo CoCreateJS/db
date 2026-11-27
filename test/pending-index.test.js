@@ -35,7 +35,7 @@ test('pending index records group by parent UUID, coalesce fields, and serialize
         assert.deepEqual(JSON.parse(JSON.stringify(manager.pendingIndex)), {})
         assert.equal(db.leaves.has(removed.uuid), false)
         const entries = []
-        for await (const entry of db.tree.get('status').get('string').scan()) entries.push(entry)
+        for await (const entry of db.tree.get(parent.uuid).get('status').get('string').scan()) entries.push(entry)
         assert.equal(entries.some(entry => entry.uuid === removed.uuid), false)
         assert.equal(entries.find(entry => entry.uuid === changed.uuid).value, 'final')
     } finally { await manager.close() }
@@ -64,7 +64,7 @@ test('a new change while indexing remains queued and visible in the serializable
         await waitForIndex(resource)
         assert.equal(manager.pendingIndex.size, 0)
         const entries = []
-        for await (const entry of db.tree.get('score').get('number').scan()) entries.push(entry)
+        for await (const entry of db.tree.get(parent.uuid).get('score').get('number').scan()) entries.push(entry)
         assert.equal(entries.find(entry => entry.uuid === leaf.uuid).value, 3)
     } finally {
         release()
@@ -96,7 +96,7 @@ test('deleting an in-flight leaf retains its cleanup references until the delete
         await waitForIndex(resource)
         assert.equal(db.deleted.size, 0)
         assert.equal(db.leaves.has(leaf.uuid), false)
-        for await (const entry of db.tree.get('status').get('string').scan()) assert.notEqual(entry.uuid, leaf.uuid)
+        for await (const entry of db.tree.get(parent.uuid).get('status').get('string').scan()) assert.notEqual(entry.uuid, leaf.uuid)
     } finally {
         release()
         IndexTree.prototype.insertMany = insertMany

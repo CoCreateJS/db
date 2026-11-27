@@ -9,7 +9,7 @@ export function lower(items,value,compare){
 }
 class Branch {
     constructor(parent=null,tree=parent?.tree,data){
-        this[UUID]=data?.uuid??uuid();this.tree=tree;this.weight=data?.weight??data?.viewed??0;this.lastVisited=data?.lastVisited??0;this.revision=data?.revision??0;this.onDisk=false;this.parent=parent
+        this[UUID]=data?.uuid??uuid();this.tree=tree;this.onDisk=false;this.parent=parent
         this.parentUuid=parent?.uuid??data?.parent??null;this.previousUuid=data?.previous??null;this.nextUuid=data?.next??null
         if(data?.branches){this.branches=data.branches.map(ref=>({...ref}));delete this.entries}
         else if(data?.entries)this.entries=data.entries.map(([value,ids])=>[value,ids.map(id=>tree.local.restore(id,this,value))])
@@ -20,12 +20,10 @@ class Branch {
     }
     get uuid(){return this[UUID]}
     getUuid(){return this[UUID]}
-    touch(){this.lastVisited=Date.now();if(this.tree?.local)this.tree.local.touch(this);else this.weight++;return this}
-    async toDisk(){const local=this.tree?.local;if(!local||local.active.has(this)||this.branches||!this.entries||!local.canRelease(this))return false;await local.write(this);local.release(this);return true}
     async toMemory() {
         if (!this.onDisk) return this
         const local = this.tree?.local
-        if (!local) return await this.tree?.restorePruned(this)
+        if (!local) throw Error('Cannot hydrate an index without storage')
         const resident=await this.tree?.loadUuid?.(this.uuid)
         if(resident&&resident!==this)return resident
         const data = await local.read(this)
@@ -36,23 +34,18 @@ class Branch {
         if(position>=0)siblings[position]=this
         return this
     }
-    async restore(data) {
-        this.weight=data.weight??data.viewed??0;this.lastVisited=data.lastVisited??0;this.revision=data.revision??0
+    restore(data) {
         this.parentUuid=this.parent?.uuid??data.parent??null;this.previousUuid=data.previous??null;this.nextUuid=data.next??null
         if(data.branches){this.branches=data.branches.map(ref=>({...ref}));delete this.entries}
-        else this.entries=await Promise.all(data.entries.map(async ([value,ids])=>[value,await Promise.all(ids.map(async id=>{
-            const entry=await this.tree.local.restore(id,this,value)
-            if(!entry||entry.index!==this)throw Error('missing entry '+id)
-            return entry
-        }))]))
+        else this.entries=data.entries.map(([value,ids])=>[value,ids.map(id=>this.tree.local.restore(id,this,value))])
         this.length=data.length??0;this.firstValue=data.firstValue;this.lastValue=data.lastValue;this.firstUuid=data.firstUuid;this.lastUuid=data.lastUuid
         this.onDisk = false
         this.tree.local.add(this)
         return this
     }
-    async getParent(){const current=await this.toMemory();if(current!==this)return current.getParent();const parent=this.parent?await this.parent.toMemory():this.parentUuid?await this.tree?.loadUuid(this.parentUuid):null;return parent?.touch()??null}
-    async getPrevious(){const current=await this.toMemory();if(current!==this)return current.getPrevious();const previous=await this.neighbor(-1)??(this.previousUuid&&await this.tree?.loadUuid(this.previousUuid));return previous?await previous.toMemory().then(node=>node.touch()):null}
-    async getNext(){const current=await this.toMemory();if(current!==this)return current.getNext();const next=await this.neighbor(1)??(this.nextUuid&&await this.tree?.loadUuid(this.nextUuid));return next?await next.toMemory().then(node=>node.touch()):null}
+    async getParent(){const current=await this.toMemory();if(current!==this)return current.getParent();const parent=this.parent?await this.parent.toMemory():this.parentUuid?await this.tree?.loadUuid(this.parentUuid):null;return parent??null}
+    async getPrevious(){const current=await this.toMemory();if(current!==this)return current.getPrevious();const previous=await this.neighbor(-1)??(this.previousUuid&&await this.tree?.loadUuid(this.previousUuid));return previous?await previous.toMemory():null}
+    async getNext(){const current=await this.toMemory();if(current!==this)return current.getNext();const next=await this.neighbor(1)??(this.nextUuid&&await this.tree?.loadUuid(this.nextUuid));return next?await next.toMemory():null}
     get previous(){return this.getPrevious()}
     get next(){return this.getNext()}
     async neighbor(direction){
@@ -86,7 +79,7 @@ class Branch {
         return undefined
     }
     async getData(){
-        if(this.onDisk)throw Error('Index must be loaded before serialization');const data={weight:this.weight,lastVisited:this.lastVisited,parent:this.parent?.getUuid()??this.parentUuid??null,previous:this.neighborUuid(-1)??this.previousUuid??null,next:this.neighborUuid(1)??this.nextUuid??null,length:this.length,firstValue:this.firstValue,lastValue:this.lastValue,firstUuid:this.firstUuid,lastUuid:this.lastUuid}
+        if(this.onDisk)throw Error('Index must be loaded before serialization');const data={parent:this.parent?.getUuid()??this.parentUuid??null,previous:this.neighborUuid(-1)??this.previousUuid??null,next:this.neighborUuid(1)??this.nextUuid??null,length:this.length,firstValue:this.firstValue,lastValue:this.lastValue,firstUuid:this.firstUuid,lastUuid:this.lastUuid}
         if(this.branches)data.branches=this.branches.map(p=>this.tree.reference(p))
         else data.entries=this.entries.map(([value,entries])=>[value,entries.map(entry=>entry.uuid)])
         return data
@@ -110,7 +103,16 @@ const lastOf=p=>({value:p.lastValue,uuid:p.lastUuid})
 const firstOf=p=>({value:p.firstValue,uuid:p.firstUuid})
 export class Tree {
     constructor(size=1024,local=null,key=null,leafSize=size,rootUuid){if(size<2||leafSize<2)throw Error('index size');this.size=size;this.leafSize=leafSize;this.local=local;this.key=key;this.rootUuid=rootUuid;this.root=new Branch(null,this,rootUuid?{uuid:rootUuid}:undefined);this.initialized=!rootUuid}
-    async initialize(){if(!this.initialized){try{const data=await this.local.readByUuid(this.rootUuid);if(data)await this.root.restore(data)}catch(error){if(error.code!=='ENOENT'&&error.name!=='NotFoundError')throw error}this.initialized=true}return this}
+    async initialize() {
+        if (this.initialized) return this
+        this.initializing ??= (async () => {
+            const data = await this.local.readByUuid(this.rootUuid)
+            this.root.restore(data)
+            this.initialized = true
+            return this
+        })().finally(() => { this.initializing = undefined })
+        return this.initializing
+    }
     reference(index){return index instanceof Branch?index.reference():index}
     async resolveChild(parent,index){
         const ref=parent.branches[index]
@@ -118,64 +120,45 @@ export class Tree {
         if(!ref||typeof ref.uuid!=='string')throw Error('Invalid child index reference')
         const data=await this.local?.readByUuid(ref.uuid)
         if(!data)throw Error('Missing index '+ref.uuid)
+        if(parent.branches[index] instanceof Branch)return parent.branches[index].toMemory()
         const node=new Branch(parent,this,{uuid:ref.uuid})
         parent.branches[index]=node
         await node.restore(data)
         return node
     }
-    prunableBranches() {
-        const branches = []
-        const visit = node => {
-            if (node.onDisk) return
-            if (node.branches) {
-                for (const child of node.branches) if (child instanceof Branch) visit(child)
-            } else if (node.entries?.length) branches.push(node)
+    release() {
+        const visit = branch => {
+            if (!branch.tree) return
+            for (const child of branch.branches ?? []) visit(child)
+            this.local?.remove(branch)
+            this.local?.dirty.delete(branch)
+            delete branch.entries
+            delete branch.branches
+            branch.parent = null
         }
         visit(this.root)
-        return branches
-    }
-    pruneBranch(branch, { weight = branch.weight, revision = branch.revision } = {}) {
-        if (branch.tree !== this || branch.onDisk || branch.weight !== weight || branch.revision !== revision || branch.branches || !branch.entries?.length) return false
-        delete branch.entries
-        branch.onDisk = true
-        return true
-    }
-    async restorePruned(branch) {
-        if (branch.tree !== this || !branch.onDisk) return branch
-        if (typeof this.resolveLeaves !== 'function') throw Error('Cannot restore a pruned branch without its leaves')
-        const groups = new Map()
-        for await (const leaf of await this.resolveLeaves()) {
-            const entry = await leaf.getIndex(this.key)
-            if (entry?.index !== branch) continue
-            let entries = groups.get(entry.value)
-            if (!entries) groups.set(entry.value, entries = [])
-            entries.push(entry)
-        }
-        branch.entries = [...groups].sort(([a], [b]) => compare(a, b))
-            .map(([value, entries]) => [value, entries.sort((a, b) => compare(a.uuid, b.uuid))])
-        branch.onDisk = false
-        branch.refresh()
-        return branch
+        this.rootUuid = this.root.uuid
+        this.root = new Branch(null, this, { uuid: this.rootUuid })
+        this.local?.remove(this.root)
+        this.initialized = false
     }
     async findUuid(id,node=this.root){
         if(node.uuid===id)return node
         await node.toMemory()
-        node.touch()
         if(!node.branches)return undefined
         for(let i=0;i<node.branches.length;i++){
             const ref=node.branches[i]
-            if(ref.uuid===id){const found=await this.resolveChild(node,i);found.touch();return found}
+            if(ref.uuid===id){const found=await this.resolveChild(node,i);return found}
             if(ref instanceof Branch&&ref.branches){const found=await this.findUuid(id,ref);if(found)return found}
         }
     }
     async findUuidDeep(id,node=this.root){
         if(node.uuid===id)return await node.toMemory()
         node=await node.toMemory()
-        node.touch()
         if(!node.branches)return undefined
         for(let i=0;i<node.branches.length;i++){
             const ref=node.branches[i]
-            if(ref.uuid===id){const found=await this.resolveChild(node,i);found.touch();return found}
+            if(ref.uuid===id){const found=await this.resolveChild(node,i);return found}
             const child=await this.resolveChild(node,i)
             const found=await this.findUuidDeep(id,child)
             if(found)return found
@@ -195,7 +178,14 @@ export class Tree {
         await node.restore(data)
         return node
     }
-    async locate(entry,node=this.root){await this.initialize();await node.toMemory();node.touch();while(node.branches){const at=Math.min(lower(node.branches,entry,(p,e)=>order(lastOf(p),e)),node.branches.length-1);node=await this.resolveChild(node,at);node.touch()}return node.toMemory()}
+    async locate(entry,node=this.root){await this.initialize();await node.toMemory();while(node.branches){const at=Math.min(lower(node.branches,entry,(p,e)=>order(lastOf(p),e)),node.branches.length-1);node=await this.resolveChild(node,at)}return node.toMemory()}
+    async lookup(value, uuid) {
+        const node = await this.locate({ value, uuid })
+        const group = node.entries[lower(node.entries, value, (group, value) => compare(group[0], value))]
+        if (!group || compare(group[0], value)) return undefined
+        const entry = group[1][lower(group[1], uuid, (entry, uuid) => compare(entry.uuid, uuid))]
+        return entry?.uuid === uuid ? entry : undefined
+    }
     locateResident(entry,node=this.root){
         if(!this.initialized||node.onDisk)return
         while(node.branches){
@@ -217,7 +207,7 @@ export class Tree {
             const old=group[1][j];old.index=null;old.releaseObject?.();group[1][j]=entry
             added=false
         }else group[1].splice(j,0,entry)
-        node.revision++;entry.index=node;entry.tree=this
+        entry.index=node;entry.tree=this
         if(this.resolveLeaf||this.local?.resolveLeaf)entry.releaseObject?.()
         if(added){for(let branch=node;branch;branch=branch.parent)branch.length++;this.refreshInserted(node)}
         else this.refresh(node)
@@ -268,9 +258,9 @@ export class Tree {
         else {right.parent.branches.splice(right.parent.branches.indexOf(node)+1,0,right);right.parentUuid=right.parent.uuid}
     }
     async remove(entry){
-        const node=await entry.index.toMemory();node.touch();const i=lower(node.entries,entry.value,(g,v)=>compare(g[0],v)),group=node.entries[i]
+        const node=await entry.index.toMemory();const i=lower(node.entries,entry.value,(g,v)=>compare(g[0],v)),group=node.entries[i]
         const j=lower(group[1],entry.uuid,(e,u)=>compare(e.uuid,u));if(group[1][j]!==entry)throw Error('missing index entry')
-        group[1].splice(j,1);node.revision++;if(!group[1].length)node.entries.splice(i,1);entry.index=null
+        group[1].splice(j,1);if(!group[1].length)node.entries.splice(i,1);entry.index=null
         let p=node
         while(p){p.refresh();const parent=p.parent;if(!p.length&&parent){parent.branches.splice(parent.branches.indexOf(p),1);await this.local?.discard(p);p.parent=null;p.parentUuid=null}p=parent}
         while(this.root.branches?.length===1){const old=this.root;this.root=await this.resolveChild(old,0);this.root.parent=null;this.root.parentUuid=null;await this.local?.discard(old)}
@@ -288,7 +278,6 @@ export class Tree {
         await node.toMemory()
         if(!node.length)return
         if(min!==undefined&&compare(node.lastValue,min)<0||max!==undefined&&compare(node.firstValue,max)>0)return
-        node.touch()
         if(node.branches){const i=min===undefined?0:lower(node.branches,min,(p,v)=>compare(p.lastValue,v));for(let j=i;j<node.branches.length;j++){const ref=node.branches[j];if(max!==undefined&&compare(ref.firstValue,max)>0)break;yield* this.scan(min,max,await this.resolveChild(node,j))}}
         else {const i=min===undefined?0:lower(node.entries,min,(g,v)=>compare(g[0],v));for(let j=i;j<node.entries.length;j++){const [value,entries]=node.entries[j];if(max!==undefined&&compare(value,max)>0)break;yield* entries}}
     }

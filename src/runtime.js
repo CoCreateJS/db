@@ -14,8 +14,7 @@ export function defaultConfiguration() {
         },
         indexes: [],
         leaves: {},
-        prune: { strategy: 'lfu' },
-        memory: { stages: [25, 50, 75, 90], diskFirst: 90, hysteresis: 2.5 }
+        memory: { pruneAt: 75, retainAt: 50 }
     }
 }
 
@@ -29,8 +28,7 @@ export function createConfiguration(config = {}) {
         version: source.version ?? defaults.version,
         roots: structuredClone(roots),
         leaves: structuredClone(source.leaves ?? {}),
-        indexes: structuredClone(source.indexes ?? []),
-        prune: { ...defaults.prune, ...(isRecord(source.prune) ? structuredClone(source.prune) : {}) }
+        indexes: structuredClone(source.indexes ?? [])
     }
 }
 
@@ -101,6 +99,7 @@ class DB {
     #forwardListener
     #telemetryTimestamps = new Map()
     #pruneQueue = Promise.resolve()
+    #pruning = false
     #organizations = new Map()
     #disk
     #persistence
@@ -119,10 +118,6 @@ class DB {
         } = options
         if (tree && disk) tree.disk = disk
         if (tree && persistence) tree.persistence = persistence
-        const configuredPrune = options.prune ?? config.prune
-        if (!isRecord(configuredPrune))
-            throw new TypeError('Prune configuration must be an object')
-        const prune = { ...config.prune, ...configuredPrune, strategy: configuredPrune.strategy ?? config.prune.strategy ?? 'lfu' }
         const plan = options.planner ?? planner
         if (typeof plan !== 'function') throw new TypeError('planner must be a function')
         if (tree) tree.planner = plan
@@ -130,18 +125,14 @@ class DB {
         const configuredMemory = options.memory ?? config.memory ?? {}
         if (!isRecord(configuredMemory)) throw new TypeError('memory must describe node thresholds')
         const memoryPolicy = { ...defaultConfiguration().memory, ...config.memory, ...configuredMemory }
-        if (!Array.isArray(memoryPolicy.stages) || memoryPolicy.stages.some((value, index, stages) =>
-            !Number.isFinite(value) || value <= 0 || value > 100 || (index > 0 && value <= stages[index - 1])))
-            throw new TypeError('memory.stages must be increasing node percentages greater than 0 and at most 100')
-        if (!Number.isFinite(memoryPolicy.diskFirst) || memoryPolicy.diskFirst <= 0 || memoryPolicy.diskFirst > 100 ||
-            !Number.isFinite(memoryPolicy.hysteresis) || memoryPolicy.hysteresis < 0 || memoryPolicy.hysteresis >= memoryPolicy.diskFirst)
-            throw new TypeError('Invalid node memory diskFirst threshold or hysteresis')
-        config.memory = { ...memoryPolicy, stages: [...memoryPolicy.stages] }
+        if (!Number.isFinite(memoryPolicy.pruneAt) || !Number.isFinite(memoryPolicy.retainAt) ||
+            memoryPolicy.retainAt < 0 || memoryPolicy.pruneAt > 100 || memoryPolicy.retainAt >= memoryPolicy.pruneAt)
+            throw new TypeError('memory requires 0 <= retainAt < pruneAt <= 100')
+        config.memory = memoryPolicy
         const treeOptions = {
             ...options.treeOptions,
             size: options.treeOptions?.size ?? options.size,
-            leafSize: options.treeOptions?.leafSize ?? options.leafSize,
-            prune
+            leafSize: options.treeOptions?.leafSize ?? options.leafSize
         }
         this.initialConfig = config
         this.tree = tree
@@ -156,20 +147,18 @@ class DB {
         this.execute = execute
         if (tree && execute) tree.execute = execute
         this.mode = mode
-        this.prune = prune
         this.#server = server
         this.memory = {
             nodeUsedPercent: 0,
             peakNodeUsedPercent: 0,
-            stage: 0,
-            peakStage: 0,
+            pruning: false,
             pruneCycles: 0,
             branchesPruned: 0,
-            diskFirst: this.#diskFirst && !!disk,
-            diskFirstActivations: 0,
             pruneError: undefined,
             lastPrune: undefined
         }
+
+        if (tree) treeContexts.get(tree).onIndexed = () => this.#schedulePrune()
 
         if (server.isPrimary) {
             this.#telemetryListener = message => this.#onTelemetry(message)
@@ -208,6 +197,7 @@ class DB {
         tree.planner = this.planner
         if (this.execute) tree.execute = this.execute
         await tree.init({ ...this.initialConfig, ...this.#treeOptions })
+        treeContexts.get(tree).onIndexed = () => this.#schedulePrune()
         if (this.#diskFirst && this.#disk) tree.setDiskFirst(true)
         const close = tree.close
         tree.close = async () => {
@@ -238,37 +228,32 @@ class DB {
         const policy = this.initialConfig.memory
         memory.nodeUsedPercent = nodeUsedPercent
         memory.peakNodeUsedPercent = Math.max(memory.peakNodeUsedPercent, nodeUsedPercent)
-        const previousStage = memory.stage
-        let stage = previousStage
-        while (stage < policy.stages.length && nodeUsedPercent >= policy.stages[stage]) stage++
-        while (stage > 0 && nodeUsedPercent < policy.stages[stage - 1] - policy.hysteresis) stage--
-        memory.stage = stage
-        memory.peakStage = Math.max(memory.peakStage, stage)
+        if (nodeUsedPercent >= policy.pruneAt) memory.pruning = true
+        else if (nodeUsedPercent <= policy.retainAt) memory.pruning = false
+        this.#schedulePrune()
+    }
 
-        if (this.#disk) {
-            const diskFirst = this.mode === 'disk-first' || (memory.diskFirst
-                ? nodeUsedPercent >= policy.diskFirst - policy.hysteresis
-                : nodeUsedPercent >= policy.diskFirst)
-            if (diskFirst !== memory.diskFirst) {
-                try {
-                    this.setDiskFirst(diskFirst)
-                    memory.diskFirst = diskFirst
-                    if (diskFirst) memory.diskFirstActivations++
-                } catch (error) {
-                    memory.pruneError = error
-                }
+    #schedulePrune() {
+        if (!this.memory.pruning || this.#pruning) return
+        this.#pruning = true
+        this.#pruneQueue = (async () => {
+            while (this.memory.pruning) {
+                const candidates = []
+                await this.#eachTree(tree => {
+                    for (const group of treeContexts.get(tree).pruneCandidates) candidates.push({ tree, group })
+                })
+                candidates.sort((a, b) => a.group.weight - b.group.weight || a.group.uuid.localeCompare(b.group.uuid))
+                if (!this.memory.pruning || !candidates.length) break
+                const { tree, group } = candidates[0]
+                const result = await tree.prune({ uuid: group.uuid })
+                this.memory.lastPrune = result
+                this.memory.pruneCycles++
+                this.memory.branchesPruned += result.count
+                if (!result.count) break
+                // Allow incoming work and telemetry to run between whole-table removals.
+                await new Promise(resolve => setTimeout(resolve, 0))
             }
-        }
-
-        const prunes = Math.max(0, stage - previousStage)
-        if (!prunes || memory.pruneError) return
-        this.#pruneQueue = this.#pruneQueue.then(async () => {
-            for (let count = 0; count < prunes; count++) {
-                memory.lastPrune = await this.#pruneTrees(this.prune)
-                memory.pruneCycles++
-                memory.branchesPruned += memory.lastPrune.count
-            }
-        }).catch(error => { memory.pruneError = error })
+        })().catch(error => { this.memory.pruneError = error }).finally(() => { this.#pruning = false })
     }
 
     get config() {
@@ -288,21 +273,6 @@ class DB {
         if (this.tree) this.tree.setDiskFirst(this.#diskFirst)
         for (const pending of this.#organizations.values()) pending.tree?.setDiskFirst(this.#diskFirst)
         return this.#diskFirst
-    }
-
-    async #pruneTrees(options = {}) {
-        const results = []
-        await this.#eachTree(async tree => {
-            const result = await tree.prune(options)
-            results.push(result)
-        })
-        return {
-            strategy: options.strategy ?? 'lfu',
-            target: results.reduce((sum, result) => sum + result.target, 0),
-            candidates: results.reduce((sum, result) => sum + result.candidates, 0),
-            count: results.reduce((sum, result) => sum + result.count, 0),
-            skipped: results.reduce((sum, result) => sum + result.skipped, 0)
-        }
     }
 
     async send(request) {
@@ -333,6 +303,7 @@ class DB {
             this.#server.off('telemetry', this.#telemetryListener)
             this.#telemetryListener = undefined
         }
+        this.memory.pruning = false
         await this.#pruneQueue
         if (this.memory.pruneError) throw this.memory.pruneError
         const contexts = [...this.#organizations.values()]

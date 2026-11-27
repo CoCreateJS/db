@@ -1,0 +1,74 @@
+{
+  "status": "passed",
+  "startedAt": "2026-11-27T02:35:21.844Z",
+  "recordsPerOrganization": 400000,
+  "organizationCount": 1,
+  "totalRecords": 400000,
+  "batchSize": 1000,
+  "processModel": "one primary DB process, 1 concurrent ingestion loops, 1 organization Trees, one disk adapter with separate organization directories",
+  "node": "v24.18.0",
+  "totalMemoryBytes": 8218959872,
+  "configuration": {
+    "mode": "adaptive",
+    "memoryPolicy": "node-wide thresholds",
+    "telemetry": "node used-memory percentage every 100ms",
+    "memory": {
+      "pruneAt": 75,
+      "retainAt": 50
+    }
+  },
+  "organizations": [
+    {
+      "organization_id": "000000000000000000000001",
+      "records": 400000,
+      "acknowledgementMs": 27981.141860000007,
+      "fixtureGenerationMs": 2674.5438529999838,
+      "fixtureHash": "d06f7b8586fb4d4639f5932d1e192252ea124ca97ae4d3607675c3a0230c1ce4",
+      "allAcknowledgedAtMs": 30669.771397,
+      "pendingAfterAcknowledgement": 400003,
+      "remainingIndexDrainMs": 361529.88878700003,
+      "createAndIndexMs": 392199.699084,
+      "pendingAfterIndexing": 0,
+      "leafFiles": 400003
+    }
+  ],
+  "memory": {
+    "idle": {
+      "rss": 61120512,
+      "heapTotal": 11776000,
+      "heapUsed": 8038392,
+      "external": 2356485,
+      "arrayBuffers": 174755
+    },
+    "loaded": {
+      "rss": 2268090368,
+      "heapTotal": 2135830528,
+      "heapUsed": 2044939144,
+      "external": 6256405,
+      "arrayBuffers": 4016479
+    },
+    "peakRssBytes": 2268090368
+  },
+  "createAndIndexMs": 392199.716194,
+  "allAcknowledgedAtMs": 30669.771397,
+  "recordsPerSecond": 1019.8885503582101,
+  "pendingBeforeReadChecks": 0,
+  "pendingAfterReadChecks": 0,
+  "pendingBeforeFinalWait": 1,
+  "finalDrainMs": 57.71532300004037,
+  "pendingAfterFinalWait": 0,
+  "correctness": {
+    "uuidReads": "passed",
+    "indexedReads": "passed",
+    "separateDirectories": "passed",
+    "updateAndDeleteIsolation": "passed"
+  },
+  "telemetry": {
+    "nodeUsedPercent": 49.97244069766399,
+    "peakNodeUsedPercent": 49.97244069766399,
+    "pruning": false,
+    "pruneCycles": 0,
+    "branchesPruned": 0
+  },
+  "completedAt": "2026-11-27T02:41:55.091Z"
+}

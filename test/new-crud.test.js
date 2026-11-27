@@ -19,12 +19,12 @@ test('new CRUD performs full-query matching and mutations through the Tree visit
     await waitForIndex(tree)
     const rootBranch = await tree.getPrimaryBranch({ ...path, method: 'object.read' })
     const plan = planQuery(rootBranch, { group: 'all', rank: { $gte: 10, $lt: 30 } })
-    assert.equal(plan.strategy, 'index')
-    assert.equal(plan.key, 'rank')
-    assert.ok(plan.branches.length > 1)
+    assert.equal(plan.kind, 'query')
+    assert.equal(plan.expression.kind, 'and')
+    assert.deepEqual(plan.expression.nodes.map(node => node.key), ['group', 'rank'])
     const andPlan = planQuery(rootBranch, { $and: [{ group: 'all' }, { rank: { $gte: 10, $lt: 30 } }] })
-    assert.equal(andPlan.strategy, 'index')
-    assert.equal(andPlan.key, 'rank')
+    assert.equal(andPlan.kind, 'query')
+    assert.equal(andPlan.expression.nodes[0].kind, 'and')
 
     const updated = await tree.execute({
         ...path,
@@ -67,9 +67,10 @@ test('new CRUD handles UUID finds, route constraints, uniqueness, and unindexed 
     assert.equal((await tree.execute({ ...path, array: 'wrong', method: 'object.read', object: { uuid: 'stable-leaf' } })).object.length, 0)
     assert.equal((await tree.execute({ ...path, method: 'object.create', object: { uuid: 'stable-leaf' } })).success, false)
 
+    await waitForIndex(tree)
     const unindexed = await tree.execute({ ...path, method: 'object.read', filter: { query: { value: { $includes: 'first' } }, limit: 0 } })
     assert.equal(unindexed.object.length, 1)
-    assert.equal(planQuery(await tree.getPrimaryBranch({ ...path, method: 'object.read' }), { $or: [{ value: 'first' }, { value: 'second' }] }).strategy, 'scan')
+    assert.equal(planQuery(await tree.getPrimaryBranch({ ...path, method: 'object.read' }), { $or: [{ value: 'first' }, { value: 'second' }] }).expression.nodes[0].kind, 'or')
 })
 
 test('CRUD UUID create checks and read/update/delete bypass index planning', async () => {

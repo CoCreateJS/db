@@ -84,6 +84,11 @@ try {
     result.memory.loaded = process.memoryUsage()
     result.memory.peakRssBytes = process.resourceUsage().maxRSS * 1024
     clearInterval(progress)
+    result.pendingBeforeReadChecks = db.pendingIndexCount
+    if (process.env.BENCH_PRUNE_BEFORE_READS === '1') {
+        result.prunedBeforeReads = []
+        for (const { root } of states) result.prunedBeforeReads.push(await (await db.organizations.get(root.organization_id)).prune())
+    }
     for (const { root } of states) {
         const read = checked(await db.send({ ...root, method: 'object.read', object: { uuid: benchmarkUuid(0) } }))
         assert.equal(read.object.length, 1)
@@ -96,6 +101,7 @@ try {
         stats.leafFiles = files.filter(file => file.endsWith('.json')).length
         assert.ok(stats.leafFiles >= size)
     }
+    result.pendingAfterReadChecks = db.pendingIndexCount
     checked(await db.send({ ...states[0].root, method: 'object.update', object: { uuid: benchmarkUuid(0), '$inc.revision': 1 } }))
     for (const { root, number } of states) {
         const read = checked(await db.send({ ...root, method: 'object.read', object: { uuid: benchmarkUuid(0) } }))
@@ -107,7 +113,11 @@ try {
         const read = checked(await db.send({ ...root, method: 'object.read', object: { uuid: benchmarkUuid(0) } }))
         assert.equal(read.object.length, 1, `delete in organization 1 must not affect organization ${number}`)
     }
+    result.pendingBeforeFinalWait = db.pendingIndexCount
+    const validationDrain = performance.now()
     await waitForIndex(db, { timeoutMs: 1200000, progressMs: 10000 })
+    result.finalDrainMs = performance.now() - validationDrain
+    result.pendingAfterFinalWait = db.pendingIndexCount
     result.correctness = { uuidReads: 'passed', indexedReads: 'passed', separateDirectories: 'passed', updateAndDeleteIsolation: 'passed' }
     result.telemetry = { ...db.memory }
     await db.close()

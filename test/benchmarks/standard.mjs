@@ -424,10 +424,9 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         result.memoryPolicy.telemetry = {
             nodeUsedPercent: runtime.memory.nodeUsedPercent,
             peakNodeUsedPercent: runtime.memory.peakNodeUsedPercent,
-            peakStage: runtime.memory.peakStage,
+            pruning: runtime.memory.pruning,
             pruneCycles: runtime.memory.pruneCycles,
-            branchesPruned: runtime.memory.branchesPruned,
-            diskFirstActivations: runtime.memory.diskFirstActivations
+            branchesPruned: runtime.memory.branchesPruned
         }
         await writeFile(outputFile, `${JSON.stringify(result, null, 2)}\n`)
         return result

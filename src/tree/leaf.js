@@ -1,9 +1,10 @@
-import {objectToDotNotation, getValueFromObject, uuid, createUpdate} from '@cocreate/utils'
+import {getValueFromObject, uuid, createUpdate} from '@cocreate/utils'
 const TIER=Symbol('leafTier')
+const RESTORE=Symbol('restoreIndexes')
 const INDEX=Symbol('index'), ATTACH=Symbol('attach'), STRUCTURAL=Symbol('structural'), DEFER=Symbol('defer'), SNAPSHOT=Symbol('snapshot')
 const scalar=v=>v===null||['string','number','boolean'].includes(typeof v)
 const updateMarkers=new Set(['$set','$inc','$unset','$delete','$rename','$push','$each','$splice','$slice','$pop','$shift','$addToSet','$pull'])
-export const type=v=>v===null?'null':typeof v
+export const type=v=>v===null?'null':Array.isArray(v)?'array':typeof v
 export const get=getValueFromObject
 function pruneUndefined(object){
     for(const key of Object.keys(object)){
@@ -12,14 +13,31 @@ function pruneUndefined(object){
         if(value!==null&&typeof value==='object')pruneUndefined(value)
     }
 }
-function paths(object){
-    const flattened=objectToDotNotation(object)
-    for(const [key,value] of Object.entries(flattened)){
-        if(key.replace(/\[\d+\]/g,'.0').split('.').some(k=>['__proto__','constructor','prototype'].includes(k)))throw Error('unsupported key')
-        if(!scalar(value)||typeof value==='number'&&!Number.isFinite(value))throw Error('unsupported value')
+const emptyArray = Object.freeze([]), emptyObject = Object.freeze({})
+const indexValue = value => value && typeof value === 'object' && !Object.keys(value).length
+    ? Array.isArray(value) ? emptyArray : emptyObject : value
+
+// Index scalar paths and empty containers in one traversal. Empty containers
+// need their own type buckets so presence, coercion and sorting stay exact.
+export function indexValues(object, prefix = '') {
+    const values = new Map()
+    const visit = (value, path) => {
+        if (value !== null && typeof value === 'object') {
+            const keys = Object.keys(value)
+            if (keys.length) {
+                for (const key of keys) visit(value[key], Array.isArray(value) ? `${path}[${key}]` : path ? `${path}.${key}` : key)
+                return
+            }
+            if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype) throw Error('unsupported value')
+        } else if (!scalar(value) || typeof value === 'number' && !Number.isFinite(value)) throw Error('unsupported value')
+        if (!path) return
+        if (path.replace(/\[\d+\]/g, '.0').split('.').some(key => ['__proto__', 'constructor', 'prototype'].includes(key))) throw Error('unsupported key')
+        values.set(path, indexValue(value))
     }
-    return new Map(Object.entries(flattened))
+    visit(object, prefix)
+    return values
 }
+const paths = indexValues
 function scalarUpdateTargets(patch){
     const targets=[]
     for(const [key,value] of Object.entries(patch)){
@@ -46,119 +64,79 @@ function overlapsPath(key,target){
     const prefix=target.replace(/\[(\d+)\]/g,'.$1')
     return normalized===prefix||normalized.startsWith(prefix+'.')
 }
-function valuesAtTargets(object,targets){
-    const result=new Map()
-    for(const target of targets){
-        const value=get(object,target)
-        if(value===undefined)continue
-        if(value!==null&&typeof value==='object'){
-            for(const [suffix,child] of Object.entries(objectToDotNotation(value)))
-                result.set(suffix.startsWith('[')?target+suffix:`${target}.${suffix}`,child)
-        } else result.set(target,value)
+function valuesAtTargets(object, targets) {
+    const result = new Map()
+    for (const target of targets) {
+        const value = get(object, target)
+        if (value === undefined) continue
+        for (const [key, child] of indexValues(value, target)) result.set(key, child)
     }
     return result
 }
-export class DiskBranch {
-    constructor(local, index) {
-        this.local = local
-        this.uuid = index.uuid
-        this.tree = index.tree
-    }
-    async load() {
-        const index = await this.tree?.loadUuid?.(this.uuid)
-        if (!index) throw Error('Missing index ' + this.uuid)
-        return await index.toMemory()
-    }
-}
-
 export function* residentIndexEntries(object) {
     for (const entry of Object.values(object[INDEX])) {
         if (entry instanceof Entry) yield entry
     }
 }
 
-export function hasIndexEntry(object, key, tree) {
-    const entry = object[INDEX]?.[key]
-    return entry?.tree === tree && (entry instanceof DiskBranch || entry instanceof Entry)
-}
+export function hasIndexEntry(object, key) { return object[INDEX]?.[key] instanceof Entry }
 
 export function restoreIndexEntry(object, index, value, id) {
     const key = index.tree.key
     const slot = object?.[INDEX]?.[key]
-    if (slot instanceof Entry && slot.uuid === object.uuid) {
+    if (slot instanceof Entry && slot.uuid === object?.uuid) {
         slot.value = value
         slot.index = index
         slot.tree = index.tree
         slot.releaseObject()
         return slot
     }
-    if (slot instanceof DiskBranch && slot.uuid !== index.uuid) return
-    if (slot && !(slot instanceof DiskBranch)) return
+    if (slot) return
     const entry = new Entry(object, key, object?.uuid ?? id, value)
     entry.index = index
     entry.tree = index.tree
+    if (object) object[INDEX][key] = entry
     entry.releaseObject()
     return entry
 }
 
 class Entry {
-    constructor(object,key,id=object?.uuid,value=object?get(object,key):undefined){this.uuid=id;this.leaf=object;this.key=key;this._value=value;this.index=null;this.tree=null}
+    constructor(object,key,id=object?.uuid,value=object?get(object,key):undefined){this.uuid=id;this.leaf=object;this.key=key;this._value=indexValue(value);this.index=null;this.tree=null}
     get object(){
         const object=this.leaf??this.tree?.resolveLeaf?.(this.uuid)??this.tree?.local?.resolveLeaf?.(this.uuid)
         if(object&&object[INDEX])object[INDEX][this.key]=this
         return object
     }
     get value(){return Object.hasOwn(this,SNAPSHOT)?this[SNAPSHOT]:this._value}
-    set value(value){this._value=value;delete this.coldValue}
+    set value(value){this._value=indexValue(value)}
     releaseObject(){this.leaf=null}
-    canDetach() { return !Object.hasOwn(this, SNAPSHOT) }
-    detach(disk) {
-        if(this.leaf)this.leaf[INDEX][this.key] = disk
-        this.index = null
-        this.tree = disk.tree
-        this.releaseObject()
-    }
     getValue(){return this.value}
     async insert(tree){await tree.insert(this);return this}
-    async setValue(value){return await this.object.setValue(this.key,value)}
-    async delete(){return await this.object.delete(this.key)}
+    async setValue(value){return await (await this.object).setValue(this.key,value)}
+    async delete(){return await (await this.object).delete(this.key)}
 }
 const prototype=Object.create(Object.prototype)
 Object.defineProperties(prototype,{
     getUuid:{value(){return this.uuid}},
-    getData:{value:async function(){const object=await this.toMemory();if(object!==this)return await object.getData();return {viewed:this.viewed,object:Object.fromEntries(Object.entries(this))}}},
+    getData:{value:async function(){const object=await this.toMemory();if(object!==this)return await object.getData();return {object:Object.fromEntries(Object.entries(this))}}},
     getFile:{value:async function(){return {uuid:this.getUuid(),content:JSON.stringify(await this.getData())}}},
-    viewed:{get(){return this[TIER]?.viewed??0}},
-    touch:{value:async function(){const r=this[TIER];if(r?.object===this){const object=await r.tier.hydrate(r);if(object!==this)return await object.touch();r.tier.touch(r)};return this}},
-    toDisk:{value(){const r=this[TIER];return r?.object===this?r.tier.evictOne(r):false}},
     toMemory:{value:async function(){const r=this[TIER];return r?.object===this?await r.tier.hydrate(r):this}},
     getIndex:{value:async function(key){
         const current=await this.toMemory();if(current!==this)return await current.getIndex(key)
-        const index = this[INDEX]
-        if (key !== undefined) {
-            const slot = index[key]
-            if (slot instanceof DiskBranch) await slot.load()
-            return index[key]
-        }
-        for (const name of Object.keys(index)) {
-            const slot = index[name]
-            if (slot instanceof DiskBranch) await slot.load()
-        }
-        return index
+        if (this[RESTORE]) await this[RESTORE](key === undefined ? undefined : [key])
+        return key === undefined ? this[INDEX] : this[INDEX][key]
     }},
-    getValue:{value:async function(key){const current=await this.toMemory();if(current!==this)return await current.getValue(key);await this.touch?.();return get(this,key)}},
+    getValue:{value:async function(key){const current=await this.toMemory();if(current!==this)return await current.getValue(key);return get(this,key)}},
     setValue:{value:async function(key,value){
         const current=await this.toMemory();if(current!==this)return await current.setValue(key,value)
         if(await this[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found")
-        await this.touch?.()
         if(['uuid','parent','root','_id'].includes(key)||this[STRUCTURAL]&&key==='name')throw Error(`immutable ${key}`);if(!scalar(value)||typeof value==='number'&&!Number.isFinite(value))throw Error('scalar update required')
         const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.');if(parts.some(k=>!k||['__proto__','constructor','prototype'].includes(k)))throw Error('invalid path')
         const parent=parts.length===1?this:get(this,parts.slice(0,-1).join('.')), property=parts.at(-1)
         if(!parent||typeof parent!=='object'||(parent===this&&property in prototype)||Object.hasOwn(parent,property)&&!scalar(parent[property]))throw Error('unsupported path')
-        const slot = this[INDEX][key]
-        const previous = slot instanceof DiskBranch ? get(this, key) : slot?.value
-        if (slot && Object.is(previous, value)) return this
         const entry = await this.getIndex(key)
+        const previous = entry ? entry.value : get(this, key)
+        if (Object.is(previous, value)) return this
         const write=()=>{parent[property]=value}
         if(this[DEFER]){
             if(entry?.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=previous
@@ -175,11 +153,11 @@ Object.defineProperties(prototype,{
         }
         return this
     }},
-    delete:{value:async function(key){const current=await this.toMemory();if(current!==this)return await current.delete(key);if(key===undefined)return await this[Symbol.for("cocreate.deleteLeaf")]();if(await this[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found");await this.touch?.();if(['uuid','parent','root','_id'].includes(key)||this[STRUCTURAL]&&key==='name')throw Error(`immutable ${key}`);const entry=await this.getIndex(key);if(!entry&&get(this,key)===undefined)return false;const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.'),parent=parts.length===1?this:get(this,parts.slice(0,-1).join('.'));delete parent[parts.at(-1)];await this[Symbol.for("cocreate.markDirty")]?.();if(this[DEFER]){if(entry?.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=entry.value;this[DEFER].queue(this,new Set([key]));return true}if(entry?.index)await entry.tree.remove(entry);delete this[INDEX][key];return true}}
+    delete:{value:async function(key){const current=await this.toMemory();if(current!==this)return await current.delete(key);if(key===undefined)return await this[Symbol.for("cocreate.deleteLeaf")]();if(await this[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found");if(['uuid','parent','root','_id'].includes(key)||this[STRUCTURAL]&&key==='name')throw Error(`immutable ${key}`);const entry=await this.getIndex(key);if(!entry&&get(this,key)===undefined)return false;const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.'),parent=parts.length===1?this:get(this,parts.slice(0,-1).join('.'));delete parent[parts.at(-1)];await this[Symbol.for("cocreate.markDirty")]?.();if(this[DEFER]){if(entry?.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=entry.value;this[DEFER].queue(this,new Set([key]));return true}if(entry?.index)await entry.tree.remove(entry);delete this[INDEX][key];return true}}
 })
 export function createLeaf(object, structural = false){
     if(Object.getPrototypeOf(object)!==Object.prototype)throw Error('plain object required')
-    for(const key of ['getValue','setValue','getIndex','delete','viewed','touch','toDisk','toMemory','getUuid','getData','getFile'])if(Object.hasOwn(object,key))throw Error('reserved key')
+    for(const key of ['getValue','setValue','getIndex','delete','toMemory','getUuid','getData','getFile'])if(Object.hasOwn(object,key))throw Error('reserved key')
     object.uuid??=uuid();if(typeof object.uuid!=='string'||!object.uuid)throw Error('invalid uuid')
     Object.defineProperty(object,'uuid',{writable:false,configurable:false,enumerable:true,value:object.uuid})
     for(const key of structural?['parent','root','name']:['parent','root'])if(Object.hasOwn(object,key))Object.defineProperty(object,key,{writable:false,configurable:false,enumerable:true,value:object[key]})
@@ -233,7 +211,6 @@ export async function reconcileLeaf(object,insert,changedPaths){
     if(!selective)for(const key of after.keys())keys.add(key)
     for(const key of keys){
         const entry=index[key]
-        if (entry instanceof DiskBranch) continue
         if(!entry)continue
         const exists=selective?get(object,key)!==undefined:after.has(key)
         const value=selective?get(object,key):after.get(key)
@@ -258,6 +235,7 @@ async function updateScalarLeaf(object,patch,targets){
         if(['uuid','_id','parent','root'].includes(first))throw Error('immutable identity')
         if(object[STRUCTURAL]&&first==='name')throw Error('Root rename not supported yet')
     }
+    if (object[RESTORE]) await object[RESTORE]([...valuesAtTargets(object, targets).keys()])
     const index=object[INDEX],before=new Map()
     for(const key of Object.keys(index))if(targets.some(target=>overlapsPath(key,target))){
         const entry=await object.getIndex(key)
@@ -287,7 +265,6 @@ async function updateScalarLeaf(object,patch,targets){
 }
 export async function updateLeaf(object,patch){
     if(await object[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found")
-    await object.touch?.()
     const targets=scalarUpdateTargets(patch)
     if(targets)return await updateScalarLeaf(object,patch,targets)
     await object.getIndex()
@@ -314,7 +291,7 @@ export async function updateLeaf(object,patch){
     if(object[DEFER]){
         for(const key of Object.keys(index)){
             const slot = index[key]
-            const before = slot instanceof DiskBranch ? get(object, key) : slot.value
+            const before = slot.value
             if(!after.has(key)||!Object.is(before,after.get(key))){
                 const entry = await object.getIndex(key)
                 if(entry.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=before
@@ -328,7 +305,7 @@ export async function updateLeaf(object,patch){
     }
     for(const key of Object.keys(index)){
         const slot = index[key]
-        const before = slot instanceof DiskBranch ? get(object, key) : slot.value
+        const before = slot.value
         if(!after.has(key)||!Object.is(before,after.get(key)))changed.push(key)
     }
     for(const key of after.keys())if(key!=='uuid'&&!index[key])changed.push(key)
@@ -348,3 +325,7 @@ export async function updateLeaf(object,patch){
 export function restoreLeafIndex(object,index){const target=object[INDEX];for(const key of Object.keys(target))delete target[key];Object.assign(target,index)}
 
 export function bindLeafTier(object,ref){Object.defineProperty(object,TIER,{value:ref})}
+
+export function bindIndexRestore(object, restore) { Object.defineProperty(object, RESTORE, { value: restore }) }
+
+export function attachIndexEntry(object, entry) { object[INDEX][entry.key] = entry }

@@ -15,7 +15,7 @@ CoCreateDB runs as a local database in both browser clients and Node.js servers.
 - Living leaves and index entries that reference the original object.
 - Configurable root hierarchies with dynamic request-driven root names.
 - Shared create, read, update and delete operations across configured roots.
-- Equality and range queries, filtering and pagination.
+- Indexed equality/range queries, AND/OR/NOR selection, multi-field sorting and pagination.
 - Update operators through `@cocreate/utils`.
 - Transferable structural configuration that preserves root identities.
 - Standalone operation and configurable primary/worker forwarding.
@@ -181,8 +181,13 @@ server.db = await DB.init(server, { prompt: false })
 
 In standalone usage no server is required. When given a worker Server, DB composes its `send()` interface into a primary-forwarding path; a custom `forward(request)` adapter can override that transport. The primary DB handles those forwarded requests. The `size` option controls index branch sizing.
 
-Local state defaults to `mode: 'adaptive'` with memory acknowledgement. Without a disk resource, the DB operates in memory and Tree can rebuild pruned index branches from resident leaves. When a disk resource is attached, adaptive uses Hot memory and Warm local disk; branch pruning writes branch data to Disk before releasing its in-memory contents. LFU is the default prune strategy; LRU and a branch limit can be configured independently of storage. Pruning does not evict leaves. Pruning follows node-wide memory usage from Telemetry, with default stages at 25%, 50%, 75%, and 90%. Each upward stage crossing requests a prune cycle on every managed Tree using the configured strategy and per-Tree limit. There is no DB allocation, startup memory baseline, or DB-specific budget. At high pressure, adaptive temporarily uses disk-first request handling, which can release processed leaves after local flushing. `mode: 'disk-first'` remains available explicitly when a disk is attached; `mode: 'disk-cache'` clears the DB-managed base on startup and starts fresh. Directory selection belongs to Disk initialization; DB composes the initialized resource onto Tree.
+Local state defaults to `mode: 'adaptive'` with memory acknowledgement. Disk initialization chooses the base directory; Tree adds each organization's directory. `mode: 'disk-cache'` clears the DB-managed base on startup.
 
+The composer consumes Telemetry's node-wide `memory.max` percentage. At 75% it starts pruning; pruning stays active until usage reaches 50%. It selects the lowest-weight eligible primary branch across the managed organization Trees. A primary branch represents an entire table, potentially containing nested tables. Removal releases its resident index trees, descendant branches and leaves together. Stored files and configuration UUIDs remain available for hydration.
+
+Queued and in-flight indexing protect the entire affected subtree. A group becomes eligible only after leaf writes, index reconciliation, branch/configuration writes and attached Persistence responses have completed. Completing a 1,024-leaf batch does not complete a larger group. Index completion requests another pruning pass while pressure remains active; it does not bypass weight ordering. Pruning does not drain the index queue or wait for busy tables. Memory-only Trees retain their only copy; this implementation requires local Disk for whole-table removal and hydration. Persistence notifications alone do not establish a reloadable local index.
+
+Primary-group weight counts access through that group, including access through nested groups. There is no LRU strategy, terminal-branch ranking, per-stage cleanup or automatic 90% disk-first transition. `tree.prune({ uuid, limit })` uses the same whole-primary-group removal path; UUID selects a primary group and the optional limit counts groups. A standalone Tree's composer decides when to invoke it. Explicit disk-first mode also releases completed groups through this path. Traffic routing, backoff and emergency node protection remain outside DB.
 The composer reacts to node memory by requesting Tree cleanup; Tree itself only executes pruning and its storage lifecycle. Traffic routing, backoff, admission and coordination remain responsibilities of the surrounding application.
 
 ### Browser storage
@@ -202,7 +207,7 @@ const database = await DB.init(server, {
 const persisted = await database.persist()
 ```
 
-Tree sends the resource logical operations through `execute(request)`. Leaf and branch write/delete notifications contain their UUID and organization ID after indexing completes; configuration writes and explicit pruning can also carry serialized data. The adapter owns grouping and storage policy. `tree.persist()` delegates to its optional `persist()` method. Without an attached adapter, the default port completes the call without storing data.
+Tree sends the resource logical operations through `execute(request)`. Leaf and branch write/delete notifications contain their UUID and organization ID after indexing completes; configuration writes carry serialized data. The adapter owns grouping and storage policy. `tree.persist()` delegates to its optional `persist()` method. Without an attached adapter, the default port completes the call without storing data.
 
 ```text
 CoCreate CRUD → CoCreateDB → CRUD workflow / AST
@@ -279,3 +284,14 @@ Developed by CoCreate LLC. Licensed under AGPL-3.0 (see repository license).
 See the [technical whitepaper](whitepaper.md) for the broader architectural vision.
 
 See [Transactions vs. Synchronization](transactions-vs-synchronization.md) for the rationale behind selective, workflow-based coordination.
+
+### Indexed filtering and sorting
+
+Filters retain the CoCreate Filter/IndexedDB shape: `query`, ordered
+`sort: [{ key, direction }]`, `index` (or `startingIndex`), and `limit`.
+`limit: 0` is unbounded. Responses report `filter.startingIndex` and the next
+`filter.index`. Covered predicates select UUIDs from indexes, order the matches,
+and hydrate the requested page. Document-dependent predicates and container
+sorting use shared Utils as a fallback. Reads restore only required index paths
+and payloads and do not schedule indexing. Active operations protect their
+primary subtrees from pruning until completion.

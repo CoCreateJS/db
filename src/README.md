@@ -23,7 +23,7 @@ await tree.execute(payload)
 const temporaryTree = new Tree()
 temporaryTree.disk = disk
 temporaryTree.persistence = persistence
-await temporaryTree.init({ roots, indexes, leaves, size, leafSize, prune })
+await temporaryTree.init({ roots, indexes, leaves, size, leafSize })
 ```
 
 Tree exposes `init`, `config`, `roots`, `leaves`, `disk`, `persistence`,
@@ -35,7 +35,7 @@ a snapshot; root edits use `tree.roots.execute({ operation: 'set', path, data })
 `tree/execute.js` is a stateless function used as `tree.execute(payload)`.
 It resolves identities, verifies complete queries, and applies operations to
 live leaves. `tree/planner.js` is a stateless function used as
-`tree.planner(branch, query)` and chooses one candidate index or a scan.
+`tree.planner(branch, query, filter)` and describes index intersections, unions, residual predicates, ordering and pagination. `tree/query.js` executes that plan before fetching selected document payloads.
 Both functions can be replaced directly on a Tree. An execution wrapper can
 retain the default function and invoke it with `execute.call(this, payload)`.
 No CRUD or planner instance or factory is needed.
@@ -55,7 +55,7 @@ These default responses do not establish durability or enable disk-first mode.
 Tree maps local leaf, branch, and configuration operations into file paths.
 The organization ID prefixes those paths. Persistence receives logical leaf
 reads and notifications of changed leaf/branch UUIDs after local indexing;
-configuration and explicit pruning writes can also carry data. The attached
+configuration writes carry data. The attached
 adapter chooses its own grouping and storage policy.
 
 Mutations acknowledge the memory change before background work completes.
@@ -65,12 +65,11 @@ option. `tree.close()` completes outstanding work. An organization Tree's
 close also removes it from the DB runtime's map. `tree.persist()` delegates to
 an optional `persist()` method on the attached persistence adapter.
 
-The internal composer consumes primary-server Telemetry's node-wide memory maximum and requests pruning. It uses configured node percentages directly, without an allocation or startup baseline.
-`tree.prune()` uses configured defaults; per-call strategy and limit override
-them. LFU uses branch weight; LRU uses last visit time. Pruning retains leaves
-and releases eligible branch contents. Disk-first can release saved leaves
-and their eligible branches after a completed indexing cycle. Without a real
-disk adapter, disk-first cannot be enabled.
+The composer consumes Telemetry's node-wide `memory.max` percentage. At 75% it starts pruning; pruning stays active until usage reaches 50%. It selects the lowest-weight eligible primary branch across the managed organization Trees. A primary branch represents an entire table, potentially containing nested tables. Removal releases its resident index trees, descendant branches and leaves together. Stored files and configuration UUIDs remain available for hydration.
+
+Active-operation counts and queued/in-flight indexing protect the entire affected subtree. Counts release on completion, errors and early query-stream closure. A group becomes eligible only after leaf writes, index reconciliation, branch/configuration writes and attached Persistence responses have completed. Completing a 1,024-leaf batch does not complete a larger group. Index completion requests another pruning pass while pressure remains active; it does not bypass weight ordering. Pruning does not drain the index queue or wait for busy tables. Memory-only Trees retain their only copy; this implementation requires local Disk for whole-table removal and hydration. Persistence notifications alone do not establish a reloadable local index.
+
+Primary-group weight counts access through that group, including access through nested groups. There is no LRU strategy, terminal-branch ranking, per-stage cleanup or automatic 90% disk-first transition. `tree.prune({ uuid, limit })` uses the same whole-primary-group removal path; UUID selects a primary group and the optional limit counts groups. A standalone Tree's composer decides when to invoke it. Explicit disk-first mode also releases completed groups through this path. Traffic routing, backoff and emergency node protection remain outside DB.
 
 Workers forward envelopes using the existing Server `send()` transport and
 `db.forward` primary handler. Tree instances remain on the primary. A combined
@@ -93,25 +92,39 @@ implemented by this metadata format.
 
 ```js
 const db = await DB.init(server, {
-    memory: {
-        stages: [25, 50, 75, 90],
-        diskFirst: 90,
-        hysteresis: 2.5
-    },
-    prune: { strategy: 'lfu', limit: 100 }
+    memory: { pruneAt: 75, retainAt: 50 }
 })
 ```
 
-Each upward stage crossing requests a cycle across all managed Trees. The limit
-is per Tree; it is not consumed by the first organization. The first telemetry
-sample participates immediately. Repeated samples within a stage do not add
-cycles. Falling below a threshold minus hysteresis re-arms that stage.
-At the disk-first threshold, existing and newly composed Trees use disk-first
-retention when local Disk is available. Explicit disk-first configuration is
-preserved when usage falls.
+The composer applies this policy across all managed Trees. Telemetry provides
+machine memory usage, independently of the DB's size. Primary groups own their
+field/type indexes; the runtime catalog records `primary`, `key`, `type` and
+root `uuid`. There is no compatibility path for the previous shared index or
+terminal-branch pruning format.
 
-All organization Trees created by this DB share the composer's policy. A
-standalone Tree has no telemetry listener: its owner can use the same config
-and invoke its pruning primitive. Traffic routing, backoff and node coordination
-remain outside DB. LFU/LRU branch ranking and the storage/indexing lifecycle
-are unchanged.
+## Filter contract
+
+```js
+await tree.execute({
+    storage: 'main', database: 'app', array: 'contacts', method: 'object.read',
+    filter: {
+        query: { color: 'blue', score: { $gte: 20 } },
+        sort: [{ key: 'score', direction: 'desc' }, { key: 'name', direction: 'asc' }],
+        index: 0,
+        limit: 50
+    }
+})
+```
+
+`startingIndex` can supply the offset instead of `index`; it takes precedence.
+`limit: 0` means unbounded. The response reports the applied offset in
+`filter.startingIndex` and the next offset in `filter.index`. `isFilter: false`
+disables the filter. Unsupported index predicates and container sorts use
+shared Utils on candidate documents; those cases can hydrate more than the
+final page. Covered, settled scalar predicates are evaluated only in indexes.
+
+Cold reads do not schedule indexing. Stored branch entries hydrate as values
+and UUIDs; only selected document payloads are fetched. A mutation lazily
+attaches its old affected index entries before the usual reconciliation path.
+See [the index contract](../specifications/indexes.md) for coverage and
+consistency boundaries.

@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Disk from '@cocreate/disk'
 import { createRuntime } from '../src/runtime.js'
+import { Tree } from '../src/index.js'
+import { createConfiguration } from '../src/runtime.js'
 import { inspectTree } from '../test-support/tree.mjs'
 import { leafPath, MemoryDisk } from '../test-support/memory-disk.mjs'
 
@@ -58,7 +60,7 @@ test('DB composes organization Trees from its supplied defaults rather than stor
 })
 
 test('DB delegates send to the Tree execution function', async () => {
-    const tree = { config: { version: 'test', roots: {} } }
+    const tree = await new Tree().init(createConfiguration())
     const planner = () => { throw new Error('DB must not plan requests') }
     const request = { ...envelope, method: 'object.read' }
     const execute = async value => { assert.equal(value, request); return { success: true } }
@@ -158,28 +160,30 @@ test('DB attaches the Disk resource to Tree and Tree can replace it', async () =
     assert.ok(requests.some(request => request.operation === 'write' && request.path.includes('leaves/')))
     assert.ok(requests.some(request => request.operation === 'write' && request.path.includes('branches/')))
     const leaf = await (await treeFor(index)).getLeaf(created.object[0].uuid)
-    await leaf.toDisk()
+    await (await treeFor(index)).prune({ uuid: leaf.parent })
     const read = await index.send({ ...envelope, method: 'object.read', object: { uuid: leaf.uuid } })
     assert.equal(read.success, true, read.error?.join('; '))
     assert.equal(read.object[0].value, 'disk-hook')
     assert.ok(requests.some(request => request.operation === 'read' && request.path.includes('leaves/')))
 
     const resident = await (await treeFor(index)).leaves.get(leaf.uuid)
-    await resident.toDisk()
+    await waitForIndex(index)
+    await (await treeFor(index)).prune({ uuid: resident.parent })
     const updated = await index.send({ ...envelope, method: 'object.update', object: { uuid: leaf.uuid, value: 'updated-from-disk' } })
     assert.equal(updated.success, true, updated.error?.join('; '))
     assert.equal(updated.object[0].value, 'updated-from-disk')
     await waitForIndex(index)
 
     const updatedResident = await (await treeFor(index)).leaves.get(leaf.uuid)
-    await updatedResident.toDisk()
+    await waitForIndex(index)
+    await (await treeFor(index)).prune({ uuid: updatedResident.parent })
     const deleted = await index.send({ ...envelope, method: 'object.delete', object: { uuid: leaf.uuid } })
     assert.equal(deleted.success, true, deleted.error?.join('; '))
     await waitForIndex(index)
     assert.equal(disk.hasLeaf(leaf.uuid), false)
 
     const replacementRequests = []
-    index.disk = { async execute(request) { replacementRequests.push(request); return true } }
+    index.disk = { async execute(request) { replacementRequests.push(request); return await execute(request) } }
     const replacement = await index.send({ ...envelope, method: 'object.create', object: { value: 'replacement-disk' } })
     assert.equal(replacement.success, true, replacement.error?.join('; '))
     await waitForIndex(index)
@@ -193,7 +197,7 @@ test('DB without an attached disk operates in memory', async () => {
     assert.equal(created.success, true, created.error?.join('; '))
     assert.equal(db.disk, undefined)
     assert.equal(db.mode, 'adaptive')
-    assert.deepEqual(db.prune, { strategy: 'lfu' })
+    assert.deepEqual(db.config.memory, { pruneAt: 75, retainAt: 50 })
     assert.equal((await db.send({ ...envelope, method: 'object.read', object: { uuid: created.object[0].uuid } })).success, true)
     await waitForIndex(db)
     await db.close()
@@ -325,7 +329,8 @@ test('UUID reads resolve resident memory, local disk, then external persistence 
     assert.equal(second.object[0].value, 'from-persistence')
     assert.equal(requests.filter(request => request.operation === 'read').length, 1, 'resident hits avoid another external read')
 
-    await waitForIndex(index)
+    await waitForCondition(() => disk.hasLeaf(externalLeaf.uuid))
+    assert.equal(index.pendingIndexCount, 0, 'hydration does not queue indexing')
     assert.ok(disk.hasLeaf(externalLeaf.uuid), 'externally fetched leaf is cached to local disk')
     await index.close()
 })
@@ -397,57 +402,6 @@ test('Tree emits no Persistence operations when no resource is attached', async 
     assert.throws(() => tree.setDiskFirst(true), /requires a disk handler/)
     assert.equal(index.persistence, undefined)
     assert.deepEqual(await (await treeFor(index)).persist(), { success: false, skipped: true })
-    await index.close()
-})
-
-test('DB prunes from node-wide memory thresholds without allocation or startup baseline', async () => {
-    const server = new EventEmitter()
-    server.isPrimary = true
-    server.id = 'memory-server'
-    const calls = []
-    const tree = {
-        config: { roots: {} },
-        async close() {},
-        disk: { async execute() { return true } },
-        async prune(options) { calls.push(options); return { count: 1, target: 1, candidates: 1, skipped: 0 } },
-        setDiskFirst(value) { calls.push(`diskFirst:${value}`) }
-    }
-    const db = await createDatabase({ tree, disk: tree.disk, server })
-    const sample = (timestamp, max) => server.emit('telemetry', {
-        data: { serverId: server.id, workerId: 1, timestamp, memory: { total: 1000, max } }
-    })
-    try {
-        sample('t0', 75)
-        await waitForCondition(() => db.memory.pruneCycles === 3)
-        assert.equal(db.memory.nodeUsedPercent, 75)
-        assert.equal(db.memory.stage, 3)
-        for (const key of ['budget', 'percent', 'baselineUsedMemory', 'baselineReady', 'requestedBudget']) assert.equal(key in db.memory, false)
-        sample('t0', 75)
-        sample('t1', 76)
-        assert.equal(db.memory.pruneCycles, 3, 'samples within a stage do not repeatedly prune')
-        sample('t2', 92)
-        await waitForCondition(() => db.memory.pruneCycles === 4)
-        assert.equal(db.memory.diskFirst, true)
-        sample('t3', 88)
-        assert.equal(db.memory.diskFirst, true, 'hysteresis avoids mode churn')
-        sample('t4', 87)
-        assert.equal(db.memory.diskFirst, false)
-        sample('t5', 90)
-        await waitForCondition(() => db.memory.pruneCycles === 5)
-        assert.equal(db.memory.branchesPruned, 5)
-        assert.equal(db.memory.peakNodeUsedPercent, 92)
-    } finally { await db.close() }
-})
-
-test('DB uses LFU for explicit prune configuration without a strategy', async () => {
-    const tree = { config: { version: 'test', roots: {} }, disk: { async execute() {} }, async prune() {}, async close() {} }
-    const index = await createDatabase({
-        tree,
-        prune: { limit: 12 },
-        planner: () => ({ strategy: 'scan', branches: [] }),
-        execute: async () => ({ success: true })
-    })
-    assert.deepEqual(index.prune, { limit: 12, strategy: 'lfu' })
     await index.close()
 })
 

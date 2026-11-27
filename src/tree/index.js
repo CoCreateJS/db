@@ -65,7 +65,7 @@ export class Tree {
     #branches
     #size = 1024
     #leafSize = 1024
-    #pruneQueue = Promise.resolve()
+    #onIndexed
     constructor() {
         this.#database = {
             config: {},
@@ -127,7 +127,11 @@ export class Tree {
                 ])
             },
             persist: operation => this.persistence.execute({ ...operation, ...(this.organizationId === undefined ? {} : { organization_id: this.organizationId }) }),
-            shouldReleaseIndexed: () => this.#diskFirst && !!this.#disk
+            onIdle: async () => {
+                if (this.#diskFirst) await this.prune()
+                this.#onIndexed?.()
+            },
+            canPrune: () => !!this.#disk
         })
         this.leaves = Object.freeze({ get: this.#manager.getLeaf, has: this.#manager.hasLeaf })
         this.roots = Object.freeze({ get: this.#manager.getRoots, execute: this.roots.execute })
@@ -136,6 +140,9 @@ export class Tree {
         treeContexts.set(this, {
             leaves: this.leaves,
             branches: this.#branches,
+            get pruneCandidates() { return tree.#manager.pruneCandidates() },
+            set onIndexed(callback) { tree.#onIndexed = callback },
+            operation: this.#manager.operation,
             get planner() { return tree.planner },
             get pendingIndexCount() { return tree.#manager.pendingIndex.size },
             getPrimaryBranch: this.#getPrimaryBranch.bind(this),
@@ -152,7 +159,6 @@ export class Tree {
             matchesRoot: this.#manager.matchesRoot,
             updateLeaf: this.#updateLeaf.bind(this),
             removeLeaf: this.#removeLeaf.bind(this),
-            evictLeaf: this.#evictLeaf.bind(this),
         })
         if (options.diskFirst) this.setDiskFirst(true)
         this.#setExternalRead()
@@ -188,6 +194,7 @@ export class Tree {
 
     #attachDisk() {
         const local = new LocalTier(executeDisk.bind(null, this), undefined, {
+            referenceLeaf: id => this.#database.leaves.reference(id) ?? this.#database.deleted?.get(id),
             resolveLeaf: async id => await this.#database.leaves.get(id) ?? this.#database.deleted?.get(id)
         })
         const leaves = new LeafTier(local)
@@ -212,33 +219,16 @@ export class Tree {
     get config() { return structuredClone({ ...this.#database.config, size: this.#size, leafSize: this.#leafSize, diskFirst: this.#diskFirst }) }
 
     /** Resolve the index-bearing branch for the configured root in a CRUD payload. */
-    async #getPrimaryBranch(payload = {}) {
+    async #getPrimaryBranch(payload = {}, operation) {
         const target = String(payload.method ?? '').split('.')[0]
         if (!target) throw new Error('A CRUD method is required to resolve the primary branch')
         let resolved
-        try { resolved = await this.#manager.resolve(payload, target) }
+        try { resolved = await this.#manager.resolve(payload, target, { operation }) }
         catch (error) {
             if (!/Missing root reference|Ambiguous root path/.test(error.message)) throw error
             resolved = { target, path: undefined, parent: undefined, missing: false, incomplete: true }
         }
-        const fields = []
-        for (const [key, types] of this.#database.tree) {
-            for (const [type, index] of types) {
-                await index.initialize()
-                const root = index.root
-                fields.push({
-                    key,
-                    type,
-                    uuid: root.uuid,
-                    count: root.length,
-                    min: root.firstValue,
-                    max: root.lastValue,
-                    firstUuid: root.firstUuid,
-                    lastUuid: root.lastUuid,
-                    branches: (root.branches ?? []).map(branch => index.reference(branch))
-                })
-            }
-        }
+        const fields = this.#manager.primaryIndexes(resolved.parent?.uuid, payload)
         fields.sort((a, b) => a.key.localeCompare(b.key) || a.type.localeCompare(b.type))
         return {
             target,
@@ -251,12 +241,12 @@ export class Tree {
     }
 
     /** Resolve a concrete field/type index; selection/planning stays with callers. */
-    #getIndex(key, type) { return this.#database.tree.get(key)?.get(type) }
+    #getIndex(key, type) { return [...this.#database.tree.values()].map(fields => fields.get(key)?.get(type)).find(Boolean) }
 
     /** Resolve a branch UUID across the configured field/type indexes. */
     async #getBranch(uuid) {
         if (typeof uuid !== 'string' || !uuid) throw new TypeError('Branch UUID is required')
-        for (const types of this.#database.tree.values()) {
+        for (const fields of this.#database.tree.values()) for (const types of fields.values()) {
             for (const index of types.values()) {
                 const branch = await index.findUuidDeep(uuid)
                 if (branch) return index.reference(branch)
@@ -297,13 +287,13 @@ export class Tree {
     }
 
     /** Create a leaf under the configured root resolved by the supplied envelope. */
-    async #createLeaf(root, value, envelope = {}, { identityChecked = false } = {}) {
-        const leaves = await this.#createLeaves(root, [value], envelope, { identityChecked })
+    async #createLeaf(root, value, envelope = {}, { identityChecked = false, operation } = {}) {
+        const leaves = await this.#createLeaves(root, [value], envelope, { identityChecked, operation })
         return leaves[0]
     }
 
-    async #createLeaves(root, values, envelope = {}, { identityChecked = false } = {}) {
-        const resolved = await this.#manager.resolve(envelope, root, { createMissing: true })
+    async #createLeaves(root, values, envelope = {}, { identityChecked = false, operation } = {}) {
+        const resolved = await this.#manager.resolve(envelope, root, { createMissing: true, operation })
         if (resolved.missing) return []
         return await this.#manager.createMany(values, resolved.parent, root, { identityChecked })
     }
@@ -320,51 +310,19 @@ export class Tree {
         return await this.#manager.remove(leaf)
     }
 
-    /** Release one fully indexed leaf and its resident index branches, retaining disk files. */
-    async #evictLeaf(uuid) {
-        const leaf = await this.#database.leaves.get(uuid)
-        if (!leaf) return false
-        const indexes = new Set()
-        for (const entry of Object.values(await leaf.getIndex())) if (entry?.index) indexes.add(entry.index)
-        for (const index of indexes) await index.toDisk()
-        return await leaf.toDisk()
-    }
-
-    /** Release eligible branch contents from memory, preserving tree paths. */
-    prune(options = {}) {
-        const configured = this.#database.config.prune ?? {}
-        const strategy = options.strategy ?? configured.strategy ?? 'lfu'
-        const limit = Object.hasOwn(options, 'limit') ? options.limit : configured.limit
-        if (!['lfu', 'lru', 'noeviction'].includes(strategy))
-            throw new TypeError(`Unsupported Tree pruning strategy: ${strategy}`)
-        if (limit !== undefined && (!Number.isInteger(limit) || limit < 0))
+    /** Evict complete primary groups, lowest weight first; stored files remain intact. */
+    async prune({ uuid, limit = Infinity } = {}) {
+        if (limit !== Infinity && (!Number.isInteger(limit) || limit < 0))
             throw new TypeError('Tree pruning limit must be a non-negative integer')
-        if (strategy === 'noeviction' || limit === 0)
-            return Promise.resolve({ strategy, target: 0, candidates: 0, count: 0, skipped: 0 })
-        const task = this.#pruneQueue.then(async () => {
-            if (this.#database.local) return await this.#database.local.prune({ strategy, limit })
-            const candidates = []
-            for (const types of this.#database.tree.values())
-                for (const index of types.values()) candidates.push(...index.prunableBranches())
-            candidates.sort(strategy === 'lru'
-                ? (a, b) => a.lastVisited - b.lastVisited || a.weight - b.weight || a.uuid.localeCompare(b.uuid)
-                : (a, b) => a.weight - b.weight || a.lastVisited - b.lastVisited || a.uuid.localeCompare(b.uuid))
-            const target = Math.min(candidates.length, limit ?? candidates.length)
-            let count = 0
-            for (let i = 0; i < target; i++) {
-                const branch = candidates[i]
-                const weight = branch.weight
-                const revision = branch.revision
-                if (this.#persistence) {
-                    const file = await branch.getFile()
-                    await this.persistence.execute({ operation: 'write', kind: 'branch', uuid: branch.uuid, data: file.content })
-                }
-                if (branch.tree.pruneBranch(branch, { weight, revision })) count++
-            }
-            return { strategy, target, candidates: candidates.length, count, skipped: target - count }
-        })
-        this.#pruneQueue = task.catch(() => {})
-        return task
+        if (limit === 0) return { count: 0 }
+        if (uuid !== undefined) return { count: Number(this.#manager.prunePrimary(uuid)) }
+        const candidates = this.#manager.pruneCandidates().sort((a, b) => a.weight - b.weight || a.uuid.localeCompare(b.uuid))
+        let count = 0
+        for (const group of candidates) {
+            if (count >= limit) break
+            if (this.#manager.prunePrimary(group.uuid)) count++
+        }
+        return { count }
     }
 
     async persist() {
