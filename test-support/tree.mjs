@@ -1,21 +1,28 @@
 import { after } from 'node:test'
+import { Trees } from '../src/trees.js'
 import { createConfiguration } from '../src/runtime.js'
 import { Organization } from '../src/organization.js'
 import { treeContexts } from '../src/tree/internal.js'
 
 const organizations = new Set()
+const stores = new WeakMap()
 after(async () => { for (const organization of organizations) await organization.close() })
 
 export async function createTestTree(options = {}) {
     const { disk, persistence, config, ...treeOptions } = options
-    const organization = await new Organization(undefined, { disk, persistence, treeOptions }).init(createConfiguration(config ?? treeOptions))
+    const store = new Trees({ disk, persistence })
+    const organization = await new Organization(undefined, { disk, persistence, treeOptions,
+        dispatch: command => store.execute(command) }).init(createConfiguration(config ?? treeOptions))
+    stores.set(organization, store)
     organizations.add(organization)
     return inspectOrganization(organization)
 }
 
 // Test-only inspection of the organization router and its independent engines.
-export function inspectOrganization(organization) {
-    const engines = () => [...organization.trees.values()]
+export function inspectOrganization(organization, store = stores.get(organization)) {
+    stores.set(organization, store)
+    const tables = () => store.organizations.get(organization.organizationId) ?? new Map()
+    const engines = () => [...tables().values()]
     const contexts = () => engines().map(tree => treeContexts.get(tree)).filter(Boolean)
     const locate = async id => {
         for (const tree of engines()) if (treeContexts.get(tree)?.referenceLeaf(id)) return tree
@@ -26,8 +33,12 @@ export function inspectOrganization(organization) {
         if (!result.success) throw new Error(result.error.join('; '))
         return result[root]
     }
-    return new Proxy(organization, {
+    const proxy = new Proxy(organization, {
         get(target, property) {
+            if (property === 'trees') return tables()
+            if (property === 'pendingIndexCount') return store.status(organization.organizationId).pendingIndexCount
+            if (property === 'pruneCandidates') return engines().filter(tree => treeContexts.get(tree)?.canDrop)
+            if (property === 'getTree') return uuid => store.get(organization.organizationId, uuid, organization.configuration(uuid))
             if (property === 'config') {
                 const config = organization.config
                 config.indexes = engines().flatMap(tree => tree.config.indexes.map(index => ({ ...index, primary: tree.uuid })))
@@ -61,7 +72,7 @@ export function inspectOrganization(organization) {
                 })
                 return await treeContexts.get(tree).getPrimaryBranch(payload)
             }
-            if (property === 'getLeaves') return async function* (plan) { const tree = await organization.getTree(plan.primary); yield* treeContexts.get(tree).getLeaves(plan) }
+            if (property === 'getLeaves') return async function* (plan) { const tree = await store.get(organization.organizationId, plan.primary, organization.configuration(plan.primary)); yield* treeContexts.get(tree).getLeaves(plan) }
             if (property === 'planner') return engines().at(-1)?.planner
             if (property === 'branches') return { get: async id => { for (const context of contexts()) { const branch = await context.branches.get(id); if (branch) return branch } } }
             if (property === 'range' || property === 'rangeLeaves') return async function* (...args) { for (const context of contexts()) yield* context[property](...args) }
@@ -75,6 +86,8 @@ export function inspectOrganization(organization) {
             return Reflect.set(target, property, value, target)
         }
     })
+    stores.set(proxy, store)
+    return proxy
 }
 
 export function inspectTree(tree) {
@@ -92,4 +105,10 @@ export function inspectTree(tree) {
             return Reflect.set(target, key, value, target)
         }
     })
+}
+
+export async function testOrganization(db, id) {
+    const { databaseRuntimes } = await import('../src/runtime.js')
+    const runtime = databaseRuntimes.get(db) ?? db
+    return inspectOrganization(await db.organizations.get(id), runtime.trees)
 }

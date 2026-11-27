@@ -29,7 +29,8 @@ Application code imports the same `@cocreate/db` entry in both environments. The
 | --- | --- | --- |
 | Browser client | In-memory unless an initialized Disk resource is attached | Adaptive in-memory by default; disk-first is available with Disk attached |
 | Node server | In-memory unless an initialized Disk resource is attached | Adaptive in-memory by default; adaptive Hot/Warm, disk-first and disk-cache modes are available with Disk attached |
-| Node worker | No independent local store by default | DB routes requests to the primary through the Server `send()` interface |
+| Node worker | Owns assigned Trees and their local storage | Ingress routes through the primary; assigned execution handles CRUD, planning, indexing and writes |
+| Node primary with workers | Organization roots and ownership metadata | Routes primary UUIDs round robin to workers, with stable ownership afterward |
 
 The DB engine supplies local CRUD, UUID identity, roots, indexes and residency. Client-server transport, awareness, recipient selection, synchronization and remote acquisition belong to the surrounding CoCreate CRUD, Socket, IPC, Mesh and Workflow layers. They can use the DB instances to build a distributed database, but importing this package alone does not establish connections or replicate changes automatically. See [runtime integration](#runtime-integration) and [the architecture specification](specifications/architecture.md).
 
@@ -141,7 +142,7 @@ The default configuration is:
 }
 ```
 
-The DB composer uses each request's `organization_id` to select or create an organization context. The context resolves the primary UUID from its roots configuration and selects an independent Tree for that primary. Organization is not a configured root; the Tree carries `tree.organizationId`, and its Disk paths are rooted under that ID. Other roots beginning with `$` resolve their names from request properties, such as `$tenant_id` or `$project_id`. A dynamic root value names the structural leaf; it does not become its UUID.
+The DB composer uses each request's `organization_id` to select or create an organization context. The context resolves the primary UUID from configuration and routes to its assigned execution worker. Organization is not a configured root; the Tree carries `tree.organizationId`, and its Disk paths are rooted under that ID. Other roots beginning with `$` resolve their names from request properties, such as `$tenant_id` or `$project_id`. A dynamic root value names the structural leaf; it does not become its UUID.
 
 ```js
 const database = await DB.init({}, {
@@ -170,7 +171,7 @@ The index primitives are independently usable from the source modules. Their low
 
 ## Runtime integration
 
-The public entry is `import DB from '@cocreate/db'` followed by `await DB.init(server, options)`. The returned object exposes only `config`, `organizations`, and `send`. `db.organizations.get(id)` returns its organization context, which owns roots and a `trees` Map keyed by primary UUID. `await organization.getTree(primaryUuid)` returns that independent Tree, which owns execution, planning, storage ports and lifecycle. Attach an initialized Disk resource as `server.disk` or `options.disk`; otherwise the database stays in memory. Initialization can optionally prompt through `@cocreate/config`:
+The public entry is `import DB from '@cocreate/db'` followed by `await DB.init(server, options)`. The returned object exposes only `config`, `organizations`, and `send`. `db.organizations.get(id)` returns its organization context, which owns roots and an `owners` Map from primary UUID to worker ID. The assigned worker owns the actual Tree, including execution, planning, storage ports and lifecycle. Attach an initialized Disk resource as `server.disk` or `options.disk`; otherwise the database stays in memory. Initialization can optionally prompt through `@cocreate/config`:
 
 ```js
 import DB from '@cocreate/db'
@@ -179,22 +180,23 @@ import DB from '@cocreate/db'
 server.db = await DB.init(server, { prompt: false })
 ```
 
-In standalone usage no server is required. When given a worker Server, DB composes its `send()` interface into a primary-forwarding path; a custom `forward(request)` adapter can override that transport. The primary DB handles those forwarded requests. The `size` option controls index branch sizing.
+In standalone usage no server is required. When given a worker Server, DB composes its `send()` interface into a primary-forwarding path; a custom `forward(request)` adapter can override that transport. The primary resolves their organization/primary scope and dispatches execution to the owning worker. The `size` option controls index branch sizing.
 
 Local state defaults to `mode: 'adaptive'` with memory acknowledgement. Disk initialization chooses the base directory; Tree adds each organization's directory. `mode: 'disk-cache'` clears the DB-managed base on startup.
 
-The composer consumes Telemetry's node-wide `memory.max`. At 75% it starts pruning the lowest-weight eligible primary Trees and continues until memory reaches 50%. Active requests and queued/in-flight indexing protect their engine through storage completion. Memory-only Trees retain their only copy.
+The composer consumes Telemetry's node-wide `memory.max`. At 75% the primary tells workers to prune and continues until memory reaches 50%. Each worker chooses its own lowest-weight eligible Trees; weights are not sent to the primary. Active requests and queued/in-flight indexing protect their engine through storage completion. Memory-only Trees retain their only copy.
 
-`await organization.prune({ uuid, limit })` removes eligible engines from the registry. It does not traverse their branches or leaves. Nested and neighboring tables stay independent. Saved configuration and files let later requests hydrate only the query's required indexes and payloads into a fresh Tree. Actual memory reclamation occurs through JavaScript garbage collection when references are no longer retained. Independent queues permit I/O progress between Trees; they do not create CPU worker threads. Traffic routing and emergency node protection remain external.
+`await organization.prune({ uuid, limit })` asks owners to remove eligible engines from their local registry. Organization ownership mappings remain stable. It does not traverse their branches or leaves. Nested and neighboring tables stay independent. Saved configuration and files let later requests hydrate only the query's required indexes and payloads into a fresh Tree. Actual memory reclamation occurs through JavaScript garbage collection when references are no longer retained. Clustered execution places Trees in separate worker processes, allowing CPU parallelism across Trees. Combined primary/worker and standalone contexts execute locally through the same engine store. Traffic routing and emergency node protection remain external.
 
 ```js
 const organization = await database.organizations.get(context.organization_id)
 const primaryUuid = created.object[0].parent
-const tree = await organization.getTree(primaryUuid)
-const config = tree.config
+const ownerWorkerId = organization.owners.get(primaryUuid)
+const config = organization.configuration(primaryUuid)
 
 // Standalone engine for the same primary, with independently composed adapters.
 const temporary = new Tree()
+temporary.organizationId = context.organization_id
 temporary.disk = disk
 await temporary.init(config)
 await temporary.execute({ method: 'object.read', filter: { query: { price: 80 } } })
@@ -206,6 +208,19 @@ Organization roots are stored in `<organization>/config.json`; each engine's
 index catalog is stored in `<organization>/trees/<primary UUID>/config.json`.
 Leaf and branch files remain UUID-addressed under that organization. This layout
 has no migration path for older organization-wide index catalogs.
+
+The coordinator assigns new primary UUIDs round robin across Server's available
+workers, then routes subsequent requests to that stable owner. It uses existing
+CoCreate IPC (`db.forward` for ingress and targeted `db.tree` execution), with the
+CRUD envelope nested inside the internal request. First dispatch initializes the
+Tree in its owner; pruning drops that instance, and a later request hydrates it
+in the same worker. An orchestrating primary never creates a local Tree as a
+fallback when workers are unavailable. This testing phase assumes workers are
+available; production cluster startup ordering and ownership migration are deferred.
+
+One hot Tree remains on one worker. Round robin balances counts, and IPC adds
+serialization/routing cost. See [architecture](specifications/architecture.md)
+for the execution boundary and [api.js](api.js) for the public interface.
 
 ### Browser storage
 
@@ -222,8 +237,8 @@ const database = await DB.init(server, {
     persistence: provider
 })
 const organization = await database.organizations.get(context.organization_id)
-const tree = await organization.getTree(primaryUuid)
-const persisted = await tree.persist()
+// Persistence resources are composed in the execution workers.
+// A standalone Tree can also delegate through tree.persist().
 ```
 
 Tree sends the resource logical operations through `execute(request)`. Leaf and branch write/delete notifications contain their UUID and organization ID after indexing completes; configuration writes carry serialized data. The adapter owns grouping and storage policy. `tree.persist()` delegates to its optional `persist()` method. Without an attached adapter, the default port completes the call without storing data.
@@ -237,7 +252,7 @@ CoCreate CRUD → CoCreateDB → CRUD workflow / AST
 
 For successful `object.create`, `object.update`, and `object.delete` requests in adaptive mode, the response follows the in-memory leaf-map mutation. Create assigns or accepts a UUID and adds the leaf; update changes the resident leaf; delete removes it from the resident map and records its pending disk deletion. A generated-UUID create avoids the supplied-UUID existence lookup. Supplied-UUID create, cold-leaf hydration, and query-based operations may need lookup or matching work before the mutation can be acknowledged.
 
-After the response, local background work writes leaf changes, reconciles batched indexes, writes changed branches and the primary's config, then notifies Persistence. Repeated queued changes to one leaf coalesce. No public flush endpoints exist; `tree.close()` completes outstanding work. Disk-first uses the same acknowledgement and storage lifecycle, then the composer drops eligible Trees. Memory acknowledgement means the mutation was accepted, not that it is already durable. Distributed delivery, retry and recipient management belong to the surrounding application. The DB returns UUID awareness references for that integration.
+After the response, local background work writes leaf changes, reconciles batched indexes, writes changed branches and the Tree's index catalog, then notifies Persistence. Repeated queued changes to one leaf coalesce. No public flush endpoints exist; `tree.close()` completes outstanding work. Disk-first uses the same acknowledgement and storage lifecycle, then the composer drops eligible Trees. Memory acknowledgement means the mutation was accepted, not that it is already durable. Distributed delivery, retry and recipient management belong to the surrounding application. The DB returns UUID awareness references for that integration.
 
 These integration designs are documented in [persistence](specifications/persistence.md) and [CRUD awareness](specifications/awareness.md). External orchestration, complete acquired-leaf hydration, durable ordering and deduplication are not implemented by this engine checkpoint.
 
@@ -278,7 +293,8 @@ See the [specifications index](specifications/README.md) for detailed engine con
 src/
 ├── index.js          Public DB.init and Tree exports
 ├── runtime.js        Server composition, organization selection and node memory policy
-├── organization.js   Roots configuration, primary routing and Tree registry/pruning
+├── organization.js   Primary-owned roots, addressing and worker ownership
+├── trees.js          Execution-local Trees and worker-local pruning
 ├── disk.js           Logical file layout
 └── tree/
     ├── index.js      One primary's standalone Tree and resource ports

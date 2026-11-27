@@ -26,9 +26,10 @@ invented. Ambiguous configured paths fail. Supplied ancestry constraints still
 apply to direct UUID lookup. Structural rename and reparent are unsupported;
 structural deletion with children is rejected.
 
-`organization.getTree(primaryUuid)` creates or returns only the requested engine.
-Its config contains local row definitions, parent UUID, sizes, and field/type index
-catalog. Organization roots/configuration do not live on Tree. A config snapshot
+`organization.configuration(primaryUuid)` returns the local row definitions,
+parent UUID and sizing options without creating a Tree. The organization maps the
+primary UUID to a worker ID in `owners`. The assigned worker owns the actual
+engine and its stored field/type index catalog. Organization roots/configuration do not live on Tree. A config snapshot
 can carry structural addressing to another composer; it does not contain ordinary
 payloads or restore data by itself. Consistent identity provisioning across nodes
 and storage/provider coordination remain external integration work.

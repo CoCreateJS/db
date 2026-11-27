@@ -1,3 +1,4 @@
+import { testOrganization } from '../test-support/tree.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
@@ -17,12 +18,12 @@ function host() {
 const envelope = { storage: 'test', database: 'app', array: 'items' }
 const create = (tree, array = 'items', count = 1) => tree.execute({ ...envelope, array, method: 'object.create', object: Array.from({ length: count }, (_, score) => ({ score })) })
 
-test('node pressure starts at 75%, removes the globally lowest-weight table, and stops at 50%', async () => {
+test('node pressure starts at 75%, removes the locally lowest-weight table, and stops at 50%', async () => {
     const { server, sample } = host()
     const db = await DB.init(server, { prompt: false, disk: new MemoryDisk() })
     const runtime = databaseRuntimes.get(db)
     try {
-        const hot = await db.organizations.get('hot'), cold = await db.organizations.get('cold')
+        const hot = await testOrganization(db, 'hot'), cold = await testOrganization(db, 'cold')
         const hotLeaf = (await create(hot)).object[0], coldLeaf = (await create(cold)).object[0]
         await Promise.all([hot, cold].map(tree => waitForIndex(tree)))
         const hotTree = await hot.getTree(hotLeaf.parent)
@@ -30,14 +31,14 @@ test('node pressure starts at 75%, removes the globally lowest-weight table, and
         // Rank data tables, keeping structural tables hot for this assertion.
         for (const org of [hot, cold]) for (const table of org.trees.values()) if (table.uuid !== hotLeaf.parent && table.uuid !== coldLeaf.parent) table.weight = 100
         const removals = []
-        for (const tree of [hot, cold]) {
-            const prune = tree.prune.bind(tree)
-            tree.prune = async options => {
-                const result = await prune(options)
-                removals.push({ organization: tree.organizationId, uuid: options.uuid })
-                sample(50)
-                return result
-            }
+        const prune = runtime.trees.prune.bind(runtime.trees)
+        runtime.trees.prune = options => {
+            const before = runtime.trees.status().trees
+            const result = prune(options)
+            const remaining = new Set(runtime.trees.status().trees.map(tree => tree.uuid))
+            for (const tree of before) if (!remaining.has(tree.uuid)) removals.push({ organization: tree.organization_id, uuid: tree.uuid })
+            if (result.count) sample(50)
+            return result
         }
         sample(74.9)
         assert.equal(runtime.memory.pruning, false)
@@ -70,7 +71,7 @@ test('a queued group remains protected through storage, then becomes eligible wi
     const db = await DB.init(server, { prompt: false, disk: new MemoryDisk(), persistence })
     const runtime = databaseRuntimes.get(db)
     try {
-        const tree = await db.organizations.get('a')
+        const tree = await testOrganization(db, 'a')
         const leaf = (await create(tree, 'items', 1030)).object[0]
         await started
         sample(75)
@@ -82,13 +83,19 @@ test('a queued group remains protected through storage, then becomes eligible wi
         const updated = await tree.execute({ ...envelope, method: 'object.update', object: { uuid: leaf.uuid, score: 2000 } })
         assert.equal(updated.success, true)
         assert.deepEqual(await tree.prune({ uuid: leaf.parent }), { count: 0 }, 'an update arriving during storage remains protected')
-        const prune = tree.prune.bind(tree)
+        const prune = runtime.trees.prune.bind(runtime.trees)
         const pruned = []
-        tree.prune = async options => {
-            assert.equal(treeContexts.get(tree.trees.get(options.uuid)).pendingIndexCount, 0, 'a batch is not a completed table')
-            const result = await prune(options)
-            pruned.push(options.uuid)
-            sample(50)
+        runtime.trees.prune = options => {
+            const before = runtime.trees.status().trees
+            const result = prune(options)
+            if (result.count) {
+                const remaining = new Set(runtime.trees.status().trees.map(table => table.uuid))
+                for (const table of before) if (!remaining.has(table.uuid)) {
+                    assert.equal(table.pendingIndexCount, 0, 'a batch is not a completed table')
+                    pruned.push(table.uuid)
+                }
+                sample(50)
+            }
             return result
         }
         release()
@@ -111,7 +118,7 @@ test('dropping below the low watermark while storage is pending prevents evictio
     const db = await DB.init(server, { prompt: false, disk: new MemoryDisk(), persistence })
     const runtime = databaseRuntimes.get(db)
     try {
-        const tree = await db.organizations.get('a')
+        const tree = await testOrganization(db, 'a')
         const leaf = (await create(tree)).object[0]
         await started
         sample(80)
@@ -128,7 +135,7 @@ test('memory-only trees retain their only copy under pressure and pressure never
     const db = await DB.init(server, { prompt: false })
     const runtime = databaseRuntimes.get(db)
     try {
-        const tree = await db.organizations.get('a')
+        const tree = await testOrganization(db, 'a')
         const leaf = (await create(tree)).object[0]
         await waitForIndex(tree)
         sample(95)

@@ -1,3 +1,4 @@
+import { testOrganization } from '../test-support/tree.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import DB from '../src/index.js'
@@ -15,7 +16,7 @@ test('organization routing creates independent primary Trees with no shared leaf
         const [a, b] = await Promise.all([create(db, 'first', { uuid: 'a', value: 1 }), create(db, 'second', { uuid: 'b', value: 2 })])
         assert.equal(a.success, true, a.error?.join('; '))
         assert.equal(b.success, true, b.error?.join('; '))
-        const organization = await db.organizations.get(scope.organization_id)
+        const organization = await testOrganization(db, scope.organization_id)
         const first = await organization.getTree(a.object[0].parent)
         const second = await organization.getTree(b.object[0].parent)
         assert.notEqual(first.uuid, second.uuid)
@@ -43,7 +44,7 @@ test('pruning drops one owner without storage work or touching a nested or neigh
         const b = await create(db, 'second', { value: 2 })
         const nested = await db.send({ ...scope, child: 'nested', method: 'entry.create', entry: { value: 3 } })
         assert.equal(nested.success, true, nested.error?.join('; '))
-        const org = await db.organizations.get(scope.organization_id)
+        const org = await testOrganization(db, scope.organization_id)
         await waitForIndex(org)
         const primary = a.object[0].parent
         const first = org.trees.get(primary), second = org.trees.get(b.object[0].parent), child = org.trees.get(nested.entry[0].parent)
@@ -78,7 +79,7 @@ test('a blocked primary storage cycle does not block its neighbor indexing or pr
         const a = await create(db, 'first', { uuid: 'blocked', value: 1 })
         await started
         const b = await create(db, 'second', { uuid: 'free', value: 2 })
-        const org = await db.organizations.get(scope.organization_id)
+        const org = await testOrganization(db, scope.organization_id)
         const first = await org.getTree(a.object[0].parent), second = await org.getTree(b.object[0].parent)
         await waitForIndex(treeContexts.get(second))
         await waitForCondition(() => org.pruneCandidates.includes(second))
@@ -100,13 +101,13 @@ test('restart uses organization metadata to hydrate only the selected primary an
         await create(db, 'second', { value: 2 })
         id = a.object[0].uuid
         primary = a.object[0].parent
-        const org = await db.organizations.get(scope.organization_id)
+        const org = await testOrganization(db, scope.organization_id)
         await waitForIndex(org)
         indexes = org.trees.get(primary).config.indexes
     } finally { await databaseRuntimes.get(db).close() }
     db = await DB.init({}, { prompt: false, disk })
     try {
-        const org = await db.organizations.get(scope.organization_id)
+        const org = await testOrganization(db, scope.organization_id)
         assert.equal(org.trees.size, 0, 'root discovery does not initialize Trees')
         const read = await db.send({ organization_id: scope.organization_id, method: 'object.read', object: { uuid: id } })
         assert.equal(read.success, true, read.error?.join('; '))
@@ -122,7 +123,7 @@ test('root configuration edits apply to existing primary engines without introdu
     const db = await DB.init({}, { prompt: false, disk })
     try {
         const first = await create(db, 'first', { value: 1 })
-        const org = await db.organizations.get(scope.organization_id)
+        const org = await testOrganization(db, scope.organization_id)
         const tree = await org.getTree(first.object[0].parent)
         await org.roots.execute({ operation: 'set', path: 'storage.database.array.event', data: {} })
         assert.deepEqual(tree.config.roots.event, {})
@@ -147,7 +148,7 @@ test('cold primary creation retains stored UUID and object identity uniqueness',
     const db = await DB.init({}, { prompt: false, disk })
     try {
         const created = await create(db, 'first', { uuid: 'original', _id: 'same-identity', value: 1 })
-        const org = await db.organizations.get(scope.organization_id)
+        const org = await testOrganization(db, scope.organization_id)
         await waitForIndex(org)
         assert.deepEqual(await org.prune({ uuid: created.object[0].parent }), { count: 1 })
         const duplicate = await create(db, 'first', { uuid: 'different', _id: 'same-identity' })
@@ -162,7 +163,7 @@ test('structural deletion checks the child table for direct and filtered request
     try {
         const record = await create(db, 'first', { value: 1 })
         await waitForIndex(databaseRuntimes.get(db))
-        const org = await db.organizations.get(scope.organization_id)
+        const org = await testOrganization(db, scope.organization_id)
         const primary = record.object[0].parent
         await org.prune({ uuid: primary })
         for (const selector of [{ array: { uuid: primary } }, { filter: { query: { name: 'first' } } }]) {
@@ -184,7 +185,7 @@ test('root edits protect ordinary rows even when their primary is cold', async (
     try {
         const result = await db.send({ organization_id: scope.organization_id, method: 'object.create', object: { value: 1 } })
         assert.equal(result.success, true)
-        const org = await db.organizations.get(scope.organization_id)
+        const org = await testOrganization(db, scope.organization_id)
         await waitForIndex(org)
         await org.prune()
         await assert.rejects(org.roots.execute({ operation: 'set', path: 'object', data: undefined }), /occupied root/)
@@ -199,7 +200,7 @@ test('partially scoped queries order and paginate across independent primary Tre
     try {
         await create(db, 'first', Array.from({ length: 40 }, (_, rank) => ({ rank: rank * 2, group: 'first' })))
         await create(db, 'second', Array.from({ length: 40 }, (_, rank) => ({ rank: rank * 2 + 1, group: 'second' })))
-        const org = await db.organizations.get(scope.organization_id)
+        const org = await testOrganization(db, scope.organization_id)
         await waitForIndex(org)
         const filter = { query: {}, sort: [{ key: 'rank', direction: 'desc' }], startingIndex: 3, limit: 4 }
         const result = await db.send({ organization_id: scope.organization_id, storage: 'main', method: 'object.read', filter })

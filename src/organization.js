@@ -1,6 +1,4 @@
 import { uuid, getValueFromObject, dotNotationToObject, sortData } from '@cocreate/utils'
-import { Tree } from './tree/index.js'
-import { treeContexts } from './tree/internal.js'
 import { executeDisk, emptyStorage } from './disk.js'
 
 const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -46,7 +44,8 @@ export class Organization {
         this.#options = options
         this.disk = options.disk ?? emptyStorage
         this.persistence = options.persistence ?? emptyStorage
-        this.trees = new Map()
+        this.owners = new Map()
+        this.dispatch = options.dispatch
         this.roots = Object.freeze({
             get: path => structuredClone(path ? getValueFromObject(this.#config.roots, path) : this.#config.roots),
             execute: async ({ operation, path, data } = {}) => {
@@ -69,19 +68,17 @@ export class Organization {
                     const after = top ? { [top]: roots[top] } : this.#definition(uuid, roots)
                     for (const [root, children] of Object.entries(before ?? {})) {
                         if (after?.[root] !== undefined && Boolean(Object.keys(children).length) === Boolean(Object.keys(after[root]).length)) continue
-                        const tree = await this.getTree(uuid)
-                        if (await treeContexts.get(tree).hasRoot(root)) throw new Error('Cannot remove or change structural status of an occupied root')
+                        if (await this.dispatch({ operation: 'hasRoot', uuid, config: this.configuration(uuid), request: root })) throw new Error('Cannot remove or change structural status of an occupied root')
                     }
                 }
                 this.#config.roots = roots
                 const saved = this.#save()
-                for (const tree of this.trees.values()) {
-                    const top = Object.entries(this.#config.top).find(([, id]) => id === tree.uuid)
-                    const definitions = top ? { [top[0]]: roots[top[0]] } : this.#definition(tree.uuid)
-                    if (definitions && (!top || definitions[top[0]] !== undefined)) {
-                        await tree.init()
-                        await treeContexts.get(tree).configureRoots(definitions)
-                    } else this.trees.delete(tree.uuid)
+                for (const uuid of this.owners.keys()) {
+                    const top = Object.entries(this.#config.top).find(([, id]) => id === uuid)
+                    const definitions = top ? { [top[0]]: roots[top[0]] } : this.#definition(uuid)
+                    if (definitions && (!top || definitions[top[0]] !== undefined))
+                        await this.dispatch({ operation: 'configure', uuid, config: this.configuration(uuid), roots: definitions })
+                    else await this.dispatch({ operation: 'drop', uuid })
                 }
                 await saved
                 return this.roots.get(path)
@@ -105,16 +102,6 @@ export class Organization {
     }
 
     get config() { return structuredClone(this.#config) }
-    get pendingIndexCount() {
-        let count = 0
-        for (const tree of this.trees.values()) count += treeContexts.get(tree)?.pendingIndexCount ?? 0
-        return count
-    }
-    get pruneCandidates() {
-        if (this.#dirty || this.#error) return []
-        return [...this.trees.values()].filter(tree => treeContexts.get(tree)?.canDrop)
-    }
-
     #definition(id, roots = this.#config.roots) {
         const route = [], seen = new Set()
         while (id !== undefined) {
@@ -140,44 +127,20 @@ export class Organization {
         })
         this.#writes = task
         task.then(() => {
-            if (this.#writes === task) { this.#dirty = false; this.#options.onIndexed?.(this) }
+            if (this.#writes === task) { this.#dirty = false }
         }, error => { this.#error = error })
         return task
     }
 
-    #tree(uuid) {
-        let tree = this.trees.get(uuid)
-        if (!tree) {
-            tree = new Tree()
-            tree.uuid = uuid
-            tree.organizationId = this.organizationId
-            if (this.#options.disk) tree.disk = this.disk
-            if (this.#options.persistence) tree.persistence = this.persistence
-            if (this.#options.planner) tree.planner = this.#options.planner
-            if (this.#options.execute) tree.execute = this.#options.execute
-            this.trees.set(uuid, tree)
-        }
-        return tree
-    }
-
-    async getTree(uuid) {
+    configuration(uuid) {
         const top = Object.entries(this.#config.top).find(([, id]) => id === uuid)
         const roots = top ? { [top[0]]: this.#config.roots[top[0]] } : this.#definition(uuid)
         if (!roots) throw new Error(`Primary branch not configured: ${uuid}`)
-        const parent = top ? undefined : uuid
-        const tree = this.#tree(uuid)
-        try { await tree.init({ ...this.#options.treeOptions, uuid, roots, parent }) }
-        catch (error) { if (this.trees.get(uuid) === tree) this.trees.delete(uuid); throw error }
-        treeContexts.get(tree).onIndexed = () => this.#options.onIndexed?.(this, tree)
-        return tree
+        return { ...this.#options.treeOptions, uuid, roots, parent: top ? undefined : uuid }
     }
 
     async #run(uuid, request) {
-        // Pin the selected instance before initialization or storage I/O can yield.
-        const tree = this.#tree(uuid)
-        tree.active++
-        try { return await (await this.getTree(uuid)).execute(request) }
-        finally { tree.active--; this.#options.onIndexed?.(this, tree) }
+        return await this.dispatch({ operation: 'execute', uuid, config: this.configuration(uuid), request })
     }
 
     #top(root) {
@@ -244,11 +207,7 @@ export class Organization {
     }
 
     async #owner(id, target, payload) {
-        let leaf
-        for (const tree of this.trees.values()) {
-            leaf = treeContexts.get(tree)?.referenceLeaf(id)
-            if (leaf) break
-        }
+        let [leaf] = await this.dispatch({ operation: 'lookup', uuids: [id] })
         if (!leaf) {
             const data = await executeDisk(this, { operation: 'read', kind: 'leaf', uuid: id })
             if (data) leaf = JSON.parse(data).object
@@ -285,11 +244,12 @@ export class Organization {
                 if (Object.hasOwn(this.#config.roots, target) && this.#config.top[target]) primaries.push(this.#config.top[target])
             }
             if (!primaries.length) return empty()
-            if (operation === 'create' || payload.upsert) for (const value of inputs) {
-                if (value.uuid) for (const tree of this.trees.values())
-                    if (treeContexts.get(tree)?.referenceLeaf(value.uuid) && (operation === 'create' || !primaries.includes(tree.uuid))) throw new Error('duplicate identity')
+            if (operation === 'create' || payload.upsert) {
+                const ids = inputs.filter(value => value.uuid).map(value => value.uuid)
+                const existing = ids.length ? await this.dispatch({ operation: 'lookup', uuids: ids }) : []
+                if (existing.some(leaf => operation === 'create' || !primaries.includes(leaf.primary))) throw new Error('duplicate identity')
                 const parent = Object.values(this.#config.top).includes(primaries[0]) ? undefined : primaries[0]
-                if (operation === 'create' && this.#names.has(key(parent, target, value.name))) throw new Error('duplicate root name')
+                if (operation === 'create' && inputs.some(value => this.#names.has(key(parent, target, value.name)))) throw new Error('duplicate root name')
             }
             let response
             if (primaries.length === 1) {
@@ -312,8 +272,9 @@ export class Organization {
                 const limit = filter ? filter.limit ?? 50 : 0
                 if (!Number.isSafeInteger(start) || start < 0 || !Number.isSafeInteger(limit) || limit < 0) throw new Error('invalid pagination')
                 const selected = []
-                for (const id of primaries) {
-                    const result = await this.#run(id, { ...payload, method: `${target}.read`, filter: { ...filter, startingIndex: 0, index: 0, limit: 0 } })
+                const results = await Promise.all(primaries.map(id => this.#run(id, { ...payload,
+                    method: `${target}.read`, filter: { ...filter, startingIndex: 0, index: 0, limit: 0 } })))
+                for (const result of results) {
                     if (!result.success) return result
                     selected.push(...result[target])
                 }
@@ -333,12 +294,13 @@ export class Organization {
                     response.awareness.push(leaf.uuid)
                 }
             }
-            if (response.success && (create || operation === 'delete')) for (const leaf of response[target]) {
+            if (response.success && (create || operation === 'delete') && primaries.some(uuid => Object.keys(this.configuration(uuid).roots[target] ?? {}).length)) for (const leaf of response[target]) {
                 const roots = leaf.parent === undefined ? this.#config.roots : this.#definition(leaf.parent)
                 if (!Object.keys(roots?.[target] ?? {}).length) continue
                 if (operation === 'delete') {
                     delete this.#config.leaves[leaf.uuid]
-                    this.trees.delete(leaf.uuid)
+                    await this.dispatch({ operation: 'drop', uuid: leaf.uuid })
+                    this.owners.delete(leaf.uuid)
                     this.#names.delete(key(leaf.parent, leaf.root, leaf.name))
                     this.#save()
                 } else this.#register(leaf)
@@ -351,35 +313,20 @@ export class Organization {
     async #assertRemovable(uuid) {
         if (!Object.hasOwn(this.#config.leaves, uuid)) return
         if (Object.values(this.#config.leaves).some(node => node.parent === uuid)) throw new Error('Cannot delete a root that still has child leaves')
-        const child = await this.getTree(uuid)
-        if (child.active || treeContexts.get(child).pendingIndexCount || treeContexts.get(child).leafCount || child.config.indexes.some(index => index.key === 'root' && index.count > 0))
+        if (await this.dispatch({ operation: 'occupied', uuid, config: this.configuration(uuid) }))
             throw new Error('Cannot delete a root that still has child leaves')
     }
 
     async prune({ uuid, limit = Infinity } = {}) {
         if (limit !== Infinity && (!Number.isInteger(limit) || limit < 0)) throw new TypeError('Pruning limit must be a non-negative integer')
-        if (uuid !== undefined) {
-            const tree = this.trees.get(uuid)
-            if (!limit || this.#dirty || this.#error || !treeContexts.get(tree)?.canDrop) return { count: 0 }
-            this.trees.delete(uuid)
-            return { count: 1 }
-        }
-        const candidates = this.pruneCandidates.sort((a, b) => a.weight - b.weight || a.uuid.localeCompare(b.uuid))
-        let count = 0
-        for (const tree of candidates) {
-            if (count >= limit) break
-            // No index/leaf traversal: removing the owner releases its entire graph.
-            if (!treeContexts.get(tree).canDrop || this.trees.get(tree.uuid) !== tree) continue
-            this.trees.delete(tree.uuid)
-            count++
-        }
-        return { count }
+        if (this.#dirty || this.#error) return { count: 0 }
+        return await this.dispatch({ operation: 'prune', uuid, ...(limit === Infinity ? {} : { limit }) })
     }
 
     async close() {
-        await Promise.all([...this.trees.values()].map(tree => tree.close()))
+        await this.dispatch({ operation: 'close' })
         await this.#writes
         if (this.#error) throw this.#error
-        this.trees.clear()
+        this.owners.clear()
     }
 }

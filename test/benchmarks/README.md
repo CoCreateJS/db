@@ -96,3 +96,25 @@ Telemetry's contract. On Linux the benchmark uses `MemAvailable` so reclaimable
 page cache is accounted for. Process RSS and heap are reported separately and
 are not used as a DB memory allocation. Results from the earlier allocation
 policy remain historical measurements and should be identified when compared.
+
+### Worker execution comparison
+
+```sh
+node test/benchmarks/diagnostics/workers.mjs 10000
+```
+
+Runs the same deterministic 10K fixture across four primary tables in one
+organization, first with one execution worker, then with two. Both use an
+orchestrating primary and the existing CoCreate Cluster IPC implementation
+(`@cocreate/cluster/src/send/ipc.js`, available in the development workspace).
+No mock transport or new IPC implementation is used. Workers are ready before
+DB traffic; this does not test production cluster startup ordering.
+
+The fixture asserts stable round-robin placement, zero primary-local Trees,
+worker ingress, query/sort/pagination, CRUD and organization isolation, worker-local
+pruning, pending-storage protection, stop-at-50% controls and selective cold reads.
+Explicit asynchronous queue diagnostics establish completion outside CRUD.
+Reports include acknowledgement wall time, create-and-index wall time, process
+memory samples and matching fixture hashes. One sample per worker count is an
+architectural check, not a scaling claim or a comparison to the old one-table
+standard baseline. Set `BENCH_OUTPUT_DIR` to select the output directory.

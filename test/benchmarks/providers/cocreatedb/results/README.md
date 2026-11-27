@@ -4,6 +4,7 @@ One newest passing result is retained for each distinct workload. When the same 
 
 | Workload | Total records | Create + index | Throughput (records/s) | Process RSS | Report |
 | --- | ---: | ---: | ---: | ---: | --- |
+| 1 organization, 4 arrays × 2,500, 1 vs 2 workers | 10,000 | 6.09 / 6.23 s | 1,643 / 1,605 | 358.8 / 416.2 MiB sampled after indexing | [Report](worker-trees-10000-2026-11-27T06-00-14.380Z/README.md) |
 | 1 organization, 40 arrays × 10,000, 2 workers | 400,000 | 239.86 s | 1,668 | 3,948 MiB sampled after indexing | [Report](worker-trees-400000-40-arrays-2026-11-27T13-30-28/report.md) |
 | 1 organization, 40 arrays × 10,000, 4 workers | 400,000 | 230.78 s | 1,733 | 3,335 MiB sampled after indexing | [Report](worker-trees-400000-40-arrays-2026-11-27T13-30-28/report.md) |
 | 10 × 1,000 | 10,000 | 5.95 s | 1,681 | 285.9 MiB | [Report](parallel-organizations-1000-2026-11-27T01-24-10.235Z/report.md) |

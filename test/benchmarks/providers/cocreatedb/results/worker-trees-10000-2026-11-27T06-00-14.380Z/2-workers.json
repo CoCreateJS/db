@@ -1,0 +1,99 @@
+{
+  "status": "passed",
+  "fixture": "lifecycle v3 plus table field, four tables",
+  "fixtureHash": "d3600863d7a652787bb475f4ee87227555f6f7a94fec9a5215d59e238628281b",
+  "records": 10000,
+  "workers": 2,
+  "groups": 4,
+  "organization": "worker-org",
+  "node": "v24.18.0",
+  "initializationMs": 197.31924700000002,
+  "routingSeedMs": 93.350953,
+  "acknowledgementMs": 1856.424235,
+  "createAndIndexMs": 6229.489169,
+  "primaryTreeCount": 0,
+  "ownerAssignments": [
+    [
+      "01a21b972fa27eaf84cfe568ead50eb8",
+      1
+    ],
+    [
+      "01a21b972faf7834ba0c820c692ce7ef",
+      2
+    ],
+    [
+      "01a21b972fc873e49a00aa3a76ada50b",
+      1
+    ],
+    [
+      "01a21b972fce7dce9940766013f544dc",
+      2
+    ],
+    [
+      "01a21b972fdc768fbd6d473b474ecf6a",
+      1
+    ],
+    [
+      "01a21b972feb7d7f9a90095592bf8a1a",
+      2
+    ],
+    [
+      "01a21b972ff478738d366810a1058678",
+      1
+    ]
+  ],
+  "dataOwners": [
+    {
+      "uuid": "01a21b972fce7dce9940766013f544dc",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21b972fdc768fbd6d473b474ecf6a",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21b972feb7d7f9a90095592bf8a1a",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21b972ff478738d366810a1058678",
+      "workerId": 1
+    }
+  ],
+  "pendingIndexCount": 0,
+  "primaryMemory": {
+    "rss": 113274880,
+    "heapTotal": 54935552,
+    "heapUsed": 28050896,
+    "external": 7137607,
+    "arrayBuffers": 4482131
+  },
+  "workerMemory": [
+    {
+      "pid": 217046,
+      "rss": 163016704,
+      "heapTotal": 100855808,
+      "heapUsed": 54098072,
+      "external": 5363092,
+      "arrayBuffers": 3050684
+    },
+    {
+      "pid": 217047,
+      "rss": 160186368,
+      "heapTotal": 102166528,
+      "heapUsed": 59664024,
+      "external": 5790304,
+      "arrayBuffers": 3481905
+    }
+  ],
+  "diagnostics": [
+    "round robin and stable ownership",
+    "worker ingress and UUID routing",
+    "query sort and pagination",
+    "CRUD and organization isolation",
+    "worker-local weights",
+    "pending storage protected",
+    "cold page hydration",
+    "75/50 pressure signals"
+  ]
+}

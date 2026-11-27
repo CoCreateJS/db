@@ -181,6 +181,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         const server = new EventEmitter()
         server.id = `benchmark-${runIndex}`
         server.isPrimary = true
+        server.isWorker = true
         db = await DB.init(server, { prompt: false, disk, config: { memory: memoryPolicy }, size: 64 })
         assert.deepEqual(Object.keys(db).sort(), ['config', 'organizations', 'send'])
         runtime = databaseRuntimes.get(db) // Observation and process cleanup only; requests use the public API.
@@ -216,7 +217,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         }
         const firstCreateStart = performance.now()
         const firstCreate = assertResponse(await send({ ...root, method: 'object.create', object: seed }), 'first object create')
-        tree = await tree.getTree(firstCreate.object[0].parent)
+        tree = await runtime.trees.get(root.organization_id, firstCreate.object[0].parent)
         assert.equal(typeof tree.planner, 'function')
         result.firstObjectCreateMs = performance.now() - firstCreateStart
         assert.equal(firstCreate.object.length, 1)

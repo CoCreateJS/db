@@ -24,11 +24,11 @@ test('DB.init is the only DB constructor and returns the thin public interface',
         assert.equal(tree, await db.organizations.get(payload.organization_id))
         const created = await db.send({ ...payload, method: 'object.create', object: { value: 1 } })
         assert.equal(created.success, true)
-        const primary = await tree.getTree(created.object[0].parent)
+        const primary = await databaseRuntimes.get(db).trees.get(payload.organization_id, created.object[0].parent)
         assert.ok(primary instanceof Tree)
         assert.equal((await primary.leaves.get(created.object[0].uuid)).value, 1)
-        await waitForIndex(tree)
-        assert.equal(tree.trees.get(primary.uuid), primary)
+        await waitForIndex(databaseRuntimes.get(db))
+        assert.equal(databaseRuntimes.get(db).trees.organizations.get(payload.organization_id).get(primary.uuid), primary)
     } finally { await databaseRuntimes.get(db).close() }
 })
 
@@ -38,9 +38,9 @@ test('each primary Tree owns replaceable stateless execute and planner functions
         const created = await db.send({ ...payload, method: 'object.create', object: { value: 'planned' } })
         assert.equal(created.success, true)
         const organization = await db.organizations.get(payload.organization_id)
-        const tree = await organization.getTree(created.object[0].parent)
+        const tree = await databaseRuntimes.get(db).trees.get(payload.organization_id, created.object[0].parent)
         const neighbor = await db.send({ ...payload, array: 'neighbor', method: 'object.create', object: { value: 'other' } })
-        const other = await organization.getTree(neighbor.object[0].parent)
+        const other = await databaseRuntimes.get(db).trees.get(payload.organization_id, neighbor.object[0].parent)
         assert.notEqual(tree, other)
         assert.equal(tree.execute, other.execute)
         assert.equal(tree.planner, other.planner)
@@ -49,7 +49,7 @@ test('each primary Tree owns replaceable stateless execute and planner functions
         const execute = tree.execute
         let calls = 0
         tree.execute = async function(request) { calls++; return execute.call(this, request) }
-        await waitForIndex(organization)
+        await waitForIndex(databaseRuntimes.get(db))
         const planner = tree.planner
         let planned = 0
         tree.planner = (branch, query, filter) => { planned++; return planner(branch, query, filter) }
@@ -92,13 +92,13 @@ test('combined primary/worker uses local Tree execution; worker forwards through
     server.isWorker = true
     server.send = () => { throw Error('Combined instance should not forward') }
     const primary = await DB.init(server, { prompt: false })
-    const worker = await DB.init({
+    const worker = await DB.init(Object.assign(new EventEmitter(), {
         isPrimary: false,
         async send(message) {
             const [handler] = server.listeners(message.method)
             return structuredClone(await handler(structuredClone(message)))
         }
-    })
+    }))
     try {
         assert.deepEqual(Object.keys(worker).sort(), ['config', 'organizations', 'send'])
         const created = await worker.send({ ...payload, method: 'object.create', object: { value: 'forwarded' } })
@@ -114,7 +114,7 @@ test('concurrent organization lookups reuse one router and closing clears its re
         const trees = await Promise.all(Array.from({ length: 32 }, () => db.organizations.get('same-org')))
         assert.equal(new Set(trees).size, 1)
         await trees[0].close()
-        assert.equal(trees[0].trees.size, 0)
+        assert.equal(databaseRuntimes.get(db).trees.organizations.has('same-org'), false)
     } finally { await databaseRuntimes.get(db).close() }
 })
 

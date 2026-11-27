@@ -1,3 +1,4 @@
+import { testOrganization } from '../test-support/tree.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { waitForIndex, waitForCondition } from './benchmarks/shared/wait-for-index.mjs'
@@ -13,7 +14,7 @@ import { inspectTree } from '../test-support/tree.mjs'
 import { leafPath, MemoryDisk } from '../test-support/memory-disk.mjs'
 
 const envelope = { organization_id: 'index-org', storage: 'test', database: 'app', array: 'items' }
-const treeFor = async index => inspectTree(await index.organizations.get(envelope.organization_id))
+const treeFor = async index => inspectTree(await testOrganization(index, envelope.organization_id))
 const createDatabase = async (options = {}) => {
     const { server = {}, ...dbOptions } = options
     return await createRuntime(server, dbOptions)
@@ -28,7 +29,7 @@ test('DB composes Tree, Query Planner, and CRUD and delegates requests', async (
     const read = await index.send({ ...envelope, method: 'object.read', object: { uuid: created.object[0].uuid } })
     assert.equal(read.success, true, read.error?.join('; '))
     assert.equal(read.object[0].label, 'from-index')
-    const tree = inspectTree(await index.organizations.get(envelope.organization_id))
+    const tree = inspectTree(await testOrganization(index, envelope.organization_id))
     assert.equal(tree.organizationId, envelope.organization_id)
     assert.equal(typeof index.planner, 'function')
     await index.close()
@@ -54,7 +55,7 @@ test('DB composes organization Trees from its supplied defaults rather than stor
     disk.files.set(`${envelope.organization_id}/config.json`, JSON.stringify(stored))
     const index = await createDatabase({ disk })
 
-    await index.organizations.get(envelope.organization_id)
+    await testOrganization(index, envelope.organization_id)
     assert.equal((await treeFor(index)).config.version, '1.0.0')
     await index.close()
 })
@@ -62,7 +63,7 @@ test('DB composes organization Trees from its supplied defaults rather than stor
 test('DB composes a custom execution function onto each selected primary Tree', async () => {
     const index = await createDatabase()
     const created = await index.send({ ...envelope, method: 'object.create', object: { value: 1 } })
-    const organization = await index.organizations.get(envelope.organization_id)
+    const organization = await testOrganization(index, envelope.organization_id)
     const tree = await organization.getTree(created.object[0].parent)
     const request = { ...envelope, method: 'object.read' }
     tree.execute = async value => { assert.equal(value, request); return { success: true } }
@@ -72,14 +73,14 @@ test('DB composes a custom execution function onto each selected primary Tree', 
 
 test('worker DB forwards requests through the supplied Server send primitive', async () => {
     const sent = []
-    const worker = await createRuntime({
+    const worker = await createRuntime(Object.assign(new EventEmitter(), {
         isPrimary: false,
         isWorker: true,
         async send(envelope) {
             sent.push(envelope)
             return { uuid: envelope.uuid, result: { success: true, object: [{ uuid: 'from-primary' }] } }
         }
-    })
+    }))
     const request = { ...envelope, method: 'object.read', object: { uuid: 'from-primary' } }
 
     assert.deepEqual(await worker.send(request), { success: true, object: [{ uuid: 'from-primary' }] })
@@ -379,7 +380,7 @@ test('Tree queues changed leaf and branch IDs to Persistence after local index w
     assert.equal(leafOperations()[1].operation, 'write')
     assert.equal(Object.hasOwn(leafOperations()[1], 'data'), false)
 
-    const flushed = await (await (await index.organizations.get(envelope.organization_id)).getTree(leaf.parent)).persist()
+    const flushed = await (await (await testOrganization(index, envelope.organization_id)).getTree(leaf.parent)).persist()
     assert.equal(flushed.success, true)
     assert.equal(flushed.count, sent.length)
 

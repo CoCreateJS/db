@@ -36,6 +36,7 @@ try {
     const server = new EventEmitter()
     server.id = 'parallel-organizations-benchmark'
     server.isPrimary = true
+    server.isWorker = true
     db = await createRuntime(server, { disk, size: 64 })
     result.configuration.memory = db.config.memory
     const sample = () => server.emit('telemetry', { data: {
@@ -46,7 +47,7 @@ try {
     telemetry = setInterval(sample, 100)
     const states = await Promise.all(Array.from({ length: organizationCount }, (_, index) => index + 1).map(async number => {
         const root = { ...lifecycleRoot(size), organization_id: number.toString(16).padStart(24, '0') }
-        return { root, tree: await db.organizations.get(root.organization_id), number }
+        return { root, tree: { get pendingIndexCount() { return db.trees.status(root.organization_id).pendingIndexCount } }, number }
     }))
     result.memory = { idle: process.memoryUsage() }
     const start = performance.now()

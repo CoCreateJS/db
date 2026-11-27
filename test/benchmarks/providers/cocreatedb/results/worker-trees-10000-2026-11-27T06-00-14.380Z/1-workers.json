@@ -1,0 +1,91 @@
+{
+  "status": "passed",
+  "fixture": "lifecycle v3 plus table field, four tables",
+  "fixtureHash": "d3600863d7a652787bb475f4ee87227555f6f7a94fec9a5215d59e238628281b",
+  "records": 10000,
+  "workers": 1,
+  "groups": 4,
+  "organization": "worker-org",
+  "node": "v24.18.0",
+  "initializationMs": 156.55129300000002,
+  "routingSeedMs": 74.91282799999999,
+  "acknowledgementMs": 1758.7331050000003,
+  "createAndIndexMs": 6087.460497,
+  "primaryTreeCount": 0,
+  "ownerAssignments": [
+    [
+      "01a21b9710cb71eba3ab22447da687b3",
+      1
+    ],
+    [
+      "01a21b9710d97e48aa828600c4b5d2d6",
+      1
+    ],
+    [
+      "01a21b9710e47f7687f977b218d22ee2",
+      1
+    ],
+    [
+      "01a21b9710ea7aafb031a81302943a34",
+      1
+    ],
+    [
+      "01a21b9710f57252b75eca21bc0d91d3",
+      1
+    ],
+    [
+      "01a21b9710ff712c998c67eb2590d6c6",
+      1
+    ],
+    [
+      "01a21b97110a7d94b26e20c13cd088c1",
+      1
+    ]
+  ],
+  "dataOwners": [
+    {
+      "uuid": "01a21b9710ea7aafb031a81302943a34",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21b9710f57252b75eca21bc0d91d3",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21b9710ff712c998c67eb2590d6c6",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21b97110a7d94b26e20c13cd088c1",
+      "workerId": 1
+    }
+  ],
+  "pendingIndexCount": 0,
+  "primaryMemory": {
+    "rss": 117477376,
+    "heapTotal": 51359744,
+    "heapUsed": 14841280,
+    "external": 2584673,
+    "arrayBuffers": 204479
+  },
+  "workerMemory": [
+    {
+      "pid": 216999,
+      "rss": 258740224,
+      "heapTotal": 193605632,
+      "heapUsed": 73767384,
+      "external": 4762374,
+      "arrayBuffers": 2451463
+    }
+  ],
+  "diagnostics": [
+    "round robin and stable ownership",
+    "worker ingress and UUID routing",
+    "query sort and pagination",
+    "CRUD and organization isolation",
+    "worker-local weights",
+    "pending storage protected",
+    "cold page hydration",
+    "75/50 pressure signals"
+  ]
+}

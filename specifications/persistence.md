@@ -7,10 +7,12 @@ DB initialization or assign it directly to a standalone Tree:
 import DB from '@cocreate/db'
 
 const db = await DB.init(server, { persistence })
+// Initialize the resource in each execution worker's server/options.
 const organization = await db.organizations.get(organizationId)
-const tree = await organization.getTree(primaryUuid)
-tree.persistence = persistence
-await tree.persist()
+const configuration = organization.configuration(primaryUuid)
+
+// A separate composer can initialize a standalone Tree with that configuration
+// and its own resources. Worker Tree instances are not returned over IPC.
 ```
 
 The adapter exposes `execute(request)` and can optionally expose `persist()`.
