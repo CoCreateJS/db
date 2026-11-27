@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { queryData, sortData, searchData } from '@cocreate/utils'
 import { createTestTree } from '../test-support/tree.mjs'
 import { leafPath, MemoryDisk } from '../test-support/memory-disk.mjs'
-import { waitForIndex } from './benchmarks/shared/wait-for-index.mjs'
+import { waitForIdle } from './benchmarks/shared/wait-for-index.mjs'
 
 const scope = { storage: 'bench', database: 'app', array: 'items' }
 async function fixture(count = 96) {
@@ -18,7 +18,7 @@ async function fixture(count = 96) {
     }))
     const response = await tree.execute({ ...scope, method: 'object.create', object: values })
     assert.equal(response.success, true, response.error?.join('; '))
-    await waitForIndex(tree)
+    await waitForIdle(tree)
     return { disk, tree, values, primary: response.object[0].parent }
 }
 const read = (tree, filter) => tree.execute({ ...scope, method: 'object.read', filter })
@@ -93,19 +93,19 @@ test('cold UUID reads leave the queue empty; later scalar updates and deletes ke
         const leaf = (await tree.execute({ ...scope, method: 'object.read', object: { uuid: values[3].uuid } })).object[0]
         assert.equal(tree.pendingIndexCount, 0)
         await leaf.setValue('rank', 500)
-        await waitForIndex(tree)
+        await waitForIdle(tree)
         assert.equal((await read(tree, { query: { rank: 3 }, limit: 0 })).object.length, 0)
         assert.deepEqual(ids((await read(tree, { query: { rank: 500 }, limit: 0 })).object), [leaf.uuid])
         await tree.prune({ uuid: primary })
         const update = await tree.execute({ ...scope, method: 'object.update', object: { uuid: leaf.uuid, $update: { $set: { 'profile.city': 'Oslo' }, $unset: { optional: true }, $push: { tags: 9 } } } })
         assert.equal(update.success, true, update.error?.join('; '))
-        await waitForIndex(tree)
+        await waitForIdle(tree)
         assert.equal((await read(tree, { query: { 'profile.city': 'Oslo' }, limit: 0 })).object.length, 1)
         assert.equal((await read(tree, { query: { 'profile.city': 'Lima', rank: 500 }, limit: 0 })).object.length, 0)
         await tree.prune({ uuid: primary })
         const deleted = await tree.execute({ ...scope, method: 'object.delete', object: { uuid: leaf.uuid } })
         assert.equal(deleted.success, true, deleted.error?.join('; '))
-        await waitForIndex(tree)
+        await waitForIdle(tree)
         assert.equal((await read(tree, { query: { rank: 500 }, limit: 0 })).object.length, 0)
         assert.equal(disk.hasLeaf(leaf.uuid), false)
     } finally { await tree.close() }
@@ -114,7 +114,7 @@ test('cold UUID reads leave the queue empty; later scalar updates and deletes ke
 test('active reads protect their primary Tree, concurrent counts release independently, and errors release pins', async () => {
     const { tree, disk, primary, values } = await fixture(32)
     const neighbor = (await tree.execute({ ...scope, array: 'neighbor', method: 'object.create', object: { rank: 0 } })).object[0]
-    await waitForIndex(tree)
+    await waitForIdle(tree)
     await tree.prune({ uuid: primary })
     const targetPath = leafPath(values[0].uuid)
     let release, entered
@@ -146,7 +146,7 @@ test('partially scoped plans retain root constraints and OR deduplicates before 
     try {
         await tree.execute({ ...scope, storage: 'other', method: 'object.create', object: { rank: 0, team: 'blue' } })
         await tree.execute({ ...scope, array: 'other', method: 'object.create', object: { rank: 0, team: 'blue' } })
-        await waitForIndex(tree)
+        await waitForIdle(tree)
         const result = await tree.execute({ storage: scope.storage, method: 'object.read', filter: { query: { $or: [{ team: 'blue' }, { rank: 0 }] }, limit: 0 } })
         assert.equal(result.success, true, result.error?.join('; '))
         assert.equal(result.object.length, values.filter(value => value.team === 'blue').length + 1)
@@ -224,13 +224,13 @@ test('filtered update and delete use ordered pages and keep old indexed values o
         assert.equal(update.success, true, update.error?.join('; '))
         assert.deepEqual(ids(update.object), targets)
         assert.equal(update.filter.index, 3)
-        await waitForIndex(tree)
+        await waitForIdle(tree)
         const blue = await read(tree, { query: { team: 'blue' }, limit: 0 })
         assert.ok(blue.object.every(value => !targets.includes(value.uuid)))
         const deletion = await tree.execute({ ...scope, method: 'object.delete', filter: { query: { team: 'changed' }, sort: [{ key: 'rank', direction: 'asc' }], limit: 1 } })
         assert.equal(deletion.success, true, deletion.error?.join('; '))
         assert.equal(deletion.object.length, 1)
-        await waitForIndex(tree)
+        await waitForIdle(tree)
         assert.equal((await read(tree, { query: { team: 'changed' }, limit: 0 })).object.length, 1)
     } finally { await tree.close() }
 })
@@ -240,7 +240,7 @@ test('empty containers remain distinct from missing fields for indexed predicate
     const values = [[], {}, undefined, null, 0, '', false].map((cell, rank) => ({ uuid: `empty-${rank}`, rank, ...(cell === undefined ? {} : { cell }) }))
     const created = await tree.execute({ ...scope, method: 'object.create', object: values })
     assert.equal(created.success, true, created.error?.join('; '))
-    await waitForIndex(tree)
+    await waitForIdle(tree)
     const primary = created.object[0].parent
     try {
         for (const query of [
@@ -257,7 +257,7 @@ test('empty containers remain distinct from missing fields for indexed predicate
         await tree.prune({ uuid: primary })
         const changed = await tree.execute({ ...scope, method: 'object.update', object: { uuid: 'empty-0', $update: { $push: { cell: 3 } } } })
         assert.equal(changed.success, true, changed.error?.join('; '))
-        await waitForIndex(tree)
+        await waitForIdle(tree)
         const empty = await read(tree, { query: { cell: [] }, limit: 0 })
         assert.ok(!ids(empty.object).includes('empty-0'))
         assert.deepEqual(ids((await read(tree, { query: { 'cell[0]': 3 }, limit: 0 })).object), ['empty-0'])
@@ -279,7 +279,7 @@ test('filtered mutations retain their UUID selection while background indexing m
         assert.equal(response.object.length, 20)
         assert.equal(new Set(ids(response.object)).size, 20)
         assert.ok(response.object.every(value => value.rank >= 1000 && value.rank < 1020))
-        await waitForIndex(tree)
+        await waitForIdle(tree)
         assert.equal((await read(tree, { query: { rank: { $lt: 20 } }, limit: 0 })).object.length, 0)
         assert.equal((await read(tree, { query: { rank: { $gte: 1000 } }, limit: 0 })).object.length, 20)
     } finally { await tree.close() }

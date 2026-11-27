@@ -9,7 +9,7 @@ import Disk from '@cocreate/disk'
 import { nodeMemory } from './shared/node-memory.mjs'
 import DB from '@cocreate/db'
 import { defaultConfiguration, databaseRuntimes } from '../../src/runtime.js'
-import { waitForIndex as observeIndexQueue } from './shared/wait-for-index.mjs'
+import { waitForIndex as observeIndexQueue, waitForIdle } from './shared/wait-for-index.mjs'
 import { benchmarkUuid, createBenchmarkRecord, lifecycleRoot } from '../fixtures/lifecycle.mjs'
 import { launch } from './shared/child-process.mjs'
 import { createProgressReporter, expectedUuids, parseStandardSizes, STANDARD_SIZES, standardWorkloads } from './shared/workloads.mjs'
@@ -257,6 +257,9 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         await waitForIndex(runtime)
         const indexDrainWaitMs = performance.now() - indexDrainStart
         const createAndIndexMs = performance.now() - createLifecycleStart
+        result.pendingDiskAtIndexReady = runtime.pendingDiskCount
+        await waitForIdle(runtime, { timeoutMs: 600000 })
+        result.createAndStorageMs = performance.now() - createLifecycleStart
         indexEntriesPerObject = Object.keys(await firstBatch[0].getIndex()).length
         result.fixtureHash = hash.digest('hex')
         result.createAndIndexMs = createAndIndexMs

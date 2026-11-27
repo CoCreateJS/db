@@ -3,6 +3,7 @@ import { defer, cancelDefer } from './defer.js'
 import { createLeaf, initializeLeaf, bindIndexRestore, hasIndexEntry, attachIndexEntry, indexValues, type, deferLeaf, reconcileLeaf, removeIndexedEntry } from './leaf.js'
 import getLeaves from './query.js'
 import { Tree as IndexTree } from './btree.js'
+import { DiskQueue } from './disk.js'
 
 const uuidValue = () => uuid().replaceAll('-', '')
 const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -30,7 +31,7 @@ async function insertEntry(tree, size, leafSize, entry, local, leaves, catalog) 
     await entry.insert(index)
 }
 
-export async function createManager({ db, owner, size = 1024, leafSize = size, persistConfig = () => {}, persist, onIdle = () => {} }) {
+export async function createManager({ db, owner, size = 1024, leafSize = size, write = () => {}, persist = () => {}, onIdle = () => {} }) {
     const pendingChanges = Object.create(null)
     const inFlight = Object.create(null)
     let queuedCount = 0
@@ -51,16 +52,22 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
         }
     })
     const deleted = db.deleted = new Map()
-    db.deleting ??= new Set()
     let scheduled, indexError, closed = false
-    let workQueue = Promise.resolve()
-    let persistedConfig
-    async function persistConfigIfChanged() {
-        const current = JSON.stringify(db.config)
-        if (current === persistedConfig) return
-        await persistConfig()
-        persistedConfig = current
+    let indexWork = Promise.resolve()
+    let queuedConfig
+    function configurationFile() {
+        const data = JSON.stringify(db.config)
+        if (data === queuedConfig) return undefined
+        queuedConfig = data
+        return data
     }
+    function releaseDeleted(uuid) {
+        if (!pendingIndex.has({ uuid }) && !disk.hasLeaf(uuid)) deleted.delete(uuid)
+    }
+    const disk = new DiskQueue(owner.uuid, write, persist, batch => {
+        for (const [uuid, record] of Object.entries(batch.leaves)) if (record.operation === 'delete') releaseDeleted(uuid)
+    }, onIdle)
+    db.diskQueue = disk
     for (const route of db.config.indexes) {
         if (!route || typeof route.key !== 'string' || typeof route.type !== 'string' || typeof route.uuid !== 'string') throw Error('Invalid index root catalog')
         const tree = new IndexTree(size,db.local,route.key,leafSize,route.uuid)
@@ -84,25 +91,16 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
         for (const [index, batch] of batches) await index.insertMany(batch)
     }
     async function flushLeaf(leaf, changedPaths, insertBatch) {
-        if(indexError)throw indexError
-        try {
-            if(deleted.get(leaf.uuid) === leaf) {
-                if(db.deleting.has(leaf.uuid))return
-                for(const entry of Object.values(await leaf.getIndex()))if(entry.tree)await removeIndexedEntry(entry)
-            } else {
-                await reconcileLeaf(leaf,entry=>{insertBatch.push(entry)},changedPaths instanceof Set?changedPaths:undefined)
-            }
+        if (deleted.get(leaf.uuid) === leaf) {
+            for (const entry of Object.values(await leaf.getIndex())) if (entry.tree) await removeIndexedEntry(entry)
+        } else {
+            await reconcileLeaf(leaf, entry => { insertBatch.push(entry) }, changedPaths instanceof Set ? changedPaths : undefined)
         }
-        catch(error){indexError=error;throw error}
     }
-    function serializeWork(operation) {
-        const task = workQueue.then(operation, operation)
-        workQueue = task.catch(() => {})
+    function serializeIndex(operation) {
+        const task = indexWork.then(operation, operation)
+        indexWork = task.catch(() => {})
         return task
-    }
-    async function persistLeaves() {
-        await db.leaves.persistDeletes?.()
-        await db.leaves.persistDirty?.()
     }
     function enqueue(leaf, record, retry = false) {
         const current = pendingChanges[leaf.uuid]
@@ -125,11 +123,8 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
     }
     const handler={queue:queueIndex}
     async function drain(limit = Infinity) {
-        return await serializeWork(async () => {
+        return await serializeIndex(async () => {
         if (indexError) throw indexError
-        // The response has already been acknowledged. Keep accepted leaves
-        // durable before applying their derived index work.
-        await persistLeaves()
         const batch=[]
         for (const id in pendingChanges) {
             if (batch.length >= limit) break
@@ -142,11 +137,6 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
             batch.push({ leaf, record, changedPaths: record.paths === null ? undefined : new Set(record.paths) })
         }
         if (!batch.length) return
-        const leafChanges = batch.map(({ leaf }) => ({
-            operation: deleted.get(leaf.uuid) === leaf ? 'delete' : 'write',
-            kind: 'leaf',
-            uuid: leaf.uuid
-        }))
         // Keep queued leaves resident through reconciliation, then group the
         // resulting entries by index tree for insertion.
         const insertBatch=[]
@@ -155,19 +145,11 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
             for (const {leaf,changedPaths} of batch) await flushLeaf(leaf,changedPaths,insertBatch)
             if (insertBatch.length) await insertEntries(insertBatch)
             syncIndexCatalog()
-            const removedBranches = [...(db.local?.pendingDiscards ?? [])]
-            const changedBranches = [...(db.local?.dirty ?? [])]
-                .filter(branch => db.local.resident.has(branch))
-                .map(branch => branch.uuid)
-            await db.local?.persistDiscards()
-            await db.local?.persistDirty()
-            await persistConfigIfChanged()
-            if (persist) await Promise.all([
-                ...removedBranches.map(uuid => persist({ operation: 'delete', kind: 'branch', uuid })),
-                ...changedBranches.map(uuid => persist({ operation: 'write', kind: 'branch', uuid })),
-                ...leafChanges.map(persist)
-            ])
-            for (const {leaf} of batch) if (deleted.get(leaf.uuid) === leaf && !queued(leaf)) deleted.delete(leaf.uuid)
+            const leaves = Object.create(null)
+            for (const { leaf } of batch) leaves[leaf.uuid] = deleted.get(leaf.uuid) === leaf
+                ? { operation: 'delete' }
+                : { operation: 'write', data: JSON.stringify({ object: leaf }) }
+            disk.enqueue({ leaves, branches: db.local?.takeChanges(), config: configurationFile() })
             indexed = true
         } catch (error) {
             for (const {leaf,record} of batch) enqueue(leaf, record, true)
@@ -177,6 +159,7 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
             for (const {leaf} of batch) {
                 delete inFlight[leaf.uuid]
                 if (!queued(leaf)) pendingCount--
+                releaseDeleted(leaf.uuid)
             }
         }
         if (indexed) await onIdle()
@@ -240,11 +223,11 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
         if (scheduled) cancelDefer(scheduled)
         scheduled = undefined
         do { await drain() } while (pendingCount)
-        await persistLeaves()
-        await db.local?.persistDiscards()
-        await db.local?.persistDirty()
         syncIndexCatalog()
-        await persistConfigIfChanged()
+        const branches = db.local?.takeChanges()
+        const config = configurationFile()
+        if (config !== undefined || branches && Object.keys(branches).length) disk.enqueue({ branches, config })
+        await disk.close()
     }
 
     async function visitRange(key, valueType, { min, max, branchUuid, mutating = false } = {}, visit) {
@@ -305,7 +288,6 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
         if (deleted.has(value.uuid) || suppliedUuid && !identityChecked && await db.leaves.has(value.uuid)) throw new Error(`Leaf UUID already exists: ${value.uuid}`)
         const leaf = createLeaf(value, isRoot)
         db.leaves.set(leaf.uuid, leaf)
-        db.leaves.markDirty?.(leaf)
         deferLeaf(leaf,handler)
         queueIndex(leaf)
         if (root === "object") identities.set(leaf._id, leaf.uuid)
@@ -317,7 +299,7 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
         deferLeaf(leaf,handler)
         Object.defineProperty(leaf, Symbol.for("cocreate.deleteLeaf"), {value:()=>remove(leaf)})
         Object.defineProperty(leaf, Symbol.for("cocreate.isLiveLeaf"), {value:async()=>await getLeaf(leaf.uuid)===leaf})
-        Object.defineProperty(leaf, Symbol.for("cocreate.markDirty"), {value:async()=>{db.leaves.markDirty?.(leaf)}})
+
         return leaf
     }
     function restoreLeaf(value){
@@ -331,11 +313,11 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
         initializeLeaf(leaf, insert)
         return bindLeaf(leaf)
     }
-    if (db.leaves) { db.leaves.restore = data => restoreLeaf(data.object); db.leaves.belongs = belongs }
+    if (db.leaves) { db.leaves.restore = data => restoreLeaf(data.object); db.leaves.belongs = belongs; db.leaves.deleted = deleted }
 
     const remoteReads = new Map()
     async function getLeaf(id, operation) {
-        if (typeof id !== 'string' || !id) return undefined
+        if (typeof id !== 'string' || !id || deleted.has(id)) return undefined
         const local = await db.leaves.get(id, operation)
         if (local) return local
         if (typeof db.readExternal !== 'function') return undefined
@@ -348,11 +330,7 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
             if (value.uuid !== id) throw new Error(`Persistence returned a mismatched leaf UUID: ${id}`)
             if (!belongs(value)) return undefined
             const restored = await restoreLeaf(structuredClone(value))
-            db.leaves.markDirty?.(restored)
-            const cache = beginOperation()
-            serializeWork(async () => {
-                try { await persistLeaves() } finally { await cache.release() }
-            }).catch(error => { indexError = error })
+            if (db.local) disk.enqueue({ leaves: { [id]: { operation: 'write', data: JSON.stringify({ object: restored }), notify: false } } })
             return restored
         })()
         remoteReads.set(id, task)
@@ -360,7 +338,7 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
         finally { remoteReads.delete(id) }
     }
     async function hasLeaf(id) {
-        if (typeof id !== 'string' || !id) return false
+        if (typeof id !== 'string' || !id || deleted.has(id)) return false
         if (await db.leaves.has(id)) return true
         if (typeof db.readExternal !== 'function') return false
         const value = await db.readExternal(id)
@@ -376,10 +354,8 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
     async function remove(leaf) {
         if(await getLeaf(leaf.uuid)!==leaf)throw Error('Leaf not found')
         const id=leaf.uuid
-        db.deleting.add(id)
         deleted.set(id,leaf)
-        await db.leaves.delete(id)
-        db.deleting.delete(id)
+        db.leaves.delete(id)
         if (leaf.root === 'object') identities.delete(leaf._id)
         if (structural(leaf.root)) names.delete(JSON.stringify([leaf.root, leaf.name]))
         queueIndex(leaf)
@@ -392,7 +368,7 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
         for (const value of values) leaves.push(await create(root, value, options))
         return leaves
     }
-    persistedConfig = JSON.stringify(db.config)
+    queuedConfig = JSON.stringify(db.config)
     return { create, createMany, getLeaf, hasLeaf, setReadExternal: read => { db.readExternal = read },
         matchesRoot: (envelope, target, leaf) => belongs(leaf) && leaf.root === target,
         visitRange, visitRanges, visitLeaves, getLeaves: getLeaves.bind(db), remove,
@@ -406,8 +382,9 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, p
             const activity = beginOperation()
             try {
                 db.config.roots = structuredClone(roots)
-                await serializeWork(persistConfigIfChanged)
+                const config = configurationFile()
+                if (config !== undefined) disk.enqueue({ config })
             } finally { await activity.release() }
         },
-        restoreLeaf, close, pendingIndex, operation: beginOperation, readIndex, primaryIndexes }
+        restoreLeaf, close, pendingIndex, disk, operation: beginOperation, readIndex, primaryIndexes }
 }

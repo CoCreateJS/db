@@ -3,15 +3,15 @@ import assert from 'node:assert/strict'
 import { createManager } from '../src/tree/manager.js'
 import { createConfiguration } from '../src/runtime.js'
 import { Tree as IndexTree } from '../src/tree/btree.js'
-import { waitForIndex } from './benchmarks/shared/wait-for-index.mjs'
+import { waitForIdle } from './benchmarks/shared/wait-for-index.mjs'
 
 async function setup() {
     const db = { config: createConfiguration({ roots: { object: {} }, parent: 'primary' }), leaves: new Map(), tree: new Map() }
     const parent = { uuid: 'primary' }
     const manager = await createManager({ db, owner: { uuid: parent.uuid, active: 0, weight: 0 } })
     const leaves = await manager.createMany('object', [{ status: 'initial', score: 0 }, { status: 'deleted' }])
-    const resource = { get pendingIndexCount() { return manager.pendingIndex.size } }
-    await waitForIndex(resource)
+    const resource = { get pendingIndexCount() { return manager.pendingIndex.size }, get pendingDiskCount() { return manager.disk.size } }
+    await waitForIdle(resource)
     return { db, manager, parent, leaves, resource }
 }
 
@@ -30,7 +30,7 @@ test('each primary Tree owns flat pending index records that coalesce fields, an
         assert.equal(manager.pendingIndex.size, 2)
         assert.equal(manager.pendingIndex.has(removed), true)
         assert.equal(db.deleted.get(removed.uuid), removed)
-        await waitForIndex(resource)
+        await waitForIdle(resource)
         assert.equal(db.deleted.has(removed.uuid), false)
         assert.deepEqual(JSON.parse(JSON.stringify(manager.pendingIndex)), {})
         assert.equal(db.leaves.has(removed.uuid), false)
@@ -61,7 +61,7 @@ test('a new change while indexing remains queued and visible in the serializable
         assert.equal(manager.pendingIndex.size, 1)
         assert.deepEqual(snapshot[leaf.uuid].paths.sort(), ['score', 'status'])
         release()
-        await waitForIndex(resource)
+        await waitForIdle(resource)
         assert.equal(manager.pendingIndex.size, 0)
         const entries = []
         for await (const entry of db.tree.get('score').get('number').scan()) entries.push(entry)
@@ -93,7 +93,7 @@ test('deleting an in-flight leaf retains its cleanup references until the delete
         assert.equal(snapshot[leaf.uuid].operation, 'delete')
         assert.equal(manager.pendingIndex.size, 1)
         release()
-        await waitForIndex(resource)
+        await waitForIdle(resource)
         assert.equal(db.deleted.size, 0)
         assert.equal(db.leaves.has(leaf.uuid), false)
         for await (const entry of db.tree.get('status').get('string').scan()) assert.notEqual(entry.uuid, leaf.uuid)

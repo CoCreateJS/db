@@ -1,7 +1,7 @@
 import { testOrganization } from '../test-support/tree.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { waitForIndex, waitForCondition } from './benchmarks/shared/wait-for-index.mjs'
+import { waitForIdle, waitForCondition } from './benchmarks/shared/wait-for-index.mjs'
 import { EventEmitter } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -127,8 +127,8 @@ test('shared package entry dynamically composes server disk and restores leaves 
         })
         assert.equal(created.success, true, created.error?.join('; '))
         const uuid = created.object[0].uuid
-        await waitForIndex(db)
-        await waitForIndex(db)
+        await waitForIdle(db)
+        await waitForIdle(db)
         await db.close()
         db = undefined
 
@@ -156,7 +156,7 @@ test('DB attaches the Disk resource to Tree and Tree can replace it', async () =
     disk.execute = async request => { requests.push(request); return await execute(request) }
 
     const created = await index.send({ ...envelope, method: 'object.create', object: { value: 'disk-hook' } })
-    await waitForIndex(index)
+    await waitForIdle(index)
     assert.equal(created.success, true, created.error?.join('; '))
     assert.ok(requests.every(request => typeof request.operation === 'string' && typeof request.kind === 'string'))
     assert.ok(requests.some(request => request.operation === 'write' && request.path.includes('leaves/')))
@@ -169,26 +169,26 @@ test('DB attaches the Disk resource to Tree and Tree can replace it', async () =
     assert.ok(requests.some(request => request.operation === 'read' && request.path.includes('leaves/')))
 
     const resident = await (await treeFor(index)).leaves.get(leaf.uuid)
-    await waitForIndex(index)
+    await waitForIdle(index)
     await (await treeFor(index)).prune({ uuid: resident.parent })
     const updated = await index.send({ ...envelope, method: 'object.update', object: { uuid: leaf.uuid, value: 'updated-from-disk' } })
     assert.equal(updated.success, true, updated.error?.join('; '))
     assert.equal(updated.object[0].value, 'updated-from-disk')
-    await waitForIndex(index)
+    await waitForIdle(index)
 
     const updatedResident = await (await treeFor(index)).leaves.get(leaf.uuid)
-    await waitForIndex(index)
+    await waitForIdle(index)
     await (await treeFor(index)).prune({ uuid: updatedResident.parent })
     const deleted = await index.send({ ...envelope, method: 'object.delete', object: { uuid: leaf.uuid } })
     assert.equal(deleted.success, true, deleted.error?.join('; '))
-    await waitForIndex(index)
+    await waitForIdle(index)
     assert.equal(disk.hasLeaf(leaf.uuid), false)
 
     const replacementRequests = []
     index.disk = { async execute(request) { replacementRequests.push(request); return await execute(request) } }
     const replacement = await index.send({ ...envelope, method: 'object.create', object: { value: 'replacement-disk' } })
     assert.equal(replacement.success, true, replacement.error?.join('; '))
-    await waitForIndex(index)
+    await waitForIdle(index)
     assert.ok(replacementRequests.some(request => request.operation === 'write' && request.path.includes('leaves/')))
     assert.ok(replacementRequests.some(request => request.operation === 'write' && request.path.includes('branches/')))
 })
@@ -201,7 +201,7 @@ test('DB without an attached disk operates in memory', async () => {
     assert.equal(db.mode, 'adaptive')
     assert.deepEqual(db.config.memory, { pruneAt: 75, retainAt: 50 })
     assert.equal((await db.send({ ...envelope, method: 'object.read', object: { uuid: created.object[0].uuid } })).success, true)
-    await waitForIndex(db)
+    await waitForIdle(db)
     await db.close()
 })
 
@@ -237,7 +237,7 @@ test('create acknowledges the resident leaf before the queued local disk write, 
     assert.ok(events.length > 0 && events.every(event => event === 'leaf-write-start'), 'leaf writes begin only after the create response has been returned')
 
     releaseWrite()
-    await waitForIndex(index)
+    await waitForIdle(index)
     assert.ok(events.indexOf('leaf-write-end') < events.indexOf('branch-write'), 'leaf write finishes before index branches are written')
     await index.close()
 })
@@ -251,7 +251,7 @@ test('update and delete acknowledge their map mutation before local disk work', 
     const created = await index.send({ ...envelope, method: 'object.create', object: { value: 'before' } })
     assert.equal(created.success, true, created.error?.join('; '))
     const uuid = created.object[0].uuid
-    await waitForIndex(index)
+    await waitForIdle(index)
 
     let releaseLeafWrite
     let beginLeafWrite
@@ -275,7 +275,7 @@ test('update and delete acknowledge their map mutation before local disk work', 
     assert.equal((await (await treeFor(index)).leaves.get(uuid)).value, 'after')
     await leafWriteStarted
     releaseLeafWrite()
-    await waitForIndex(index)
+    await waitForIdle(index)
     assert.equal(JSON.parse(disk.files.get(leafPath(uuid, envelope.organization_id))).object.value, 'after')
 
     let releaseLeafDelete
@@ -299,7 +299,7 @@ test('update and delete acknowledge their map mutation before local disk work', 
     assert.equal(await (await treeFor(index)).leaves.get(uuid), undefined)
     await leafDeleteStarted
     releaseLeafDelete()
-    await waitForIndex(index)
+    await waitForIdle(index)
     assert.equal(disk.hasLeaf(uuid), false)
     assert.equal(leafDeleteCount, 1, 'automatic index work deletes the leaf file only once')
     await index.close()
@@ -324,7 +324,7 @@ test('UUID reads resolve resident memory, local disk, then external persistence 
 
     const seed = await index.send({ ...envelope, method: 'object.create', object: { value: 'local' } })
     externalLeaf.parent = seed.object[0].parent
-    await waitForIndex(index)
+    await waitForIdle(index)
     const first = await index.send({ ...envelope, method: 'object.read', object: { uuid: externalLeaf.uuid } })
     assert.equal(first.success, true, first.error?.join('; '))
     assert.equal(first.object[0].value, 'from-persistence')
@@ -358,7 +358,7 @@ test('Tree queues changed leaf and branch IDs to Persistence after local index w
     assert.equal((await treeFor(index)).persistence, persistence)
     const leafOperations = () => sent.filter(operation => operation.uuid === leaf.uuid)
     assert.equal(leafOperations().length, 0, 'Persistence is notified only after indexing')
-    await waitForIndex(index)
+    await waitForIdle(index)
     assert.equal(leafOperations().length, 1)
     assert.equal(leafOperations()[0].operation, 'write')
     assert.equal(leafOperations()[0].kind, 'leaf')
@@ -375,7 +375,7 @@ test('Tree queues changed leaf and branch IDs to Persistence after local index w
 
     await index.send({ ...envelope, method: 'object.update', object: { uuid: leaf.uuid, value: 'updated' } })
     assert.equal(leafOperations().length, 1, 'Persistence is not notified before the update is indexed')
-    await waitForIndex(index)
+    await waitForIdle(index)
     assert.equal(leafOperations().length, 2)
     assert.equal(leafOperations()[1].operation, 'write')
     assert.equal(Object.hasOwn(leafOperations()[1], 'data'), false)
@@ -386,7 +386,7 @@ test('Tree queues changed leaf and branch IDs to Persistence after local index w
 
     await index.send({ ...envelope, method: 'object.delete', object: { uuid: leaf.uuid } })
     assert.equal(leafOperations().length, 2, 'Persistence is not notified before the deletion is indexed')
-    await waitForIndex(index)
+    await waitForIdle(index)
     assert.equal(leafOperations().length, 3)
     assert.equal(leafOperations()[2].operation, 'delete')
     assert.equal(leafOperations()[2].kind, 'leaf')
@@ -429,7 +429,7 @@ test('disk-first requests acknowledge the live leaf and release it after queued 
 
     assert.equal(response.success, true, response.error?.join('; '))
     assert.equal(typeof response.object[0].getFile, 'function', 'response returns the live Tree leaf')
-    await waitForIndex(index)
+    await waitForIdle(index)
     assert.equal(disk.hasLeaf(response.object[0].uuid), true)
     assert.equal(leafReads, 0, 'index completion releases the in-memory leaf without rereading it')
     const hydrated = await index.send({ ...envelope, method: 'object.read', object: { uuid: response.object[0].uuid } })

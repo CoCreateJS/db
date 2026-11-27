@@ -8,7 +8,7 @@ import Disk from '@cocreate/disk'
 import { createRuntime } from '../../../src/runtime.js'
 import { benchmarkUuid, createBenchmarkRecord, lifecycleRoot } from '../../fixtures/lifecycle.mjs'
 import { nodeMemory } from '../shared/node-memory.mjs'
-import { waitForIndex } from '../shared/wait-for-index.mjs'
+import { waitForIndex, waitForIdle } from '../shared/wait-for-index.mjs'
 
 const size = Number(process.argv[2] ?? 100000)
 if (!Number.isSafeInteger(size) || size < 1) throw Error('Records per organization must be a positive integer')
@@ -79,6 +79,8 @@ try {
         stats.pendingAfterIndexing = tree.pendingIndexCount
     }))
     result.createAndIndexMs = performance.now() - start
+    await waitForIdle(db, { timeoutMs: 1200000 })
+    result.createAndStorageMs = performance.now() - start
     result.allAcknowledgedAtMs = Math.max(...result.organizations.map(stats => stats.allAcknowledgedAtMs))
     result.recordsPerSecond = size * organizationCount / result.createAndIndexMs * 1000
     result.memory.loaded = process.memoryUsage()

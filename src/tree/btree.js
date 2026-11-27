@@ -78,14 +78,14 @@ class Branch {
         }
         return undefined
     }
-    async getData(){
+    getData(){
         if(this.onDisk)throw Error('Index must be loaded before serialization');const data={parent:this.parent?.getUuid()??this.parentUuid??null,previous:this.neighborUuid(-1)??this.previousUuid??null,next:this.neighborUuid(1)??this.nextUuid??null,length:this.length,firstValue:this.firstValue,lastValue:this.lastValue,firstUuid:this.firstUuid,lastUuid:this.lastUuid}
         if(this.branches)data.branches=this.branches.map(p=>this.tree.reference(p))
         else data.entries=this.entries.map(([value,entries])=>[value,entries.map(entry=>entry.uuid)])
         return data
     }
     reference(){return {uuid:this.getUuid(),length:this.length,firstValue:this.firstValue,lastValue:this.lastValue,firstUuid:this.firstUuid,lastUuid:this.lastUuid}}
-    async getFile(){return {uuid:this.getUuid(),content:JSON.stringify(await this.getData())}}
+    getFile(){return {uuid:this.getUuid(),content:JSON.stringify(this.getData())}}
     refreshBounds(){
         this.tree?.local?.dirty.add(this)
         const first=this.branches?.[0],last=this.branches?.at(-1)

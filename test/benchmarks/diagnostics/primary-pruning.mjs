@@ -10,7 +10,7 @@ import { createRuntime } from '../../../src/runtime.js'
 import { treeContexts } from '../../../src/tree/internal.js'
 import { benchmarkUuid, createBenchmarkRecord } from '../../fixtures/lifecycle.mjs'
 import { nodeMemory } from '../shared/node-memory.mjs'
-import { waitForIndex } from '../shared/wait-for-index.mjs'
+import { waitForIdle, waitForIndex } from '../shared/wait-for-index.mjs'
 
 const organizationId = process.env.BENCH_ORGANIZATION_ID ?? '000000000000000000000001'
 const primaryTreeCount = Number(process.env.BENCH_PRIMARY_TREES ?? 40)
@@ -65,6 +65,8 @@ const result = {
 
 let db, telemetry, progress, organization, phaseName = 'initializing', acknowledgedRecords = 0
 let peakResidentPrimaryTrees = 0, maximumPruneCandidates = 0
+const treeSnapshot = () => db.trees.status(organizationId)
+const residentPrimaryTreeCount = () => treeSnapshot().trees.length
 const checked = response => {
     assert.equal(response.success, true, response.error?.join('; '))
     return response
@@ -83,8 +85,9 @@ try {
         server.emit('telemetry', { data: {
             serverId: server.id, workerId: 0, timestamp: new Date().toISOString(), memory: nodeMemory()
         } })
-        peakResidentPrimaryTrees = Math.max(peakResidentPrimaryTrees, organization.trees.size)
-        maximumPruneCandidates = Math.max(maximumPruneCandidates, organization.pruneCandidates.length)
+        const status = treeSnapshot()
+        peakResidentPrimaryTrees = Math.max(peakResidentPrimaryTrees, status.trees.length)
+        maximumPruneCandidates = Math.max(maximumPruneCandidates, status.trees.filter(tree => tree.canDrop).length)
         const last = result.pruningTimeline.at(-1)
         const snapshot = {
             elapsedMs: result.workStartedAt ? Math.round(performance.now() - result.workStartedAt) : 0,
@@ -93,8 +96,8 @@ try {
             pruning: db.memory.pruning,
             pruneCycles: db.memory.pruneCycles,
             treesPruned: db.memory.branchesPruned,
-            residentPrimaryTrees: organization.trees.size,
-            pruneCandidates: organization.pruneCandidates.length
+            residentPrimaryTrees: status.trees.length,
+            pruneCandidates: status.trees.filter(tree => tree.canDrop).length
         }
         if (!last || last.phase !== snapshot.phase || last.pruning !== snapshot.pruning ||
             last.pruneCycles !== snapshot.pruneCycles || last.residentPrimaryTrees !== snapshot.residentPrimaryTrees ||
@@ -110,8 +113,8 @@ try {
 
     progress = setInterval(() => console.log(
         `BENCH_PROGRESS phase=${phaseName} elapsedMs=${Math.round(performance.now() - start)} ` +
-        `acknowledged=${acknowledgedRecords}/${totalRecords} trees=${organization.trees.size}/${primaryTreeCount} ` +
-        `pending=${organization.pendingIndexCount} pruning=${db.memory.pruning} pruned=${db.memory.branchesPruned} ` +
+        `acknowledged=${acknowledgedRecords}/${totalRecords} trees=${residentPrimaryTreeCount()}/${primaryTreeCount} ` +
+        `pendingIndex=${db.pendingIndexCount} pendingDisk=${db.pendingDiskCount} pruning=${db.memory.pruning} pruned=${db.memory.branchesPruned} ` +
         `rssMiB=${Math.round(process.memoryUsage().rss / 1048576)}`
     ), 10000)
 
@@ -161,26 +164,33 @@ try {
 
     await runPhase('cold-tree preload', Array.from({ length: coldTreeCount }, (_, i) => [i, 0, recordsPerTree]))
     phaseName = 'cold-tree index drain'
-    await waitForIndex(organization, { timeoutMs: 1200000, progressMs: 10000 })
-    result.coldTreeDrainPending = organization.pendingIndexCount
+    await waitForIdle(db, { timeoutMs: 1200000 })
+    result.coldTreeDrainPending = db.pendingIndexCount
+    result.coldTreeDrainDiskPending = db.pendingDiskCount
     result.coldTreesIdleSinceRecords = acknowledgedRecords
 
     await runPhase('two-thirds checkpoint', activeTrees.map(index => [index, 0, checkpointAdds.get(index)]))
     assert.equal(acknowledgedRecords, checkpoint)
     phaseName = 'two-thirds checkpoint index drain'
-    await waitForIndex(organization, { timeoutMs: 1200000, progressMs: 10000 })
-    result.checkpointPending = organization.pendingIndexCount
-    result.checkpointTreesResident = organization.trees.size
+    await waitForIdle(db, { timeoutMs: 1200000 })
+    result.checkpointPending = db.pendingIndexCount
+    result.checkpointDiskPending = db.pendingDiskCount
+    result.checkpointTreesResident = residentPrimaryTreeCount()
     result.checkpointTreesPruned = db.memory.branchesPruned
 
     await runPhase('final third', activeTrees.map(index => [index, checkpointAdds.get(index), recordsPerTree - checkpointAdds.get(index)]))
     assert.equal(acknowledgedRecords, totalRecords)
     phaseName = 'final index drain'
-    await waitForIndex(organization, { timeoutMs: 1200000, progressMs: 10000 })
+    await waitForIndex(db, { timeoutMs: 1200000, progressMs: 10000 })
     result.createAndIndexMs = performance.now() - start
     result.recordsPerSecond = totalRecords / result.createAndIndexMs * 1000
-    result.pendingBeforeReadChecks = organization.pendingIndexCount
-    result.residentPrimaryTreesAtIngestEnd = organization.trees.size
+    result.pendingDiskAtIndexReady = db.pendingDiskCount
+    phaseName = 'final disk drain'
+    await waitForIdle(db, { timeoutMs: 1200000 })
+    result.createAndStorageMs = performance.now() - start
+    result.pendingBeforeReadChecks = db.pendingIndexCount
+    result.pendingDiskBeforeReadChecks = db.pendingDiskCount
+    result.residentPrimaryTreesAtIngestEnd = residentPrimaryTreeCount()
     result.primaryTreesPrunedAtIngestEnd = db.memory.branchesPruned
     result.peakResidentPrimaryTrees = peakResidentPrimaryTrees
     result.maximumPruneCandidates = maximumPruneCandidates
@@ -200,13 +210,14 @@ try {
         row.indexedRead = 'passed'
     }
     result.primaryTreeCountObserved = Object.keys(organization.config.top).length
-    result.livePrimaryTreesAfterValidation = organization.trees.size
+    result.livePrimaryTreesAfterValidation = residentPrimaryTreeCount()
     assert.equal(result.primaryTreeCountObserved, primaryTreeCount)
     assert.equal(result.primaryTrees.reduce((sum, tree) => sum + tree.recordsWritten, 0), totalRecords)
-    result.pendingAfterReadChecks = organization.pendingIndexCount
+    result.pendingAfterReadChecks = db.pendingIndexCount
+    result.pendingDiskAfterReadChecks = db.pendingDiskCount
     result.telemetry = { ...db.memory }
     result.correctness = {
-        exactlyOneMillionRecords: true,
+        exactConfiguredRecordCount: acknowledgedRecords === totalRecords,
         oneOrganization: true,
         primaryTreeCountMatched: true,
         allPrimaryTreeUuidReads: 'passed',
@@ -225,11 +236,13 @@ try {
     if (db) await db.close().catch(error => { result.closeError = error.message })
     result.completedAt = new Date().toISOString()
     await writeFile(join(output, 'result.json'), JSON.stringify(result, null, 2) + '\n')
-    const report = `# One organization, one million records with natural primary-tree pruning\n\n` +
+    const report = `# One organization, ${totalRecords.toLocaleString()} records with natural primary-tree pruning\n\n` +
         `Status: ${result.status}. One organization, ${primaryTreeCount} primary trees, ${recordsPerTree.toLocaleString()} records each (${totalRecords.toLocaleString()} total). ` +
         `Cold set: first ${coldTreeCount} trees (${(coldTreeCount * recordsPerTree).toLocaleString()} records) filled and indexed before writes move to the remaining ${primaryTreeCount - coldTreeCount}. ` +
         `At the two-thirds checkpoint (${checkpoint.toLocaleString()} records), writes remain on that active subset. No prune call is made by the benchmark.\n\n` +
         `Create + index wall time: ${result.createAndIndexMs ? (result.createAndIndexMs / 1000).toFixed(2) : 'n/a'} s. ` +
+        `Storage complete: ${result.createAndStorageMs ? (result.createAndStorageMs / 1000).toFixed(2) : 'n/a'} s, ` +
+        `pending disk work at index readiness: ${result.pendingDiskAtIndexReady ?? 'n/a'}. ` +
         `Throughput: ${result.recordsPerSecond?.toFixed(0) ?? 'n/a'} records/s. ` +
         `Peak process RSS: ${result.memory?.peakRssBytes ? (result.memory.peakRssBytes / 1048576).toFixed(1) : 'n/a'} MiB.\n\n` +
         `Natural pruning triggered: ${result.telemetry?.pruneCycles > 0 ? 'yes' : 'no'}. ` +
@@ -245,7 +258,8 @@ try {
 
 console.log(JSON.stringify({
     status: result.status, totalRecords, primaryTreeCount,
-    createAndIndexMs: result.createAndIndexMs, recordsPerSecond: result.recordsPerSecond,
+    createAndIndexMs: result.createAndIndexMs, createAndStorageMs: result.createAndStorageMs,
+    pendingDiskAtIndexReady: result.pendingDiskAtIndexReady, recordsPerSecond: result.recordsPerSecond,
     pruningCycles: result.telemetry?.pruneCycles, treesPruned: result.primaryTreesPrunedAtIngestEnd,
     output, failure: result.failure
 }))

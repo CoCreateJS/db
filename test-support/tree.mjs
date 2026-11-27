@@ -36,6 +36,7 @@ export function inspectOrganization(organization, store = stores.get(organizatio
     const proxy = new Proxy(organization, {
         get(target, property) {
             if (property === 'trees') return tables()
+            if (property === 'pendingDiskCount') return store.status(organization.organizationId).pendingDiskCount
             if (property === 'pendingIndexCount') return store.status(organization.organizationId).pendingIndexCount
             if (property === 'pruneCandidates') return engines().filter(tree => treeContexts.get(tree)?.canDrop)
             if (property === 'getTree') return uuid => store.get(organization.organizationId, uuid, organization.configuration(uuid))

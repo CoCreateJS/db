@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { waitForIndex, waitForCondition } from './benchmarks/shared/wait-for-index.mjs'
+import { waitForIdle, waitForCondition } from './benchmarks/shared/wait-for-index.mjs'
 import planQuery from '../src/tree/planner.js'
 import { createTestTree, inspectTree } from '../test-support/tree.mjs'
 
@@ -16,7 +16,7 @@ test('new CRUD performs full-query matching and mutations through the Tree visit
     assert.equal(created.success, true, created.error?.join('; '))
     assert.equal(created.object.length, 40)
 
-    await waitForIndex(tree)
+    await waitForIdle(tree)
     const rootBranch = await tree.getPrimaryBranch({ ...path, method: 'object.read' })
     const plan = planQuery(rootBranch, { group: 'all', rank: { $gte: 10, $lt: 30 } })
     assert.equal(plan.kind, 'query')
@@ -35,7 +35,7 @@ test('new CRUD performs full-query matching and mutations through the Tree visit
     assert.equal(updated.success, true, updated.error?.join('; '))
     assert.equal(updated.object.length, 20)
 
-    await waitForIndex(tree)
+    await waitForIdle(tree)
     const selected = await tree.execute({
         ...path,
         method: 'object.read',
@@ -51,7 +51,7 @@ test('new CRUD performs full-query matching and mutations through the Tree visit
     assert.equal(deleted.success, true, deleted.error?.join('; '))
     assert.equal(deleted.object.length, 20)
 
-    await waitForIndex(tree)
+    await waitForIdle(tree)
     const remaining = await tree.execute({ ...path, method: 'object.read', filter: { query: { group: 'all' }, limit: 0 } })
     assert.equal(remaining.object.length, 20)
     assert.ok(remaining.object.every(leaf => leaf.active === false))
@@ -67,7 +67,7 @@ test('new CRUD handles UUID finds, route constraints, uniqueness, and unindexed 
     assert.equal((await tree.execute({ ...path, array: 'wrong', method: 'object.read', object: { uuid: 'stable-leaf' } })).object.length, 0)
     assert.equal((await tree.execute({ ...path, method: 'object.create', object: { uuid: 'stable-leaf' } })).success, false)
 
-    await waitForIndex(tree)
+    await waitForIdle(tree)
     const unindexed = await tree.execute({ ...path, method: 'object.read', filter: { query: { value: { $includes: 'first' } }, limit: 0 } })
     assert.equal(unindexed.object.length, 1)
     assert.equal(planQuery(await tree.getPrimaryBranch({ ...path, method: 'object.read' }), { $or: [{ value: 'first' }, { value: 'second' }] }).expression.nodes[0].kind, 'or')
@@ -132,7 +132,7 @@ test('CRUD delegates timestamp reconciliation to Utils and indexes only the appl
         _id: id
     })
 
-    await waitForIndex(tree)
+    await waitForIdle(tree)
     const indexed = await tree.execute({ ...path, method: 'object.read', filter: { query: { available: false }, limit: 0 } })
     assert.equal(indexed.object.length, 1)
 

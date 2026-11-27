@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-27",
+  "branch": "dev",
+  "sourceRevision": "9246710",
+  "worktreeDirty": true,
+  "dirtyPathsAtRun": [
+    "test-support/worker-db.mjs",
+    "test/benchmarks/README.md"
+  ],
+  "node": "v24.18.0",
+  "nodeOptions": "--max-old-space-size-percentage=75",
+  "benchmark": "test-support/worker-db.mjs",
+  "loadOnly": true,
+  "workerCount": 8,
+  "organizationCount": 40,
+  "arrayCount": 40,
+  "recordsPerOrganization": 25000,
+  "totalRecords": 1000000,
+  "createChunkSize": 1000,
+  "transport": "CoCreate Cluster IPC",
+  "fixture": "lifecycle v3 plus table field",
+  "fixtureHash": "ae2057581fe639d69c6f72a3414f5f8fd9750028cf2a380592ed6047769c852e",
+  "workerArrayTreeCounts": {
+    "4": 20,
+    "8": 20
+  },
+  "allPrimaryTreeCounts": {
+    "1": 20,
+    "2": 20,
+    "3": 20,
+    "4": 20,
+    "5": 20,
+    "6": 20,
+    "7": 20,
+    "8": 20
+  },
+  "limitations": [
+    "single sample",
+    "post-index RSS sample rather than peak",
+    "load-only mode skips post-load CRUD and pruning checks",
+    "no HTTP or socket transport",
+    "worker processes ready before benchmark traffic"
+  ]
+}

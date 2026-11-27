@@ -1,0 +1,38 @@
+{
+  "source": "/home/ubuntu/Dev/CoCreateJS/modules/db",
+  "node": "v24.18.0",
+  "records": 10000,
+  "fixtureHash": "767927150f41a6967e99ab0e05f11128ba4f408f1b9bfc5e1fc753a84119ac8f",
+  "acknowledgementMs": 2739.8512029999997,
+  "acknowledgedAtMs": 2777.913195,
+  "searchableMs": 2937.418356,
+  "pendingDiskAtSearchable": 15393,
+  "storageCompleteMs": 5427.627167000001,
+  "peakRssBytes": 299941888,
+  "cpu": {
+    "user": 5994236,
+    "system": 4376293
+  },
+  "io": {
+    "config.read": {
+      "calls": 5,
+      "elapsedMs": 8.781106999999992
+    },
+    "leaf.has": {
+      "calls": 10000,
+      "elapsedMs": 1988179.2419620005
+    },
+    "config.write": {
+      "calls": 9,
+      "elapsedMs": 2946.710311
+    },
+    "leaf.write": {
+      "calls": 10003,
+      "elapsedMs": 56997.26499799996
+    },
+    "branch.write": {
+      "calls": 5385,
+      "elapsedMs": 21846.649999000067
+    }
+  }
+}

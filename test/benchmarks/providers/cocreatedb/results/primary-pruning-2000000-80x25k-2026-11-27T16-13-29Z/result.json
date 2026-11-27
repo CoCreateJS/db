@@ -1,0 +1,809 @@
+{
+  "status": "failed",
+  "startedAt": "2026-11-27T16:13:49.437Z",
+  "organizationCount": 1,
+  "primaryTreeCount": 80,
+  "recordsPerPrimaryTree": 25000,
+  "totalRecords": 2000000,
+  "coldTreeCount": 15,
+  "phaseCheckpointRecords": 1333333,
+  "batchSize": 1000,
+  "processModel": "one organization, one Node DB process, independent top-level primary Trees, one shared disk adapter",
+  "rootConfiguration": {
+    "primary_01": {},
+    "primary_02": {},
+    "primary_03": {},
+    "primary_04": {},
+    "primary_05": {},
+    "primary_06": {},
+    "primary_07": {},
+    "primary_08": {},
+    "primary_09": {},
+    "primary_10": {},
+    "primary_11": {},
+    "primary_12": {},
+    "primary_13": {},
+    "primary_14": {},
+    "primary_15": {},
+    "primary_16": {},
+    "primary_17": {},
+    "primary_18": {},
+    "primary_19": {},
+    "primary_20": {},
+    "primary_21": {},
+    "primary_22": {},
+    "primary_23": {},
+    "primary_24": {},
+    "primary_25": {},
+    "primary_26": {},
+    "primary_27": {},
+    "primary_28": {},
+    "primary_29": {},
+    "primary_30": {},
+    "primary_31": {},
+    "primary_32": {},
+    "primary_33": {},
+    "primary_34": {},
+    "primary_35": {},
+    "primary_36": {},
+    "primary_37": {},
+    "primary_38": {},
+    "primary_39": {},
+    "primary_40": {},
+    "primary_41": {},
+    "primary_42": {},
+    "primary_43": {},
+    "primary_44": {},
+    "primary_45": {},
+    "primary_46": {},
+    "primary_47": {},
+    "primary_48": {},
+    "primary_49": {},
+    "primary_50": {},
+    "primary_51": {},
+    "primary_52": {},
+    "primary_53": {},
+    "primary_54": {},
+    "primary_55": {},
+    "primary_56": {},
+    "primary_57": {},
+    "primary_58": {},
+    "primary_59": {},
+    "primary_60": {},
+    "primary_61": {},
+    "primary_62": {},
+    "primary_63": {},
+    "primary_64": {},
+    "primary_65": {},
+    "primary_66": {},
+    "primary_67": {},
+    "primary_68": {},
+    "primary_69": {},
+    "primary_70": {},
+    "primary_71": {},
+    "primary_72": {},
+    "primary_73": {},
+    "primary_74": {},
+    "primary_75": {},
+    "primary_76": {},
+    "primary_77": {},
+    "primary_78": {},
+    "primary_79": {},
+    "primary_80": {}
+  },
+  "schedule": [
+    {
+      "name": "cold-tree preload",
+      "records": 375000,
+      "trees": [
+        "primary_01",
+        "primary_02",
+        "primary_03",
+        "primary_04",
+        "primary_05",
+        "primary_06",
+        "primary_07",
+        "primary_08",
+        "primary_09",
+        "primary_10",
+        "primary_11",
+        "primary_12",
+        "primary_13",
+        "primary_14",
+        "primary_15"
+      ]
+    },
+    {
+      "name": "two-thirds checkpoint",
+      "records": 1333333,
+      "trees": [
+        "primary_16",
+        "primary_17",
+        "primary_18",
+        "primary_19",
+        "primary_20",
+        "primary_21",
+        "primary_22",
+        "primary_23",
+        "primary_24",
+        "primary_25",
+        "primary_26",
+        "primary_27",
+        "primary_28",
+        "primary_29",
+        "primary_30",
+        "primary_31",
+        "primary_32",
+        "primary_33",
+        "primary_34",
+        "primary_35",
+        "primary_36",
+        "primary_37",
+        "primary_38",
+        "primary_39",
+        "primary_40",
+        "primary_41",
+        "primary_42",
+        "primary_43",
+        "primary_44",
+        "primary_45",
+        "primary_46",
+        "primary_47",
+        "primary_48",
+        "primary_49",
+        "primary_50",
+        "primary_51",
+        "primary_52",
+        "primary_53",
+        "primary_54",
+        "primary_55",
+        "primary_56",
+        "primary_57",
+        "primary_58",
+        "primary_59",
+        "primary_60",
+        "primary_61",
+        "primary_62",
+        "primary_63",
+        "primary_64",
+        "primary_65",
+        "primary_66",
+        "primary_67",
+        "primary_68",
+        "primary_69",
+        "primary_70",
+        "primary_71",
+        "primary_72",
+        "primary_73",
+        "primary_74",
+        "primary_75",
+        "primary_76",
+        "primary_77",
+        "primary_78",
+        "primary_79",
+        "primary_80"
+      ]
+    },
+    {
+      "name": "final third",
+      "records": 666667,
+      "trees": [
+        "primary_16",
+        "primary_17",
+        "primary_18",
+        "primary_19",
+        "primary_20",
+        "primary_21",
+        "primary_22",
+        "primary_23",
+        "primary_24",
+        "primary_25",
+        "primary_26",
+        "primary_27",
+        "primary_28",
+        "primary_29",
+        "primary_30",
+        "primary_31",
+        "primary_32",
+        "primary_33",
+        "primary_34",
+        "primary_35",
+        "primary_36",
+        "primary_37",
+        "primary_38",
+        "primary_39",
+        "primary_40",
+        "primary_41",
+        "primary_42",
+        "primary_43",
+        "primary_44",
+        "primary_45",
+        "primary_46",
+        "primary_47",
+        "primary_48",
+        "primary_49",
+        "primary_50",
+        "primary_51",
+        "primary_52",
+        "primary_53",
+        "primary_54",
+        "primary_55",
+        "primary_56",
+        "primary_57",
+        "primary_58",
+        "primary_59",
+        "primary_60",
+        "primary_61",
+        "primary_62",
+        "primary_63",
+        "primary_64",
+        "primary_65",
+        "primary_66",
+        "primary_67",
+        "primary_68",
+        "primary_69",
+        "primary_70",
+        "primary_71",
+        "primary_72",
+        "primary_73",
+        "primary_74",
+        "primary_75",
+        "primary_76",
+        "primary_77",
+        "primary_78",
+        "primary_79",
+        "primary_80"
+      ]
+    }
+  ],
+  "node": "v24.18.0",
+  "totalMemoryBytes": 33349062656,
+  "configuration": {
+    "mode": "adaptive",
+    "memoryPolicy": "node-wide thresholds",
+    "telemetry": "node used-memory percentage every 100ms",
+    "memory": {
+      "pruneAt": 75,
+      "retainAt": 50
+    }
+  },
+  "worktree": {
+    "baseCommit": "924671008ad75be202dd7307f1e2a216e1dad81b",
+    "dirty": true,
+    "trackedDiffSha256": "d0d098d36302cfb79d1d8284f017a188daf8b974a19cc0022791f84db0371e91",
+    "status": [
+      " M README.md",
+      " M specifications/README.md",
+      " M specifications/architecture.md",
+      " M specifications/indexes.md",
+      " M specifications/mutations.md",
+      " M src/runtime.js",
+      " M src/tree/btree.js",
+      " M src/tree/index.js",
+      " M src/tree/leaf.js",
+      " M src/tree/leaves.js",
+      " M src/tree/local-core.js",
+      " M src/tree/manager.js",
+      " M src/trees.js",
+      " M test-support/tree.mjs",
+      " M test-support/worker-db.mjs",
+      " M test/benchmarks/README.md",
+      " M test/benchmarks/diagnostics/parallel-organizations.mjs",
+      " M test/benchmarks/diagnostics/primary-create.mjs",
+      " M test/benchmarks/diagnostics/primary-pruning.mjs",
+      " M test/benchmarks/providers/cocreatedb/results/README.md",
+      " M test/benchmarks/shared/wait-for-index.mjs",
+      " M test/benchmarks/standard.mjs",
+      " M test/dynamic-scope.test.js",
+      " M test/new-crud.test.js",
+      " M test/new-db.test.js",
+      " M test/new-tree.test.js",
+      " M test/node-memory.test.js",
+      " M test/pending-index.test.js",
+      " M test/primary-trees.test.js",
+      " M test/public-api.test.js",
+      " M test/query-planner.test.js",
+      "?? src/tree/disk.js",
+      "?? test/benchmarks/providers/cocreatedb/results/disk-queue-10k-2026-11-27T16-05-15/baseline-run-1.json",
+      "?? test/benchmarks/providers/cocreatedb/results/disk-queue-10k-2026-11-27T16-05-15/baseline-run-2.json",
+      "?? test/benchmarks/providers/cocreatedb/results/disk-queue-10k-2026-11-27T16-05-15/current-run-1.json",
+      "?? test/benchmarks/providers/cocreatedb/results/disk-queue-10k-2026-11-27T16-05-15/current-run-2.json",
+      "?? test/benchmarks/providers/cocreatedb/results/disk-queue-10k-2026-11-27T16-05-15/report.md",
+      "?? test/benchmarks/providers/cocreatedb/results/worker-organizations-1000000-40x25k-8-workers-2026-11-27T14-13-12/report.md",
+      "?? test/benchmarks/providers/cocreatedb/results/worker-organizations-1000000-40x25k-8-workers-2026-11-27T14-13-12/result.json",
+      "?? test/benchmarks/providers/cocreatedb/results/worker-organizations-1000000-40x25k-8-workers-2026-11-27T14-13-12/run-context.json",
+      "?? test/benchmarks/providers/cocreatedb/results/worker-organizations-2000000-80x25k-4arrays-8-workers-2026-11-27T14-44-47/partial-report.md",
+      "?? test/benchmarks/providers/cocreatedb/results/worker-organizations-2000000-80x25k-4arrays-8-workers-2026-11-27T14-44-47/partial-snapshot.json",
+      "?? test/disk-queue.test.js"
+    ]
+  },
+  "primaryTrees": [
+    {
+      "name": "primary_01",
+      "index": 0,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_02",
+      "index": 1,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_03",
+      "index": 2,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_04",
+      "index": 3,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_05",
+      "index": 4,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_06",
+      "index": 5,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_07",
+      "index": 6,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_08",
+      "index": 7,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_09",
+      "index": 8,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_10",
+      "index": 9,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_11",
+      "index": 10,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_12",
+      "index": 11,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_13",
+      "index": 12,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_14",
+      "index": 13,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_15",
+      "index": 14,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_16",
+      "index": 15,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_17",
+      "index": 16,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_18",
+      "index": 17,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_19",
+      "index": 18,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_20",
+      "index": 19,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_21",
+      "index": 20,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_22",
+      "index": 21,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_23",
+      "index": 22,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_24",
+      "index": 23,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_25",
+      "index": 24,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_26",
+      "index": 25,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_27",
+      "index": 26,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_28",
+      "index": 27,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_29",
+      "index": 28,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_30",
+      "index": 29,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_31",
+      "index": 30,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_32",
+      "index": 31,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_33",
+      "index": 32,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_34",
+      "index": 33,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_35",
+      "index": 34,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_36",
+      "index": 35,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_37",
+      "index": 36,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_38",
+      "index": 37,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_39",
+      "index": 38,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_40",
+      "index": 39,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_41",
+      "index": 40,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_42",
+      "index": 41,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_43",
+      "index": 42,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_44",
+      "index": 43,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_45",
+      "index": 44,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_46",
+      "index": 45,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_47",
+      "index": 46,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_48",
+      "index": 47,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_49",
+      "index": 48,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_50",
+      "index": 49,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_51",
+      "index": 50,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_52",
+      "index": 51,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_53",
+      "index": 52,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_54",
+      "index": 53,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_55",
+      "index": 54,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_56",
+      "index": 55,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_57",
+      "index": 56,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_58",
+      "index": 57,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_59",
+      "index": 58,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_60",
+      "index": 59,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_61",
+      "index": 60,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_62",
+      "index": 61,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_63",
+      "index": 62,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_64",
+      "index": 63,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_65",
+      "index": 64,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_66",
+      "index": 65,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_67",
+      "index": 66,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_68",
+      "index": 67,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_69",
+      "index": 68,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_70",
+      "index": 69,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_71",
+      "index": 70,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_72",
+      "index": 71,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_73",
+      "index": 72,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_74",
+      "index": 73,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_75",
+      "index": 74,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_76",
+      "index": 75,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_77",
+      "index": 76,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_78",
+      "index": 77,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_79",
+      "index": 78,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    },
+    {
+      "name": "primary_80",
+      "index": 79,
+      "expectedRecords": 25000,
+      "phaseRecords": []
+    }
+  ],
+  "phases": [],
+  "pruningTimeline": [],
+  "failure": {
+    "message": "Cannot read properties of undefined (reading 'size')",
+    "stack": "TypeError: Cannot read properties of undefined (reading 'size')\n    at sample (file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/diagnostics/primary-pruning.mjs:86:90)\n    at file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/diagnostics/primary-pruning.mjs:105:5"
+  },
+  "completedAt": "2026-11-27T16:13:49.489Z"
+}

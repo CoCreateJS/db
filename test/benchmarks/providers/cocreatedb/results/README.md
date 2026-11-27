@@ -2,8 +2,15 @@
 
 One newest passing result is retained for each distinct workload. When the same organization count and records per organization were run more than once, the newest run replaces the earlier result. Workloads with the same total records but different organization/record distributions remain separate.
 
+| Workload | Total records | Index-ready lifecycle | Throughput (records/s) | Host CPU average | Report |
+| --- | ---: | ---: | ---: | ---: | --- |
+| 1 organization, 80 arrays × 5,000 | 400,000 | 93.02 s | 4,300 | 18.80% across 8 logical CPUs | [Report](index-lifecycle-400000-80x5000-2026-11-27T17-18-53.547Z/report.md) |
+
+This index-lifecycle diagnostic ends when acknowledgement is complete and the index queue reaches zero. Its report includes per-second CRUD acknowledgement and disk adapter I/O samples, plus the disk queue snapshot at that point; it deliberately does not wait for storage completion. The run used a dirty worktree; its base commit and tracked-diff hash are recorded with the result.
+
 | Workload | Total records | Create + index | Throughput (records/s) | Process RSS | Report |
 | --- | ---: | ---: | ---: | ---: | --- |
+| 40 organizations × 25,000, 8 workers | 1,000,000 | 584.28 s | 1,712 | 6,907 MiB summed sample after indexing | [Report](worker-organizations-1000000-40x25k-8-workers-2026-11-27T14-13-12/report.md) |
 | 1 organization, 4 arrays × 2,500, 1 vs 2 workers | 10,000 | 6.09 / 6.23 s | 1,643 / 1,605 | 358.8 / 416.2 MiB sampled after indexing | [Report](worker-trees-10000-2026-11-27T06-00-14.380Z/README.md) |
 | 1 organization, 40 arrays × 10,000, 2 workers | 400,000 | 239.86 s | 1,668 | 3,948 MiB sampled after indexing | [Report](worker-trees-400000-40-arrays-2026-11-27T13-30-28/report.md) |
 | 1 organization, 40 arrays × 10,000, 4 workers | 400,000 | 230.78 s | 1,733 | 3,335 MiB sampled after indexing | [Report](worker-trees-400000-40-arrays-2026-11-27T13-30-28/report.md) |
@@ -26,6 +33,13 @@ One newest passing result is retained for each distinct workload. When the same 
 
 
 The 20-primary-tree benchmark uses a custom configuration with 20 top-level roots, exactly one live Tree per root, and one organization. Its pre-query index drain reached zero. The update-isolation check afterward left one queued index update; that follow-up queue was outside create-and-index timing.
+
+
+## Partial backlog runs
+
+- 2,000,000 planned creates, one organization, 80 arrays × 25,000, index-lifecycle diagnostic: stopped after about 2m24s before index readiness. Exact create acknowledgements and adapter ops/sec were not captured because the original harness only wrote its report at the end. The remaining temporary directory showed 33 finalized files and 17 staged temp files after termination; these are not a trustworthy throughput measure. [Partial report](index-lifecycle-2000000-80x25000-2026-11-27T17-36-21.871Z/partial-report.md) and [partial snapshot](index-lifecycle-2000000-80x25000-2026-11-27T17-36-21.871Z/partial-result.json).
+- 2,000,000 records, one organization, 80 primary Trees × 25,000, current worktree: all records acknowledged and `pendingIndexCount` reached zero; stopped during disk drain with 918,564 pending/in-flight disk items. [Partial report](primary-pruning-2000000-80x25k-heap23g-2026-11-27T16-21-58Z/partial-report.md) and [raw snapshot](primary-pruning-2000000-80x25k-heap23g-2026-11-27T16-21-58Z/partial-result.json).
+- Same workload with the default Node heap failed at 700,000 acknowledged records with V8 heap exhaustion. [Partial report](primary-pruning-2000000-80x25k-2026-11-27T16-20-00Z/partial-report.md).
 
 The primary-tree pruning diagnostic uses one organization and 40 independently configured top-level primary Trees. It holds 15 early trees idle and directs later writes to the remaining 25; the full million-record load reached natural pruning at the node-memory watermark. The parallel-organization diagnostics use one Node process, concurrent organization Trees, and separate organization directories. Their per-organization timings overlap and must not be summed. They measure create plus index drain, include telemetry and local disk writes, and do not include the standard sustained workload. The 10K standard comparison is a single run on each side; see its report for the comparison limits. These are single-host diagnostics, not multi-node cluster benchmarks. Raw results and run manifests are stored alongside each report.
 

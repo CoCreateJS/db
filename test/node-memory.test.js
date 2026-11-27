@@ -6,7 +6,7 @@ import DB from '@cocreate/db'
 import { databaseRuntimes } from '../src/runtime.js'
 import { treeContexts } from '../src/tree/internal.js'
 import { MemoryDisk } from '../test-support/memory-disk.mjs'
-import { waitForCondition, waitForIndex } from './benchmarks/shared/wait-for-index.mjs'
+import { waitForCondition, waitForIdle } from './benchmarks/shared/wait-for-index.mjs'
 
 function host() {
     const server = new EventEmitter()
@@ -25,7 +25,7 @@ test('node pressure starts at 75%, removes the locally lowest-weight table, and 
     try {
         const hot = await testOrganization(db, 'hot'), cold = await testOrganization(db, 'cold')
         const hotLeaf = (await create(hot)).object[0], coldLeaf = (await create(cold)).object[0]
-        await Promise.all([hot, cold].map(tree => waitForIndex(tree)))
+        await Promise.all([hot, cold].map(tree => waitForIdle(tree)))
         const hotTree = await hot.getTree(hotLeaf.parent)
         for (let i = 0; i < 20; i++) await hotTree.leaves.get(hotLeaf.uuid)
         // Rank data tables, keeping structural tables hot for this assertion.
@@ -91,7 +91,8 @@ test('a queued group remains protected through storage, then becomes eligible wi
             if (result.count) {
                 const remaining = new Set(runtime.trees.status().trees.map(table => table.uuid))
                 for (const table of before) if (!remaining.has(table.uuid)) {
-                    assert.equal(table.pendingIndexCount, 0, 'a batch is not a completed table')
+                    assert.equal(table.pendingIndexCount, 0, 'indexing is complete')
+                    assert.equal(table.pendingDiskCount, 0, 'storage is complete')
                     pruned.push(table.uuid)
                 }
                 sample(50)
@@ -124,7 +125,7 @@ test('dropping below the low watermark while storage is pending prevents evictio
         sample(80)
         sample(50)
         release()
-        await waitForIndex(tree)
+        await waitForIdle(tree)
         assert.equal(await (await tree.getTree(leaf.parent)).leaves.get(leaf.uuid), leaf)
         assert.equal(runtime.memory.branchesPruned, 0)
     } finally { release(); await runtime.close() }
@@ -137,7 +138,7 @@ test('memory-only trees retain their only copy under pressure and pressure never
     try {
         const tree = await testOrganization(db, 'a')
         const leaf = (await create(tree)).object[0]
-        await waitForIndex(tree)
+        await waitForIdle(tree)
         sample(95)
         await new Promise(resolve => setTimeout(resolve, 5))
         assert.equal(runtime.memory.pruning, true)

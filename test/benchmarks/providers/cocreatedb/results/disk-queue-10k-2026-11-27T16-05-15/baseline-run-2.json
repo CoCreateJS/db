@@ -1,0 +1,38 @@
+{
+  "source": "/tmp/db-disk-checkpoint-9246710",
+  "node": "v24.18.0",
+  "records": 10000,
+  "fixtureHash": "767927150f41a6967e99ab0e05f11128ba4f408f1b9bfc5e1fc753a84119ac8f",
+  "acknowledgementMs": 1026.4891980000002,
+  "acknowledgedAtMs": 1062.855165,
+  "searchableMs": 8169.252025,
+  "pendingDiskAtSearchable": null,
+  "storageCompleteMs": 8490.256579,
+  "peakRssBytes": 326885376,
+  "cpu": {
+    "user": 6868644,
+    "system": 5779923
+  },
+  "io": {
+    "config.read": {
+      "calls": 5,
+      "elapsedMs": 5.366226000000026
+    },
+    "leaf.has": {
+      "calls": 10000,
+      "elapsedMs": 404553.8730750019
+    },
+    "config.write": {
+      "calls": 17,
+      "elapsedMs": 1089.2873370000023
+    },
+    "leaf.write": {
+      "calls": 10003,
+      "elapsedMs": 48536.3324720002
+    },
+    "branch.write": {
+      "calls": 7038,
+      "elapsedMs": 5999.54257600005
+    }
+  }
+}

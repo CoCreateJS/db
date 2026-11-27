@@ -6,7 +6,7 @@ import * as api from '@cocreate/db'
 import { Organization } from '../src/organization.js'
 import { treeContexts } from '../src/tree/internal.js'
 import { databaseRuntimes } from '../src/runtime.js'
-import { waitForIndex } from './benchmarks/shared/wait-for-index.mjs'
+import { waitForIdle } from './benchmarks/shared/wait-for-index.mjs'
 import { MemoryDisk } from '../test-support/memory-disk.mjs'
 
 const payload = { organization_id: 'public-org', storage: 'test', database: 'app', array: 'items' }
@@ -27,7 +27,7 @@ test('DB.init is the only DB constructor and returns the thin public interface',
         const primary = await databaseRuntimes.get(db).trees.get(payload.organization_id, created.object[0].parent)
         assert.ok(primary instanceof Tree)
         assert.equal((await primary.leaves.get(created.object[0].uuid)).value, 1)
-        await waitForIndex(databaseRuntimes.get(db))
+        await waitForIdle(databaseRuntimes.get(db))
         assert.equal(databaseRuntimes.get(db).trees.organizations.get(payload.organization_id).get(primary.uuid), primary)
     } finally { await databaseRuntimes.get(db).close() }
 })
@@ -49,7 +49,7 @@ test('each primary Tree owns replaceable stateless execute and planner functions
         const execute = tree.execute
         let calls = 0
         tree.execute = async function(request) { calls++; return execute.call(this, request) }
-        await waitForIndex(databaseRuntimes.get(db))
+        await waitForIdle(databaseRuntimes.get(db))
         const planner = tree.planner
         let planned = 0
         tree.planner = (branch, query, filter) => { planned++; return planner(branch, query, filter) }

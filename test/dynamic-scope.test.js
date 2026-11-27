@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { waitForIndex, waitForCondition } from './benchmarks/shared/wait-for-index.mjs'
+import { waitForIdle, waitForCondition } from './benchmarks/shared/wait-for-index.mjs'
 import DB from '../test-support/database.mjs'
 
 test('organization data uses separate trees and disk directories', async () => {
@@ -12,7 +12,7 @@ test('organization data uses separate trees and disk directories', async () => {
     const context = { organization_id: id, storage: 'main', database: 'app', array: 'products' }
     const result = await db.send({ ...context, method: 'object.create', object: { uuid: 'product' } })
     assert.equal(result.success, true, result.error?.join('; '))
-    await waitForIndex(db)
+    await waitForIdle(db)
     const config = JSON.parse(JSON.stringify(db.config))
     assert.equal(Object.hasOwn(config.roots, '$organization_id'), false)
     assert.deepEqual(Object.keys(config.leaves), [])
@@ -24,7 +24,7 @@ test('organization data uses separate trees and disk directories', async () => {
     assert.equal(platformTree.config.leaves[result.object[0].uuid], undefined)
     assert.equal(Object.hasOwn(result.object[0], 'organization_id'), false)
     assert.ok(Object.hasOwn(organizationTree.config.roots, 'storage'))
-    await waitForIndex(db)
+    await waitForIdle(db)
     const directories = await db.disk.execute({ operation: 'list', kind: 'directory' })
     assert.ok(directories.includes('platform'))
     assert.ok(directories.includes(id))
@@ -42,7 +42,7 @@ test('arbitrary dynamic root names resolve generically at multiple depths', asyn
     const context = { organization_id: 'organization', tenant_id: 'tenant', project_id: 'project' }
     const creation = await db.send({ ...context, method: 'object.create', object: { uuid: 'item' } })
     assert.equal(creation.success, true, creation.error?.join('; '))
-    await waitForIndex(db)
+    await waitForIdle(db)
     const config = (await db.organizations.get('organization')).config.leaves
     const project = config[creation.object[0].parent]
     assert.equal(project.root, '$project_id')

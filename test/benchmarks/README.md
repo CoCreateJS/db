@@ -66,9 +66,26 @@ npm run benchmark:ranges
 npm run benchmark:weighted-eviction -- 10000 0.5
 npm run benchmark:deferred-indexing -- 10000
 npm run benchmark:continuous -- 10000
+npm run benchmark:index-lifecycle
 ```
 
 The diagnostics use `diagnostics/fixtures/residency.mjs`, a richer nested and variable-size fixture that is deliberately separate from the standard provider fixture. Weighted eviction measures index-branch and leaf eviction, disk bytes, hydration, memory and correctness. Deferred indexing measures create, direct UUID read, indexed equality read, update and delete acknowledgement, post-ack index drain, local disk flush, and per-kind leaf/branch/config disk operation counts, bytes and latency percentiles. Create uses generated UUIDs; reads, updates and deletes target those same resident UUIDs. Indexed equality reads sample up to 10K distinct leaves. The benchmark exercises the local Node DB API, not network round trips, client replication or external Persistence. Continuous diagnostics collect mixed CRUD latency, memory samples, policy state, disk usage, swap counters and GC events. `test/weights.test.js` checks ordered weight buckets, lowest-weight selection and skips for candidates touched during an asynchronous eviction. Diagnostic outputs are timestamped under `diagnostics/results/`.
+
+The index-lifecycle diagnostic defaults to one organization, 80 independent primary arrays, and 5,000 records per array. It reports per-second CRUD request/record acknowledgements and all disk adapter operation rates, then measures the overlapping create-and-index lifecycle until all records are acknowledged and `pendingIndexCount` reaches zero. Host-wide average CPU comes from `/proc/stat` across all logical CPUs. Disk operation counts and rates, write bytes, and remaining disk queue items are sampled each second and at the endpoint; the runner terminates without waiting for disk drain. Its current workload is create-only, so read/update/delete phases are explicitly marked not run. These results describe index readiness and outstanding storage work, not completed persistence.
+
+### System capacity benchmark
+
+The system capacity benchmark is a separate versioned fixture and real-worker workload for an end-to-end capacity profile. It measures bulk create acknowledgement latency and records/s, the additional index-drain time, UUID point reads, indexed rank equality reads, update and delete acknowledgement latency and ops/s, a configurable concurrent 25/25/25/25 mixed CRUD window, overall acknowledged request throughput, queue depths, and disk adapter operation counts, bytes, failures and rates during acknowledgement and index-drain windows. It samples whole-host CPU and available memory, primary/worker RSS and heap, per-process CPU, and event-loop delay. The endpoint is taken after the index queues drain; local disk drain is deliberately not awaited, and its pending item count is reported.
+
+Run the default 100K profile (one organization, eight primary arrays, eight workers, 10K point operations per CRUD type):
+
+```sh
+npm run benchmark:system-capacity
+```
+
+The raw result, run metadata, progress log, and Markdown summary are saved together under `providers/cocreatedb/results/system-capacity-<timestamp>/`. Set `DB_RECORDS`, `DB_GROUPS`, `DB_ORGANIZATIONS`, `DB_WORKERS`, `DB_CRUD_OPERATIONS` (or `all`), `DB_CRUD_CONCURRENCY`, `DB_MIXED_MS`, `DB_MIXED_CONCURRENCY`, and `DB_RANDOMIZE_ARRAYS` to shape a run. `DB_OUTPUT_DIR` selects an output directory. For example, the prior 80-array topology with 25K records each can use `DB_RECORDS=2000000 DB_GROUPS=80 DB_WORKERS=8`; do not use that scale without checking host capacity.
+
+The fixture version is recorded in every result; it is not comparable to the shared v3 provider fixture or older lifecycle reports. CRUD point phases use disjoint slices of loaded records, and the mixed workload uses a separate pool. Disk adapter metrics represent local adapter calls, not external Persistence calls or durable completion. This runner does not currently instrument network request ingress or an external persistence provider. The benchmark is an implementation artifact only until explicitly run; saved reports must include the exact run metadata and source revision when comparing changes.
 
 The default requested memory budget is 25% of detected system RAM, capped at startup by memory available to the OS. It is an adaptive pressure target, not a hard RSS cap: eviction is asynchronous and may lag the workload. The DB mode and response acknowledgement are configured independently. Modes are `adaptive` (default), `disk-first`, and `disk-cache`; acknowledgements are `memory` (default) and `disk`. `disk-first` hydrates and processes requests from local Warm state, then writes and prunes it. `disk-cache` uses adaptive Hot/Warm behavior but clears only its managed Warm cache on startup. A `disk` acknowledgement waits for local writes; it does not select or change the mode. External Persistence acknowledgement is not implemented yet. The query-locality diagnostic accepts `--database-mode=adaptive|disk-first|disk-cache` and `--acknowledgement=memory|disk`. These measurements remain separate from standardized provider timings.
 
@@ -77,6 +94,15 @@ The default requested memory budget is 25% of detected system RAM, capped at sta
 The current baseline catalog is [`providers/cocreatedb/results/README.md`](providers/cocreatedb/results/README.md). It retains the latest 10K, 100K, 200K, and concurrent two-organization measurements, with their raw results. The primary 100K baseline is [`standard-2026-11-26T18-39-36.192Z/`](providers/cocreatedb/results/standard-2026-11-26T18-39-36.192Z/). Superseded CoCreateDB results and diagnostic logs were removed; other provider results remain separate. Regenerate reports from their retained manifests and raw files. These are single-run baselines; match workload settings and repeat measurements for comparisons.
 
 The runner also accepts an explicit 200K size (`node test/benchmarks/standard.mjs 200000`). To run the concurrent organization diagnostic, set `BENCH_ORGANIZATIONS` (default 2) and pass the records per organization: `BENCH_ORGANIZATIONS=4 node test/benchmarks/diagnostics/parallel-organizations.mjs 100000`.
+
+The real-worker fixture runner also accepts `DB_WORKERS` (up to 16), `DB_ORGANIZATIONS`, total `DB_GROUPS` arrays, and total `DB_RECORDS`. `DB_RANDOMIZE_ARRAYS=1` uses a deterministic per-organization shuffle to spread each organization's records evenly across its arrays. For example, two million records across 80 organizations, four arrays per organization, and eight workers:
+
+```sh
+NODE_OPTIONS=--max-old-space-size-percentage=75 DB_WORKERS=8 DB_ORGANIZATIONS=80 DB_GROUPS=320 DB_RECORDS=2000000 DB_RANDOMIZE_ARRAYS=1 \
+  node test-support/worker-db.mjs
+```
+
+Each result includes five-second CPU and RSS samples for the primary and every worker. CPU utilization is relative to one logical core. Set `DB_LOAD_ONLY=1` to save a large ingestion/indexing result after queue-drain, placement, and primary-residency checks without running the additional CRUD/pruning diagnostic operations afterward.
 
 ### Query field locality
 
@@ -118,3 +144,7 @@ Reports include acknowledgement wall time, create-and-index wall time, process
 memory samples and matching fixture hashes. One sample per worker count is an
 architectural check, not a scaling claim or a comparison to the old one-table
 standard baseline. Set `BENCH_OUTPUT_DIR` to select the output directory.
+
+### Independent disk queue timing
+
+Current runners distinguish index readiness (`createAndIndexMs`) from disk/Persistence completion (`createAndStorageMs`). The internal `pendingIndexCount` excludes storage; `pendingDiskCount` includes pending and in-flight file operations until the storage batch completes. Tests that require saved files or pruning eligibility use `waitForIdle`; reads never call either observation helper. Historical results are unchanged. A matched 10K comparison is in [disk-queue-10k-2026-11-27T16-05-15](providers/cocreatedb/results/disk-queue-10k-2026-11-27T16-05-15/report.md).

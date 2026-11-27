@@ -253,12 +253,18 @@ class DB {
             ...await this.#request({ method: 'db.tree', server: this.#server.id, worker: workerId,
                 primary: false, broadcast: false, tree: { operation: 'status' } }) })))
         return { workers, trees: workers.flatMap(worker => worker.trees.map(tree => ({ ...tree, workerId: worker.workerId }))),
-            pendingIndexCount: workers.reduce((sum, worker) => sum + worker.pendingIndexCount, 0) }
+            pendingIndexCount: workers.reduce((sum, worker) => sum + worker.pendingIndexCount, 0),
+            pendingDiskCount: workers.reduce((sum, worker) => sum + worker.pendingDiskCount, 0) }
     }
 
     get pendingIndexCount() {
         if (this.#remote) throw new Error('Worker queue observation requires await runtime.status()')
         return this.trees.pendingIndexCount
+    }
+
+    get pendingDiskCount() {
+        if (this.#remote) throw new Error('Worker queue observation requires await runtime.status()')
+        return this.trees.pendingDiskCount
     }
 
     async close() {

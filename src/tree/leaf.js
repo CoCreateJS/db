@@ -140,20 +140,20 @@ Object.defineProperties(prototype,{
         const write=()=>{parent[property]=value}
         if(this[DEFER]){
             if(entry?.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=previous
-            write();await this[Symbol.for("cocreate.markDirty")]?.();this[DEFER].queue(this,new Set([key]))
+            write();this[DEFER].queue(this,new Set([key]))
             return this
         }
         if(entry?.index&&type(entry.value)===type(value)){
-            write();await this[Symbol.for("cocreate.markDirty")]?.()
+            write();
             await entry.tree.move(entry,value,()=>{entry.value=value})
         } else {
-            write();await this[Symbol.for("cocreate.markDirty")]?.()
+            write();
             if(entry?.index)await entry.tree.remove(entry)
             const e=entry??(this[INDEX][key]=new Entry(this,key));e.value=value;await this[ATTACH]?.(e)
         }
         return this
     }},
-    delete:{value:async function(key){const current=await this.toMemory();if(current!==this)return await current.delete(key);if(key===undefined)return await this[Symbol.for("cocreate.deleteLeaf")]();if(await this[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found");if(['uuid','parent','root','_id'].includes(key)||this[STRUCTURAL]&&key==='name')throw Error(`immutable ${key}`);const entry=await this.getIndex(key);if(!entry&&get(this,key)===undefined)return false;const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.'),parent=parts.length===1?this:get(this,parts.slice(0,-1).join('.'));delete parent[parts.at(-1)];await this[Symbol.for("cocreate.markDirty")]?.();if(this[DEFER]){if(entry?.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=entry.value;this[DEFER].queue(this,new Set([key]));return true}if(entry?.index)await entry.tree.remove(entry);delete this[INDEX][key];return true}}
+    delete:{value:async function(key){const current=await this.toMemory();if(current!==this)return await current.delete(key);if(key===undefined)return await this[Symbol.for("cocreate.deleteLeaf")]();if(await this[Symbol.for("cocreate.isLiveLeaf")]?.()===false)throw Error("Leaf not found");if(['uuid','parent','root','_id'].includes(key)||this[STRUCTURAL]&&key==='name')throw Error(`immutable ${key}`);const entry=await this.getIndex(key);if(!entry&&get(this,key)===undefined)return false;const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.'),parent=parts.length===1?this:get(this,parts.slice(0,-1).join('.'));delete parent[parts.at(-1)];if(this[DEFER]){if(entry?.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=entry.value;this[DEFER].queue(this,new Set([key]));return true}if(entry?.index)await entry.tree.remove(entry);delete this[INDEX][key];return true}}
 })
 export function createLeaf(object, structural = false){
     if(Object.getPrototypeOf(object)!==Object.prototype)throw Error('plain object required')
@@ -247,7 +247,7 @@ async function updateScalarLeaf(object,patch,targets){
     const after=valuesAtTargets(object,targets),candidates=new Set([...before.keys(),...after.keys()]),changed=[]
     for(const key of candidates)if(!Object.is(before.get(key),after.get(key))||before.has(key)!==after.has(key))changed.push(key)
     if(!changed.length)return object
-    await object[Symbol.for('cocreate.markDirty')]?.()
+
     if(object[DEFER]){
         for(const key of changed){const entry=index[key];if(entry?.index&&!Object.hasOwn(entry,SNAPSHOT))entry[SNAPSHOT]=before.get(key)}
         object[DEFER].queue(object,changed)
@@ -299,7 +299,6 @@ export async function updateLeaf(object,patch){
             }
         }
         for(const key of after.keys())if(key!=='uuid'&&!index[key])changed.push(key)
-        if(changed.length)await object[Symbol.for("cocreate.markDirty")]?.()
         if(changed.length)object[DEFER].queue(object,changed)
         return object
     }
@@ -310,7 +309,7 @@ export async function updateLeaf(object,patch){
     }
     for(const key of after.keys())if(key!=='uuid'&&!index[key])changed.push(key)
     if(!changed.length)return object
-    await object[Symbol.for("cocreate.markDirty")]?.()
+
     const reinsert=[]
     for(const key of changed){
         let entry=index[key]

@@ -85,8 +85,8 @@ and stop controls. Index/storage completion schedules another local pass while
 pressure remains active. No leaf-only cleanup or partial branch eviction exists.
 
 Active requests and query iterators protect their engine. Pending/in-flight index
-records protect it through leaf writes, reconciliation, changed branch/config
-writes and attached Persistence responses. Partial batch completion never makes
+records protect reconciliation; the independent disk queue protects changed leaf,
+branch/config writes and attached Persistence responses. Partial batch completion never makes
 a still-busy engine eligible. Workers recheck eligibility before removal.
 
 Removal is one Map deletion, without walking branches/leaves, draining busy queues
@@ -105,9 +105,17 @@ reporting protocol. Local runtime queue observation remains synchronous.
 
 Successful mutations acknowledge the owning worker's in-memory change. The reply
 travels back through the primary to the requester without awaiting index/disk
-completion. The worker then writes leaves/deletions, reconciles queued indexes in
-batches, writes changed branches and its Tree config, and notifies Persistence.
-Repeated queued changes coalesce per leaf. Memory acknowledgement does not certify
+completion. The worker reconciles queued indexes in batches and hands changed
+leaves, branches and config to its independent disk queue. Indexing never awaits
+that queue. The queue writes leaves, branches and config, applies deletions, then
+notifies Persistence. It serializes batches within each Tree, with up to 16 disk
+operations across all Trees in one worker.
+Repeated index changes coalesce per leaf. Pending disk operations coalesce per
+UUID, grouped under the primary UUID as `leaves` and `branches` objects, plus
+optional config. File bytes are captured at handoff; the writer does not look
+back into live Tree nodes. New changes accumulate separately from an active batch.
+A failed write leaves the storage batch pending and surfaces from close; there is
+no automatic retry layer. Memory acknowledgement does not certify
 disk durability. No public flush endpoints exist.
 
 Organization metadata writes belong to the primary; engine leaf/index/config

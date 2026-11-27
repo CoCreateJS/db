@@ -4,26 +4,12 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import Disk from '@cocreate/disk'
-import { createBenchmarkRecord, lifecycleRoot } from '../../fixtures/lifecycle.mjs'
-import { waitForIndex } from '../shared/wait-for-index.mjs'
+import { createBenchmarkRecord, lifecycleRoot, benchmarkFixtureHash } from '../../fixtures/lifecycle.mjs'
+import { waitForIdle } from '../shared/wait-for-index.mjs'
 
 const source = resolve(process.argv[2] ?? '.')
 const load = path => import(pathToFileURL(join(source, path)))
 const { createRuntime } = await load('src/runtime.js')
-const { LeafTier } = await load('src/tree/leaves.js')
-const { LocalTier } = await load('src/tree/local-core.js')
-const { Tree: IndexTree } = await load('src/tree/btree.js')
-const stages = {}
-for (const [prototype, name] of [[LeafTier.prototype, 'persistDirty'], [LocalTier.prototype, 'persistDirty'], [IndexTree.prototype, 'insertMany']]) {
-    const label = `${prototype.constructor.name}.${name}`
-    const original = prototype[name]
-    stages[label] = { calls: 0, elapsedMs: 0 }
-    prototype[name] = async function(...args) {
-        const start = performance.now()
-        try { return await original.apply(this, args) }
-        finally { stages[label].calls++; stages[label].elapsedMs += performance.now() - start }
-    }
-}
 const directory = await mkdtemp(join(tmpdir(), 'cocreate-primary-profile-'))
 const adapter = await Disk.init({ directory })
 const io = {}
@@ -47,9 +33,23 @@ try {
         acknowledgementMs += performance.now() - before
         assert.equal(result.success, true, result.error?.join('; '))
     }
-    const drain = performance.now()
-    await waitForIndex(db)
-    const result = { source, records: 10000, acknowledgementMs, drainMs: performance.now() - drain, totalMs: performance.now() - start, cpu: process.cpuUsage(cpu), stages, io }
+    const acknowledgedAtMs = performance.now() - start
+    let found
+    do {
+        found = await db.send({ ...envelope, method: 'object.read', filter: { query: { rank: 9999 }, limit: 1 } })
+        if (performance.now() - start > 120000) throw Error('Index did not become searchable')
+        if (!found.object.length) await new Promise(resolve => setTimeout(resolve, 1))
+    } while (!found.object.length)
+    assert.equal(found.object[0].rank, 9999)
+    const searchableMs = performance.now() - start
+    const pendingDiskAtSearchable = db.pendingDiskCount ?? null
+    await waitForIdle(db, { timeoutMs: 120000 })
+    const storageCompleteMs = performance.now() - start
+    const all = await db.send({ ...envelope, method: 'object.read', filter: { query: { rank: { $gte: 0 } }, limit: 0 } })
+    assert.equal(all.object.length, 10000)
+    const result = { source, node: process.version, records: 10000, fixtureHash: benchmarkFixtureHash(10000), acknowledgementMs, acknowledgedAtMs,
+        searchableMs, pendingDiskAtSearchable, storageCompleteMs, peakRssBytes: process.resourceUsage().maxRSS * 1024,
+        cpu: process.cpuUsage(cpu), io }
     console.log(JSON.stringify(result, null, 2))
     if (process.argv[3]) await writeFile(process.argv[3], JSON.stringify(result, null, 2) + '\n')
 } finally { await db.close(); await rm(directory, { recursive: true, force: true }) }

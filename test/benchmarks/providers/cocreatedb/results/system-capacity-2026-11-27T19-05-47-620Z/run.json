@@ -1,0 +1,31 @@
+{
+  "benchmark": "CoCreateDB system capacity",
+  "startedAt": "2026-11-27T19:05:47.621Z",
+  "node": "v24.18.0",
+  "platform": "linux",
+  "architecture": "x64",
+  "nodeOptions": null,
+  "sourceRevision": "924671008ad75be202dd7307f1e2a216e1dad81b",
+  "workingTreeDirty": true,
+  "host": {
+    "logicalCpus": 8,
+    "cpuModel": "AMD EPYC 7571",
+    "totalMemoryBytes": 33349062656
+  },
+  "settings": {
+    "DB_SYSTEM_BENCHMARK": "1",
+    "DB_RECORDS": "1000000",
+    "DB_GROUPS": "80",
+    "DB_ORGANIZATIONS": "1",
+    "DB_WORKERS": "8",
+    "DB_CRUD_OPERATIONS": "10000",
+    "DB_CRUD_CONCURRENCY": "32",
+    "DB_MIXED_MS": "10000",
+    "DB_MIXED_CONCURRENCY": "8",
+    "DB_RANDOMIZE_ARRAYS": "0",
+    "DB_RESULT": "/home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/providers/cocreatedb/results/system-capacity-2026-11-27T19-05-47-620Z/result.json"
+  },
+  "note": "The runner stops after index readiness and CRUD phases; it does not wait for disk persistence to drain.",
+  "completedAt": "2026-11-27T19:11:17.517Z",
+  "exitCode": 0
+}

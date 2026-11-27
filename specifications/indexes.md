@@ -26,6 +26,6 @@ Before mutating a cold document, affected old index entries are attached by fiel
 
 ## Pruning and active operations
 
-The primary signals pruning at 75% node memory and stops it at 50%. Each worker ranks its own primary Trees by weight; there is no global weight collection. Queued/in-flight work includes local writes and Persistence responses. Active requests and query iterators protect their own engine; counts release in `finally`, including errors and early iterator closure.
+The primary signals pruning at 75% node memory and stops it at 50%. Each worker ranks its own primary Trees by weight; there is no global weight collection. Separate index and disk queues track reconciliation and storage respectively. Pending/in-flight disk work includes local writes and Persistence responses. Indexing continues while disk work is outstanding. Active requests and query iterators protect their own engine; counts release in `finally`, including errors and early iterator closure.
 
 An eligible Tree has no active operations or unfinished storage/indexing. The owning worker deletes its execution registry entry while organization placement remains stable, without traversing indexes or leaves. Nested tables are independent engines and remain available. Saved files/configuration UUIDs support selective hydration into a fresh engine. See [architecture](architecture.md) for residency and retention policy.

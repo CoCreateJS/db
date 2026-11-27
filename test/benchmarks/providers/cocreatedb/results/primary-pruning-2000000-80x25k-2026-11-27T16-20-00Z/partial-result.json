@@ -1,0 +1,32 @@
+{
+  "status": "failed",
+  "failure": "Node JavaScript heap out of memory (default V8 heap limit ~4.3 GiB)",
+  "workload": {
+    "totalRecords": 2000000,
+    "organizationCount": 1,
+    "primaryTrees": 80,
+    "recordsPerTree": 25000,
+    "coldTrees": 15,
+    "activeTrees": 65
+  },
+  "lastProgress": {
+    "phase": "two-thirds checkpoint",
+    "elapsedMs": 265157,
+    "acknowledgedRecords": 700000,
+    "pendingIndexCount": 0,
+    "pendingDiskCount": 489255,
+    "rssMiB": 4184,
+    "pruning": false,
+    "treesPruned": 0
+  },
+  "oomLog": "Fatal V8 error: Ineffective mark-compacts near heap limit; allocation failed - JavaScript heap out of memory. Last GC: 4,073.2 MB -> 4,057.5 MB.",
+  "comparisonContext": {
+    "currentHostRamBytes": 33349062656,
+    "previous1mHostRamBytes": 8218959872,
+    "configuredPruneAtPercent": 75
+  },
+  "limitations": [
+    "The process aborted before queue drain, read validation, or final report.",
+    "Latest progress line is a periodic sample before the OOM, not exact failure-time queue state."
+  ]
+}

@@ -1,0 +1,343 @@
+{
+  "status": "interrupted-before-index-ready",
+  "intendedWorkload": {
+    "organizationCount": 1,
+    "primaryArrays": 80,
+    "recordsPerArray": 25000,
+    "plannedCreateRecords": 2000000,
+    "plannedRequestBatchSize": 500,
+    "plannedCreateCalls": 4000,
+    "updateRequests": 0,
+    "deleteRequests": 0,
+    "readRequests": 0
+  },
+  "runStartedAt": "2026-11-27T17-36-21.871Z",
+  "stoppedAfterApproximatelySeconds": 144,
+  "captureLimit": "The benchmark was terminated before its counters/report were sent to the parent process. Acknowledged creates, CRUD acknowledgements, pending index/disk queue values, and instrumented adapter rates are unavailable.",
+  "lastObservedProcess": {
+    "elapsedSeconds": 134,
+    "rssKiB": 6026784,
+    "observation": "Last ps sample before termination; not a peak measurement.",
+    "processCpuPercentSinceStart": 134
+  },
+  "filesystemSnapshotAfterTermination": {
+    "directory": "/tmp/cocreatedb-index-lifecycle-V4m6xl",
+    "totalBytesOnDisk": 25280,
+    "leafFiles": 50,
+    "finalizedLeafFiles": 32,
+    "stagedTemporaryLeafFiles": 16,
+    "finalizedBytes": 16362,
+    "stagedBytes": 8918,
+    "entries": [
+      {
+        "path": "000000000000000000000001/config.json",
+        "bytes": 1511,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:54.693Z"
+      },
+      {
+        "path": "000000000000000000000001/config.json.49852.51.tmp",
+        "bytes": 1559,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:35.873Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303030.json",
+        "bytes": 393,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.409Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303031.json",
+        "bytes": 523,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.409Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303032.json",
+        "bytes": 506,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.409Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303033.json",
+        "bytes": 490,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.409Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303034.json",
+        "bytes": 474,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.409Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303035.json",
+        "bytes": 459,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.409Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303036.json",
+        "bytes": 441,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.410Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303037.json",
+        "bytes": 427,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.410Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303038.json",
+        "bytes": 410,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.410Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303039.json",
+        "bytes": 394,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.410Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303061.json",
+        "bytes": 525,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.410Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303062.json",
+        "bytes": 510,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.410Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303063.json",
+        "bytes": 492,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.410Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303064.json",
+        "bytes": 478,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.410Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303065.json",
+        "bytes": 461,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.410Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303030303066.json",
+        "bytes": 445,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:12.410Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316138.json",
+        "bytes": 430,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316139.json",
+        "bytes": 415,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316161.json",
+        "bytes": 397,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316162.json",
+        "bytes": 527,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316163.json",
+        "bytes": 510,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316164.json",
+        "bytes": 494,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316165.json",
+        "bytes": 478,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316166.json",
+        "bytes": 463,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316230.json",
+        "bytes": 445,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316231.json",
+        "bytes": 431,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316232.json",
+        "bytes": 416,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316233.json",
+        "bytes": 400,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316234.json",
+        "bytes": 528,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.276Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316235.json",
+        "bytes": 513,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.277Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316236.json",
+        "bytes": 495,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.277Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303036316237.json",
+        "bytes": 481,
+        "temporary": false,
+        "modifiedAt": "2026-11-27T17:37:50.277Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333530.json.49852.35.tmp",
+        "bytes": 462,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.313Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333531.json.49852.36.tmp",
+        "bytes": 446,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.313Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333532.json.49852.37.tmp",
+        "bytes": 430,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.313Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333533.json.49852.38.tmp",
+        "bytes": 415,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.313Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333534.json.49852.39.tmp",
+        "bytes": 397,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.314Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333535.json.49852.40.tmp",
+        "bytes": 527,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.314Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333536.json.49852.41.tmp",
+        "bytes": 510,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.314Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333537.json.49852.42.tmp",
+        "bytes": 494,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.314Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333538.json.49852.43.tmp",
+        "bytes": 478,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.314Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333539.json.49852.44.tmp",
+        "bytes": 463,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.314Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333561.json.49852.45.tmp",
+        "bytes": 447,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.314Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333562.json.49852.46.tmp",
+        "bytes": 433,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.314Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333563.json.49852.47.tmp",
+        "bytes": 416,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.314Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333564.json.49852.48.tmp",
+        "bytes": 400,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.314Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333565.json.49852.49.tmp",
+        "bytes": 528,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.314Z"
+      },
+      {
+        "path": "000000000000000000000001/leaves/3030303030303030303030303030303030303030303030303030303063333566.json.49852.50.tmp",
+        "bytes": 513,
+        "temporary": true,
+        "modifiedAt": "2026-11-27T17:38:31.314Z"
+      }
+    ],
+    "observedAt": "2026-11-27T17:40:26.352Z",
+    "lastFileModifiedAt": "2026-11-27T17:38:35.873Z",
+    "fileArtifacts": 50,
+    "finalizedFileArtifacts": 33,
+    "stagedTemporaryFileArtifacts": 17,
+    "finalizedConfigFiles": 1,
+    "stagedTemporaryConfigFiles": 1
+  },
+  "throughput": "Not captured. Files left in the adapter directory show partial effects after termination, but they are not a reliable substitute for live operation counters or a per-second rate.",
+  "worktreeBaseCommit": "924671008ad75be202dd7307f1e2a216e1dad81b"
+}

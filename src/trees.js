@@ -18,6 +18,13 @@ export class Trees {
         return count
     }
 
+    get pendingDiskCount() {
+        let count = 0
+        for (const tables of this.organizations.values()) for (const tree of tables.values())
+            count += treeContexts.get(tree)?.pendingDiskCount ?? 0
+        return count
+    }
+
     async get(organizationId, uuid, config) {
         let tables = this.organizations.get(organizationId)
         if (!tables) this.organizations.set(organizationId, tables = new Map())
@@ -51,11 +58,12 @@ export class Trees {
             for (const tree of tables.values()) {
                 const context = treeContexts.get(tree)
                 trees.push({ organization_id: id, uuid: tree.uuid, weight: tree.weight, active: tree.active,
-                    pendingIndexCount: context?.pendingIndexCount ?? 0, canDrop: context?.canDrop ?? false,
+                    pendingIndexCount: context?.pendingIndexCount ?? 0, pendingDiskCount: context?.pendingDiskCount ?? 0, canDrop: context?.canDrop ?? false,
                     leafCount: context?.leafCount ?? 0 })
             }
         }
-        return { trees, pendingIndexCount: trees.reduce((sum, tree) => sum + tree.pendingIndexCount, 0), pruned: this.pruned }
+        return { trees, pendingIndexCount: trees.reduce((sum, tree) => sum + tree.pendingIndexCount, 0),
+            pendingDiskCount: trees.reduce((sum, tree) => sum + tree.pendingDiskCount, 0), pruned: this.pruned }
     }
 
     prune({ organization_id, uuid, limit = Infinity } = {}) {
@@ -115,7 +123,7 @@ export class Trees {
                 case 'execute': return await tree.execute(request)
                 case 'hasRoot': return await context.hasRoot(request)
                 case 'configure': return await context.configureRoots(roots)
-                case 'occupied': return context.pendingIndexCount > 0 || tree.active > 1 || context.leafCount > 0 ||
+                case 'occupied': return context.pendingIndexCount > 0 || context.pendingDiskCount > 0 || tree.active > 1 || context.leafCount > 0 ||
                     tree.config.indexes.some(index => index.key === 'root' && index.count > 0)
                 default: throw new Error(`Unsupported Tree operation: ${operation}`)
             }

@@ -25,7 +25,6 @@ export class Tree {
             config: {},
             leaves: new Map(),
             tree: new Map(),
-            deleting: new Set(),
             readExternal: undefined
         }
         this.uuid = undefined
@@ -64,7 +63,6 @@ export class Tree {
             config,
             leaves: new Map(),
             tree: new Map(),
-            deleting: new Set(),
             readExternal: undefined
         }
         if (this.#disk && !this.#database.local) this.#attachDisk()
@@ -73,13 +71,7 @@ export class Tree {
             owner: this,
             size: this.#size,
             leafSize: this.#leafSize,
-            persistConfig: async () => {
-                const data = JSON.stringify(this.#database.config)
-                await Promise.all([
-                    executeDisk(this, { operation: 'write', kind: 'config', data }),
-                    this.persistence.execute({ operation: 'write', kind: 'config', uuid: this.uuid, data, ...(this.organizationId === undefined ? {} : { organization_id: this.organizationId }) })
-                ])
-            },
+            write: operation => executeDisk(this, operation),
             persist: operation => this.persistence.execute({ ...operation, ...(this.organizationId === undefined ? {} : { organization_id: this.organizationId }) }),
             onIdle: async () => {
                 this.#onIndexed?.()
@@ -97,18 +89,18 @@ export class Tree {
         treeContexts.set(this, {
             leaves: { get: this.#manager.getLeaf, has: this.#manager.hasLeaf },
             branches: this.#branches,
-            get canDrop() { return !!tree.#disk && !tree.active && !tree.#manager.pendingIndex.size &&
-                !tree.#database.leaves.dirty?.size && !tree.#database.leaves.writeLocks?.size &&
-                !tree.#database.leaves.pendingDeletes?.size && !tree.#database.local.dirty.size && !tree.#database.local.pendingDiscards.size },
+            get canDrop() { return !!tree.#disk && !tree.active && !tree.#manager.pendingIndex.size && !tree.#manager.disk.size },
             get diskFirst() { return tree.#diskFirst },
             get leafCount() { return tree.#database.leaves.size },
-            referenceLeaf: uuid => Map.prototype.get.call(tree.#database.leaves, uuid),
+            referenceLeaf: uuid => Map.prototype.get.call(tree.#database.leaves, uuid) ?? tree.#database.deleted.get(uuid),
             set onIndexed(callback) { tree.#onIndexed = callback },
             operation: this.#manager.operation,
             configureRoots: this.#manager.configureRoots,
             hasRoot: this.#manager.hasRoot,
             get planner() { return tree.planner },
             get pendingIndexCount() { return tree.#manager.pendingIndex.size },
+            get pendingDiskCount() { return tree.#manager.disk.size },
+            get pendingDisk() { return tree.#manager.disk },
             getPrimaryBranch: this.#getPrimaryBranch.bind(this),
             range: this.#range.bind(this),
             rangeLeaves: this.#rangeLeaves.bind(this),
@@ -127,7 +119,6 @@ export class Tree {
         if (options.diskFirst) this.setDiskFirst(true)
         this.#setExternalRead()
         if (this.#database.local) this.#database.local.resolveLeaf = async id => await this.#manager.getLeaf(id) ?? this.#database.deleted?.get(id)
-        if (this.#database.leaves instanceof LeafTier) this.#database.leaves.pending = this.#manager.pendingIndex
         return this
     }
 
@@ -165,11 +156,11 @@ export class Tree {
         const leaves = new LeafTier(local)
         leaves.restore = previous.restore
         leaves.belongs = previous.belongs
+        leaves.deleted = this.#database.deleted
         for (const [uuid, leaf] of previous) leaves.set(uuid, leaf)
         this.#database.local = local
         this.#database.leaves = leaves
         if (this.#manager) {
-            leaves.pending = this.#manager.pendingIndex
             local.resolveLeaf = async id => await this.#manager.getLeaf(id) ?? this.#database.deleted?.get(id)
         }
     }

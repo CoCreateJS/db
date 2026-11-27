@@ -15,6 +15,15 @@ export async function waitForIndex(resource, { timeoutMs = Number(process.env.BE
     }
 }
 
+/** Wait for both queues when a test needs stored files or eviction eligibility. */
+export async function waitForIdle(resource, { timeoutMs = Number(process.env.BENCH_INDEX_TIMEOUT_MS ?? 30_000) } = {}) {
+    const started = Date.now()
+    while (resource?.pendingIndexCount || resource?.pendingDiskCount) {
+        if (Date.now() - started >= timeoutMs) throw new Error('Index/disk queues did not catch up')
+        await new Promise(resolve => setImmediate(resolve))
+    }
+}
+
 export async function waitForCondition(predicate, { timeoutMs = 5_000 } = {}) {
     const started = Date.now()
     while (!predicate()) {

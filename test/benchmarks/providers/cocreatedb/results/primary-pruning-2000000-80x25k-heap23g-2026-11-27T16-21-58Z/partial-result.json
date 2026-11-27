@@ -1,0 +1,60 @@
+{
+  "status": "partial-stopped-during-disk-drain",
+  "workload": {
+    "totalRecords": 2000000,
+    "organizations": 1,
+    "primaryTrees": 80,
+    "recordsPerTree": 25000,
+    "coldTrees": 15,
+    "activeTrees": 65,
+    "heapOption": "--max-old-space-size=23000",
+    "heapLimitObservedMiB": 23192
+  },
+  "phaseDurationsMs": {
+    "coldTreePreload": 76408.67,
+    "twoThirdsCheckpointWrites": 252010.31,
+    "finalThirdWrites": 208767.05
+  },
+  "phaseRecords": {
+    "coldTreePreload": 375000,
+    "twoThirdsCheckpointWrites": 958333,
+    "finalThirdWrites": 666667
+  },
+  "indexReadiness": {
+    "pendingIndexCount": 0,
+    "elapsedMsRange": [
+      1166996,
+      1176996
+    ],
+    "note": "All 2,000,000 records were acknowledged and the benchmark advanced into the final disk drain. The script did not emit its exact internal createAndIndexMs before interruption."
+  },
+  "latestProgress": {
+    "elapsedMs": 1226995,
+    "phase": "final disk drain",
+    "acknowledgedRecords": 2000000,
+    "pendingIndexCount": 0,
+    "pendingDiskCount": 918564,
+    "residentPrimaryTrees": 80,
+    "pruning": false,
+    "treesPruned": 0,
+    "rssMiB": 11398
+  },
+  "earlierFinalDrainProgress": {
+    "elapsedMs": 1206996,
+    "pendingDiskCount": 1030970,
+    "rssMiB": 11360
+  },
+  "hostIoSampleDuringCheckpointDrain": {
+    "cpuIoWaitPercent": 11.35,
+    "nvmeWritesPerSecond": 4456,
+    "nvmeWriteKiBPerSecond": 39068,
+    "nvmeUtilizationPercent": 53.1,
+    "writeAwaitMs": 3.83,
+    "approxElapsedMs": 854800
+  },
+  "interpretationLimits": [
+    "Stopped at user request during final storage drain; pending disk operations remained.",
+    "No end-of-storage timing, read validation, final tree status, or completed result JSON was available.",
+    "pendingDiskCount includes pending and in-flight records; it updates at batch boundaries, so it is not a per-write progress counter."
+  ]
+}
