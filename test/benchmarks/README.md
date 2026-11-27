@@ -25,7 +25,7 @@ Run CoCreateDB:
 npm run benchmark:standard
 ```
 
-The CoCreateDB runner uses the public `DB.init()` entry and sends timed requests through `db.send()` to the organization's `tree.execute()`. It asserts the thin DB shape, verifies organization Tree access, and runs direct Tree create/read/update/delete checks after the timed workloads. Queue completion and telemetry are observed through internal diagnostics; request processing uses the public API. Raw metadata records whether the working tree contains uncommitted changes.
+The CoCreateDB runner uses the public `DB.init()` entry and sends timed requests through `db.send()` through organization routing to the selected primary's `tree.execute()`. It asserts the thin DB shape, verifies organization routing and independent primary Tree access, and runs direct Tree create/read/update/delete checks after the timed workloads. Queue completion and telemetry are observed through internal diagnostics; request processing uses the public API. Raw metadata records whether the working tree contains uncommitted changes.
 
 Run one 100K public API pass with the standard sustained settings:
 

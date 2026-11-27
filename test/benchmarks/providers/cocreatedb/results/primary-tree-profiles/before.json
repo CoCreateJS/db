@@ -1,0 +1,43 @@
+{
+  "source": "/tmp/cocreate-primary-checkpoint-N2xchX",
+  "records": 10000,
+  "acknowledgementMs": 1248.1736130000004,
+  "drainMs": 6491.072515,
+  "totalMs": 7780.583931,
+  "cpu": {
+    "user": 7931535,
+    "system": 3762516
+  },
+  "stages": {
+    "LeafTier.persistDirty": {
+      "calls": 19,
+      "elapsedMs": 2641.2504419999977
+    },
+    "LocalTier.persistDirty": {
+      "calls": 10,
+      "elapsedMs": 3641.6163760000004
+    },
+    "Tree.insertMany": {
+      "calls": 176,
+      "elapsedMs": 743.0697319999999
+    }
+  },
+  "io": {
+    "leaf.has": {
+      "calls": 10000,
+      "elapsedMs": 500989.2260210015
+    },
+    "leaf.write": {
+      "calls": 10003,
+      "elapsedMs": 41829.13668200001
+    },
+    "branch.write": {
+      "calls": 7036,
+      "elapsedMs": 3383.618410999994
+    },
+    "config.write": {
+      "calls": 10,
+      "elapsedMs": 4.929265000000669
+    }
+  }
+}

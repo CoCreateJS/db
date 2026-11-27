@@ -1,0 +1,47 @@
+{
+  "source": "/home/ubuntu/Dev/CoCreateJS/modules/db",
+  "records": 10000,
+  "acknowledgementMs": 1251.8621890000002,
+  "drainMs": 6456.439895,
+  "totalMs": 7750.908216,
+  "cpu": {
+    "user": 7787132,
+    "system": 3786650
+  },
+  "stages": {
+    "LeafTier.persistDirty": {
+      "calls": 22,
+      "elapsedMs": 4011.205911000002
+    },
+    "LocalTier.persistDirty": {
+      "calls": 13,
+      "elapsedMs": 5952.335505999999
+    },
+    "Tree.insertMany": {
+      "calls": 178,
+      "elapsedMs": 824.261237
+    }
+  },
+  "io": {
+    "config.read": {
+      "calls": 5,
+      "elapsedMs": 8.015421000000032
+    },
+    "leaf.has": {
+      "calls": 10000,
+      "elapsedMs": 513453.69029299926
+    },
+    "config.write": {
+      "calls": 17,
+      "elapsedMs": 1306.7446379999992
+    },
+    "leaf.write": {
+      "calls": 10003,
+      "elapsedMs": 42992.3078280001
+    },
+    "branch.write": {
+      "calls": 7038,
+      "elapsedMs": 5689.457119000062
+    }
+  }
+}

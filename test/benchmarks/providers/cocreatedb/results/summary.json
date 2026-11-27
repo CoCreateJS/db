@@ -534,6 +534,12 @@
       "directory": "parallel-organizations-10x100k-2026-11-27T01-30-11.568Z",
       "report": "parallel-organizations-10x100k-2026-11-27T01-30-11.568Z/report.md",
       "raw": "parallel-organizations-10x100k-2026-11-27T01-30-11.568Z/result.json"
+    },
+    "parallel-40-organizations-10000-each": {
+      "directory": "parallel-organizations-40x10k-2026-11-27T04-02-03.670Z",
+      "report": "parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/report.md",
+      "raw": "parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/result.json",
+      "context": "parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/run-context.json"
     }
   },
   "latestParallelResults": [
@@ -666,17 +672,58 @@
       "raw": "parallel-organizations-16x25k-2026-11-27T02-53-13.516Z/result.json"
     },
     {
-      "directory": "parallel-organizations-40x10k-2026-11-27T03-02-12.476Z",
+      "directory": "parallel-organizations-40x10k-2026-11-27T04-02-03.670Z",
       "status": "passed",
       "organizations": 40,
       "recordsPerOrganization": 10000,
       "totalRecords": 400000,
-      "createAndIndexMs": 227987.57631,
-      "recordsPerSecond": 1754.48156638198,
-      "peakRssBytes": 2964312064,
+      "createAndIndexMs": 232583.702432,
+      "recordsPerSecond": 1719.810957592556,
+      "peakRssBytes": 3250831360,
       "pruning": false,
-      "report": "parallel-organizations-40x10k-2026-11-27T03-02-12.476Z/report.md",
-      "raw": "parallel-organizations-40x10k-2026-11-27T03-02-12.476Z/result.json"
+      "report": "parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/report.md",
+      "raw": "parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/result.json",
+      "context": "parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/run-context.json"
+    }
+  ],
+  "primaryTreeResults": [
+    {
+      "directory": "primary-trees-1org-20x20k-2026-11-27T04-25-57.624Z",
+      "status": "passed",
+      "organizations": 1,
+      "primaryTreesConfigured": 20,
+      "primaryTreesObserved": 20,
+      "recordsPerPrimaryTree": 20000,
+      "totalRecords": 400000,
+      "createAndIndexMs": 232308.657194,
+      "recordsPerSecond": 1721.8471529709789,
+      "peakRssBytes": 2251182080,
+      "pruning": false,
+      "report": "primary-trees-1org-20x20k-2026-11-27T04-25-57.624Z/report.md",
+      "raw": "primary-trees-1org-20x20k-2026-11-27T04-25-57.624Z/result.json",
+      "worktreeBase": "1a6cfda1eb3a98278cf52b7ac6ecf7de56594026",
+      "worktreeDirty": true,
+      "postValidationPending": 1
+    },
+    {
+      "directory": "primary-pruning-2026-11-27T04-51-37.070Z",
+      "status": "passed",
+      "organizations": 1,
+      "primaryTreesConfigured": 40,
+      "recordsPerPrimaryTree": 25000,
+      "totalRecords": 1000000,
+      "coldTreeCount": 15,
+      "checkpointRecords": 666666,
+      "createAndIndexMs": 831905.067029,
+      "recordsPerSecond": 1202.060234554552,
+      "peakRssBytes": 5114011648,
+      "pruningTriggered": true,
+      "treesPruned": 15,
+      "peakNodeUsedPercent": 83.06732543200329,
+      "report": "primary-pruning-2026-11-27T04-51-37.070Z/report.md",
+      "raw": "primary-pruning-2026-11-27T04-51-37.070Z/result.json",
+      "worktreeBase": "1a6cfda1eb3a98278cf52b7ac6ecf7de56594026",
+      "worktreeDirty": true
     }
   ]
 }

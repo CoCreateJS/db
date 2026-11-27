@@ -5,7 +5,6 @@ import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir, totalmem } from 'node:os'
 import Disk from '@cocreate/disk'
-import { treeContexts } from '../../../src/tree/internal.js'
 import { createRuntime } from '../../../src/runtime.js'
 import { benchmarkUuid, createBenchmarkRecord, lifecycleRoot } from '../../fixtures/lifecycle.mjs'
 import { nodeMemory } from '../shared/node-memory.mjs'
@@ -47,7 +46,7 @@ try {
     telemetry = setInterval(sample, 100)
     const states = await Promise.all(Array.from({ length: organizationCount }, (_, index) => index + 1).map(async number => {
         const root = { ...lifecycleRoot(size), organization_id: number.toString(16).padStart(24, '0') }
-        return { root, tree: treeContexts.get(await db.organizations.get(root.organization_id)), number }
+        return { root, tree: await db.organizations.get(root.organization_id), number }
     }))
     result.memory = { idle: process.memoryUsage() }
     const start = performance.now()

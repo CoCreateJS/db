@@ -11,12 +11,19 @@ One newest passing result is retained for each distinct workload. When the same 
 | 200,000, one organization | 200,000 | 204.96 s | 976 | 1552.0 MiB | [Report](standard-2026-11-26T18-22-05.815Z/report.md) |
 | 3 × 100,000 | 300,000 | 200.43 s | 1,497 | 2478.3 MiB | [Report](parallel-organizations-3x100k-2026-11-27T02-28-23.492Z/report.md) |
 | 1 × 400,000 | 400,000 | 392.20 s | 1,020 | 2163.0 MiB | [Report](single-organization-400k-2026-11-27T02-35-21.844Z/report.md) |
+| 20 primary trees, one organization × 20,000 | 400,000 | 232.31 s | 1,722 | 2146.9 MiB | [Report](primary-trees-1org-20x20k-2026-11-27T04-25-57.624Z/report.md) |
 | 16 × 25,000 | 400,000 | 231.57 s | 1,727 | 2852.9 MiB | [Report](parallel-organizations-16x25k-2026-11-27T02-53-13.516Z/report.md) |
 | 4 × 100,000 | 400,000 | 262.44 s | 1,524 | 2750.4 MiB | [Report](parallel-organizations-4x100k-2026-11-27T02-11-27.956Z/report.md) |
-| 40 × 10,000 | 400,000 | 227.99 s | 1,754 | 2827.0 MiB | [Report](parallel-organizations-40x10k-2026-11-27T03-02-12.476Z/report.md) |
+| 40 × 10,000 | 400,000 | 232.58 s | 1,720 | 3100.2 MiB | [Report](parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/report.md) |
 | 8 × 50,000 | 400,000 | 239.81 s | 1,668 | 3000.5 MiB | [Report](parallel-organizations-8x50k-2026-11-27T02-47-01.100Z/report.md) |
 | 5 × 100,000 | 500,000 | 339.01 s | 1,475 | 3125.0 MiB | [Report](parallel-organizations-5x100k-2026-11-27T02-18-07.582Z/report.md) |
 | 8 × 100,000 | 800,000 | 670.57 s | 1,193 | 4152.3 MiB | [Report](parallel-organizations-8x100k-2026-11-26T21-58-36.676Z/report.md) |
 | 10 × 100,000 | 1,000,000 | 927.76 s | 1,078 | 5422.9 MiB | [Report](parallel-organizations-10x100k-2026-11-27T01-30-11.568Z/report.md) |
+| Natural-pruning workload: 40 primary trees × 25,000 | 1,000,000 | 831.91 s | 1,202 | 4877.1 MiB | [Report](primary-pruning-2026-11-27T04-51-37.070Z/report.md) |
 
-The parallel diagnostics use one Node process, concurrent organization Trees, and separate organization directories. Their per-organization timings overlap and must not be summed. They measure create plus index drain, include telemetry and local disk writes, and do not include the standard sustained workload. The 10K standard comparison is a single run on each side; see its report for the comparison limits. These are single-host diagnostics, not multi-node cluster benchmarks. Raw results and run manifests are stored alongside each report.
+
+The 20-primary-tree benchmark uses a custom configuration with 20 top-level roots, exactly one live Tree per root, and one organization. Its pre-query index drain reached zero. The update-isolation check afterward left one queued index update; that follow-up queue was outside create-and-index timing.
+
+The primary-tree pruning diagnostic uses one organization and 40 independently configured top-level primary Trees. It holds 15 early trees idle and directs later writes to the remaining 25; the full million-record load reached natural pruning at the node-memory watermark. The parallel-organization diagnostics use one Node process, concurrent organization Trees, and separate organization directories. Their per-organization timings overlap and must not be summed. They measure create plus index drain, include telemetry and local disk writes, and do not include the standard sustained workload. The 10K standard comparison is a single run on each side; see its report for the comparison limits. These are single-host diagnostics, not multi-node cluster benchmarks. Raw results and run manifests are stored alongside each report.
+
+The latest 40 × 10K pass was run against the uncommitted worktree based on 1a6cfda. Its captured worktree state is in [run context](parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/run-context.json).

@@ -206,7 +206,6 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         result.readiness = { readyMs: performance.now() - readyStart, ready: true }
         tree = await db.organizations.get(root.organization_id)
         assert.equal(typeof tree.execute, 'function')
-        assert.equal(typeof tree.planner, 'function')
         result.memory = { idle: idleMemory }
 
         const seed = {
@@ -217,6 +216,8 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         }
         const firstCreateStart = performance.now()
         const firstCreate = assertResponse(await send({ ...root, method: 'object.create', object: seed }), 'first object create')
+        tree = await tree.getTree(firstCreate.object[0].parent)
+        assert.equal(typeof tree.planner, 'function')
         result.firstObjectCreateMs = performance.now() - firstCreateStart
         assert.equal(firstCreate.object.length, 1)
 
@@ -419,7 +420,7 @@ async function runOne(size, runIndex, outputFile, { samples, warmups, sustainMs,
         clearInterval(telemetryTimer)
         telemetryTimer = undefined
         await waitForIndex(runtime)
-        await tree.close()
+        await runtime.close()
         await runtime.close()
         result.memoryPolicy.telemetry = {
             nodeUsedPercent: runtime.memory.nodeUsedPercent,

@@ -1,0 +1,2341 @@
+{
+  "status": "passed",
+  "startedAt": "2026-11-27T04:51:37.070Z",
+  "organizationCount": 1,
+  "primaryTreeCount": 40,
+  "recordsPerPrimaryTree": 25000,
+  "totalRecords": 1000000,
+  "coldTreeCount": 15,
+  "phaseCheckpointRecords": 666666,
+  "batchSize": 1000,
+  "processModel": "one organization, one Node DB process, independent top-level primary Trees, one shared disk adapter",
+  "rootConfiguration": {
+    "primary_01": {},
+    "primary_02": {},
+    "primary_03": {},
+    "primary_04": {},
+    "primary_05": {},
+    "primary_06": {},
+    "primary_07": {},
+    "primary_08": {},
+    "primary_09": {},
+    "primary_10": {},
+    "primary_11": {},
+    "primary_12": {},
+    "primary_13": {},
+    "primary_14": {},
+    "primary_15": {},
+    "primary_16": {},
+    "primary_17": {},
+    "primary_18": {},
+    "primary_19": {},
+    "primary_20": {},
+    "primary_21": {},
+    "primary_22": {},
+    "primary_23": {},
+    "primary_24": {},
+    "primary_25": {},
+    "primary_26": {},
+    "primary_27": {},
+    "primary_28": {},
+    "primary_29": {},
+    "primary_30": {},
+    "primary_31": {},
+    "primary_32": {},
+    "primary_33": {},
+    "primary_34": {},
+    "primary_35": {},
+    "primary_36": {},
+    "primary_37": {},
+    "primary_38": {},
+    "primary_39": {},
+    "primary_40": {}
+  },
+  "schedule": [
+    {
+      "name": "cold-tree preload",
+      "records": 375000,
+      "trees": [
+        "primary_01",
+        "primary_02",
+        "primary_03",
+        "primary_04",
+        "primary_05",
+        "primary_06",
+        "primary_07",
+        "primary_08",
+        "primary_09",
+        "primary_10",
+        "primary_11",
+        "primary_12",
+        "primary_13",
+        "primary_14",
+        "primary_15"
+      ]
+    },
+    {
+      "name": "two-thirds checkpoint",
+      "records": 666666,
+      "trees": [
+        "primary_16",
+        "primary_17",
+        "primary_18",
+        "primary_19",
+        "primary_20",
+        "primary_21",
+        "primary_22",
+        "primary_23",
+        "primary_24",
+        "primary_25",
+        "primary_26",
+        "primary_27",
+        "primary_28",
+        "primary_29",
+        "primary_30",
+        "primary_31",
+        "primary_32",
+        "primary_33",
+        "primary_34",
+        "primary_35",
+        "primary_36",
+        "primary_37",
+        "primary_38",
+        "primary_39",
+        "primary_40"
+      ]
+    },
+    {
+      "name": "final third",
+      "records": 333334,
+      "trees": [
+        "primary_16",
+        "primary_17",
+        "primary_18",
+        "primary_19",
+        "primary_20",
+        "primary_21",
+        "primary_22",
+        "primary_23",
+        "primary_24",
+        "primary_25",
+        "primary_26",
+        "primary_27",
+        "primary_28",
+        "primary_29",
+        "primary_30",
+        "primary_31",
+        "primary_32",
+        "primary_33",
+        "primary_34",
+        "primary_35",
+        "primary_36",
+        "primary_37",
+        "primary_38",
+        "primary_39",
+        "primary_40"
+      ]
+    }
+  ],
+  "node": "v24.18.0",
+  "totalMemoryBytes": 8218959872,
+  "configuration": {
+    "mode": "adaptive",
+    "memoryPolicy": "node-wide thresholds",
+    "telemetry": "node used-memory percentage every 100ms",
+    "memory": {
+      "pruneAt": 75,
+      "retainAt": 50
+    }
+  },
+  "worktree": {
+    "baseCommit": "1a6cfda1eb3a98278cf52b7ac6ecf7de56594026",
+    "dirty": true,
+    "trackedDiffSha256": "cfdfdf84a6a218257c860ad67d9e88ef33f8b1ad5c708082430601936a198cac",
+    "status": [
+      " M README.md",
+      " M specifications/architecture.md",
+      " M specifications/data.md",
+      " M specifications/indexes.md",
+      " M specifications/persistence.md",
+      " M specifications/roots.md",
+      " M src/runtime.js",
+      " M src/tree/btree.js",
+      " M src/tree/execute.js",
+      " M src/tree/index.js",
+      " M src/tree/leaves.js",
+      " M src/tree/local-core.js",
+      " M src/tree/manager.js",
+      " M src/tree/query.js",
+      " M test-support/tree.mjs",
+      " M test/benchmarks/README.md",
+      " M test/benchmarks/diagnostics/parallel-organizations.mjs",
+      " M test/benchmarks/providers/cocreatedb/results/README.md",
+      " D test/benchmarks/providers/cocreatedb/results/parallel-organizations-40x10k-2026-11-27T03-02-12.476Z/report.md",
+      " D test/benchmarks/providers/cocreatedb/results/parallel-organizations-40x10k-2026-11-27T03-02-12.476Z/result.json",
+      " M test/benchmarks/providers/cocreatedb/results/summary.json",
+      " M test/benchmarks/standard.mjs",
+      " M test/new-crud.test.js",
+      " M test/new-db.test.js",
+      " M test/new-tree.test.js",
+      " M test/node-memory.test.js",
+      " M test/pending-index.test.js",
+      " M test/public-api.test.js",
+      " M test/query-planner.test.js",
+      "?? src/disk.js",
+      "?? src/organization.js",
+      "?? test/benchmarks/diagnostics/primary-create.mjs",
+      "?? test/benchmarks/diagnostics/primary-pruning.mjs",
+      "?? test/benchmarks/providers/cocreatedb/results/parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/report.md",
+      "?? test/benchmarks/providers/cocreatedb/results/parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/result.json",
+      "?? test/benchmarks/providers/cocreatedb/results/parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/run-context.json",
+      "?? test/benchmarks/providers/cocreatedb/results/primary-tree-comparison.md",
+      "?? test/benchmarks/providers/cocreatedb/results/primary-tree-profiles/after.json",
+      "?? test/benchmarks/providers/cocreatedb/results/primary-tree-profiles/before.json",
+      "?? test/benchmarks/providers/cocreatedb/results/primary-trees-1org-20x20k-2026-11-27T04-25-57.624Z/report.md",
+      "?? test/benchmarks/providers/cocreatedb/results/primary-trees-1org-20x20k-2026-11-27T04-25-57.624Z/result.json",
+      "?? test/benchmarks/providers/cocreatedb/results/standard-2026-11-27T03-36-36.055Z/manifest.json",
+      "?? test/benchmarks/providers/cocreatedb/results/standard-2026-11-27T03-36-36.055Z/size-10000-run-01.json",
+      "?? test/benchmarks/providers/cocreatedb/results/standard-2026-11-27T03-45-55.977Z/manifest.json",
+      "?? test/benchmarks/providers/cocreatedb/results/standard-2026-11-27T03-45-55.977Z/size-10000-run-01.json",
+      "?? test/benchmarks/providers/cocreatedb/results/standard-2026-11-27T03-49-35.292Z/manifest.json",
+      "?? test/benchmarks/providers/cocreatedb/results/standard-2026-11-27T03-49-35.292Z/size-10000-run-01.json",
+      "?? test/benchmarks/providers/cocreatedb/results/standard-2026-11-27T03-53-17.208Z/manifest.json",
+      "?? test/benchmarks/providers/cocreatedb/results/standard-2026-11-27T03-53-17.208Z/size-10000-run-01.json",
+      "?? test/benchmarks/providers/cocreatedb/results/standard-2026-11-27T03-57-58.613Z/manifest.json",
+      "?? test/benchmarks/providers/cocreatedb/results/standard-2026-11-27T03-57-58.613Z/size-10000-run-01.json",
+      "?? test/primary-trees.test.js"
+    ]
+  },
+  "primaryTrees": [
+    {
+      "name": "primary_01",
+      "index": 0,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "a9d11dd73832574907f0629f10c96ffe6f69b766316fa5445e226909c0cb97dc",
+          "elapsedMs": 35437.112329999996
+        }
+      ],
+      "fixtureGenerationMs": 139.7646969999987,
+      "acknowledgementMs": 35124.305274000006,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_02",
+      "index": 1,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "14467b637450d0ceefb8178cbc4e6554ba65ce1d82e3c5be693c6a45d38a2b43",
+          "elapsedMs": 35456.970011
+        }
+      ],
+      "fixtureGenerationMs": 113.1186050000033,
+      "acknowledgementMs": 35276.03985100001,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_03",
+      "index": 2,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "fc9fd3c5dfe1dbc04078d7e9951942a51c4b91e2801fa68f195473c0b40b9ee4",
+          "elapsedMs": 35481.880988
+        }
+      ],
+      "fixtureGenerationMs": 90.83330299999943,
+      "acknowledgementMs": 35260.81948200001,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_04",
+      "index": 3,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "4aaba9683d5d6c32bfd4b58d07fee34d8fe9876e09d83cbfd80f087f2fc2a599",
+          "elapsedMs": 35504.528141
+        }
+      ],
+      "fixtureGenerationMs": 94.9259680000032,
+      "acknowledgementMs": 35334.82067999999,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_05",
+      "index": 4,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "4933a5bb77c49613fa8d75d9da579b9863d6987d35c86b583533b8d0523d9055",
+          "elapsedMs": 35525.131714
+        }
+      ],
+      "fixtureGenerationMs": 101.5593649999937,
+      "acknowledgementMs": 35347.78600999999,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_06",
+      "index": 5,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "4c43e94ce10315b0a1ebeab61ae7a53b6aec47f98c675836bc0c7aebfbeaa141",
+          "elapsedMs": 35549.613145
+        }
+      ],
+      "fixtureGenerationMs": 94.92940900000394,
+      "acknowledgementMs": 35378.13646499998,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_07",
+      "index": 6,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "057d9f4f2024c9eb7ae6d44b6464e357acd708c45914f84abbad6a7a551177e8",
+          "elapsedMs": 35620.957386
+        }
+      ],
+      "fixtureGenerationMs": 93.129402999999,
+      "acknowledgementMs": 35408.969553999996,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_08",
+      "index": 7,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "a5bfedf16761805d918d33aa45341a796ccc7d4ec9585d6658cdbe7ca30175dc",
+          "elapsedMs": 35646.389772
+        }
+      ],
+      "fixtureGenerationMs": 94.29678000000422,
+      "acknowledgementMs": 35481.411570000004,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_09",
+      "index": 8,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "e471fc92e50ae29430a73dfa683afc54737673cc910ca062f5e9d22353f25ccf",
+          "elapsedMs": 35671.745446
+        }
+      ],
+      "fixtureGenerationMs": 91.38443500001449,
+      "acknowledgementMs": 35512.03576699999,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_10",
+      "index": 9,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "57825a4cfc1a33b4255cfc7075110dadfe5ff4933e1df13a1e6a1443a65fe221",
+          "elapsedMs": 35696.692414
+        }
+      ],
+      "fixtureGenerationMs": 94.80054499999096,
+      "acknowledgementMs": 35532.35192699999,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_11",
+      "index": 10,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "66982eae611c8127073fc48560c8a9af06c8b3edcdf3a8bcab0afa9acc1d1b3f",
+          "elapsedMs": 35720.908441
+        }
+      ],
+      "fixtureGenerationMs": 93.88063200000033,
+      "acknowledgementMs": 35550.06300300002,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_12",
+      "index": 11,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "9a6d20a5946d55a8fb059ca3119bda732bce33279050edd3f9cd831c7d0ed86a",
+          "elapsedMs": 35737.458902000006
+        }
+      ],
+      "fixtureGenerationMs": 96.21000600000116,
+      "acknowledgementMs": 35567.61498999999,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_13",
+      "index": 12,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "f40e4b2e72950d54bdf710620625ddb2f700531510fe22130584b8b9aa082b70",
+          "elapsedMs": 35759.982774000004
+        }
+      ],
+      "fixtureGenerationMs": 110.96705200000724,
+      "acknowledgementMs": 35550.871334,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_14",
+      "index": 13,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "1c8cac0349be8cc206d3a50a1c4c517f2fa36fb2ecb8c8d2180c8a4752709b2a",
+          "elapsedMs": 35784.80109
+        }
+      ],
+      "fixtureGenerationMs": 103.36776700000337,
+      "acknowledgementMs": 35515.61205000004,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_15",
+      "index": 14,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "cold-tree preload",
+          "records": 25000,
+          "offset": 0,
+          "fixtureHash": "42139c7a5e188948e0b45ea42a3593c4100bbb34c9697c65cc3147a22c6cbb85",
+          "elapsedMs": 35812.711843
+        }
+      ],
+      "fixtureGenerationMs": 93.21265200000926,
+      "acknowledgementMs": 35639.763221999994,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_16",
+      "index": 15,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "7d09b70d650df07ebbdfab5f54c25e92a20f508a9c31ac7e26556e4ed97d1271",
+          "elapsedMs": 32026.684720999998
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "7cad82e3e2e2da9f2b9d7fa25e5fef8a8094b0ab01c04751a4240bbe7686b57b",
+          "elapsedMs": 102623.07701499999
+        }
+      ],
+      "fixtureGenerationMs": 131.7467900000047,
+      "acknowledgementMs": 134340.57047400018,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_17",
+      "index": 16,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "487e0897d7eb2de0fb365ccd2f7d8ca67fcb94e4d78c0e6a5b3ec2d17cbf5d9a",
+          "elapsedMs": 32042.523887999996
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "4e6970136c9ac18eed2b3103cbc4dfa00e059b8e17ebcb3e98f55152951f7b37",
+          "elapsedMs": 102628.24793099996
+        }
+      ],
+      "fixtureGenerationMs": 144.81771500001196,
+      "acknowledgementMs": 134101.7491789998,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_18",
+      "index": 17,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "f6522f28f4d5a6ac4effab7acb610fb9f686084a722dcac012c1443f8722d40a",
+          "elapsedMs": 32063.67676500001
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "4e79ba043d30fcc572dee622e2762f810094186abb6f6760f955d99fbb2dcddd",
+          "elapsedMs": 102633.61768199998
+        }
+      ],
+      "fixtureGenerationMs": 169.19857799971942,
+      "acknowledgementMs": 134255.88438799977,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_19",
+      "index": 18,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "9f0666ec740f109de9d0df4354e45e6b9915b4783c6501554d1244013ef787e6",
+          "elapsedMs": 32086.953704999993
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "5e0ea91372357adaffd8331f94775fb764ec94382bf97edde1fcaf447c1322af",
+          "elapsedMs": 102638.64012699999
+        }
+      ],
+      "fixtureGenerationMs": 185.44099399994593,
+      "acknowledgementMs": 134426.06993200013,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_20",
+      "index": 19,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "1b429ac63750b46b02302af232cd1448ba002c83eab00153227f53f2ec29d6f9",
+          "elapsedMs": 32107.671275
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "1e1a4d2cb4c20d2dcfb06728ae189bd89e5cf4f177758d382d7b83176e9e7769",
+          "elapsedMs": 102643.41579900001
+        }
+      ],
+      "fixtureGenerationMs": 97.638936999836,
+      "acknowledgementMs": 134568.90813000035,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_21",
+      "index": 20,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "065407199ca57d25e8a2cc2561d3cdc2826840626463a92813906dcf6ea6f3c5",
+          "elapsedMs": 32126.215343999997
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "d26a3b679f13c35aa2f66d969084714fd9b95fd5d42c7f57a1cb49f0d15b427c",
+          "elapsedMs": 102648.69399799994
+        }
+      ],
+      "fixtureGenerationMs": 129.7360729998909,
+      "acknowledgementMs": 134479.45253,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_22",
+      "index": 21,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "f01180c6cddd8f9764d93197e08f44ef8943be6268b513a6af6f5115bf33127c",
+          "elapsedMs": 32144.74773199999
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "9641dc34d32eb661ccb9fdcebba6b307ea494cdfebd775b47e6d1dd145b4de1c",
+          "elapsedMs": 102653.76895400003
+        }
+      ],
+      "fixtureGenerationMs": 102.19055899989326,
+      "acknowledgementMs": 134622.18836299982,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_23",
+      "index": 22,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "6b82f78eda7b5ddeb84a902c973598a9da35fb94794c7cea7dc51623c0f9e0b9",
+          "elapsedMs": 32177.741825999983
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "d9aae4874dd4536c57b7352bb811bd10845018ef03296257a039718731d3d903",
+          "elapsedMs": 102658.84928900003
+        }
+      ],
+      "fixtureGenerationMs": 98.80800800013822,
+      "acknowledgementMs": 134661.4698839999,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_24",
+      "index": 23,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "306ebfeca89f63d7204eb7212627d6ae414d49ee4f8a44c2edb06f30c2607bf7",
+          "elapsedMs": 32201.13899800001
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "861f034b11ce8365aa80f6f1fa8388363cdba8c45a505becc41a84b2b52c08f8",
+          "elapsedMs": 102664.060597
+        }
+      ],
+      "fixtureGenerationMs": 94.06342799996492,
+      "acknowledgementMs": 134688.0167220002,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_25",
+      "index": 24,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "59993a56cfb8e7263f99200697addad7f7460bd2182dc49a95def59aa261398c",
+          "elapsedMs": 32266.57759900001
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "21e4c3f35e9f30f8117fdc43d692c0bd47a86d706b8edaf32f99baf18036dcdb",
+          "elapsedMs": 102668.92297999997
+        }
+      ],
+      "fixtureGenerationMs": 131.4151859995909,
+      "acknowledgementMs": 134629.47759899974,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_26",
+      "index": 25,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "ae60bfc432f644d2389f059f81b1ffb1714bed00d2a2e3a858df953f3daea613",
+          "elapsedMs": 32282.085722000018
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "65cbbe29b270d57fbf435694d8966ebf873aff74d185a49d78bf00ce62dfb76c",
+          "elapsedMs": 102674.12651800003
+        }
+      ],
+      "fixtureGenerationMs": 145.81743299996015,
+      "acknowledgementMs": 134586.4474040001,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_27",
+      "index": 26,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "69f23e37913696c35ff380e3555accd874c50e273d9e2e077cdc51c071a85484",
+          "elapsedMs": 32295.724946000002
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "aa831ac23bb8eea93828f682083f537aef2bef123eda1dd688a6ebedd41f81ee",
+          "elapsedMs": 102677.432997
+        }
+      ],
+      "fixtureGenerationMs": 123.09844400023576,
+      "acknowledgementMs": 134677.98551299982,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_28",
+      "index": 27,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "52949e340dcfb4598ab836b99af92842367fadc6fb9d125bd0d673997c52400d",
+          "elapsedMs": 32311.453011999984
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "a81afede3e6040c7aa074589aaaf1be72971228952a7e3408c5333a7d96042ae",
+          "elapsedMs": 102683.28104499995
+        }
+      ],
+      "fixtureGenerationMs": 129.11652100016363,
+      "acknowledgementMs": 134566.712206,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_29",
+      "index": 28,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "b63b4ea3a8b9275f971273eeebb52711322e5a1f914b055b44338ff17f2d8369",
+          "elapsedMs": 32326.833091999986
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "6255121f7465aa91f75e7a8eade73237fe54dce37975c6529907889b062536dd",
+          "elapsedMs": 102688.36863099999
+        }
+      ],
+      "fixtureGenerationMs": 111.78699100005906,
+      "acknowledgementMs": 134735.12023599993,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_30",
+      "index": 29,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "021b0004feac2d040c9d67fb944532a345394c9f50823553759dab90d4d0de2a",
+          "elapsedMs": 32342.29218400002
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "254a58e51c1e2b702ef1876e973e53e9c303259d3322858dfdd2d463ea4959b9",
+          "elapsedMs": 102693.87734299997
+        }
+      ],
+      "fixtureGenerationMs": 120.98598599992692,
+      "acknowledgementMs": 134616.0365589999,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_31",
+      "index": 30,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11667,
+          "offset": 0,
+          "fixtureHash": "11206580282453f5788d508a34f02f11e19b6a180b8071d9f356a5f5b33ec9aa",
+          "elapsedMs": 32358.272144999995
+        },
+        {
+          "name": "final third",
+          "records": 13333,
+          "offset": 11667,
+          "fixtureHash": "44bde0d325b83ab82dd7d7a2bfe1ce513dc7198494a401b19b9f614da04f2047",
+          "elapsedMs": 102698.93462900008
+        }
+      ],
+      "fixtureGenerationMs": 121.83340300002601,
+      "acknowledgementMs": 134691.42353499983,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_32",
+      "index": 31,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11666,
+          "offset": 0,
+          "fixtureHash": "daf9d2e4ebe134a85e0fc88b2685a1225769c1c318d2bdb78d5bdaf42adf32fa",
+          "elapsedMs": 32374.755842000013
+        },
+        {
+          "name": "final third",
+          "records": 13334,
+          "offset": 11666,
+          "fixtureHash": "79c04d8a3e5be0bd5fd631560a55a037166df49d6744dbc8accd7574c0282c97",
+          "elapsedMs": 102703.70163099997
+        }
+      ],
+      "fixtureGenerationMs": 137.72345200018026,
+      "acknowledgementMs": 134707.66828600003,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_33",
+      "index": 32,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11666,
+          "offset": 0,
+          "fixtureHash": "f24c23c1e5e5c3b2d458638f1510aaa0ab4785b58c6eb27c3e23a6d360a4b6cb",
+          "elapsedMs": 32391.074095999997
+        },
+        {
+          "name": "final third",
+          "records": 13334,
+          "offset": 11666,
+          "fixtureHash": "d29f47ee3093ed0c2295e53e6626430c135874002d97b813bde1665152001c51",
+          "elapsedMs": 102708.66975399997
+        }
+      ],
+      "fixtureGenerationMs": 154.38461700011976,
+      "acknowledgementMs": 134648.55360399967,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_34",
+      "index": 33,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11666,
+          "offset": 0,
+          "fixtureHash": "13966a746c1cf1b07f47e16346703fe4a1ace1be547155b2737fbacaf191a6e6",
+          "elapsedMs": 32407.101236000017
+        },
+        {
+          "name": "final third",
+          "records": 13334,
+          "offset": 11666,
+          "fixtureHash": "08328f164c42a1a90e465355cff0b57541893de175ec8d0ab0ca7e1f0f5de104",
+          "elapsedMs": 102715.46570600005
+        }
+      ],
+      "fixtureGenerationMs": 147.88284400000703,
+      "acknowledgementMs": 134756.0830600001,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_35",
+      "index": 34,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11666,
+          "offset": 0,
+          "fixtureHash": "e3ca0580f79e5fdc1cded6f3ee81883077571a9781c961e6579df40470643820",
+          "elapsedMs": 32426.022689999983
+        },
+        {
+          "name": "final third",
+          "records": 13334,
+          "offset": 11666,
+          "fixtureHash": "3aa0fca293e88082aa8634abe3b2f81dd0223c5d38bd28eebf51a40b7c25ed2e",
+          "elapsedMs": 102722.34055900003
+        }
+      ],
+      "fixtureGenerationMs": 116.00049499957822,
+      "acknowledgementMs": 134864.1496469999,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_36",
+      "index": 35,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11666,
+          "offset": 0,
+          "fixtureHash": "0d66328743539c60d78624a22feb51e90670f482ab594836b9971810ff728860",
+          "elapsedMs": 32443.453781999997
+        },
+        {
+          "name": "final third",
+          "records": 13334,
+          "offset": 11666,
+          "fixtureHash": "78ff8142f6fa7c0645f74036e26ae9abbbeb0a1df607879ee5c11c6923780466",
+          "elapsedMs": 102727.60590800003
+        }
+      ],
+      "fixtureGenerationMs": 114.72422100021504,
+      "acknowledgementMs": 134872.5869829998,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_37",
+      "index": 36,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11666,
+          "offset": 0,
+          "fixtureHash": "3045685560277ffb57a7f1f5081042cefa57c9f6f3307cf2d5eec9c94fc63a93",
+          "elapsedMs": 32504.722511
+        },
+        {
+          "name": "final third",
+          "records": 13334,
+          "offset": 11666,
+          "fixtureHash": "6ba753645b69111ba4597c2a370ae91a205344170307e0ed72c4f535d7efab13",
+          "elapsedMs": 102733.49443700002
+        }
+      ],
+      "fixtureGenerationMs": 111.59924799995497,
+      "acknowledgementMs": 134973.11688099988,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_38",
+      "index": 37,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11666,
+          "offset": 0,
+          "fixtureHash": "f092d9608112291334ce70c8a695708963f90607654a848da13183a761e8f3b7",
+          "elapsedMs": 32522.123192
+        },
+        {
+          "name": "final third",
+          "records": 13334,
+          "offset": 11666,
+          "fixtureHash": "16efdcbbe80cde3b3d88e2b4106eed4159670b8abc0dbf4ec880c42301f26cb4",
+          "elapsedMs": 102781.69775999995
+        }
+      ],
+      "fixtureGenerationMs": 121.66118499962613,
+      "acknowledgementMs": 135004.91903999983,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_39",
+      "index": 38,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11666,
+          "offset": 0,
+          "fixtureHash": "bb8f75aba9b60847a09f6458dded0bfedb2c2f4315274195294ff607d3d4c1d0",
+          "elapsedMs": 32537.659975000017
+        },
+        {
+          "name": "final third",
+          "records": 13334,
+          "offset": 11666,
+          "fixtureHash": "0222863ced3e310b55438e5110676921750386d5d2dc87f4c6d851b457391882",
+          "elapsedMs": 102791.82376200001
+        }
+      ],
+      "fixtureGenerationMs": 197.8378540002741,
+      "acknowledgementMs": 134889.4286290001,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    },
+    {
+      "name": "primary_40",
+      "index": 39,
+      "expectedRecords": 25000,
+      "phaseRecords": [
+        {
+          "name": "two-thirds checkpoint",
+          "records": 11666,
+          "offset": 0,
+          "fixtureHash": "aad042488870c412d0235bd79a76a1a5310d65f80be8f21aeb235f66b1ddcb50",
+          "elapsedMs": 32554.936873999977
+        },
+        {
+          "name": "final third",
+          "records": 13334,
+          "offset": 11666,
+          "fixtureHash": "c8a00dd1ed610491c5d30a3d274fed0734009a2b5cca2b8e94daca026e1e2dd5",
+          "elapsedMs": 102795.20939200005
+        }
+      ],
+      "fixtureGenerationMs": 139.8100250000134,
+      "acknowledgementMs": 134962.87401699997,
+      "recordsWritten": 25000,
+      "uuidRead": "passed",
+      "indexedRead": "passed"
+    }
+  ],
+  "phases": [
+    {
+      "name": "cold-tree preload",
+      "records": 375000,
+      "acknowledgedAtRecords": 375000,
+      "elapsedMs": 35935.51883
+    },
+    {
+      "name": "two-thirds checkpoint",
+      "records": 291666,
+      "acknowledgedAtRecords": 666666,
+      "elapsedMs": 32719.69617899999
+    },
+    {
+      "name": "final third",
+      "records": 333334,
+      "acknowledgedAtRecords": 1000000,
+      "elapsedMs": 102947.13898699998
+    }
+  ],
+  "pruningTimeline": [
+    {
+      "elapsedMs": 0,
+      "phase": "initializing",
+      "acknowledgedRecords": 0,
+      "nodeUsedPercent": 26.754351429445695,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 0,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 213,
+      "phase": "cold-tree preload",
+      "acknowledgedRecords": 0,
+      "nodeUsedPercent": 27.173671447267044,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 10258,
+      "phase": "cold-tree preload",
+      "acknowledgedRecords": 90000,
+      "nodeUsedPercent": 34.420621733873816,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 21827,
+      "phase": "cold-tree preload",
+      "acknowledgedRecords": 210000,
+      "nodeUsedPercent": 39.793439789652254,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 31849,
+      "phase": "cold-tree preload",
+      "acknowledgedRecords": 330000,
+      "nodeUsedPercent": 45.72716191015368,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 35982,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 46.87742638975133,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 46080,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 46.97610164947159,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 56101,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 46.962496424267734,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 66106,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 46.87598114604835,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 76176,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 46.92701319956025,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 86261,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 47.173252824953074,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 96351,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 47.14429811490385,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 106384,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 47.38575348527994,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 116413,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 48.73162422467659,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 126482,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 51.85459652284332,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 136570,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 54.69903547425423,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 146614,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 45.824292254191455,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 156649,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 47.040788764177094,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 166757,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 49.37401013265344,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 176841,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 52.45193069607921,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 186911,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 54.49515644015545,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 196920,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 57.43323721632109,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 206996,
+      "phase": "cold-tree index drain",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 58.619931804431616,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 15,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 211257,
+      "phase": "two-thirds checkpoint",
+      "acknowledgedRecords": 375000,
+      "nodeUsedPercent": 58.78125090327732,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 221614,
+      "phase": "two-thirds checkpoint",
+      "acknowledgedRecords": 473000,
+      "nodeUsedPercent": 62.697861338335535,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 232713,
+      "phase": "two-thirds checkpoint",
+      "acknowledgedRecords": 548000,
+      "nodeUsedPercent": 66.80494492624773,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 243345,
+      "phase": "two-thirds checkpoint",
+      "acknowledgedRecords": 664002,
+      "nodeUsedPercent": 67.49916026357258,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 243463,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 67.54545789805749,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 253535,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 69.02822810131856,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 263620,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 68.94201183903773,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 273686,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 69.65272288897239,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 283734,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 70.05739112580498,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 293772,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 70.99316150548545,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 303778,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 71.25958470673015,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 313814,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 71.86464345837848,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 323862,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 72.46531664292813,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 333895,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 63.10726399419511,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 343992,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 62.841388988837735,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 354031,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 63.37373703142957,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 364046,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 66.4890345871736,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 374102,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 68.32459376192949,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 384191,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 66.34874627600567,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 394355,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 66.64467238318693,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 404460,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 67.56917982918216,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 414499,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 69.73305850446182,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 424534,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 69.99265417510972,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 434564,
+      "phase": "two-thirds checkpoint index drain",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 70.15870769298239,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 443169,
+      "phase": "final third",
+      "acknowledgedRecords": 666666,
+      "nodeUsedPercent": 70.19513780149528,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 455350,
+      "phase": "final third",
+      "acknowledgedRecords": 764666,
+      "nodeUsedPercent": 73.76558745169646,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 467558,
+      "phase": "final third",
+      "acknowledgedRecords": 839666,
+      "nodeUsedPercent": 74.61823140046108,
+      "pruning": false,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 501376,
+      "phase": "final third",
+      "acknowledgedRecords": 864666,
+      "nodeUsedPercent": 75.41181970136282,
+      "pruning": true,
+      "pruneCycles": 0,
+      "treesPruned": 0,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 15
+    },
+    {
+      "elapsedMs": 526907,
+      "phase": "final third",
+      "acknowledgedRecords": 889666,
+      "nodeUsedPercent": 77.17990094598676,
+      "pruning": true,
+      "pruneCycles": 2,
+      "treesPruned": 2,
+      "residentPrimaryTrees": 38,
+      "pruneCandidates": 13
+    },
+    {
+      "elapsedMs": 529806,
+      "phase": "final third",
+      "acknowledgedRecords": 914666,
+      "nodeUsedPercent": 77.86644154088893,
+      "pruning": true,
+      "pruneCycles": 3,
+      "treesPruned": 3,
+      "residentPrimaryTrees": 37,
+      "pruneCandidates": 12
+    },
+    {
+      "elapsedMs": 532754,
+      "phase": "final third",
+      "acknowledgedRecords": 939666,
+      "nodeUsedPercent": 78.25097603785942,
+      "pruning": true,
+      "pruneCycles": 4,
+      "treesPruned": 4,
+      "residentPrimaryTrees": 36,
+      "pruneCandidates": 11
+    },
+    {
+      "elapsedMs": 542280,
+      "phase": "final third",
+      "acknowledgedRecords": 964666,
+      "nodeUsedPercent": 79.95466918371639,
+      "pruning": true,
+      "pruneCycles": 5,
+      "treesPruned": 5,
+      "residentPrimaryTrees": 35,
+      "pruneCandidates": 10
+    },
+    {
+      "elapsedMs": 543962,
+      "phase": "final third",
+      "acknowledgedRecords": 989666,
+      "nodeUsedPercent": 79.97196227216232,
+      "pruning": true,
+      "pruneCycles": 6,
+      "treesPruned": 6,
+      "residentPrimaryTrees": 34,
+      "pruneCandidates": 9
+    },
+    {
+      "elapsedMs": 544455,
+      "phase": "final third",
+      "acknowledgedRecords": 998998,
+      "nodeUsedPercent": 79.95840688294822,
+      "pruning": true,
+      "pruneCycles": 7,
+      "treesPruned": 7,
+      "residentPrimaryTrees": 33,
+      "pruneCandidates": 8
+    },
+    {
+      "elapsedMs": 544555,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 79.96169605827222,
+      "pruning": true,
+      "pruneCycles": 11,
+      "treesPruned": 11,
+      "residentPrimaryTrees": 29,
+      "pruneCandidates": 4
+    },
+    {
+      "elapsedMs": 544669,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 79.94998460067917,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 554738,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 80.33910400870734,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 564811,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 80.7459151930995,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 574873,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 81.39971354273088,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 584906,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 82.00776245376467,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 594916,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 82.23890177426091,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 605005,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 81.82232273587623,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 615069,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 81.76845003094815,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 625145,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 81.8249640433334,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 635231,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 82.26586304471982,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 645246,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 50.68678977485096,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 655343,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 50.23831570302135,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 665353,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 50.34237324963545,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 675418,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 50.66072555220769,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 685433,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 50.50448972431727,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 695509,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 50.679164868418034,
+      "pruning": true,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 703502,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 49.861256604514544,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 715007,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 49.572556715848144,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 725031,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 50.822343666991934,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 735126,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 53.0529028965674,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 745181,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 53.030576373155945,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 755268,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 54.13573928202287,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 765310,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 55.968158789424,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 775397,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 58.01432485689596,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 785489,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 60.22928542167726,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 795516,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 62.47883216335042,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 805612,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 64.65267803658162,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 815706,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 66.5373754972386,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 825726,
+      "phase": "final index drain",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 68.55533439450767,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 25,
+      "pruneCandidates": 0
+    },
+    {
+      "elapsedMs": 831933,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.28991688353628,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 26,
+      "pruneCandidates": 25
+    },
+    {
+      "elapsedMs": 832233,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.4296569988169,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 27,
+      "pruneCandidates": 26
+    },
+    {
+      "elapsedMs": 832332,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.41944062091656,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 28,
+      "pruneCandidates": 27
+    },
+    {
+      "elapsedMs": 832532,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.4041908080507,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 29,
+      "pruneCandidates": 28
+    },
+    {
+      "elapsedMs": 832733,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.75673059959672,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 30,
+      "pruneCandidates": 29
+    },
+    {
+      "elapsedMs": 832832,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.84957504851533,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 31,
+      "pruneCandidates": 30
+    },
+    {
+      "elapsedMs": 833032,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.83686687112713,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 32,
+      "pruneCandidates": 31
+    },
+    {
+      "elapsedMs": 833232,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.82081968242514,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 33,
+      "pruneCandidates": 32
+    },
+    {
+      "elapsedMs": 833332,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.8154373955313,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 34,
+      "pruneCandidates": 33
+    },
+    {
+      "elapsedMs": 833532,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.80208135027624,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 35,
+      "pruneCandidates": 34
+    },
+    {
+      "elapsedMs": 833733,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.15336627160016,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 36,
+      "pruneCandidates": 35
+    },
+    {
+      "elapsedMs": 833833,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.15346594357969,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 37,
+      "pruneCandidates": 36
+    },
+    {
+      "elapsedMs": 834032,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.15660561093442,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 38,
+      "pruneCandidates": 37
+    },
+    {
+      "elapsedMs": 834233,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 69.76445517800917,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 39,
+      "pruneCandidates": 38
+    },
+    {
+      "elapsedMs": 834432,
+      "phase": "read validation",
+      "acknowledgedRecords": 1000000,
+      "nodeUsedPercent": 70.17480471767414,
+      "pruning": false,
+      "pruneCycles": 15,
+      "treesPruned": 15,
+      "residentPrimaryTrees": 40,
+      "pruneCandidates": 39
+    }
+  ],
+  "memory": {
+    "idle": {
+      "rss": 62345216,
+      "heapTotal": 11776000,
+      "heapUsed": 8386872,
+      "external": 2635198,
+      "arrayBuffers": 357999
+    },
+    "loaded": {
+      "rss": 4238962688,
+      "heapTotal": 3920826368,
+      "heapUsed": 3785082880,
+      "external": 8585553,
+      "arrayBuffers": 6250158
+    },
+    "peakRssBytes": 5114011648
+  },
+  "workStartedAt": 167.149519,
+  "coldTreeDrainPending": 0,
+  "coldTreesIdleSinceRecords": 375000,
+  "checkpointPending": 0,
+  "checkpointTreesResident": 40,
+  "checkpointTreesPruned": 0,
+  "createAndIndexMs": 831905.067029,
+  "recordsPerSecond": 1202.060234554552,
+  "pendingBeforeReadChecks": 0,
+  "residentPrimaryTreesAtIngestEnd": 25,
+  "primaryTreesPrunedAtIngestEnd": 15,
+  "peakResidentPrimaryTrees": 40,
+  "maximumPruneCandidates": 33,
+  "primaryTreeCountObserved": 40,
+  "livePrimaryTreesAfterValidation": 40,
+  "pendingAfterReadChecks": 0,
+  "telemetry": {
+    "nodeUsedPercent": 70.17480471767414,
+    "peakNodeUsedPercent": 83.06732543200329,
+    "pruning": false,
+    "pruneCycles": 15,
+    "branchesPruned": 15,
+    "lastPrune": {
+      "count": 1
+    }
+  },
+  "correctness": {
+    "exactlyOneMillionRecords": true,
+    "oneOrganization": true,
+    "primaryTreeCountMatched": true,
+    "allPrimaryTreeUuidReads": "passed",
+    "allPrimaryTreeIndexedReads": "passed"
+  },
+  "completedAt": "2026-11-27T05:05:31.679Z"
+}
