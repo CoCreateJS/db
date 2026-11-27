@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-27",
+  "branch": "dev",
+  "sourceRevision": "38ff8e4",
+  "worktreeDirty": true,
+  "node": "v24.18.0",
+  "nodeOptions": "--max-old-space-size-percentage=75",
+  "benchmark": "test-support/worker-db.mjs",
+  "organizationCount": 1,
+  "arrays": 40,
+  "recordsPerArray": 10000,
+  "totalRecords": 400000,
+  "producerLoops": 4,
+  "chunkSize": 1000,
+  "fixture": "lifecycle v3 plus table field",
+  "fixtureHash": "b5b1d8b95574489ecfa771ec7f9f997c8c5891eae75af17b60c9dfe197548f09",
+  "transport": "CoCreate Cluster IPC",
+  "workersCompared": [2, 4],
+  "results": ["2-workers.json", "4-workers.json"],
+  "limitations": [
+    "one sample per worker count",
+    "worker processes ready before traffic; production startup ordering not measured",
+    "no HTTP or socket transport",
+    "RSS captured after index completion, not peak RSS"
+  ]
+}

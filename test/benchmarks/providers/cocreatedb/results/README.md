@@ -2,8 +2,10 @@
 
 One newest passing result is retained for each distinct workload. When the same organization count and records per organization were run more than once, the newest run replaces the earlier result. Workloads with the same total records but different organization/record distributions remain separate.
 
-| Workload | Total records | Create + index | Throughput (records/s) | Peak process RSS | Report |
+| Workload | Total records | Create + index | Throughput (records/s) | Process RSS | Report |
 | --- | ---: | ---: | ---: | ---: | --- |
+| 1 organization, 40 arrays × 10,000, 2 workers | 400,000 | 239.86 s | 1,668 | 3,948 MiB sampled after indexing | [Report](worker-trees-400000-40-arrays-2026-11-27T13-30-28/report.md) |
+| 1 organization, 40 arrays × 10,000, 4 workers | 400,000 | 230.78 s | 1,733 | 3,335 MiB sampled after indexing | [Report](worker-trees-400000-40-arrays-2026-11-27T13-30-28/report.md) |
 | 10 × 1,000 | 10,000 | 5.95 s | 1,681 | 285.9 MiB | [Report](parallel-organizations-1000-2026-11-27T01-24-10.235Z/report.md) |
 | 10,000, one organization | 10,000 | 8.77 s | 1,140 | 264.0 MiB | [Report](standard-2026-11-27T01-25-19.202Z/comparison.md) |
 | 100,000, one organization | 100,000 | 89.35 s | 1,119 | 935.6 MiB | [Report](standard-2026-11-26T21-11-41.069Z/report.md) |
@@ -25,5 +27,7 @@ One newest passing result is retained for each distinct workload. When the same 
 The 20-primary-tree benchmark uses a custom configuration with 20 top-level roots, exactly one live Tree per root, and one organization. Its pre-query index drain reached zero. The update-isolation check afterward left one queued index update; that follow-up queue was outside create-and-index timing.
 
 The primary-tree pruning diagnostic uses one organization and 40 independently configured top-level primary Trees. It holds 15 early trees idle and directs later writes to the remaining 25; the full million-record load reached natural pruning at the node-memory watermark. The parallel-organization diagnostics use one Node process, concurrent organization Trees, and separate organization directories. Their per-organization timings overlap and must not be summed. They measure create plus index drain, include telemetry and local disk writes, and do not include the standard sustained workload. The 10K standard comparison is a single run on each side; see its report for the comparison limits. These are single-host diagnostics, not multi-node cluster benchmarks. Raw results and run manifests are stored alongside each report.
+
+The primary-orchestrated worker-tree benchmark uses one organization, 40 arrays, 400,000 records, and either two or four real Node worker processes over the existing Cluster IPC transport. The primary distributes array ownership round-robin; each worker owns 20 arrays with two workers or 10 arrays with four. Both runs use the same deterministic fixture. The benchmark reports create acknowledgements separately from create-plus-index completion. Process RSS is sampled after indexing and is not a peak measurement. These are single samples, not a scaling claim; see the run report and raw JSON for details.
 
 The latest 40 × 10K pass was run against the uncommitted worktree based on 1a6cfda. Its captured worktree state is in [run context](parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/run-context.json).

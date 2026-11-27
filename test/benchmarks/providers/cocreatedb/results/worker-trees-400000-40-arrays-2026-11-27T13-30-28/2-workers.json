@@ -1,0 +1,388 @@
+{
+  "status": "passed",
+  "fixture": "lifecycle v3 plus table field, 40 tables",
+  "fixtureHash": "b5b1d8b95574489ecfa771ec7f9f997c8c5891eae75af17b60c9dfe197548f09",
+  "records": 400000,
+  "workers": 2,
+  "groups": 40,
+  "recordsPerGroup": 10000,
+  "organization": "worker-org",
+  "node": "v24.18.0",
+  "initializationMs": 368.59582,
+  "routingSeedMs": 187.25736400000005,
+  "acknowledgementMs": 65589.142271,
+  "createAndIndexMs": 239862.912753,
+  "primaryTreeCount": 0,
+  "ownerAssignments": [
+    [
+      "01a21bad00a67c488d8827753acb068b",
+      1
+    ],
+    [
+      "01a21bad00ad7b6ca5cac4db832abfd2",
+      2
+    ],
+    [
+      "01a21bad00b57f9ca4d0d92e7a5eb209",
+      1
+    ],
+    [
+      "01a21bad00b97590affb9da158ef5bde",
+      2
+    ],
+    [
+      "01a21bad00c47383a0b1db5ad03822e6",
+      1
+    ],
+    [
+      "01a21bad00cd7fcab39f57efb18f6ef9",
+      2
+    ],
+    [
+      "01a21bad00d47948b01aa46a171eea25",
+      1
+    ],
+    [
+      "01a21bad00d8703daaaa88748ea7ffff",
+      2
+    ],
+    [
+      "01a21bad00dd722cb5b874e425a344f1",
+      1
+    ],
+    [
+      "01a21bad00e3730da7d9de1d97d3748e",
+      2
+    ],
+    [
+      "01a21bad00e77a2792945a3f0729427c",
+      1
+    ],
+    [
+      "01a21bad00ec7761baf0a87d59f87b18",
+      2
+    ],
+    [
+      "01a21bad00f174ba94b8c752737d637d",
+      1
+    ],
+    [
+      "01a21bad00f579c592d64f118d3b0c0a",
+      2
+    ],
+    [
+      "01a21bad00f9721dbdee23641ce73e01",
+      1
+    ],
+    [
+      "01a21bad00fd7e8f80712a90816c0c1e",
+      2
+    ],
+    [
+      "01a21bad0100796ab1ac5877a388a097",
+      1
+    ],
+    [
+      "01a21bad01047e6e890b7def90a64c65",
+      2
+    ],
+    [
+      "01a21bad01097887a1920b67478012ac",
+      1
+    ],
+    [
+      "01a21bad010d7bc78d3c4135e7ac0ad8",
+      2
+    ],
+    [
+      "01a21bad011174d89b383ea53dca6da1",
+      1
+    ],
+    [
+      "01a21bad01147432aa6068a49db027c1",
+      2
+    ],
+    [
+      "01a21bad01187b4baa8fafbd05fe5f19",
+      1
+    ],
+    [
+      "01a21bad011b71789db70ad258923bec",
+      2
+    ],
+    [
+      "01a21bad011e780b869547460ec8ab1f",
+      1
+    ],
+    [
+      "01a21bad01217474a0b104f36df972dd",
+      2
+    ],
+    [
+      "01a21bad012475a2b0ceb088751e8297",
+      1
+    ],
+    [
+      "01a21bad0127703caa40980efe1c5d45",
+      2
+    ],
+    [
+      "01a21bad012c7e3eb86121d7f204cf37",
+      1
+    ],
+    [
+      "01a21bad012f7860abde09e6af8f50b0",
+      2
+    ],
+    [
+      "01a21bad0134701e95e75626b09d4290",
+      1
+    ],
+    [
+      "01a21bad0137744484a112b5ee6c4bd7",
+      2
+    ],
+    [
+      "01a21bad013b7d0cb70e16b110da9177",
+      1
+    ],
+    [
+      "01a21bad013f7f11805a1dfe50b3fcb6",
+      2
+    ],
+    [
+      "01a21bad014371f480c7a6da1fa057e3",
+      1
+    ],
+    [
+      "01a21bad01457a0581dd0d4138943c1a",
+      2
+    ],
+    [
+      "01a21bad014872edb9b78c0fa67c3ac5",
+      1
+    ],
+    [
+      "01a21bad014c7413868991e011f5c7d1",
+      2
+    ],
+    [
+      "01a21bad014f77b28f4c9072c79bc8ab",
+      1
+    ],
+    [
+      "01a21bad015271ccb5ad22e9e8b92b64",
+      2
+    ],
+    [
+      "01a21bad0155783c86cb3b65d0e81eee",
+      1
+    ],
+    [
+      "01a21bad01587206ad0295ee61b07427",
+      2
+    ],
+    [
+      "01a21bad015c72cea7d34856df21f420",
+      1
+    ]
+  ],
+  "dataOwners": [
+    {
+      "uuid": "01a21bad00b97590affb9da158ef5bde",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad00c47383a0b1db5ad03822e6",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad00cd7fcab39f57efb18f6ef9",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad00d47948b01aa46a171eea25",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad00d8703daaaa88748ea7ffff",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad00dd722cb5b874e425a344f1",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad00e3730da7d9de1d97d3748e",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad00e77a2792945a3f0729427c",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad00ec7761baf0a87d59f87b18",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad00f174ba94b8c752737d637d",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad00f579c592d64f118d3b0c0a",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad00f9721dbdee23641ce73e01",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad00fd7e8f80712a90816c0c1e",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad0100796ab1ac5877a388a097",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad01047e6e890b7def90a64c65",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad01097887a1920b67478012ac",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad010d7bc78d3c4135e7ac0ad8",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad011174d89b383ea53dca6da1",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad01147432aa6068a49db027c1",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad01187b4baa8fafbd05fe5f19",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad011b71789db70ad258923bec",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad011e780b869547460ec8ab1f",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad01217474a0b104f36df972dd",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad012475a2b0ceb088751e8297",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad0127703caa40980efe1c5d45",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad012c7e3eb86121d7f204cf37",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad012f7860abde09e6af8f50b0",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad0134701e95e75626b09d4290",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad0137744484a112b5ee6c4bd7",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad013b7d0cb70e16b110da9177",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad013f7f11805a1dfe50b3fcb6",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad014371f480c7a6da1fa057e3",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad01457a0581dd0d4138943c1a",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad014872edb9b78c0fa67c3ac5",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad014c7413868991e011f5c7d1",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad014f77b28f4c9072c79bc8ab",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad015271ccb5ad22e9e8b92b64",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad0155783c86cb3b65d0e81eee",
+      "workerId": 1
+    },
+    {
+      "uuid": "01a21bad01587206ad0295ee61b07427",
+      "workerId": 2
+    },
+    {
+      "uuid": "01a21bad015c72cea7d34856df21f420",
+      "workerId": 1
+    }
+  ],
+  "pendingIndexCount": 0,
+  "primaryMemory": {
+    "rss": 741810176,
+    "heapTotal": 509063168,
+    "heapUsed": 296765720,
+    "external": 10101687,
+    "arrayBuffers": 7707584
+  },
+  "workerMemory": [
+    {
+      "pid": 222092,
+      "rss": 1714946048,
+      "heapTotal": 1547137024,
+      "heapUsed": 1421954776,
+      "external": 4339624,
+      "arrayBuffers": 2029417
+    },
+    {
+      "pid": 222093,
+      "rss": 1683214336,
+      "heapTotal": 1421144064,
+      "heapUsed": 1031627776,
+      "external": 2992166,
+      "arrayBuffers": 589116
+    }
+  ],
+  "diagnostics": [
+    "round robin and stable ownership",
+    "worker ingress and UUID routing",
+    "query sort and pagination",
+    "CRUD and organization isolation",
+    "worker-local weights",
+    "pending storage protected",
+    "cold page hydration",
+    "75/50 pressure signals"
+  ]
+}
