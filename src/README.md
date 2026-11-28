@@ -7,8 +7,7 @@ that organization's Tree. `db.send(payload)` selects its Tree and invokes
 `tree.execute(payload)`.
 
 `src/index.js` defines the public interface. `runtime.js` contains internal
-composition, organization routing, configuration defaults, telemetry policy,
-and primary/worker forwarding. Those runtime methods are not exported by the
+composition, organization routing, configuration defaults and local telemetry policy. Those runtime methods are not exported by the
 package. The package also exports `Tree` for standalone instances.
 
 ## Tree composition
@@ -26,11 +25,12 @@ temporaryTree.persistence = persistence
 await temporaryTree.init({ roots, indexes, leaves, size, leafSize })
 ```
 
-Tree exposes `init`, `config`, `roots`, `leaves`, `disk`, `persistence`,
-`planner`, `execute`, `prune`, `setDiskFirst`, `persist`, and `close`.
+Tree exposes `init`, `config`, `leaves`, `disk`, `persistence`, `planner`,
+`execute`, `setDiskFirst`, `persist`, and `close`. Organization owns `roots`
+and `harvest({ uuid, limit })`, which removes whole Trees from its registry.
 `organizationId` identifies its storage namespace. Size, leaf size, and the
 current disk-first flag are read through `tree.config`. That configuration is
-a snapshot; root edits use `tree.roots.execute({ operation: 'set', path, data })`.
+a snapshot; root edits use `organization.roots.execute({ operation: 'set', path, data })`.
 
 `tree/execute.js` is a stateless function used as `tree.execute(payload)`.
 It resolves identities, verifies complete queries, and applies operations to
@@ -47,33 +47,33 @@ not part of the package's public API.
 
 ## Storage and lifecycle
 
-Tree owns disk and persistence ports; a resource exposes `execute(request)`.
+Tree owns disk and persistence ports; a resource exposes `execute(request)` and `queue`.
 Without an attached resource, writes and deletes return the request, reads
 return `undefined`, existence checks return `false`, and lists return `[]`.
 These default responses do not establish durability or enable disk-first mode.
 
 Tree maps local leaf, branch, and configuration operations into file paths.
 The organization ID prefixes those paths. Persistence receives logical leaf
-reads and notifications of changed leaf/branch UUIDs after local indexing;
+reads and serialized leaf/branch/config changes after indexing;
 configuration writes carry data. The attached
 adapter chooses its own grouping and storage policy.
 
 Mutations acknowledge the memory change before background work completes.
-The indexer persists dirty leaves before reconciling and storing derived
-branches and configuration. There is no public flush API or deferred-index
+The indexer reconciles changes and sends serialized leaves, branches and
+configuration independently to both adapters. There is no public flush API or deferred-index
 option. `tree.close()` completes outstanding work. An organization Tree's
 close also removes it from the DB runtime's map. `tree.persist()` delegates to
 an optional `persist()` method on the attached persistence adapter.
 
-The composer consumes Telemetry's node-wide `memory.max` percentage. At 75% it starts pruning; pruning stays active until usage reaches 50%. It selects the lowest-weight eligible primary branch across the managed organization Trees. A primary branch represents an entire table, potentially containing nested tables. Removal releases its resident index trees, descendant branches and leaves together. Stored files and configuration UUIDs remain available for hydration.
+The composer consumes Telemetry's node-wide `memory.max` percentage. At 75% it starts harvesting; harvesting stays active until usage reaches 50%. It selects the lowest-weight eligible primary branch across the managed organization Trees. A primary branch represents an entire table, potentially containing nested tables. Removal releases its resident index trees, descendant branches and leaves together. Stored files and configuration UUIDs remain available for hydration.
 
-Active-operation counts and queued/in-flight indexing protect the entire affected subtree. Counts release on completion, errors and early query-stream closure. A group becomes eligible only after leaf writes, index reconciliation, branch/configuration writes and attached Persistence responses have completed. Completing a 1,024-leaf batch does not complete a larger group. Index completion requests another pruning pass while pressure remains active; it does not bypass weight ordering. Pruning does not drain the index queue or wait for busy tables. Memory-only Trees retain their only copy; this implementation requires local Disk for whole-table removal and hydration. Persistence notifications alone do not establish a reloadable local index.
+Active-operation counts and queued/in-flight indexing protect the entire affected subtree. Counts release on completion, errors and early query-stream closure. A group becomes eligible only after leaf writes, index reconciliation, branch/configuration writes and attached Persistence responses have completed. Completing a 1,024-leaf batch does not complete a larger group. Index completion requests another harvesting pass while pressure remains active; it does not bypass weight ordering. Harvesting does not drain the index queue or wait for busy tables. Memory-only Trees retain their only copy; this implementation requires local Disk for whole-table removal and hydration. Persistence notifications alone do not establish a reloadable local index.
 
-Primary-group weight counts access through that group, including access through nested groups. There is no LRU strategy, terminal-branch ranking, per-stage cleanup or automatic 90% disk-first transition. `tree.prune({ uuid, limit })` uses the same whole-primary-group removal path; UUID selects a primary group and the optional limit counts groups. A standalone Tree's composer decides when to invoke it. Explicit disk-first mode also releases completed groups through this path. Traffic routing, backoff and emergency node protection remain outside DB.
+Primary-group weight counts access through that group, including access through nested groups. There is no LRU strategy, terminal-branch ranking, per-stage cleanup or automatic 90% disk-first transition. `tree.harvest({ uuid, limit })` uses the same whole-primary-group removal path; UUID selects a primary group and the optional limit counts groups. A standalone Tree's composer decides when to invoke it. Explicit disk-first mode also releases completed groups through this path. Traffic routing, backoff and emergency node protection remain outside DB.
 
-Workers forward envelopes using the existing Server `send()` transport and
-`db.forward` primary handler. Tree instances remain on the primary. A combined
-primary/worker instance and standalone DB use local execution directly.
+Each instance executes locally and owns its Trees and indexing. Storage queues belong to adapters. The host initializes
+DB in workers and owns network affinity. DB does not forward requests or
+coordinate execution across processes.
 
 ## Pending index groups
 
@@ -92,7 +92,7 @@ implemented by this metadata format.
 
 ```js
 const db = await DB.init(server, {
-    memory: { pruneAt: 75, retainAt: 50 }
+    memory: { harvestAt: 75, retainAt: 50 }
 })
 ```
 
@@ -128,3 +128,7 @@ and UUIDs; only selected document payloads are fetched. A mutation lazily
 attaches its old affected index entries before the usual reconciliation path.
 See [the index contract](../specifications/indexes.md) for coverage and
 consistency boundaries.
+
+## Storage resources
+
+Disk and Persistence expose `execute(request)` and `queue`. The indexer sends resolved serialized changes independently to both. DB maps paths and observes completion; adapters own pending/in-flight entries, coalescing, cancellation and I/O. There is no `tree/disk.js` queue implementation. See [the storage contract](../specifications/persistence.md).

@@ -1,0 +1,124 @@
+{
+  "status": "failed",
+  "startedAt": "2026-11-27T22:59:39.277Z",
+  "totalRecords": 2000000,
+  "workerCount": 8,
+  "organizationCount": 8,
+  "batchSize": 1000,
+  "crudOperationsPerOrganization": 10000,
+  "processModel": "one DB instance and one organization per worker process; benchmark driver has no DB; organization affinity is pinned for the run",
+  "disk": "local @cocreate/disk adapter enabled",
+  "node": "v24.18.0",
+  "host": {
+    "architecture": "x64",
+    "logicalCpus": 8,
+    "availableParallelism": 8,
+    "totalMemoryBytes": 33349062656
+  },
+  "assignments": [
+    {
+      "workerId": 1,
+      "organizationId": "000000000000000000000001",
+      "records": 250000
+    },
+    {
+      "workerId": 2,
+      "organizationId": "000000000000000000000002",
+      "records": 250000
+    },
+    {
+      "workerId": 3,
+      "organizationId": "000000000000000000000003",
+      "records": 250000
+    },
+    {
+      "workerId": 4,
+      "organizationId": "000000000000000000000004",
+      "records": 250000
+    },
+    {
+      "workerId": 5,
+      "organizationId": "000000000000000000000005",
+      "records": 250000
+    },
+    {
+      "workerId": 6,
+      "organizationId": "000000000000000000000006",
+      "records": 250000
+    },
+    {
+      "workerId": 7,
+      "organizationId": "000000000000000000000007",
+      "records": 250000
+    },
+    {
+      "workerId": 8,
+      "organizationId": "000000000000000000000008",
+      "records": 250000
+    }
+  ],
+  "workers": [],
+  "operations": {
+    "sampleCrud": {}
+  },
+  "memory": {
+    "aggregatePeakObservedRssBytes": 491040768,
+    "workers": {
+      "1": {
+        "currentRssBytes": 61497344,
+        "peakRssBytes": 61497344,
+        "heapUsedBytes": 6834720
+      },
+      "2": {
+        "currentRssBytes": 61710336,
+        "peakRssBytes": 61710336,
+        "heapUsedBytes": 6843608
+      },
+      "3": {
+        "currentRssBytes": 61485056,
+        "peakRssBytes": 61485056,
+        "heapUsedBytes": 6843536
+      },
+      "4": {
+        "currentRssBytes": 61714432,
+        "peakRssBytes": 61714432,
+        "heapUsedBytes": 6843608
+      },
+      "5": {
+        "currentRssBytes": 61181952,
+        "peakRssBytes": 61181952,
+        "heapUsedBytes": 6870944
+      },
+      "6": {
+        "currentRssBytes": 61009920,
+        "peakRssBytes": 61009920,
+        "heapUsedBytes": 6928768
+      },
+      "7": {
+        "currentRssBytes": 61284352,
+        "peakRssBytes": 61284352,
+        "heapUsedBytes": 6869016
+      },
+      "8": {
+        "currentRssBytes": 61157376,
+        "peakRssBytes": 61157376,
+        "heapUsedBytes": 6835464
+      }
+    }
+  },
+  "initializationMs": 207,
+  "failure": {
+    "message": "Cannot read properties of undefined (reading 'active')",
+    "stack": "Error: Cannot read properties of undefined (reading 'active')\n    at process.<anonymous> (file:///home/ubuntu/Dev/CoCreateJS/modules/db/test-support/worker-affinity-db.mjs:77:42)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+    "workerId": 6
+  },
+  "completedAt": "2026-11-27T22:59:39.626Z",
+  "runContext": {
+    "capturedAt": "2026-11-27T22:59:39.312Z",
+    "branch": "dev",
+    "baseCommit": "001b147c2e808de4356eba327976e9fcf8b8987e",
+    "dirty": true,
+    "command": "node test/benchmarks/diagnostics/worker-affinity.mjs --workers=8 --total-records=2000000",
+    "orchestration": "parent is a load generator only and does not initialize DB; each child initializes its own local DB and owns one organization"
+  }
+}

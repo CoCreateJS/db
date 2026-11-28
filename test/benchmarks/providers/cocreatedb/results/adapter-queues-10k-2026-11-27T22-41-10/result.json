@@ -1,0 +1,41 @@
+{
+  "source": "/home/ubuntu/Dev/CoCreateJS/modules/db",
+  "node": "v24.18.0",
+  "records": 10000,
+  "fixtureHash": "767927150f41a6967e99ab0e05f11128ba4f408f1b9bfc5e1fc753a84119ac8f",
+  "acknowledgementMs": 2477.350689,
+  "acknowledgedAtMs": 2511.6193319999998,
+  "searchableMs": 2656.4344309999997,
+  "pendingDiskAtSearchable": 15251,
+  "storageCompleteMs": 4669.58827,
+  "peakRssBytes": 337993728,
+  "cpu": {
+    "user": 5506653,
+    "system": 4533040
+  },
+  "io": {
+    "config.read": {
+      "calls": 5,
+      "elapsedMs": 12.100111000000027
+    },
+    "config.write": {
+      "calls": 17,
+      "elapsedMs": 8570.948182999999
+    },
+    "leaf.has": {
+      "calls": 10000,
+      "elapsedMs": 1812406.123029995
+    },
+    "leaf.write": {
+      "calls": 10003,
+      "elapsedMs": 21088623.91426603
+    },
+    "branch.write": {
+      "calls": 7034,
+      "elapsedMs": 11589995.186755
+    }
+  },
+  "dbRevision": "001b147c2e808de4356eba327976e9fcf8b8987e",
+  "diskRevision": "898e5c92f7fb12e5e294d3522391cbaf3ef5fda9",
+  "worktree": "Uncommitted DB and Disk adapter-queue changes; current independent local-worker model"
+}

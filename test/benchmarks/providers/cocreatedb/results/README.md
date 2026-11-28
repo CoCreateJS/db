@@ -8,6 +8,16 @@ One newest passing result is retained for each distinct workload. When the same 
 
 This index-lifecycle diagnostic ends when acknowledgement is complete and the index queue reaches zero. Its report includes per-second CRUD acknowledgement and disk adapter I/O samples, plus the disk queue snapshot at that point; it deliberately does not wait for storage completion. The run used a dirty worktree; its base commit and tracked-diff hash are recorded with the result.
 
+## Current worker-affinity workload
+
+This workload uses the current local-per-worker runtime: one DB process and one pinned organization per worker. The test records bulk indexing readiness and then samples CRUD operations. It waits for index queues only; disk queues and adapter activity are captured separately without waiting for disk completion.
+
+| Workload | Total records | Create + index | Bulk create throughput | Host CPU average | Aggregate worker RSS peak | Disk items at index-ready | Report |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 8 workers × 1 organization × 125,000 | 1,000,000 | 60.23 s | 16,620 records/s | 76.68% across 8 logical CPUs | 22,004 MiB | 1,520,878 | [Report](worker-affinity-1000000-8x-2026-11-27T21-53-34.604Z/report.md) |
+
+The run passed all assignment and CRUD correctness checks. It also sampled create/read/indexed-read/update/delete throughput, host CPU and memory, per-worker RSS, and disk adapter operations. The complete queue and CRUD figures are in [raw JSON](worker-affinity-1000000-8x-2026-11-27T21-53-34.604Z/result.json). The disk queue count is a count of pending storage items; adapter I/O operation counts are reported separately.
+
 | Workload | Total records | Create + index | Throughput (records/s) | Process RSS | Report |
 | --- | ---: | ---: | ---: | ---: | --- |
 | 40 organizations × 25,000, 8 workers | 1,000,000 | 584.28 s | 1,712 | 6,907 MiB summed sample after indexing | [Report](worker-organizations-1000000-40x25k-8-workers-2026-11-27T14-13-12/report.md) |
@@ -46,3 +56,7 @@ The primary-tree pruning diagnostic uses one organization and 40 independently c
 The primary-orchestrated worker-tree benchmark uses one organization, 40 arrays, 400,000 records, and either two or four real Node worker processes over the existing Cluster IPC transport. The primary distributes array ownership round-robin; each worker owns 20 arrays with two workers or 10 arrays with four. Both runs use the same deterministic fixture. The benchmark reports create acknowledgements separately from create-plus-index completion. Process RSS is sampled after indexing and is not a peak measurement. These are single samples, not a scaling claim; see the run report and raw JSON for details.
 
 The latest 40 × 10K pass was run against the uncommitted worktree based on 1a6cfda. Its captured worktree state is in [run context](parallel-organizations-40x10k-2026-11-27T04-02-03.670Z/run-context.json).
+
+The [disk coalescing investigation](disk-coalescing-2026-11-27T23-35-55.911Z/report.md) distinguishes submitted requests/bytes from actual filesystem writes. Earlier worker-affinity `bytesWritten` and operation counters were measured before adapter coalescing and do not represent physical EBS traffic. Historical result files are preserved.
+
+The attached 400K run has a [label review](worker-affinity-400000-8x-2026-11-28T00-12-25.784Z/label-review.md) explaining submitted versus completed file writes. New worker-affinity reports use separate adapter-request and filesystem tables; original raw data is preserved.

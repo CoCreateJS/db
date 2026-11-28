@@ -3,7 +3,7 @@ import { defer, cancelDefer } from './defer.js'
 import { createLeaf, initializeLeaf, bindIndexRestore, hasIndexEntry, attachIndexEntry, indexValues, type, deferLeaf, reconcileLeaf, removeIndexedEntry } from './leaf.js'
 import getLeaves from './query.js'
 import { Tree as IndexTree } from './btree.js'
-import { DiskQueue } from './disk.js'
+import { storageRequest } from '../disk.js'
 
 const uuidValue = () => uuid().replaceAll('-', '')
 const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -31,7 +31,7 @@ async function insertEntry(tree, size, leafSize, entry, local, leaves, catalog) 
     await entry.insert(index)
 }
 
-export async function createManager({ db, owner, size = 1024, leafSize = size, write = () => {}, persist = () => {}, onIdle = () => {} }) {
+export async function createManager({ db, owner, size = 1024, leafSize = size, onIdle = () => {} }) {
     const pendingChanges = Object.create(null)
     const inFlight = Object.create(null)
     let queuedCount = 0
@@ -61,13 +61,27 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, w
         queuedConfig = data
         return data
     }
-    function releaseDeleted(uuid) {
-        if (!pendingIndex.has({ uuid }) && !disk.hasLeaf(uuid)) deleted.delete(uuid)
+    const storage = new Set()
+    function releaseDeleted() {
+        if (!pendingIndex.size && !storage.size) deleted.clear()
     }
-    const disk = new DiskQueue(owner.uuid, write, persist, batch => {
-        for (const [uuid, record] of Object.entries(batch.leaves)) if (record.operation === 'delete') releaseDeleted(uuid)
-    }, onIdle)
-    db.diskQueue = disk
+    function store(operation, notify = true) {
+        const request = storageRequest(owner, operation)
+        for (const resource of notify ? [owner.disk, owner.persistence] : [owner.disk]) {
+            const task = resource.execute(request)
+            storage.add(task)
+            task.then(() => {
+                storage.delete(task)
+                releaseDeleted()
+                onIdle()
+            }, () => {})
+        }
+    }
+    function storeChanges(leaves, branches, config) {
+        for (const uuid in leaves) store({ ...leaves[uuid], kind: 'leaf', uuid })
+        for (const uuid in branches) store({ ...branches[uuid], kind: 'branch', uuid })
+        if (config !== undefined) store({ operation: 'write', kind: 'config', uuid: owner.uuid, data: config })
+    }
     for (const route of db.config.indexes) {
         if (!route || typeof route.key !== 'string' || typeof route.type !== 'string' || typeof route.uuid !== 'string') throw Error('Invalid index root catalog')
         const tree = new IndexTree(size,db.local,route.key,leafSize,route.uuid)
@@ -149,7 +163,7 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, w
             for (const { leaf } of batch) leaves[leaf.uuid] = deleted.get(leaf.uuid) === leaf
                 ? { operation: 'delete' }
                 : { operation: 'write', data: JSON.stringify({ object: leaf }) }
-            disk.enqueue({ leaves, branches: db.local?.takeChanges(), config: configurationFile() })
+            storeChanges(leaves, db.local?.takeChanges(), configurationFile())
             indexed = true
         } catch (error) {
             for (const {leaf,record} of batch) enqueue(leaf, record, true)
@@ -159,8 +173,8 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, w
             for (const {leaf} of batch) {
                 delete inFlight[leaf.uuid]
                 if (!queued(leaf)) pendingCount--
-                releaseDeleted(leaf.uuid)
             }
+            releaseDeleted()
         }
         if (indexed) await onIdle()
         })
@@ -226,8 +240,8 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, w
         syncIndexCatalog()
         const branches = db.local?.takeChanges()
         const config = configurationFile()
-        if (config !== undefined || branches && Object.keys(branches).length) disk.enqueue({ branches, config })
-        await disk.close()
+        storeChanges(undefined, branches, config)
+        await Promise.all(storage)
     }
 
     async function visitRange(key, valueType, { min, max, branchUuid, mutating = false } = {}, visit) {
@@ -330,7 +344,7 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, w
             if (value.uuid !== id) throw new Error(`Persistence returned a mismatched leaf UUID: ${id}`)
             if (!belongs(value)) return undefined
             const restored = await restoreLeaf(structuredClone(value))
-            if (db.local) disk.enqueue({ leaves: { [id]: { operation: 'write', data: JSON.stringify({ object: restored }), notify: false } } })
+            if (db.local) store({ operation: 'write', kind: 'leaf', uuid: id, data: JSON.stringify({ object: restored }) }, false)
             return restored
         })()
         remoteReads.set(id, task)
@@ -383,8 +397,8 @@ export async function createManager({ db, owner, size = 1024, leafSize = size, w
             try {
                 db.config.roots = structuredClone(roots)
                 const config = configurationFile()
-                if (config !== undefined) disk.enqueue({ config })
+                if (config !== undefined) store({ operation: 'write', kind: 'config', uuid: owner.uuid, data: config })
             } finally { await activity.release() }
         },
-        restoreLeaf, close, pendingIndex, disk, operation: beginOperation, readIndex, primaryIndexes }
+        restoreLeaf, close, pendingIndex, storage, operation: beginOperation, readIndex, primaryIndexes }
 }

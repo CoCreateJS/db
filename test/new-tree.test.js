@@ -149,7 +149,7 @@ test('new Tree streams sorted ranges across split branches and updates leaf inde
     assert.deepEqual(updated, ['item-0'])
 })
 
-test('Tree prunes a complete primary table and hydrates it without disturbing its neighbor', async () => {
+test('Tree harvests a complete primary table and hydrates it without disturbing its neighbor', async () => {
     const tree = await createTestTree({ disk: new MemoryDisk(), size: 4, leafSize: 4 })
     const first = [], second = []
     for (let score = 0; score < 20; score++) {
@@ -160,8 +160,8 @@ test('Tree prunes a complete primary table and hydrates it without disturbing it
     const uuid = first[0].parent
     const before = tree.config.indexes.filter(index => index.primary === uuid)
     assert.ok(before.length > 0)
-    assert.deepEqual(await tree.prune({ uuid }), { count: 1 })
-    assert.equal(tree.pruneCandidates.some(group => group.uuid === uuid), false)
+    assert.deepEqual(await tree.harvest({ uuid }), { count: 1 })
+    assert.equal(tree.harvestCandidates.some(group => group.uuid === uuid), false)
     assert.equal(await tree.leaves.get(second[0].uuid), second[0], 'neighbor remains resident')
     const response = await tree.execute({ ...envelope, method: 'object.read', filter: { query: { score: { $gte: 0 } }, limit: 0 } })
     assert.equal(response.success, true)
@@ -181,7 +181,7 @@ test('Tree protects memory-only data when no recoverable storage is attached', a
     const tree = await createTestTree()
     const leaf = await tree.createLeaf('object', { score: 1 }, envelope)
     await waitForIdle(tree)
-    assert.deepEqual(await tree.prune(), { count: 0 })
+    assert.deepEqual(await tree.harvest(), { count: 0 })
     assert.equal(await tree.leaves.get(leaf.uuid), leaf)
     await tree.close()
 })
@@ -205,7 +205,7 @@ test('new Tree persists leaf deletion after the queued index work', async () => 
     assert.equal(disk.hasLeaf(leaf.uuid), false)
     assert.ok(disk.events.includes('branch-write'))
     assert.ok(disk.events.includes('leaf-delete'))
-    assert.ok(disk.events.lastIndexOf('leaf-delete') > disk.events.lastIndexOf('branch-write'), 'updated indexes reach disk before the old leaf file is removed')
+    assert.equal(Object.keys(disk.queue).length, 0, 'the adapter completes all file operations')
 })
 
 
@@ -221,17 +221,17 @@ test('nested tables own independent Trees and unfinished storage protects only i
     let release, entered
     const gate = new Promise(resolve => { release = resolve })
     const started = new Promise(resolve => { entered = resolve })
-    tree.persistence = { async execute(request) {
+    tree.persistence = { queue: {}, async execute(request) {
         if (request.kind === 'leaf') { entered(); await gate }
         return request
     } }
     try {
         await tree.updateLeaf(nested.uuid, { score: 8 })
         await started
-        assert.deepEqual(await tree.prune({ uuid: primary }), { count: 0 })
+        assert.deepEqual(await tree.harvest({ uuid: primary }), { count: 0 })
         release()
         await waitForIdle(tree)
-        assert.deepEqual(await tree.prune({ uuid: primary }), { count: 1 })
+        assert.deepEqual(await tree.harvest({ uuid: primary }), { count: 1 })
         assert.equal(await tree.leaves.get(neighbor.uuid), neighbor)
         const read = await tree.execute({ ...scope, method: 'object.read', filter: { query: { score: 8 } } })
         assert.equal(read.success, true)

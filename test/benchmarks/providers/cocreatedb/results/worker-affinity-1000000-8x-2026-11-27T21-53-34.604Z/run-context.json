@@ -1,0 +1,8 @@
+{
+  "capturedAt": "2026-11-27T21:53:34.641Z",
+  "branch": "dev",
+  "baseCommit": "001b147c2e808de4356eba327976e9fcf8b8987e",
+  "dirty": true,
+  "command": "node test/benchmarks/diagnostics/worker-affinity.mjs --workers=8 --total-records=1000000",
+  "orchestration": "parent is a load generator only and does not initialize DB; each child initializes its own local DB and owns one organization"
+}

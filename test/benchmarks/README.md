@@ -87,7 +87,7 @@ The raw result, run metadata, progress log, and Markdown summary are saved toget
 
 The fixture version is recorded in every result; it is not comparable to the shared v3 provider fixture or older lifecycle reports. CRUD point phases use disjoint slices of loaded records, and the mixed workload uses a separate pool. Disk adapter metrics represent local adapter calls, not external Persistence calls or durable completion. This runner does not currently instrument network request ingress or an external persistence provider. The benchmark is an implementation artifact only until explicitly run; saved reports must include the exact run metadata and source revision when comparing changes.
 
-The default requested memory budget is 25% of detected system RAM, capped at startup by memory available to the OS. It is an adaptive pressure target, not a hard RSS cap: eviction is asynchronous and may lag the workload. The DB mode and response acknowledgement are configured independently. Modes are `adaptive` (default), `disk-first`, and `disk-cache`; acknowledgements are `memory` (default) and `disk`. `disk-first` hydrates and processes requests from local Warm state, then writes and prunes it. `disk-cache` uses adaptive Hot/Warm behavior but clears only its managed Warm cache on startup. A `disk` acknowledgement waits for local writes; it does not select or change the mode. External Persistence acknowledgement is not implemented yet. The query-locality diagnostic accepts `--database-mode=adaptive|disk-first|disk-cache` and `--acknowledgement=memory|disk`. These measurements remain separate from standardized provider timings.
+The default requested memory budget is 25% of detected system RAM, capped at startup by memory available to the OS. It is an adaptive pressure target, not a hard RSS cap: eviction is asynchronous and may lag the workload. The DB mode and response acknowledgement are configured independently. Modes are `adaptive` (default), `disk-first`, and `disk-cache`; acknowledgements are `memory` (default) and `disk`. `disk-first` hydrates and processes requests from local Warm state, then writes and harvests it. `disk-cache` uses adaptive Hot/Warm behavior but clears only its managed Warm cache on startup. A `disk` acknowledgement waits for local writes; it does not select or change the mode. External Persistence acknowledgement is not implemented yet. The query-locality diagnostic accepts `--database-mode=adaptive|disk-first|disk-cache` and `--acknowledgement=memory|disk`. These measurements remain separate from standardized provider timings.
 
 ## Selected CoCreateDB baseline
 
@@ -102,7 +102,7 @@ NODE_OPTIONS=--max-old-space-size-percentage=75 DB_WORKERS=8 DB_ORGANIZATIONS=80
   node test-support/worker-db.mjs
 ```
 
-Each result includes five-second CPU and RSS samples for the primary and every worker. CPU utilization is relative to one logical core. Set `DB_LOAD_ONLY=1` to save a large ingestion/indexing result after queue-drain, placement, and primary-residency checks without running the additional CRUD/pruning diagnostic operations afterward.
+Each result includes five-second CPU and RSS samples for the primary and every worker. CPU utilization is relative to one logical core. Set `DB_LOAD_ONLY=1` to save a large ingestion/indexing result after queue-drain, placement, and primary-residency checks without running the additional CRUD/harvesting diagnostic operations afterward.
 
 ### Query field locality
 
@@ -115,7 +115,7 @@ node test/benchmarks/diagnostics/query-locality.mjs --mode=scattered --records=1
 
 By default, each record has 40 queryable fields plus a revision and a variable size payload, and both modes run one equality read per create batch, followed by 12,000 mixed requests after loading. Focused mode queries four fixed fields. Scattered mode selects from all 40. Both modes select records from the same broad set so the comparison isolates field choice. Set `--focused-fields` to 1–4, `--fields` to change fixture width, `--requests` to change the steady phase length, or `--leaf-size` to compare leaf capacities with branch capacity fixed at 1,024.
 
-The diagnostic uses the composer’s node-wide memory policy and reports Hot leaves, Warm leaves, and Warm index branches with their read/write counts. Adaptive mode offloads under memory pressure; disk-first uses local Warm state per request and prunes it after processing. The independent acknowledgement setting controls whether the call returns after the Hot mutation or waits for local Warm writes. Results contain RSS, operation latency, and index branch reads and writes by field. The diagnostic also reports total and Warm index entries per field after growth and before a point query verifies that a previously unused Warm index branch can reload. Reads are attributed to the synchronous CRUD path or background processing. Use `BENCH_OUTPUT_DIR` to place the result and temporary DB files outside the checkout. Run Node with `--expose-gc` to sample whether offloaded entries are still reachable and report heap and RSS after a final forced collection. The forced collection runs after the timed workload.
+The diagnostic uses the composer’s node-wide memory policy and reports Hot leaves, Warm leaves, and Warm index branches with their read/write counts. Adaptive mode offloads under memory pressure; disk-first uses local Warm state per request and harvests it after processing. The independent acknowledgement setting controls whether the call returns after the Hot mutation or waits for local Warm writes. Results contain RSS, operation latency, and index branch reads and writes by field. The diagnostic also reports total and Warm index entries per field after growth and before a point query verifies that a previously unused Warm index branch can reload. Reads are attributed to the synchronous CRUD path or background processing. Use `BENCH_OUTPUT_DIR` to place the result and temporary DB files outside the checkout. Run Node with `--expose-gc` to sample whether offloaded entries are still reachable and report heap and RSS after a final forced collection. The forced collection runs after the timed workload.
 
 Memory policy instrumentation uses node-wide used-memory percentages, matching
 Telemetry's contract. On Linux the benchmark uses `MemAvailable` so reclaimable
@@ -138,7 +138,7 @@ DB traffic; this does not test production cluster startup ordering.
 
 The fixture asserts stable round-robin placement, zero primary-local Trees,
 worker ingress, query/sort/pagination, CRUD and organization isolation, worker-local
-pruning, pending-storage protection, stop-at-50% controls and selective cold reads.
+harvesting, pending-storage protection, stop-at-50% controls and selective cold reads.
 Explicit asynchronous queue diagnostics establish completion outside CRUD.
 Reports include acknowledgement wall time, create-and-index wall time, process
 memory samples and matching fixture hashes. One sample per worker count is an
@@ -147,4 +147,37 @@ standard baseline. Set `BENCH_OUTPUT_DIR` to select the output directory.
 
 ### Independent disk queue timing
 
-Current runners distinguish index readiness (`createAndIndexMs`) from disk/Persistence completion (`createAndStorageMs`). The internal `pendingIndexCount` excludes storage; `pendingDiskCount` includes pending and in-flight file operations until the storage batch completes. Tests that require saved files or pruning eligibility use `waitForIdle`; reads never call either observation helper. Historical results are unchanged. A matched 10K comparison is in [disk-queue-10k-2026-11-27T16-05-15](providers/cocreatedb/results/disk-queue-10k-2026-11-27T16-05-15/report.md).
+Current runners distinguish index readiness (`createAndIndexMs`) from disk/Persistence completion (`createAndStorageMs`). The internal `pendingIndexCount` excludes storage; `pendingDiskCount` includes pending and in-flight file operations until the storage batch completes. Tests that require saved files or harvesting eligibility use `waitForIdle`; reads never call either observation helper. Historical results are unchanged. A matched 10K comparison is in [disk-queue-10k-2026-11-27T16-05-15](providers/cocreatedb/results/disk-queue-10k-2026-11-27T16-05-15/report.md).
+
+## Independent worker DB instances
+
+The current runtime executes each DB instance locally. Historical orchestrator diagnostics (`test-support/worker-db.mjs` and its worker-placement runners) remain preserved for the `WorkerDB` checkpoint and its reports; they target the previous IPC topology. The current regression fixture `test-support/local-db-fork.mjs` exercises complete local CRUD, indexing and storage in three independent processes. Standard local benchmarks retain the current index/disk queue behavior.
+
+The `diagnostics/worker-affinity.mjs` benchmark starts a dynamic number of independent Node worker processes. Its driver does not initialize DB. Each worker initializes one local DB instance, owns exactly one organization, and receives all requests for that organization. The worker count defaults to `availableParallelism()` and is capped at the available logical CPU count; total records are distributed evenly. Example: eight workers and one million records total yields 125,000 records per organization. The same total with two workers yields 500,000 per organization:
+
+```sh
+node test/benchmarks/diagnostics/worker-affinity.mjs --workers=8 --total-records=1000000
+node test/benchmarks/diagnostics/worker-affinity.mjs --workers=2 --total-records=1000000
+```
+
+By default the real local disk adapter is attached. Index readiness waits only for the index queue; pending disk queue items and adapter operation counts are sampled separately at index-ready and at the end of the CRUD workload. In local mode, worker processes also count filesystem calls and bytes under their disk directories after queue coalescing, separate from the adapter's submitted requests. These file-level counters are not block-device or EBS I/O. `BENCH_DISK=noop` is available for an adapter-call-only diagnostic, while `BENCH_DISK=disabled` runs without the local index tier and should not be used to measure disk behavior. Results report bulk-create acknowledgement, index drain, per-worker affinity and memory, host CPU, pre-coalescing adapter activity, post-coalescing filesystem activity, and CRUD create/UUID read/indexed read/update/delete throughput. CRUD samples default to 10,000 per operation per organization and can be set with `--crud-operations=N` or `BENCH_CRUD_OPERATIONS`.
+
+## Adapter-owned storage queues
+
+The Disk resource now owns the write queue; DB sends serialized changes independently to Disk and Persistence. Both adapters expose `execute` and `queue`. `pendingDiskCount` remains an internal outstanding storage-request metric (including Persistence completion), not a count of physical file writes. Use the adapter maps to inspect resource membership. Instrumentation wrappers must expose the wrapped adapter's `queue`. A local 10K smoke run is recorded in [adapter-queues](providers/cocreatedb/results/adapter-queues-10k-2026-11-27T22-41-10/report.md).
+
+## Disk coalescing and I/O accounting
+
+Run `node test/benchmarks/diagnostics/disk-coalescing.mjs` for the 10K fixture plus 1K individual create/update/delete phases across seven sequential concurrency/thread-pool cases. It counts actual filesystem writeFile/rename calls after queue coalescing, separately from adapter submissions and superseded requests. Production Disk code is not instrumented or changed. The [investigation report](providers/cocreatedb/results/disk-coalescing-2026-11-27T23-35-55.911Z/report.md) includes phase counts, raw results, device observations and buffered-I/O limitations.
+
+## Worker-affinity report boundaries
+
+Worker-affinity results separate `diskRequestsAtIndexReady` / `diskRequestsAtEnd`
+from `filesystemAtIndexReady` / `filesystemAtEnd`. Submitted requests and bytes
+are measured at DB→Disk before coalescing. Replaced/cancelled counts come from
+explicit adapter responses. Filesystem tables separate started/completed write
+calls, completed payload bytes and published renames after coalescing; they do
+not measure EBS IOPS or fsync durability. Outstanding writes are never labelled
+as eliminated. In-memory index readiness/catch-up remains a separate metric;
+branch mutation counts in memory are not instrumented. The workload-end snapshot
+is before shutdown drain. Original reports/JSON retain their original field names.

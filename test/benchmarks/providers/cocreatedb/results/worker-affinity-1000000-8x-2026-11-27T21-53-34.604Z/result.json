@@ -1,0 +1,6594 @@
+{
+  "status": "passed",
+  "startedAt": "2026-11-27T21:53:34.604Z",
+  "totalRecords": 1000000,
+  "workerCount": 8,
+  "organizationCount": 8,
+  "batchSize": 1000,
+  "crudOperationsPerOrganization": 10000,
+  "processModel": "one DB instance and one organization per worker process; benchmark driver has no DB; organization affinity is pinned for the run",
+  "disk": "local @cocreate/disk adapter enabled",
+  "node": "v24.18.0",
+  "host": {
+    "architecture": "x64",
+    "logicalCpus": 8,
+    "availableParallelism": 8,
+    "totalMemoryBytes": 33349062656
+  },
+  "assignments": [
+    {
+      "workerId": 1,
+      "organizationId": "000000000000000000000001",
+      "records": 125000
+    },
+    {
+      "workerId": 2,
+      "organizationId": "000000000000000000000002",
+      "records": 125000
+    },
+    {
+      "workerId": 3,
+      "organizationId": "000000000000000000000003",
+      "records": 125000
+    },
+    {
+      "workerId": 4,
+      "organizationId": "000000000000000000000004",
+      "records": 125000
+    },
+    {
+      "workerId": 5,
+      "organizationId": "000000000000000000000005",
+      "records": 125000
+    },
+    {
+      "workerId": 6,
+      "organizationId": "000000000000000000000006",
+      "records": 125000
+    },
+    {
+      "workerId": 7,
+      "organizationId": "000000000000000000000007",
+      "records": 125000
+    },
+    {
+      "workerId": 8,
+      "organizationId": "000000000000000000000008",
+      "records": 125000
+    }
+  ],
+  "workers": [],
+  "operations": {
+    "sampleCrud": {
+      "create": {
+        "requests": 80000,
+        "records": 80000,
+        "acknowledgementWallMs": 242017.14117000002,
+        "requestsPerSecond": 330.55509875561097,
+        "recordsPerSecond": 330.55509875561097,
+        "requestConcurrency": 8,
+        "perWorkerConcurrency": 1,
+        "acknowledgement": {
+          "count": 80000,
+          "totalMs": 1806698.0315479857,
+          "averageMs": 22.583725394349823,
+          "minMs": 0.9266979999956675,
+          "maxMs": 3082.8176479999966,
+          "p50Ms": 12.852358000003733,
+          "p95Ms": 38.23234000001685,
+          "p99Ms": 305.9880570000096
+        },
+        "indexDrainMs": 1.0459899999550544,
+        "pendingIndexBefore": 0,
+        "pendingIndexAfterAcknowledgement": 0,
+        "pendingDiskAfterAcknowledgement": 1263086,
+        "pendingIndexAfterDrain": 0,
+        "pendingDiskAfterDrain": 1263086,
+        "workers": [
+          {
+            "workerId": 1,
+            "organizationId": "000000000000000000000001",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 217611.73422699998,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 217579.70207200065,
+              "averageMs": 21.757970207200067,
+              "minMs": 2.065089999989141,
+              "maxMs": 2798.250614999997,
+              "p50Ms": 12.77750900000683,
+              "p95Ms": 38.046375000005355,
+              "p99Ms": 281.2803819999972
+            }
+          },
+          {
+            "workerId": 2,
+            "organizationId": "000000000000000000000002",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 235481.95173899998,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 235450.2894510014,
+              "averageMs": 23.54502894510014,
+              "minMs": 1.2805840000219177,
+              "maxMs": 3016.6805650000024,
+              "p50Ms": 12.98118100001011,
+              "p95Ms": 38.94121400002041,
+              "p99Ms": 338.0696910000115
+            }
+          },
+          {
+            "workerId": 3,
+            "organizationId": "000000000000000000000003",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 222562.687192,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 222532.28520200215,
+              "averageMs": 22.253228520200214,
+              "minMs": 1.1038010000193026,
+              "maxMs": 2804.0494330000074,
+              "p50Ms": 12.86000500000955,
+              "p95Ms": 37.77268599999661,
+              "p99Ms": 299.9413540000096
+            }
+          },
+          {
+            "workerId": 4,
+            "organizationId": "000000000000000000000004",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 220680.97170199998,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 220645.99845600146,
+              "averageMs": 22.064599845600146,
+              "minMs": 1.0956809999916004,
+              "maxMs": 3042.033257999996,
+              "p50Ms": 12.770577999996021,
+              "p95Ms": 37.780524000001606,
+              "p99Ms": 288.69953499999247
+            }
+          },
+          {
+            "workerId": 5,
+            "organizationId": "000000000000000000000005",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 241988.42241199999,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 241956.29829899967,
+              "averageMs": 24.195629829899968,
+              "minMs": 1.026519000006374,
+              "maxMs": 3073.823040000003,
+              "p50Ms": 13.025909999996657,
+              "p95Ms": 40.0491580000089,
+              "p99Ms": 353.62859800001024
+            }
+          },
+          {
+            "workerId": 6,
+            "organizationId": "000000000000000000000006",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 216505.14203399996,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 216474.01697899934,
+              "averageMs": 21.647401697899934,
+              "minMs": 0.9266979999956675,
+              "maxMs": 3043.4749650000012,
+              "p50Ms": 12.545420000009472,
+              "p95Ms": 36.844727999996394,
+              "p99Ms": 278.1768039999879
+            }
+          },
+          {
+            "workerId": 7,
+            "organizationId": "000000000000000000000007",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 216118.591629,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 216083.22856199974,
+              "averageMs": 21.608322856199973,
+              "minMs": 1.5027779999945778,
+              "maxMs": 3025.2162150000077,
+              "p50Ms": 12.767104999991716,
+              "p95Ms": 36.402527999991435,
+              "p99Ms": 279.362976000004
+            }
+          },
+          {
+            "workerId": 8,
+            "organizationId": "000000000000000000000008",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 236007.502905,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 235976.2125270001,
+              "averageMs": 23.597621252700012,
+              "minMs": 1.7069419999897946,
+              "maxMs": 3082.8176479999966,
+              "p50Ms": 12.960222000008798,
+              "p95Ms": 40.1667199999938,
+              "p99Ms": 335.64958300002036
+            }
+          }
+        ],
+        "indexDrainPerformed": true
+      },
+      "readByUuid": {
+        "requests": 80000,
+        "records": 80000,
+        "acknowledgementWallMs": 8098.557380000013,
+        "requestsPerSecond": 9878.302547755718,
+        "recordsPerSecond": 9878.302547755718,
+        "requestConcurrency": 8,
+        "perWorkerConcurrency": 1,
+        "acknowledgement": {
+          "count": 80000,
+          "totalMs": 62785.64754199574,
+          "averageMs": 0.7848205942749468,
+          "minMs": 0.17445300001418218,
+          "maxMs": 48.78431900002761,
+          "p50Ms": 0.6468430000240915,
+          "p95Ms": 1.2180439999792725,
+          "p99Ms": 4.1337409999687225
+        },
+        "indexDrainMs": 0,
+        "pendingIndexBefore": 0,
+        "pendingIndexAfterAcknowledgement": 0,
+        "pendingDiskAfterAcknowledgement": 1263086,
+        "pendingIndexAfterDrain": 0,
+        "pendingDiskAfterDrain": 1263086,
+        "workers": [
+          {
+            "workerId": 1,
+            "organizationId": "000000000000000000000001",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 7799.197308999952,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 7788.842391995306,
+              "averageMs": 0.7788842391995305,
+              "minMs": 0.18121399998199195,
+              "maxMs": 44.92288399999961,
+              "p50Ms": 0.6423719999729656,
+              "p95Ms": 1.2391849999548867,
+              "p99Ms": 3.7027019999804907
+            }
+          },
+          {
+            "workerId": 2,
+            "organizationId": "000000000000000000000002",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 7683.902467000007,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 7674.070588001283,
+              "averageMs": 0.7674070588001283,
+              "minMs": 0.22501399996690452,
+              "maxMs": 47.088036000030115,
+              "p50Ms": 0.6107320000301115,
+              "p95Ms": 1.171083000022918,
+              "p99Ms": 4.0597689999849536
+            }
+          },
+          {
+            "workerId": 3,
+            "organizationId": "000000000000000000000003",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 7869.017087000015,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 7857.129213000357,
+              "averageMs": 0.7857129213000357,
+              "minMs": 0.18771299999207258,
+              "maxMs": 45.34785199997714,
+              "p50Ms": 0.6415229999693111,
+              "p95Ms": 1.2012230000109412,
+              "p99Ms": 3.9747479999787174
+            }
+          },
+          {
+            "workerId": 4,
+            "organizationId": "000000000000000000000004",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 8083.762072000012,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 8073.643855001952,
+              "averageMs": 0.8073643855001952,
+              "minMs": 0.19380300003103912,
+              "maxMs": 45.49475499999244,
+              "p50Ms": 0.6992539999773726,
+              "p95Ms": 1.220973999996204,
+              "p99Ms": 4.386175999999978
+            }
+          },
+          {
+            "workerId": 5,
+            "organizationId": "000000000000000000000005",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 7742.78955300001,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 7732.761118999799,
+              "averageMs": 0.7732761118999799,
+              "minMs": 0.22366399999009445,
+              "maxMs": 45.91033199999947,
+              "p50Ms": 0.6186929999967106,
+              "p95Ms": 1.2169229999999516,
+              "p99Ms": 3.883215999987442
+            }
+          },
+          {
+            "workerId": 6,
+            "organizationId": "000000000000000000000006",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 7895.614224000019,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 7885.041023997765,
+              "averageMs": 0.7885041023997764,
+              "minMs": 0.2073439999949187,
+              "maxMs": 45.61032700003125,
+              "p50Ms": 0.6367120000068098,
+              "p95Ms": 1.2243739999830723,
+              "p99Ms": 4.463677000021562
+            }
+          },
+          {
+            "workerId": 7,
+            "organizationId": "000000000000000000000007",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 7817.842460999964,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 7807.797247000504,
+              "averageMs": 0.7807797247000504,
+              "minMs": 0.21662399999331683,
+              "maxMs": 44.62486799998442,
+              "p50Ms": 0.6256419999990612,
+              "p95Ms": 1.2137530000181869,
+              "p99Ms": 3.843334999983199
+            }
+          },
+          {
+            "workerId": 8,
+            "organizationId": "000000000000000000000008",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 7976.513696999988,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 7966.3621039987775,
+              "averageMs": 0.7966362103998778,
+              "minMs": 0.17445300001418218,
+              "maxMs": 48.78431900002761,
+              "p50Ms": 0.6879140000091866,
+              "p95Ms": 1.2445750000188127,
+              "p99Ms": 4.253092999977525
+            }
+          }
+        ],
+        "indexDrainPerformed": false
+      },
+      "indexedRead": {
+        "requests": 80000,
+        "records": 80000,
+        "acknowledgementWallMs": 14706.765783000039,
+        "requestsPerSecond": 5439.67322118329,
+        "recordsPerSecond": 5439.67322118329,
+        "requestConcurrency": 8,
+        "perWorkerConcurrency": 1,
+        "acknowledgement": {
+          "count": 80000,
+          "totalMs": 116432.47409900109,
+          "averageMs": 1.4554059262375136,
+          "minMs": 0.3355269999592565,
+          "maxMs": 355.31457399996,
+          "p50Ms": 0.8357259999611415,
+          "p95Ms": 3.6085800000000745,
+          "p99Ms": 11.94268400000874
+        },
+        "indexDrainMs": 0,
+        "pendingIndexBefore": 0,
+        "pendingIndexAfterAcknowledgement": 0,
+        "pendingDiskAfterAcknowledgement": 1263086,
+        "pendingIndexAfterDrain": 0,
+        "pendingDiskAfterDrain": 1263086,
+        "workers": [
+          {
+            "workerId": 1,
+            "organizationId": "000000000000000000000001",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 14657.248743999982,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 14643.942364000832,
+              "averageMs": 1.4643942364000833,
+              "minMs": 0.398988000000827,
+              "maxMs": 262.7347820000141,
+              "p50Ms": 0.8388970000087284,
+              "p95Ms": 3.2125430000014603,
+              "p99Ms": 11.59995699999854
+            }
+          },
+          {
+            "workerId": 2,
+            "organizationId": "000000000000000000000002",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 14458.071984999988,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 14442.38487599924,
+              "averageMs": 1.444238487599924,
+              "minMs": 0.3876569999847561,
+              "maxMs": 137.92886200000066,
+              "p50Ms": 0.8378070000326261,
+              "p95Ms": 3.762823000026401,
+              "p99Ms": 12.131927000009455
+            }
+          },
+          {
+            "workerId": 3,
+            "organizationId": "000000000000000000000003",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 14638.858224000025,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 14624.907449999999,
+              "averageMs": 1.462490745,
+              "minMs": 0.3355269999592565,
+              "maxMs": 141.49757900001714,
+              "p50Ms": 0.8436859999783337,
+              "p95Ms": 3.5158679999876767,
+              "p99Ms": 9.910461999999825
+            }
+          },
+          {
+            "workerId": 4,
+            "organizationId": "000000000000000000000004",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 14333.168160000001,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 14315.460845002497,
+              "averageMs": 1.4315460845002497,
+              "minMs": 0.38134700001683086,
+              "maxMs": 228.01538300001994,
+              "p50Ms": 0.8335660000448115,
+              "p95Ms": 3.4533570000203326,
+              "p99Ms": 10.563376000034623
+            }
+          },
+          {
+            "workerId": 5,
+            "organizationId": "000000000000000000000005",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 14622.988342999946,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 14609.001207994064,
+              "averageMs": 1.4609001207994063,
+              "minMs": 0.3384770000120625,
+              "maxMs": 170.10625999997137,
+              "p50Ms": 0.8195960000157356,
+              "p95Ms": 4.1168000000179745,
+              "p99Ms": 11.759338999981992
+            }
+          },
+          {
+            "workerId": 6,
+            "organizationId": "000000000000000000000006",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 14567.687501000008,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 14549.197495002416,
+              "averageMs": 1.4549197495002415,
+              "minMs": 0.37593700003344566,
+              "maxMs": 355.31457399996,
+              "p50Ms": 0.8274470000178553,
+              "p95Ms": 3.645691000041552,
+              "p99Ms": 12.456223000015598
+            }
+          },
+          {
+            "workerId": 7,
+            "organizationId": "000000000000000000000007",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 14691.119547000038,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 14677.358339003404,
+              "averageMs": 1.4677358339003403,
+              "minMs": 0.3749369999859482,
+              "maxMs": 107.07640600000741,
+              "p50Ms": 0.8480660000350326,
+              "p95Ms": 3.409417000017129,
+              "p99Ms": 11.49703299999237
+            }
+          },
+          {
+            "workerId": 8,
+            "organizationId": "000000000000000000000008",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 14583.65733300004,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 14570.22152199864,
+              "averageMs": 1.4570221521998639,
+              "minMs": 0.3989869999932125,
+              "maxMs": 127.9213779999991,
+              "p50Ms": 0.8396860000211746,
+              "p95Ms": 3.7374829999753274,
+              "p99Ms": 13.703215999994427
+            }
+          }
+        ],
+        "indexDrainPerformed": false
+      },
+      "update": {
+        "requests": 80000,
+        "records": 80000,
+        "acknowledgementWallMs": 19277.368215000024,
+        "requestsPerSecond": 4149.944074718183,
+        "recordsPerSecond": 4149.944074718183,
+        "requestConcurrency": 8,
+        "perWorkerConcurrency": 1,
+        "acknowledgement": {
+          "count": 80000,
+          "totalMs": 152619.0861210039,
+          "averageMs": 1.9077385765125487,
+          "minMs": 0.273936000012327,
+          "maxMs": 96.7360130000161,
+          "p50Ms": 1.640482000017073,
+          "p95Ms": 4.4849169999943115,
+          "p99Ms": 8.64577800000552
+        },
+        "indexDrainMs": 1.087240999971982,
+        "pendingIndexBefore": 0,
+        "pendingIndexAfterAcknowledgement": 0,
+        "pendingDiskAfterAcknowledgement": 1297615,
+        "pendingIndexAfterDrain": 0,
+        "pendingDiskAfterDrain": 1297615,
+        "workers": [
+          {
+            "workerId": 1,
+            "organizationId": "000000000000000000000001",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 18800.917494000052,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 18779.581924000347,
+              "averageMs": 1.8779581924000348,
+              "minMs": 0.3101260000257753,
+              "maxMs": 63.72266699996544,
+              "p50Ms": 1.6336819999851286,
+              "p95Ms": 4.407475000014529,
+              "p99Ms": 8.010097000049427
+            }
+          },
+          {
+            "workerId": 2,
+            "organizationId": "000000000000000000000002",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 19056.587498000008,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 19035.869064997823,
+              "averageMs": 1.9035869064997823,
+              "minMs": 0.32371700002113357,
+              "maxMs": 62.19732799998019,
+              "p50Ms": 1.6527120000100695,
+              "p95Ms": 4.504437999974471,
+              "p99Ms": 8.104297999991104
+            }
+          },
+          {
+            "workerId": 3,
+            "organizationId": "000000000000000000000003",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 19221.660552999994,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 19202.690435999364,
+              "averageMs": 1.9202690435999363,
+              "minMs": 0.31806700001470745,
+              "maxMs": 63.8310899999924,
+              "p50Ms": 1.6553120000171475,
+              "p95Ms": 4.501837000017986,
+              "p99Ms": 8.985415000002831
+            }
+          },
+          {
+            "workerId": 4,
+            "organizationId": "000000000000000000000004",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 19188.56526100001,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 19170.580641001812,
+              "averageMs": 1.9170580641001813,
+              "minMs": 0.273936000012327,
+              "maxMs": 61.49775499996031,
+              "p50Ms": 1.637031999998726,
+              "p95Ms": 4.524717999971472,
+              "p99Ms": 9.095206000027247
+            }
+          },
+          {
+            "workerId": 5,
+            "organizationId": "000000000000000000000005",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 19100.684033999976,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 19081.297521999513,
+              "averageMs": 1.9081297521999514,
+              "minMs": 0.29743600002257153,
+              "maxMs": 60.597687000001315,
+              "p50Ms": 1.633752000052482,
+              "p95Ms": 4.551808999967761,
+              "p99Ms": 8.770441000000574
+            }
+          },
+          {
+            "workerId": 6,
+            "organizationId": "000000000000000000000006",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 19205.180483999953,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 19186.085922001046,
+              "averageMs": 1.9186085922001046,
+              "minMs": 0.28195599996251985,
+              "maxMs": 64.2546179999481,
+              "p50Ms": 1.6434620000072755,
+              "p95Ms": 4.50004800001625,
+              "p99Ms": 8.928222999966238
+            }
+          },
+          {
+            "workerId": 7,
+            "organizationId": "000000000000000000000007",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 18937.969235000026,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 18919.055834001512,
+              "averageMs": 1.8919055834001512,
+              "minMs": 0.3072859999956563,
+              "maxMs": 61.97580299997935,
+              "p50Ms": 1.6474220000091009,
+              "p95Ms": 4.417376000026707,
+              "p99Ms": 8.317723000014666
+            }
+          },
+          {
+            "workerId": 8,
+            "organizationId": "000000000000000000000008",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 19262.050988000003,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 19243.92477700248,
+              "averageMs": 1.9243924777002481,
+              "minMs": 0.33722599997418,
+              "maxMs": 96.7360130000161,
+              "p50Ms": 1.6161410000058822,
+              "p95Ms": 4.417925999965519,
+              "p99Ms": 10.047454999992624
+            }
+          }
+        ],
+        "indexDrainPerformed": true
+      },
+      "delete": {
+        "requests": 80000,
+        "records": 80000,
+        "acknowledgementWallMs": 90508.57565700001,
+        "requestsPerSecond": 883.8941439447206,
+        "recordsPerSecond": 883.8941439447206,
+        "requestConcurrency": 8,
+        "perWorkerConcurrency": 1,
+        "acknowledgement": {
+          "count": 80000,
+          "totalMs": 713635.2989220042,
+          "averageMs": 8.920441236525052,
+          "minMs": 0.32334699999773875,
+          "maxMs": 218.73871499998495,
+          "p50Ms": 7.299003999971319,
+          "p95Ms": 17.805238000000827,
+          "p99Ms": 30.5448219999671
+        },
+        "indexDrainMs": 1.461937999993097,
+        "pendingIndexBefore": 0,
+        "pendingIndexAfterAcknowledgement": 0,
+        "pendingDiskAfterAcknowledgement": 1311978,
+        "pendingIndexAfterDrain": 0,
+        "pendingDiskAfterDrain": 1311978,
+        "workers": [
+          {
+            "workerId": 1,
+            "organizationId": "000000000000000000000001",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 87206.11517800001,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 87174.37428900355,
+              "averageMs": 8.717437428900356,
+              "minMs": 0.43178800004534423,
+              "maxMs": 137.01644199999282,
+              "p50Ms": 7.147771999996621,
+              "p95Ms": 16.98206199996639,
+              "p99Ms": 29.161934999981895
+            }
+          },
+          {
+            "workerId": 2,
+            "organizationId": "000000000000000000000002",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 90388.87985900004,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 90357.98686900211,
+              "averageMs": 9.035798686900211,
+              "minMs": 0.5093900000210851,
+              "maxMs": 174.24813000002177,
+              "p50Ms": 7.473098999995273,
+              "p95Ms": 17.80736799997976,
+              "p99Ms": 31.356835000042338
+            }
+          },
+          {
+            "workerId": 3,
+            "organizationId": "000000000000000000000003",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 87367.06765700004,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 87335.36605900107,
+              "averageMs": 8.733536605900108,
+              "minMs": 0.4168080000090413,
+              "maxMs": 206.57245800003875,
+              "p50Ms": 7.118569000042044,
+              "p95Ms": 17.655883999948855,
+              "p99Ms": 29.550783000013325
+            }
+          },
+          {
+            "workerId": 4,
+            "organizationId": "000000000000000000000004",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 90300.87515000004,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 90270.38802300562,
+              "averageMs": 9.027038802300563,
+              "minMs": 0.39104700001189485,
+              "maxMs": 176.74018600001,
+              "p50Ms": 7.416328000021167,
+              "p95Ms": 18.071952000027522,
+              "p99Ms": 30.486616000009235
+            }
+          },
+          {
+            "workerId": 5,
+            "organizationId": "000000000000000000000005",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 90487.98901099997,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 90453.7511659998,
+              "averageMs": 9.04537511659998,
+              "minMs": 0.4740790000068955,
+              "maxMs": 193.51076400000602,
+              "p50Ms": 7.422887999971863,
+              "p95Ms": 17.78690100001404,
+              "p99Ms": 30.026972000021487
+            }
+          },
+          {
+            "workerId": 6,
+            "organizationId": "000000000000000000000006",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 89302.56804799999,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 89268.62806300493,
+              "averageMs": 8.926862806300493,
+              "minMs": 0.3382860000128858,
+              "maxMs": 218.73871499998495,
+              "p50Ms": 7.239209999970626,
+              "p95Ms": 17.510496000002604,
+              "p99Ms": 30.02676799998153
+            }
+          },
+          {
+            "workerId": 7,
+            "organizationId": "000000000000000000000007",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 88491.61021199997,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 88460.1688389983,
+              "averageMs": 8.84601688389983,
+              "minMs": 0.32334699999773875,
+              "maxMs": 212.32123000000138,
+              "p50Ms": 7.176640000019688,
+              "p95Ms": 17.95904500002507,
+              "p99Ms": 32.16785399999935
+            }
+          },
+          {
+            "workerId": 8,
+            "organizationId": "000000000000000000000008",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 90346.64686799998,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 90314.63561399555,
+              "averageMs": 9.031463561399555,
+              "minMs": 0.40378799999598414,
+              "maxMs": 162.46343099995283,
+              "p50Ms": 7.455795000016224,
+              "p95Ms": 18.01901099999668,
+              "p99Ms": 30.755223000014666
+            }
+          }
+        ],
+        "indexDrainPerformed": true
+      }
+    },
+    "overall": {
+      "requests": 401000,
+      "recordOperations": 1400000,
+      "acknowledgementWallMs": 434776.8848780001,
+      "indexDrainMs": 22.407578999926045,
+      "endToEndMs": 434845.744589,
+      "requestsPerSecond": 922.3121420369944,
+      "recordOperationsPerSecond": 3220.0423911516014
+    }
+  },
+  "memory": {
+    "aggregatePeakObservedRssBytes": 23072419840,
+    "workers": {
+      "1": {
+        "currentRssBytes": 2894520320,
+        "peakRssBytes": 2894520320,
+        "heapUsedBytes": 1955143696
+      },
+      "2": {
+        "currentRssBytes": 2890989568,
+        "peakRssBytes": 2895032320,
+        "heapUsedBytes": 1134709568
+      },
+      "3": {
+        "currentRssBytes": 2893348864,
+        "peakRssBytes": 2896793600,
+        "heapUsedBytes": 1119851272
+      },
+      "4": {
+        "currentRssBytes": 2897829888,
+        "peakRssBytes": 2901913600,
+        "heapUsedBytes": 1496300744
+      },
+      "5": {
+        "currentRssBytes": 2868736000,
+        "peakRssBytes": 2872156160,
+        "heapUsedBytes": 1109390064
+      },
+      "6": {
+        "currentRssBytes": 2882002944,
+        "peakRssBytes": 2885861376,
+        "heapUsedBytes": 1109034760
+      },
+      "7": {
+        "currentRssBytes": 2891603968,
+        "peakRssBytes": 2894884864,
+        "heapUsedBytes": 1102305280
+      },
+      "8": {
+        "currentRssBytes": 2853388288,
+        "peakRssBytes": 2857492480,
+        "heapUsedBytes": 1873573224
+      }
+    },
+    "workerPeakRssSumBytes": 23098654720,
+    "driver": {
+      "rss": 327475200,
+      "heapTotal": 112189440,
+      "heapUsed": 68815080,
+      "external": 2522051,
+      "arrayBuffers": 169482
+    }
+  },
+  "initializationMs": 220,
+  "bulkCreate": {
+    "requests": 1000,
+    "records": 1000000,
+    "acknowledgementWallMs": 60168.476673,
+    "fixtureGenerationMs": 17471.459868000005,
+    "acknowledgementWallMsExcludingFixtureGeneration": 42697.01680499999,
+    "requestsPerSecond": 16.61999863208669,
+    "recordsPerSecond": 16619.998632086692,
+    "requestLatency": {
+      "count": 1000,
+      "totalMs": 452260.8097750007,
+      "averageMs": 452.26080977500067,
+      "minMs": 267.65396599999985,
+      "maxMs": 1360.745031999999,
+      "p50Ms": 434.45386699999926,
+      "p95Ms": 607.9392640000005,
+      "p99Ms": 766.762545
+    },
+    "workers": [
+      {
+        "workerId": 1,
+        "organizationId": "000000000000000000000001",
+        "pid": 105664,
+        "records": 125000,
+        "fixtureGenerationMs": 2169.8807879999954,
+        "fixtureHash": "81faf77fcc1e681a7973316090b2cab9959dfe5013214eb96e59820e360e9a72",
+        "createAcknowledgementWallMs": 59790.158925,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 57601.642542000016,
+          "averageMs": 460.8131403360001,
+          "minMs": 318.42192799999975,
+          "maxMs": 1331.830618,
+          "p50Ms": 455.7922500000059,
+          "p95Ms": 597.5720450000008,
+          "p99Ms": 616.423397999999
+        }
+      },
+      {
+        "workerId": 2,
+        "organizationId": "000000000000000000000002",
+        "pid": 105665,
+        "records": 125000,
+        "fixtureGenerationMs": 2183.0288990000136,
+        "fixtureHash": "f7221c0b9573d38334bc1ae4bdba594264fe7089fc1b4864825b05343a099561",
+        "createAcknowledgementWallMs": 57992.768805,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 55805.83045900002,
+          "averageMs": 446.44664367200016,
+          "minMs": 314.8966990000008,
+          "maxMs": 727.9560499999998,
+          "p50Ms": 434.83623499999976,
+          "p95Ms": 565.3516010000003,
+          "p99Ms": 684.7455460000001
+        }
+      },
+      {
+        "workerId": 3,
+        "organizationId": "000000000000000000000003",
+        "pid": 105666,
+        "records": 125000,
+        "fixtureGenerationMs": 2105.5887389999666,
+        "fixtureHash": "6fb5c2dc035520cfd00d2680b1def5faecee1c4695216cfce9bc70f2000a150b",
+        "createAcknowledgementWallMs": 58605.208989,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 56484.47719900001,
+          "averageMs": 451.8758175920001,
+          "minMs": 267.65396599999985,
+          "maxMs": 830.4587930000016,
+          "p50Ms": 439.6304659999987,
+          "p95Ms": 607.9392640000005,
+          "p99Ms": 666.0259559999977
+        }
+      },
+      {
+        "workerId": 4,
+        "organizationId": "000000000000000000000004",
+        "pid": 105672,
+        "records": 125000,
+        "fixtureGenerationMs": 2356.247564999985,
+        "fixtureHash": "c2bb7e61b024b7b690c4c9adffc95e04e31a822a95589798801ac3bbfb045e73",
+        "createAcknowledgementWallMs": 57579.232012,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 55212.128223999985,
+          "averageMs": 441.69702579199986,
+          "minMs": 304.6806250000009,
+          "maxMs": 798.5409740000032,
+          "p50Ms": 420.9658950000012,
+          "p95Ms": 628.3617349999986,
+          "p99Ms": 677.905831
+        }
+      },
+      {
+        "workerId": 5,
+        "organizationId": "000000000000000000000005",
+        "pid": 105678,
+        "records": 125000,
+        "fixtureGenerationMs": 2064.119592999992,
+        "fixtureHash": "8d86768affc2653e2ef9201abff9fe78e3478b74d41bc7dff4e18ae292a08008",
+        "createAcknowledgementWallMs": 59550.806557,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 57472.15688100001,
+          "averageMs": 459.7772550480001,
+          "minMs": 300.62532400000055,
+          "maxMs": 1119.814523000001,
+          "p50Ms": 437.5066979999997,
+          "p95Ms": 666.5082720000003,
+          "p99Ms": 779.9864659999985
+        }
+      },
+      {
+        "workerId": 6,
+        "organizationId": "000000000000000000000006",
+        "pid": 105684,
+        "records": 125000,
+        "fixtureGenerationMs": 2164.5322570000135,
+        "fixtureHash": "76704911bc683237f1d44c99c6f260d68be7914803cd6b028e7fd785d1529e48",
+        "createAcknowledgementWallMs": 58302.609881,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 56129.54045200001,
+          "averageMs": 449.03632361600006,
+          "minMs": 276.67808799999693,
+          "maxMs": 1304.088917000001,
+          "p50Ms": 428.36745200000223,
+          "p95Ms": 589.3077860000049,
+          "p99Ms": 766.762545
+        }
+      },
+      {
+        "workerId": 7,
+        "organizationId": "000000000000000000000007",
+        "pid": 105690,
+        "records": 125000,
+        "fixtureGenerationMs": 2250.2889150000165,
+        "fixtureHash": "ea5c1bc7a302796b102223e6cba2813efc800f171542fefa17629af2f95b8d44",
+        "createAcknowledgementWallMs": 59355.790708,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 57098.14415500001,
+          "averageMs": 456.78515324000006,
+          "minMs": 297.98039099999914,
+          "maxMs": 1360.745031999999,
+          "p50Ms": 436.3475749999998,
+          "p95Ms": 629.037215999997,
+          "p99Ms": 848.757623
+        }
+      },
+      {
+        "workerId": 8,
+        "organizationId": "000000000000000000000008",
+        "pid": 105696,
+        "records": 125000,
+        "fixtureGenerationMs": 2177.773112000026,
+        "fixtureHash": "081caeffdd02a0afac36272cb4ddbc1df198aab7e7956e12d8f18a2b5973d28c",
+        "createAcknowledgementWallMs": 58641.966215,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 56456.88986300002,
+          "averageMs": 451.6551189040002,
+          "minMs": 323.3028749999994,
+          "maxMs": 800.4664909999992,
+          "p50Ms": 425.50401600000623,
+          "p95Ms": 614.3134540000028,
+          "p99Ms": 782.3083740000002
+        }
+      }
+    ]
+  },
+  "pendingIndexAfterAcknowledgement": 0,
+  "pendingDiskAfterAcknowledgement": 1520878,
+  "indexDrainMs": 18.81241000000591,
+  "createAndIndexMs": 60233.741214999995,
+  "pendingIndexAtIndexReady": 0,
+  "pendingDiskAtIndexReady": 1520878,
+  "indexDrainByWorker": [
+    {
+      "workerId": 1,
+      "organizationId": "000000000000000000000001",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 190103,
+      "drainMs": 0.38091699999495177,
+      "dbMemory": {
+        "nodeUsedPercent": 38.6876292778764,
+        "peakNodeUsedPercent": 38.6876292778764,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 2,
+      "organizationId": "000000000000000000000002",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 190110,
+      "drainMs": 0.4171679999999469,
+      "dbMemory": {
+        "nodeUsedPercent": 38.54208515718949,
+        "peakNodeUsedPercent": 38.54208515718949,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 3,
+      "organizationId": "000000000000000000000003",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 190109,
+      "drainMs": 14.384675000001153,
+      "dbMemory": {
+        "nodeUsedPercent": 38.6876292778764,
+        "peakNodeUsedPercent": 38.6876292778764,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 4,
+      "organizationId": "000000000000000000000004",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 190109,
+      "drainMs": 1.6796119999999064,
+      "dbMemory": {
+        "nodeUsedPercent": 38.54387835901399,
+        "peakNodeUsedPercent": 38.54387835901399,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 5,
+      "organizationId": "000000000000000000000005",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 190120,
+      "drainMs": 0.41398800000024494,
+      "dbMemory": {
+        "nodeUsedPercent": 38.689729534807825,
+        "peakNodeUsedPercent": 38.689729534807825,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 6,
+      "organizationId": "000000000000000000000006",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 190106,
+      "drainMs": 0.41142799999943236,
+      "dbMemory": {
+        "nodeUsedPercent": 38.665914340714,
+        "peakNodeUsedPercent": 38.665914340714,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 7,
+      "organizationId": "000000000000000000000007",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 190109,
+      "drainMs": 0.6462719999981346,
+      "dbMemory": {
+        "nodeUsedPercent": 38.67129394618748,
+        "peakNodeUsedPercent": 38.67129394618748,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 8,
+      "organizationId": "000000000000000000000008",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 190112,
+      "drainMs": 0.4841789999991306,
+      "dbMemory": {
+        "nodeUsedPercent": 38.59181580230859,
+        "peakNodeUsedPercent": 38.59181580230859,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    }
+  ],
+  "diskAtIndexReady": {
+    "started": 1077368,
+    "completed": 1077200,
+    "failed": 40,
+    "inFlight": 128,
+    "bytesWritten": 44197476,
+    "outstanding": 128,
+    "byKindAction": {
+      "file.read": 40,
+      "file.write": 77328,
+      "file.has": 1000000
+    },
+    "failures": {
+      "file.read:ENOENT": 40
+    }
+  },
+  "finalWorkers": [
+    {
+      "workerId": 1,
+      "organizationId": "000000000000000000000001",
+      "pid": 105664,
+      "pendingIndexCount": 0,
+      "pendingDiskCount": 171074,
+      "memory": {
+        "rss": 2894520320,
+        "heapTotal": 2184683520,
+        "heapUsed": 1955128720,
+        "external": 2781358,
+        "arrayBuffers": 477831
+      },
+      "peakRssBytes": 2894520320,
+      "cpuUsage": {
+        "user": 271625960,
+        "system": 35522686
+      },
+      "dbMemory": {
+        "nodeUsedPercent": 79.23119787969851,
+        "peakNodeUsedPercent": 79.30190652972337,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      },
+      "disk": {
+        "started": 299076,
+        "completed": 299055,
+        "failed": 5,
+        "inFlight": 16,
+        "bytesWritten": 128853082,
+        "byKindAction": {
+          "file.read": 5,
+          "file.write": 164071,
+          "file.has": 135000
+        },
+        "failures": {
+          "file.read:ENOENT": 5
+        },
+        "outstanding": 16
+      }
+    },
+    {
+      "workerId": 2,
+      "organizationId": "000000000000000000000002",
+      "pid": 105665,
+      "pendingIndexCount": 0,
+      "pendingDiskCount": 164143,
+      "memory": {
+        "rss": 2890989568,
+        "heapTotal": 2022252544,
+        "heapUsed": 1133846408,
+        "external": 4701215,
+        "arrayBuffers": 2394905
+      },
+      "peakRssBytes": 2895032320,
+      "cpuUsage": {
+        "user": 270945026,
+        "system": 33867724
+      },
+      "dbMemory": {
+        "nodeUsedPercent": 79.28031441460374,
+        "peakNodeUsedPercent": 79.28031441460374,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      },
+      "disk": {
+        "started": 287412,
+        "completed": 287391,
+        "failed": 5,
+        "inFlight": 16,
+        "bytesWritten": 107786088,
+        "byKindAction": {
+          "file.read": 5,
+          "file.write": 152407,
+          "file.has": 135000
+        },
+        "failures": {
+          "file.read:ENOENT": 5
+        },
+        "outstanding": 16
+      }
+    },
+    {
+      "workerId": 3,
+      "organizationId": "000000000000000000000003",
+      "pid": 105666,
+      "pendingIndexCount": 0,
+      "pendingDiskCount": 165785,
+      "memory": {
+        "rss": 2893348864,
+        "heapTotal": 2046808064,
+        "heapUsed": 1119839960,
+        "external": 10331076,
+        "arrayBuffers": 8024414
+      },
+      "peakRssBytes": 2896793600,
+      "cpuUsage": {
+        "user": 270210000,
+        "system": 35412456
+      },
+      "dbMemory": {
+        "nodeUsedPercent": 79.28031441460374,
+        "peakNodeUsedPercent": 79.28031441460374,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      },
+      "disk": {
+        "started": 295388,
+        "completed": 295367,
+        "failed": 5,
+        "inFlight": 16,
+        "bytesWritten": 121807194,
+        "byKindAction": {
+          "file.read": 5,
+          "file.write": 160383,
+          "file.has": 135000
+        },
+        "failures": {
+          "file.read:ENOENT": 5
+        },
+        "outstanding": 16
+      }
+    },
+    {
+      "workerId": 4,
+      "organizationId": "000000000000000000000004",
+      "pid": 105672,
+      "pendingIndexCount": 0,
+      "pendingDiskCount": 165092,
+      "memory": {
+        "rss": 2897829888,
+        "heapTotal": 1894473728,
+        "heapUsed": 1496337944,
+        "external": 4878380,
+        "arrayBuffers": 2569158
+      },
+      "peakRssBytes": 2901913600,
+      "cpuUsage": {
+        "user": 269862236,
+        "system": 35005372
+      },
+      "dbMemory": {
+        "nodeUsedPercent": 79.27591738547244,
+        "peakNodeUsedPercent": 79.28219359185817,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      },
+      "disk": {
+        "started": 295310,
+        "completed": 295289,
+        "failed": 5,
+        "inFlight": 16,
+        "bytesWritten": 122157216,
+        "byKindAction": {
+          "file.read": 5,
+          "file.write": 160305,
+          "file.has": 135000
+        },
+        "failures": {
+          "file.read:ENOENT": 5
+        },
+        "outstanding": 16
+      }
+    },
+    {
+      "workerId": 5,
+      "organizationId": "000000000000000000000005",
+      "pid": 105678,
+      "pendingIndexCount": 0,
+      "pendingDiskCount": 148008,
+      "memory": {
+        "rss": 2868736000,
+        "heapTotal": 1909719040,
+        "heapUsed": 1109183680,
+        "external": 3431301,
+        "arrayBuffers": 1122879
+      },
+      "peakRssBytes": 2872156160,
+      "cpuUsage": {
+        "user": 277826862,
+        "system": 32037719
+      },
+      "dbMemory": {
+        "nodeUsedPercent": 79.30658604955305,
+        "peakNodeUsedPercent": 79.30658604955305,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      },
+      "disk": {
+        "started": 280510,
+        "completed": 280489,
+        "failed": 5,
+        "inFlight": 16,
+        "bytesWritten": 103950956,
+        "byKindAction": {
+          "file.read": 5,
+          "file.write": 145505,
+          "file.has": 135000
+        },
+        "failures": {
+          "file.read:ENOENT": 5
+        },
+        "outstanding": 16
+      }
+    },
+    {
+      "workerId": 6,
+      "organizationId": "000000000000000000000006",
+      "pid": 105684,
+      "pendingIndexCount": 0,
+      "pendingDiskCount": 167852,
+      "memory": {
+        "rss": 2882002944,
+        "heapTotal": 1953492992,
+        "heapUsed": 1109002552,
+        "external": 7365668,
+        "arrayBuffers": 5059646
+      },
+      "peakRssBytes": 2885861376,
+      "cpuUsage": {
+        "user": 271068706,
+        "system": 35739738
+      },
+      "dbMemory": {
+        "nodeUsedPercent": 79.27958976455137,
+        "peakNodeUsedPercent": 79.27958976455137,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      },
+      "disk": {
+        "started": 298565,
+        "completed": 298544,
+        "failed": 5,
+        "inFlight": 16,
+        "bytesWritten": 128182233,
+        "byKindAction": {
+          "file.read": 5,
+          "file.write": 163560,
+          "file.has": 135000
+        },
+        "failures": {
+          "file.read:ENOENT": 5
+        },
+        "outstanding": 16
+      }
+    },
+    {
+      "workerId": 7,
+      "organizationId": "000000000000000000000007",
+      "pid": 105690,
+      "pendingIndexCount": 0,
+      "pendingDiskCount": 166832,
+      "memory": {
+        "rss": 2891444224,
+        "heapTotal": 2077483008,
+        "heapUsed": 1102293968,
+        "external": 3754652,
+        "arrayBuffers": 1449693
+      },
+      "peakRssBytes": 2894884864,
+      "cpuUsage": {
+        "user": 268246097,
+        "system": 35394962
+      },
+      "dbMemory": {
+        "nodeUsedPercent": 79.28398679368267,
+        "peakNodeUsedPercent": 79.28398679368267,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      },
+      "disk": {
+        "started": 299316,
+        "completed": 299295,
+        "failed": 5,
+        "inFlight": 16,
+        "bytesWritten": 129014628,
+        "byKindAction": {
+          "file.read": 5,
+          "file.write": 164311,
+          "file.has": 135000
+        },
+        "failures": {
+          "file.read:ENOENT": 5
+        },
+        "outstanding": 16
+      }
+    },
+    {
+      "workerId": 8,
+      "organizationId": "000000000000000000000008",
+      "pid": 105696,
+      "pendingIndexCount": 0,
+      "pendingDiskCount": 163192,
+      "memory": {
+        "rss": 2853388288,
+        "heapTotal": 2076733440,
+        "heapUsed": 1873489528,
+        "external": 4393727,
+        "arrayBuffers": 2088057
+      },
+      "peakRssBytes": 2857492480,
+      "cpuUsage": {
+        "user": 276144956,
+        "system": 33043295
+      },
+      "dbMemory": {
+        "nodeUsedPercent": 79.2221950239632,
+        "peakNodeUsedPercent": 79.28842066942681,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      },
+      "disk": {
+        "started": 284840,
+        "completed": 284819,
+        "failed": 5,
+        "inFlight": 16,
+        "bytesWritten": 102603450,
+        "byKindAction": {
+          "file.read": 5,
+          "file.write": 149835,
+          "file.has": 135000
+        },
+        "failures": {
+          "file.read:ENOENT": 5
+        },
+        "outstanding": 16
+      }
+    }
+  ],
+  "diskAtEnd": {
+    "started": 2340417,
+    "completed": 2340249,
+    "failed": 40,
+    "inFlight": 128,
+    "bytesWritten": 944354847,
+    "outstanding": 128,
+    "byKindAction": {
+      "file.read": 40,
+      "file.write": 1260377,
+      "file.has": 1080000
+    },
+    "failures": {
+      "file.read:ENOENT": 40
+    }
+  },
+  "hostCpu": {
+    "sampleCount": 436,
+    "averageBusyPercentAcrossLogicalCpus": 76.68208095969226,
+    "peakBusyPercentAcrossLogicalCpus": 99.875,
+    "averageIowaitPercent": 17.465407244291395,
+    "samples": [
+      {
+        "elapsedMs": 1000.913832,
+        "busyPercent": 91.20603015075378,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 2000.887484,
+        "busyPercent": 98.11794228356337,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 3000.8202659999997,
+        "busyPercent": 98.11320754716981,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 4000.5947849999993,
+        "busyPercent": 96.97732997481108,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 5006.611909,
+        "busyPercent": 98.375,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 6022.259164,
+        "busyPercent": 98.75621890547264,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 7029.3257889999995,
+        "busyPercent": 99.0074441687345,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 8029.405564000001,
+        "busyPercent": 98.7452948557089,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 9052.199932,
+        "busyPercent": 97.28395061728395,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 10047.396379,
+        "busyPercent": 98.23899371069183,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 11048.516515,
+        "busyPercent": 97.98994974874371,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 12049.391968,
+        "busyPercent": 97.86163522012579,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 13049.464171,
+        "busyPercent": 97.9874213836478,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 14098.263773,
+        "busyPercent": 98.56115107913669,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 15103.697732,
+        "busyPercent": 98.6232790988736,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 16104.368578,
+        "busyPercent": 99.50062421972534,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 17120.567071,
+        "busyPercent": 98.39506172839506,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 18141.146862,
+        "busyPercent": 98.14814814814815,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 19143.190334000003,
+        "busyPercent": 98.49435382685068,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 20143.115155000003,
+        "busyPercent": 99.24717691342535,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 21142.880352,
+        "busyPercent": 99.24812030075188,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 22143.697490000002,
+        "busyPercent": 97.99247176913426,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 23143.61664,
+        "busyPercent": 98.00249687890137,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 24144.503609000003,
+        "busyPercent": 98.24341279799248,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 25148.275116,
+        "busyPercent": 98.49812265331664,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 26152.300418000003,
+        "busyPercent": 97.38805970149254,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 27167.826218000002,
+        "busyPercent": 98.6469864698647,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 28169.349525,
+        "busyPercent": 97.39454094292805,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 29172.047899,
+        "busyPercent": 98.1203007518797,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 30172.085730000003,
+        "busyPercent": 98.24561403508773,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 31186.467992,
+        "busyPercent": 98.27373612823675,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 32187.180377,
+        "busyPercent": 98.99749373433583,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 33208.621976999995,
+        "busyPercent": 98.89162561576354,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 34229.405815,
+        "busyPercent": 98.6469864698647,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 35231.416695,
+        "busyPercent": 98.99874843554443,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 36232.352824,
+        "busyPercent": 98.7452948557089,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 37235.574457999996,
+        "busyPercent": 98.49624060150376,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 38235.599309,
+        "busyPercent": 98.49056603773585,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 39264.509646,
+        "busyPercent": 98.29268292682927,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 40268.036195,
+        "busyPercent": 98.99874843554443,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 41268.335112,
+        "busyPercent": 98.49246231155779,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 42268.896542999995,
+        "busyPercent": 97.86967418546367,
+        "iowaitPercent": 0.12531328320802004
+      },
+      {
+        "elapsedMs": 43268.812772,
+        "busyPercent": 98.62155388471177,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 44268.963757,
+        "busyPercent": 98.49812265331664,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 45268.686295,
+        "busyPercent": 97.86700125470514,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 46268.744048,
+        "busyPercent": 98.61809045226131,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 47268.423904999996,
+        "busyPercent": 98.49246231155779,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 48269.410216,
+        "busyPercent": 98.49435382685068,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 49270.411038,
+        "busyPercent": 98.6232790988736,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 50271.093804,
+        "busyPercent": 98.11557788944724,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 51270.586086999996,
+        "busyPercent": 98.23899371069183,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 52270.666521,
+        "busyPercent": 99.37264742785446,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 53271.350307,
+        "busyPercent": 98.49246231155779,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 54272.373998999996,
+        "busyPercent": 98.62671660424469,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 55272.665537,
+        "busyPercent": 98.37092731829574,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 56308.350963,
+        "busyPercent": 98.18401937046005,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 57321.387955,
+        "busyPercent": 98.88475836431226,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 58341.99926,
+        "busyPercent": 98.2779827798278,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 59341.905588999995,
+        "busyPercent": 97.85894206549118,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 60878.275537,
+        "busyPercent": 91.99009083402147,
+        "iowaitPercent": 0.7431874483897605
+      },
+      {
+        "elapsedMs": 61881.827817,
+        "busyPercent": 95.81749049429658,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 62882.042212,
+        "busyPercent": 95.06953223767383,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 63881.802708999996,
+        "busyPercent": 93.75796178343948,
+        "iowaitPercent": 0.7643312101910829
+      },
+      {
+        "elapsedMs": 64881.480763,
+        "busyPercent": 87.92884371029226,
+        "iowaitPercent": 2.5412960609911055
+      },
+      {
+        "elapsedMs": 65881.887382,
+        "busyPercent": 95.01915708812261,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 66882.494585,
+        "busyPercent": 95.5470737913486,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 67883.546007,
+        "busyPercent": 95.30456852791878,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 68883.48587599999,
+        "busyPercent": 98.61809045226131,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 69884.15527999999,
+        "busyPercent": 97.73299748110831,
+        "iowaitPercent": 0.2518891687657431
+      },
+      {
+        "elapsedMs": 70884.66063099999,
+        "busyPercent": 93.67888748419722,
+        "iowaitPercent": 1.7699115044247788
+      },
+      {
+        "elapsedMs": 71885.337285,
+        "busyPercent": 95.59748427672956,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 72885.52832,
+        "busyPercent": 91.79292929292929,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 73890.038068,
+        "busyPercent": 92.75730622617534,
+        "iowaitPercent": 0.5082592121982211
+      },
+      {
+        "elapsedMs": 74889.766344,
+        "busyPercent": 94.89795918367346,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 75890.972828,
+        "busyPercent": 88.74680306905371,
+        "iowaitPercent": 1.7902813299232736
+      },
+      {
+        "elapsedMs": 76893.544783,
+        "busyPercent": 88.15286624203821,
+        "iowaitPercent": 3.949044585987261
+      },
+      {
+        "elapsedMs": 77893.682456,
+        "busyPercent": 91.6452442159383,
+        "iowaitPercent": 0.12853470437017994
+      },
+      {
+        "elapsedMs": 78893.88448,
+        "busyPercent": 90.60913705583756,
+        "iowaitPercent": 1.1421319796954315
+      },
+      {
+        "elapsedMs": 79895.000482,
+        "busyPercent": 90.68877551020408,
+        "iowaitPercent": 0.8928571428571429
+      },
+      {
+        "elapsedMs": 80894.492033,
+        "busyPercent": 90.92071611253196,
+        "iowaitPercent": 1.0230179028132993
+      },
+      {
+        "elapsedMs": 81894.757919,
+        "busyPercent": 87.8048780487805,
+        "iowaitPercent": 2.4390243902439024
+      },
+      {
+        "elapsedMs": 82894.417543,
+        "busyPercent": 93.00254452926208,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 83894.452894,
+        "busyPercent": 88.31003811944092,
+        "iowaitPercent": 2.1601016518424396
+      },
+      {
+        "elapsedMs": 84894.766521,
+        "busyPercent": 88.15958815958815,
+        "iowaitPercent": 3.088803088803089
+      },
+      {
+        "elapsedMs": 85894.386654,
+        "busyPercent": 90.11406844106465,
+        "iowaitPercent": 1.6476552598225602
+      },
+      {
+        "elapsedMs": 86895.256581,
+        "busyPercent": 92.54108723135272,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 87894.286414,
+        "busyPercent": 85.32675709001234,
+        "iowaitPercent": 4.932182490752158
+      },
+      {
+        "elapsedMs": 88897.134307,
+        "busyPercent": 92.79503105590062,
+        "iowaitPercent": 0.12422360248447205
+      },
+      {
+        "elapsedMs": 89898.373778,
+        "busyPercent": 89.272030651341,
+        "iowaitPercent": 2.554278416347382
+      },
+      {
+        "elapsedMs": 90898.65919399999,
+        "busyPercent": 96.94656488549619,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 91903.427529,
+        "busyPercent": 89.272030651341,
+        "iowaitPercent": 2.2988505747126435
+      },
+      {
+        "elapsedMs": 92903.27686299999,
+        "busyPercent": 93.73401534526855,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 93907.199089,
+        "busyPercent": 90.0889453621347,
+        "iowaitPercent": 4.320203303684879
+      },
+      {
+        "elapsedMs": 94909.935523,
+        "busyPercent": 89.52020202020202,
+        "iowaitPercent": 5.1767676767676765
+      },
+      {
+        "elapsedMs": 95909.397054,
+        "busyPercent": 90.68877551020408,
+        "iowaitPercent": 2.1683673469387754
+      },
+      {
+        "elapsedMs": 96909.446276,
+        "busyPercent": 90.88575096277279,
+        "iowaitPercent": 1.5404364569961488
+      },
+      {
+        "elapsedMs": 97910.583289,
+        "busyPercent": 90.05102040816327,
+        "iowaitPercent": 1.1479591836734695
+      },
+      {
+        "elapsedMs": 99027.710259,
+        "busyPercent": 91.0569105691057,
+        "iowaitPercent": 1.5098722415795587
+      },
+      {
+        "elapsedMs": 100008.509875,
+        "busyPercent": 89.88476312419975,
+        "iowaitPercent": 3.4571062740076823
+      },
+      {
+        "elapsedMs": 101006.657071,
+        "busyPercent": 91.1082474226804,
+        "iowaitPercent": 1.675257731958763
+      },
+      {
+        "elapsedMs": 102009.979706,
+        "busyPercent": 92.79393173198483,
+        "iowaitPercent": 1.5170670037926675
+      },
+      {
+        "elapsedMs": 103009.659061,
+        "busyPercent": 94.60847240051348,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 104010.396456,
+        "busyPercent": 90.17857142857143,
+        "iowaitPercent": 2.6785714285714284
+      },
+      {
+        "elapsedMs": 105011.912506,
+        "busyPercent": 88.12903225806451,
+        "iowaitPercent": 1.935483870967742
+      },
+      {
+        "elapsedMs": 106011.758675,
+        "busyPercent": 88.84615384615384,
+        "iowaitPercent": 2.948717948717949
+      },
+      {
+        "elapsedMs": 107011.822228,
+        "busyPercent": 89.98716302952504,
+        "iowaitPercent": 2.053915275994865
+      },
+      {
+        "elapsedMs": 108012.636135,
+        "busyPercent": 88.2051282051282,
+        "iowaitPercent": 2.1794871794871793
+      },
+      {
+        "elapsedMs": 109012.593727,
+        "busyPercent": 88.47631241997439,
+        "iowaitPercent": 3.0729833546734957
+      },
+      {
+        "elapsedMs": 110012.691263,
+        "busyPercent": 86.97318007662835,
+        "iowaitPercent": 3.5759897828863347
+      },
+      {
+        "elapsedMs": 111012.51519399999,
+        "busyPercent": 90.78104993597951,
+        "iowaitPercent": 1.9206145966709347
+      },
+      {
+        "elapsedMs": 112013.217411,
+        "busyPercent": 86.73469387755102,
+        "iowaitPercent": 4.081632653061225
+      },
+      {
+        "elapsedMs": 113013.218285,
+        "busyPercent": 85.76923076923077,
+        "iowaitPercent": 5.128205128205129
+      },
+      {
+        "elapsedMs": 114013.25656,
+        "busyPercent": 87.00636942675159,
+        "iowaitPercent": 4.203821656050955
+      },
+      {
+        "elapsedMs": 115012.667563,
+        "busyPercent": 86.28205128205128,
+        "iowaitPercent": 4.871794871794871
+      },
+      {
+        "elapsedMs": 116012.916952,
+        "busyPercent": 86.33461047254151,
+        "iowaitPercent": 4.342273307790549
+      },
+      {
+        "elapsedMs": 117012.740943,
+        "busyPercent": 97.22222222222223,
+        "iowaitPercent": 0.25252525252525254
+      },
+      {
+        "elapsedMs": 118012.811818,
+        "busyPercent": 91.86785260482846,
+        "iowaitPercent": 2.2871664548919948
+      },
+      {
+        "elapsedMs": 119014.37203099999,
+        "busyPercent": 89.84771573604061,
+        "iowaitPercent": 3.1725888324873095
+      },
+      {
+        "elapsedMs": 120016.75862,
+        "busyPercent": 86.71775223499361,
+        "iowaitPercent": 4.342273307790549
+      },
+      {
+        "elapsedMs": 121016.383737,
+        "busyPercent": 94.28934010152284,
+        "iowaitPercent": 1.7766497461928934
+      },
+      {
+        "elapsedMs": 122016.612266,
+        "busyPercent": 88.81829733163913,
+        "iowaitPercent": 3.684879288437103
+      },
+      {
+        "elapsedMs": 123016.567159,
+        "busyPercent": 89.35897435897436,
+        "iowaitPercent": 2.051282051282051
+      },
+      {
+        "elapsedMs": 124019.664161,
+        "busyPercent": 85.76923076923077,
+        "iowaitPercent": 7.17948717948718
+      },
+      {
+        "elapsedMs": 125020.146777,
+        "busyPercent": 89.1994917407878,
+        "iowaitPercent": 4.955527318932655
+      },
+      {
+        "elapsedMs": 126020.364133,
+        "busyPercent": 78.69897959183673,
+        "iowaitPercent": 12.244897959183673
+      },
+      {
+        "elapsedMs": 127021.407674,
+        "busyPercent": 14.805520702634881,
+        "iowaitPercent": 62.358845671267254
+      },
+      {
+        "elapsedMs": 128022.056287,
+        "busyPercent": 14.949748743718592,
+        "iowaitPercent": 63.06532663316583
+      },
+      {
+        "elapsedMs": 129021.506449,
+        "busyPercent": 41.21365360303413,
+        "iowaitPercent": 42.47787610619469
+      },
+      {
+        "elapsedMs": 130021.775475,
+        "busyPercent": 80.12820512820512,
+        "iowaitPercent": 9.35897435897436
+      },
+      {
+        "elapsedMs": 131022.035972,
+        "busyPercent": 82.94871794871794,
+        "iowaitPercent": 6.538461538461538
+      },
+      {
+        "elapsedMs": 132022.034553,
+        "busyPercent": 85.58673469387755,
+        "iowaitPercent": 8.801020408163266
+      },
+      {
+        "elapsedMs": 133023.91944000003,
+        "busyPercent": 93.81313131313131,
+        "iowaitPercent": 1.7676767676767677
+      },
+      {
+        "elapsedMs": 134023.473693,
+        "busyPercent": 98.11557788944724,
+        "iowaitPercent": 0.5025125628140703
+      },
+      {
+        "elapsedMs": 135023.918513,
+        "busyPercent": 94.44444444444444,
+        "iowaitPercent": 2.1464646464646466
+      },
+      {
+        "elapsedMs": 136025.685448,
+        "busyPercent": 88.76117496807151,
+        "iowaitPercent": 0.8939974457215837
+      },
+      {
+        "elapsedMs": 137025.425724,
+        "busyPercent": 89.17525773195877,
+        "iowaitPercent": 3.0927835051546393
+      },
+      {
+        "elapsedMs": 138025.462937,
+        "busyPercent": 82.88288288288288,
+        "iowaitPercent": 6.692406692406692
+      },
+      {
+        "elapsedMs": 139025.814145,
+        "busyPercent": 88.41698841698842,
+        "iowaitPercent": 3.088803088803089
+      },
+      {
+        "elapsedMs": 140025.828417,
+        "busyPercent": 83.4403080872914,
+        "iowaitPercent": 6.675224646983312
+      },
+      {
+        "elapsedMs": 141025.584982,
+        "busyPercent": 89.08857509627728,
+        "iowaitPercent": 3.337612323491656
+      },
+      {
+        "elapsedMs": 142028.081746,
+        "busyPercent": 82.67008985879332,
+        "iowaitPercent": 5.7766367137355585
+      },
+      {
+        "elapsedMs": 143027.70225600002,
+        "busyPercent": 89.74358974358974,
+        "iowaitPercent": 2.6923076923076925
+      },
+      {
+        "elapsedMs": 144027.89248600003,
+        "busyPercent": 88.37803320561942,
+        "iowaitPercent": 3.7037037037037037
+      },
+      {
+        "elapsedMs": 145029.497674,
+        "busyPercent": 82.1656050955414,
+        "iowaitPercent": 7.515923566878981
+      },
+      {
+        "elapsedMs": 146030.16720300002,
+        "busyPercent": 89.24455825864277,
+        "iowaitPercent": 2.9449423815621
+      },
+      {
+        "elapsedMs": 147035.63497400002,
+        "busyPercent": 83.52490421455938,
+        "iowaitPercent": 6.768837803320562
+      },
+      {
+        "elapsedMs": 148036.201512,
+        "busyPercent": 81.88775510204081,
+        "iowaitPercent": 9.056122448979592
+      },
+      {
+        "elapsedMs": 149037.62612600002,
+        "busyPercent": 44.67005076142132,
+        "iowaitPercent": 48.3502538071066
+      },
+      {
+        "elapsedMs": 150036.687345,
+        "busyPercent": 85.18518518518519,
+        "iowaitPercent": 5.874840357598979
+      },
+      {
+        "elapsedMs": 151037.72009100002,
+        "busyPercent": 75.51020408163265,
+        "iowaitPercent": 12.5
+      },
+      {
+        "elapsedMs": 152037.93080200002,
+        "busyPercent": 49.428208386277,
+        "iowaitPercent": 37.61118170266836
+      },
+      {
+        "elapsedMs": 153037.96566900003,
+        "busyPercent": 74.68030690537084,
+        "iowaitPercent": 15.217391304347826
+      },
+      {
+        "elapsedMs": 154037.566858,
+        "busyPercent": 44.910941475826974,
+        "iowaitPercent": 49.4910941475827
+      },
+      {
+        "elapsedMs": 155037.39754200002,
+        "busyPercent": 57.50962772785623,
+        "iowaitPercent": 33.504492939666235
+      },
+      {
+        "elapsedMs": 156037.73474500002,
+        "busyPercent": 65.04481434058899,
+        "iowaitPercent": 25.35211267605634
+      },
+      {
+        "elapsedMs": 157037.91395500003,
+        "busyPercent": 43.494897959183675,
+        "iowaitPercent": 45.025510204081634
+      },
+      {
+        "elapsedMs": 158037.68844300002,
+        "busyPercent": 55.343511450381676,
+        "iowaitPercent": 32.95165394402036
+      },
+      {
+        "elapsedMs": 159038.538554,
+        "busyPercent": 52.36875800256082,
+        "iowaitPercent": 41.35723431498079
+      },
+      {
+        "elapsedMs": 160039.30201400002,
+        "busyPercent": 50.50761421319797,
+        "iowaitPercent": 40.22842639593909
+      },
+      {
+        "elapsedMs": 161039.37574000002,
+        "busyPercent": 60.70975918884664,
+        "iowaitPercent": 27.50316856780735
+      },
+      {
+        "elapsedMs": 162039.665011,
+        "busyPercent": 39.67046894803549,
+        "iowaitPercent": 48.542458808618505
+      },
+      {
+        "elapsedMs": 163039.80477800002,
+        "busyPercent": 52.16836734693877,
+        "iowaitPercent": 42.21938775510204
+      },
+      {
+        "elapsedMs": 164039.562408,
+        "busyPercent": 67.21938775510205,
+        "iowaitPercent": 26.147959183673468
+      },
+      {
+        "elapsedMs": 165039.92004000003,
+        "busyPercent": 60.40868454661558,
+        "iowaitPercent": 30.65134099616858
+      },
+      {
+        "elapsedMs": 166040.16124000002,
+        "busyPercent": 85.29411764705883,
+        "iowaitPercent": 4.475703324808184
+      },
+      {
+        "elapsedMs": 167040.351988,
+        "busyPercent": 83.18356867779204,
+        "iowaitPercent": 9.242618741976893
+      },
+      {
+        "elapsedMs": 168040.93269500002,
+        "busyPercent": 81.32992327365729,
+        "iowaitPercent": 8.312020460358056
+      },
+      {
+        "elapsedMs": 169041.12065300002,
+        "busyPercent": 76.41025641025641,
+        "iowaitPercent": 11.794871794871796
+      },
+      {
+        "elapsedMs": 170040.50922600002,
+        "busyPercent": 71.41025641025641,
+        "iowaitPercent": 12.307692307692308
+      },
+      {
+        "elapsedMs": 171040.540932,
+        "busyPercent": 64.63104325699746,
+        "iowaitPercent": 27.353689567430024
+      },
+      {
+        "elapsedMs": 172041.298711,
+        "busyPercent": 46.29156010230179,
+        "iowaitPercent": 42.45524296675192
+      },
+      {
+        "elapsedMs": 173041.634743,
+        "busyPercent": 42.31738035264484,
+        "iowaitPercent": 53.65239294710327
+      },
+      {
+        "elapsedMs": 174042.17562000002,
+        "busyPercent": 88.65069356872635,
+        "iowaitPercent": 8.19672131147541
+      },
+      {
+        "elapsedMs": 175043.20970900002,
+        "busyPercent": 67.22151088348271,
+        "iowaitPercent": 23.303457106274006
+      },
+      {
+        "elapsedMs": 176042.562817,
+        "busyPercent": 49.29936305732484,
+        "iowaitPercent": 38.853503184713375
+      },
+      {
+        "elapsedMs": 177043.514835,
+        "busyPercent": 42.69377382465057,
+        "iowaitPercent": 45.362134688691235
+      },
+      {
+        "elapsedMs": 178045.86426,
+        "busyPercent": 63.83248730964467,
+        "iowaitPercent": 22.33502538071066
+      },
+      {
+        "elapsedMs": 179045.56830500002,
+        "busyPercent": 40.966921119592875,
+        "iowaitPercent": 49.61832061068702
+      },
+      {
+        "elapsedMs": 180046.090215,
+        "busyPercent": 40.86294416243655,
+        "iowaitPercent": 46.065989847715734
+      },
+      {
+        "elapsedMs": 181047.60530400003,
+        "busyPercent": 42.1656050955414,
+        "iowaitPercent": 49.17197452229299
+      },
+      {
+        "elapsedMs": 182047.549283,
+        "busyPercent": 48.3502538071066,
+        "iowaitPercent": 40.609137055837564
+      },
+      {
+        "elapsedMs": 183047.483761,
+        "busyPercent": 48.035487959442335,
+        "iowaitPercent": 42.458808618504435
+      },
+      {
+        "elapsedMs": 184048.009851,
+        "busyPercent": 44.005102040816325,
+        "iowaitPercent": 41.964285714285715
+      },
+      {
+        "elapsedMs": 185047.672045,
+        "busyPercent": 42.802547770700635,
+        "iowaitPercent": 49.29936305732484
+      },
+      {
+        "elapsedMs": 186047.530242,
+        "busyPercent": 41.221374045801525,
+        "iowaitPercent": 44.274809160305345
+      },
+      {
+        "elapsedMs": 187048.317757,
+        "busyPercent": 39.03061224489796,
+        "iowaitPercent": 51.275510204081634
+      },
+      {
+        "elapsedMs": 188048.67828400002,
+        "busyPercent": 45.949367088607595,
+        "iowaitPercent": 47.59493670886076
+      },
+      {
+        "elapsedMs": 189049.074132,
+        "busyPercent": 40.63694267515923,
+        "iowaitPercent": 54.77707006369427
+      },
+      {
+        "elapsedMs": 190049.250757,
+        "busyPercent": 44.274809160305345,
+        "iowaitPercent": 50
+      },
+      {
+        "elapsedMs": 191051.299368,
+        "busyPercent": 42.92993630573248,
+        "iowaitPercent": 49.29936305732484
+      },
+      {
+        "elapsedMs": 192052.00538400002,
+        "busyPercent": 43.12977099236641,
+        "iowaitPercent": 49.10941475826972
+      },
+      {
+        "elapsedMs": 193051.93379500002,
+        "busyPercent": 51.14795918367347,
+        "iowaitPercent": 43.36734693877551
+      },
+      {
+        "elapsedMs": 194051.614252,
+        "busyPercent": 17.446270543615675,
+        "iowaitPercent": 81.16308470290771
+      },
+      {
+        "elapsedMs": 195053.597482,
+        "busyPercent": 83.69704749679076,
+        "iowaitPercent": 5.905006418485238
+      },
+      {
+        "elapsedMs": 196055.212425,
+        "busyPercent": 87.46803069053709,
+        "iowaitPercent": 6.138107416879795
+      },
+      {
+        "elapsedMs": 197054.612406,
+        "busyPercent": 55.76923076923077,
+        "iowaitPercent": 36.92307692307692
+      },
+      {
+        "elapsedMs": 198055.260171,
+        "busyPercent": 67.38853503184713,
+        "iowaitPercent": 25.85987261146497
+      },
+      {
+        "elapsedMs": 199055.144581,
+        "busyPercent": 74.04580152671755,
+        "iowaitPercent": 19.974554707379134
+      },
+      {
+        "elapsedMs": 200056.00583,
+        "busyPercent": 64.8407643312102,
+        "iowaitPercent": 25.477707006369428
+      },
+      {
+        "elapsedMs": 201055.49424300002,
+        "busyPercent": 92.56926952141058,
+        "iowaitPercent": 3.7783375314861463
+      },
+      {
+        "elapsedMs": 202055.468685,
+        "busyPercent": 48.53128991060026,
+        "iowaitPercent": 42.52873563218391
+      },
+      {
+        "elapsedMs": 203055.46667700002,
+        "busyPercent": 43.90862944162436,
+        "iowaitPercent": 46.7005076142132
+      },
+      {
+        "elapsedMs": 204056.22712400003,
+        "busyPercent": 32.31939163498099,
+        "iowaitPercent": 65.77946768060836
+      },
+      {
+        "elapsedMs": 205057.164204,
+        "busyPercent": 85.22727272727273,
+        "iowaitPercent": 8.207070707070708
+      },
+      {
+        "elapsedMs": 206056.83655600002,
+        "busyPercent": 63.892445582586426,
+        "iowaitPercent": 28.80921895006402
+      },
+      {
+        "elapsedMs": 207056.59648100002,
+        "busyPercent": 47.141041931385004,
+        "iowaitPercent": 44.218551461245234
+      },
+      {
+        "elapsedMs": 208057.53956900002,
+        "busyPercent": 25.031766200762387,
+        "iowaitPercent": 62.77001270648031
+      },
+      {
+        "elapsedMs": 209057.57301000002,
+        "busyPercent": 40.12738853503185,
+        "iowaitPercent": 47.51592356687898
+      },
+      {
+        "elapsedMs": 210058.05741900002,
+        "busyPercent": 45.39641943734016,
+        "iowaitPercent": 37.97953964194373
+      },
+      {
+        "elapsedMs": 211056.757755,
+        "busyPercent": 35.36895674300254,
+        "iowaitPercent": 56.10687022900763
+      },
+      {
+        "elapsedMs": 212057.55452,
+        "busyPercent": 40.33078880407125,
+        "iowaitPercent": 52.29007633587786
+      },
+      {
+        "elapsedMs": 213057.866706,
+        "busyPercent": 39.56743002544529,
+        "iowaitPercent": 52.67175572519084
+      },
+      {
+        "elapsedMs": 214058.008919,
+        "busyPercent": 37.32484076433121,
+        "iowaitPercent": 54.52229299363057
+      },
+      {
+        "elapsedMs": 215057.77513400002,
+        "busyPercent": 41.16899618805591,
+        "iowaitPercent": 52.22363405336722
+      },
+      {
+        "elapsedMs": 216058.398396,
+        "busyPercent": 41.191381495564,
+        "iowaitPercent": 47.52851711026616
+      },
+      {
+        "elapsedMs": 217059.15929100002,
+        "busyPercent": 39.00889453621347,
+        "iowaitPercent": 50.95298602287166
+      },
+      {
+        "elapsedMs": 218059.21082200002,
+        "busyPercent": 38.54961832061068,
+        "iowaitPercent": 51.27226463104326
+      },
+      {
+        "elapsedMs": 219059.14126,
+        "busyPercent": 25.728770595690747,
+        "iowaitPercent": 61.59695817490494
+      },
+      {
+        "elapsedMs": 220058.50601800001,
+        "busyPercent": 32.48730964467005,
+        "iowaitPercent": 57.868020304568525
+      },
+      {
+        "elapsedMs": 221059.398145,
+        "busyPercent": 89.49367088607595,
+        "iowaitPercent": 7.974683544303797
+      },
+      {
+        "elapsedMs": 222059.680901,
+        "busyPercent": 70.95959595959596,
+        "iowaitPercent": 20.95959595959596
+      },
+      {
+        "elapsedMs": 223059.513264,
+        "busyPercent": 43.89312977099237,
+        "iowaitPercent": 43.63867684478372
+      },
+      {
+        "elapsedMs": 224060.62783100002,
+        "busyPercent": 60.45340050377834,
+        "iowaitPercent": 36.523929471032744
+      },
+      {
+        "elapsedMs": 225060.66066700002,
+        "busyPercent": 96.72955974842768,
+        "iowaitPercent": 0.8805031446540881
+      },
+      {
+        "elapsedMs": 226060.93958900002,
+        "busyPercent": 94.18457648546143,
+        "iowaitPercent": 2.402022756005057
+      },
+      {
+        "elapsedMs": 227060.71826000002,
+        "busyPercent": 48.02043422733078,
+        "iowaitPercent": 45.593869731800766
+      },
+      {
+        "elapsedMs": 228061.583373,
+        "busyPercent": 50.12755102040816,
+        "iowaitPercent": 39.285714285714285
+      },
+      {
+        "elapsedMs": 229061.430816,
+        "busyPercent": 50.12787723785166,
+        "iowaitPercent": 35.16624040920716
+      },
+      {
+        "elapsedMs": 230061.59214400002,
+        "busyPercent": 52.15736040609137,
+        "iowaitPercent": 43.14720812182741
+      },
+      {
+        "elapsedMs": 231061.423817,
+        "busyPercent": 54.394904458598724,
+        "iowaitPercent": 41.40127388535032
+      },
+      {
+        "elapsedMs": 232062.234839,
+        "busyPercent": 52.67857142857143,
+        "iowaitPercent": 42.984693877551024
+      },
+      {
+        "elapsedMs": 233066.68153,
+        "busyPercent": 54.18781725888325,
+        "iowaitPercent": 35.786802030456855
+      },
+      {
+        "elapsedMs": 234143.62353200003,
+        "busyPercent": 56.02836879432624,
+        "iowaitPercent": 38.77068557919622
+      },
+      {
+        "elapsedMs": 235143.67876900002,
+        "busyPercent": 21.11251580278129,
+        "iowaitPercent": 75.34766118836916
+      },
+      {
+        "elapsedMs": 236143.43239,
+        "busyPercent": 27.974683544303797,
+        "iowaitPercent": 70.25316455696202
+      },
+      {
+        "elapsedMs": 237143.673031,
+        "busyPercent": 19.696969696969695,
+        "iowaitPercent": 58.83838383838384
+      },
+      {
+        "elapsedMs": 238143.54716400002,
+        "busyPercent": 99.875,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 239143.57572300002,
+        "busyPercent": 99.74937343358395,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 240146.315926,
+        "busyPercent": 88.24273072060683,
+        "iowaitPercent": 8.723135271807838
+      },
+      {
+        "elapsedMs": 241146.757744,
+        "busyPercent": 74.74619289340102,
+        "iowaitPercent": 19.79695431472081
+      },
+      {
+        "elapsedMs": 242146.936327,
+        "busyPercent": 51.0230179028133,
+        "iowaitPercent": 38.74680306905371
+      },
+      {
+        "elapsedMs": 243146.892976,
+        "busyPercent": 12.5,
+        "iowaitPercent": 85.60606060606061
+      },
+      {
+        "elapsedMs": 244146.851895,
+        "busyPercent": 43.62244897959184,
+        "iowaitPercent": 47.066326530612244
+      },
+      {
+        "elapsedMs": 245147.88630500002,
+        "busyPercent": 69.0176322418136,
+        "iowaitPercent": 26.32241813602015
+      },
+      {
+        "elapsedMs": 246147.38812500003,
+        "busyPercent": 98.87218045112782,
+        "iowaitPercent": 0.12531328320802004
+      },
+      {
+        "elapsedMs": 247148.18524000002,
+        "busyPercent": 57.10627400768246,
+        "iowaitPercent": 30.985915492957748
+      },
+      {
+        "elapsedMs": 248147.43726500002,
+        "busyPercent": 47.71573604060914,
+        "iowaitPercent": 41.75126903553299
+      },
+      {
+        "elapsedMs": 249147.571308,
+        "busyPercent": 18.297331639135958,
+        "iowaitPercent": 79.28843710292249
+      },
+      {
+        "elapsedMs": 250147.529347,
+        "busyPercent": 16.962025316455698,
+        "iowaitPercent": 81.26582278481013
+      },
+      {
+        "elapsedMs": 251147.46035500002,
+        "busyPercent": 44.41624365482234,
+        "iowaitPercent": 50.63451776649746
+      },
+      {
+        "elapsedMs": 252147.838942,
+        "busyPercent": 67.93893129770993,
+        "iowaitPercent": 25.699745547073793
+      },
+      {
+        "elapsedMs": 253147.877443,
+        "busyPercent": 21.89873417721519,
+        "iowaitPercent": 53.54430379746835
+      },
+      {
+        "elapsedMs": 254147.676968,
+        "busyPercent": 76.38190954773869,
+        "iowaitPercent": 14.447236180904522
+      },
+      {
+        "elapsedMs": 255147.514789,
+        "busyPercent": 85.94527363184079,
+        "iowaitPercent": 12.437810945273633
+      },
+      {
+        "elapsedMs": 256147.51922800002,
+        "busyPercent": 44.57070707070707,
+        "iowaitPercent": 46.33838383838384
+      },
+      {
+        "elapsedMs": 257147.449824,
+        "busyPercent": 23.90488110137672,
+        "iowaitPercent": 65.83229036295369
+      },
+      {
+        "elapsedMs": 258147.96687300003,
+        "busyPercent": 66.32782719186785,
+        "iowaitPercent": 21.982210927573064
+      },
+      {
+        "elapsedMs": 259147.941771,
+        "busyPercent": 39.3173198482933,
+        "iowaitPercent": 49.05183312262958
+      },
+      {
+        "elapsedMs": 260147.41330900003,
+        "busyPercent": 40.48223350253807,
+        "iowaitPercent": 53.17258883248731
+      },
+      {
+        "elapsedMs": 261147.615701,
+        "busyPercent": 41.35338345864662,
+        "iowaitPercent": 46.741854636591476
+      },
+      {
+        "elapsedMs": 262148.1301,
+        "busyPercent": 37.848101265822784,
+        "iowaitPercent": 55.31645569620253
+      },
+      {
+        "elapsedMs": 263147.767757,
+        "busyPercent": 50.06305170239597,
+        "iowaitPercent": 39.974779319041616
+      },
+      {
+        "elapsedMs": 264148.278678,
+        "busyPercent": 52.459016393442624,
+        "iowaitPercent": 37.704918032786885
+      },
+      {
+        "elapsedMs": 265147.801221,
+        "busyPercent": 39.898348157560356,
+        "iowaitPercent": 41.93138500635324
+      },
+      {
+        "elapsedMs": 266147.82976299996,
+        "busyPercent": 48.03049555273189,
+        "iowaitPercent": 42.058449809402795
+      },
+      {
+        "elapsedMs": 267147.791914,
+        "busyPercent": 68.52791878172589,
+        "iowaitPercent": 18.908629441624367
+      },
+      {
+        "elapsedMs": 268148.139383,
+        "busyPercent": 19.524405506883603,
+        "iowaitPercent": 61.702127659574465
+      },
+      {
+        "elapsedMs": 269148.17727499997,
+        "busyPercent": 41.77215189873418,
+        "iowaitPercent": 53.54430379746835
+      },
+      {
+        "elapsedMs": 270146.744319,
+        "busyPercent": 67.87954830614805,
+        "iowaitPercent": 31.242158092848182
+      },
+      {
+        "elapsedMs": 271148.306408,
+        "busyPercent": 98.7452948557089,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 272149.801795,
+        "busyPercent": 51.015228426395936,
+        "iowaitPercent": 37.81725888324873
+      },
+      {
+        "elapsedMs": 273150.250991,
+        "busyPercent": 47.16981132075472,
+        "iowaitPercent": 38.867924528301884
+      },
+      {
+        "elapsedMs": 274150.918351,
+        "busyPercent": 45.92875318066158,
+        "iowaitPercent": 50
+      },
+      {
+        "elapsedMs": 275151.19204299996,
+        "busyPercent": 21.88295165394402,
+        "iowaitPercent": 76.08142493638677
+      },
+      {
+        "elapsedMs": 276150.567918,
+        "busyPercent": 41.19897959183673,
+        "iowaitPercent": 49.234693877551024
+      },
+      {
+        "elapsedMs": 277151.33217,
+        "busyPercent": 33.333333333333336,
+        "iowaitPercent": 48.73737373737374
+      },
+      {
+        "elapsedMs": 278151.910919,
+        "busyPercent": 37.18274111675127,
+        "iowaitPercent": 58.24873096446701
+      },
+      {
+        "elapsedMs": 279151.657631,
+        "busyPercent": 44.62705436156764,
+        "iowaitPercent": 36.662452591656134
+      },
+      {
+        "elapsedMs": 280151.54597599996,
+        "busyPercent": 17.72151898734177,
+        "iowaitPercent": 78.9873417721519
+      },
+      {
+        "elapsedMs": 281151.69294599997,
+        "busyPercent": 21.31979695431472,
+        "iowaitPercent": 72.96954314720813
+      },
+      {
+        "elapsedMs": 282151.578791,
+        "busyPercent": 20.68095838587642,
+        "iowaitPercent": 73.89659520807062
+      },
+      {
+        "elapsedMs": 283152.454685,
+        "busyPercent": 17.61006289308176,
+        "iowaitPercent": 70.69182389937107
+      },
+      {
+        "elapsedMs": 284152.64222599997,
+        "busyPercent": 13.274336283185841,
+        "iowaitPercent": 67.63590391908976
+      },
+      {
+        "elapsedMs": 285152.690134,
+        "busyPercent": 16.8141592920354,
+        "iowaitPercent": 68.3944374209861
+      },
+      {
+        "elapsedMs": 286153.311124,
+        "busyPercent": 49.049429657794676,
+        "iowaitPercent": 39.4169835234474
+      },
+      {
+        "elapsedMs": 287153.88587399997,
+        "busyPercent": 97.86967418546367,
+        "iowaitPercent": 1.0025062656641603
+      },
+      {
+        "elapsedMs": 288154.367432,
+        "busyPercent": 83.81430363864492,
+        "iowaitPercent": 7.52823086574655
+      },
+      {
+        "elapsedMs": 289155.447552,
+        "busyPercent": 55.84905660377358,
+        "iowaitPercent": 32.704402515723274
+      },
+      {
+        "elapsedMs": 290155.517621,
+        "busyPercent": 61.23737373737374,
+        "iowaitPercent": 33.08080808080808
+      },
+      {
+        "elapsedMs": 291155.64613199997,
+        "busyPercent": 23.924050632911392,
+        "iowaitPercent": 63.67088607594937
+      },
+      {
+        "elapsedMs": 292155.62043999997,
+        "busyPercent": 22.376738305941846,
+        "iowaitPercent": 63.96965865992415
+      },
+      {
+        "elapsedMs": 293155.811352,
+        "busyPercent": 14.050632911392405,
+        "iowaitPercent": 67.84810126582279
+      },
+      {
+        "elapsedMs": 294155.62320599996,
+        "busyPercent": 18.734177215189874,
+        "iowaitPercent": 69.24050632911393
+      },
+      {
+        "elapsedMs": 295155.89255,
+        "busyPercent": 14.177215189873417,
+        "iowaitPercent": 77.21518987341773
+      },
+      {
+        "elapsedMs": 296156.30282599997,
+        "busyPercent": 16.666666666666668,
+        "iowaitPercent": 76.76767676767676
+      },
+      {
+        "elapsedMs": 297157.08340999996,
+        "busyPercent": 15.316455696202532,
+        "iowaitPercent": 76.83544303797468
+      },
+      {
+        "elapsedMs": 298157.328323,
+        "busyPercent": 14.791403286978507,
+        "iowaitPercent": 69.7850821744627
+      },
+      {
+        "elapsedMs": 299157.582766,
+        "busyPercent": 13.02149178255373,
+        "iowaitPercent": 80.78381795195955
+      },
+      {
+        "elapsedMs": 300157.439112,
+        "busyPercent": 12.768647281921618,
+        "iowaitPercent": 83.43868520859671
+      },
+      {
+        "elapsedMs": 301167.923305,
+        "busyPercent": 9.296482412060302,
+        "iowaitPercent": 77.8894472361809
+      },
+      {
+        "elapsedMs": 302167.838282,
+        "busyPercent": 11.125158027812896,
+        "iowaitPercent": 79.89886219974716
+      },
+      {
+        "elapsedMs": 303167.83115399996,
+        "busyPercent": 20.025188916876573,
+        "iowaitPercent": 68.26196473551637
+      },
+      {
+        "elapsedMs": 304167.589814,
+        "busyPercent": 67.47141041931386,
+        "iowaitPercent": 23.37992376111817
+      },
+      {
+        "elapsedMs": 305167.516818,
+        "busyPercent": 60.714285714285715,
+        "iowaitPercent": 29.464285714285715
+      },
+      {
+        "elapsedMs": 306167.394092,
+        "busyPercent": 51.92307692307692,
+        "iowaitPercent": 43.333333333333336
+      },
+      {
+        "elapsedMs": 307167.53839,
+        "busyPercent": 55.48628428927681,
+        "iowaitPercent": 38.65336658354115
+      },
+      {
+        "elapsedMs": 308167.67560799996,
+        "busyPercent": 53.4263959390863,
+        "iowaitPercent": 35.53299492385787
+      },
+      {
+        "elapsedMs": 309167.360117,
+        "busyPercent": 50.830140485312896,
+        "iowaitPercent": 39.71902937420179
+      },
+      {
+        "elapsedMs": 310167.28960099997,
+        "busyPercent": 52.17391304347826,
+        "iowaitPercent": 39.25831202046036
+      },
+      {
+        "elapsedMs": 311168.962949,
+        "busyPercent": 49.55070603337612,
+        "iowaitPercent": 39.15275994865212
+      },
+      {
+        "elapsedMs": 312168.448325,
+        "busyPercent": 69.09323116219667,
+        "iowaitPercent": 25.15964240102171
+      },
+      {
+        "elapsedMs": 313168.346478,
+        "busyPercent": 80.51612903225806,
+        "iowaitPercent": 10.064516129032258
+      },
+      {
+        "elapsedMs": 314168.501697,
+        "busyPercent": 77.04081632653062,
+        "iowaitPercent": 15.688775510204081
+      },
+      {
+        "elapsedMs": 315168.659075,
+        "busyPercent": 91.4249684741488,
+        "iowaitPercent": 5.044136191677175
+      },
+      {
+        "elapsedMs": 316168.329324,
+        "busyPercent": 78.31632653061224,
+        "iowaitPercent": 14.668367346938776
+      },
+      {
+        "elapsedMs": 317172.70469499996,
+        "busyPercent": 82.22506393861893,
+        "iowaitPercent": 11.892583120204604
+      },
+      {
+        "elapsedMs": 318173.65064899996,
+        "busyPercent": 97.74436090225564,
+        "iowaitPercent": 1.1278195488721805
+      },
+      {
+        "elapsedMs": 319172.434905,
+        "busyPercent": 76.11181702668361,
+        "iowaitPercent": 15.374841168996188
+      },
+      {
+        "elapsedMs": 320172.738914,
+        "busyPercent": 75.96899224806202,
+        "iowaitPercent": 15.633074935400517
+      },
+      {
+        "elapsedMs": 321172.30514899996,
+        "busyPercent": 81.07416879795396,
+        "iowaitPercent": 13.554987212276215
+      },
+      {
+        "elapsedMs": 322172.478096,
+        "busyPercent": 79.97448979591837,
+        "iowaitPercent": 14.41326530612245
+      },
+      {
+        "elapsedMs": 323173.168953,
+        "busyPercent": 96.36591478696742,
+        "iowaitPercent": 2.255639097744361
+      },
+      {
+        "elapsedMs": 324173.55639399996,
+        "busyPercent": 99.62546816479401,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 325173.324723,
+        "busyPercent": 89.45362134688692,
+        "iowaitPercent": 5.336721728081321
+      },
+      {
+        "elapsedMs": 326317.749304,
+        "busyPercent": 56.38179800221975,
+        "iowaitPercent": 29.41176470588235
+      },
+      {
+        "elapsedMs": 327317.38078999997,
+        "busyPercent": 88.84664131812421,
+        "iowaitPercent": 7.477820025348542
+      },
+      {
+        "elapsedMs": 328319.328682,
+        "busyPercent": 87.05583756345177,
+        "iowaitPercent": 5.32994923857868
+      },
+      {
+        "elapsedMs": 329320.818605,
+        "busyPercent": 83.31210191082802,
+        "iowaitPercent": 9.171974522292993
+      },
+      {
+        "elapsedMs": 330319.786088,
+        "busyPercent": 89.4267515923567,
+        "iowaitPercent": 6.8789808917197455
+      },
+      {
+        "elapsedMs": 331320.782961,
+        "busyPercent": 89.12768647281922,
+        "iowaitPercent": 4.804045512010114
+      },
+      {
+        "elapsedMs": 332321.57720999996,
+        "busyPercent": 85.13341804320203,
+        "iowaitPercent": 7.496823379923761
+      },
+      {
+        "elapsedMs": 333322.074663,
+        "busyPercent": 81.45780051150895,
+        "iowaitPercent": 12.531969309462916
+      },
+      {
+        "elapsedMs": 334321.47594499995,
+        "busyPercent": 84.3312101910828,
+        "iowaitPercent": 10.318471337579618
+      },
+      {
+        "elapsedMs": 335322.225959,
+        "busyPercent": 86.89567430025446,
+        "iowaitPercent": 9.287531806615776
+      },
+      {
+        "elapsedMs": 336321.399041,
+        "busyPercent": 82.97055057618438,
+        "iowaitPercent": 11.139564660691422
+      },
+      {
+        "elapsedMs": 337322.154094,
+        "busyPercent": 83.99487836107555,
+        "iowaitPercent": 11.267605633802816
+      },
+      {
+        "elapsedMs": 338321.986858,
+        "busyPercent": 88.29516539440203,
+        "iowaitPercent": 5.852417302798982
+      },
+      {
+        "elapsedMs": 339322.532097,
+        "busyPercent": 84.27109974424552,
+        "iowaitPercent": 9.846547314578006
+      },
+      {
+        "elapsedMs": 340322.877152,
+        "busyPercent": 86.95652173913044,
+        "iowaitPercent": 7.544757033248082
+      },
+      {
+        "elapsedMs": 341322.597505,
+        "busyPercent": 86.46232439335887,
+        "iowaitPercent": 6.257982120051086
+      },
+      {
+        "elapsedMs": 342322.366888,
+        "busyPercent": 83.7150127226463,
+        "iowaitPercent": 9.414758269720101
+      },
+      {
+        "elapsedMs": 343322.593601,
+        "busyPercent": 85.93155893536121,
+        "iowaitPercent": 7.858048162230672
+      },
+      {
+        "elapsedMs": 344322.732472,
+        "busyPercent": 86.59003831417624,
+        "iowaitPercent": 5.491698595146871
+      },
+      {
+        "elapsedMs": 345322.416834,
+        "busyPercent": 81.14649681528662,
+        "iowaitPercent": 11.59235668789809
+      },
+      {
+        "elapsedMs": 346322.47709299996,
+        "busyPercent": 71.60804020100502,
+        "iowaitPercent": 25
+      },
+      {
+        "elapsedMs": 347323.26845599996,
+        "busyPercent": 98.11794228356337,
+        "iowaitPercent": 0.37641154328732745
+      },
+      {
+        "elapsedMs": 348322.787075,
+        "busyPercent": 99.2462311557789,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 349325.69165,
+        "busyPercent": 99.125,
+        "iowaitPercent": 0.25
+      },
+      {
+        "elapsedMs": 350325.686388,
+        "busyPercent": 99.12280701754386,
+        "iowaitPercent": 0.37593984962406013
+      },
+      {
+        "elapsedMs": 351325.596216,
+        "busyPercent": 98.49435382685068,
+        "iowaitPercent": 0.37641154328732745
+      },
+      {
+        "elapsedMs": 352325.894897,
+        "busyPercent": 98.87076537013802,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 353325.421352,
+        "busyPercent": 98.86649874055415,
+        "iowaitPercent": 0.3778337531486146
+      },
+      {
+        "elapsedMs": 354325.46571799996,
+        "busyPercent": 98.87076537013802,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 355325.562124,
+        "busyPercent": 98.87218045112782,
+        "iowaitPercent": 0.5012531328320802
+      },
+      {
+        "elapsedMs": 356325.650521,
+        "busyPercent": 98.74371859296483,
+        "iowaitPercent": 0.12562814070351758
+      },
+      {
+        "elapsedMs": 357326.967732,
+        "busyPercent": 99.11949685534591,
+        "iowaitPercent": 0.25157232704402516
+      },
+      {
+        "elapsedMs": 358325.46861599997,
+        "busyPercent": 98.62155388471177,
+        "iowaitPercent": 0.12531328320802004
+      },
+      {
+        "elapsedMs": 359328.830938,
+        "busyPercent": 98.62671660424469,
+        "iowaitPercent": 0.37453183520599254
+      },
+      {
+        "elapsedMs": 360328.595048,
+        "busyPercent": 97.85894206549118,
+        "iowaitPercent": 0.12594458438287154
+      },
+      {
+        "elapsedMs": 361328.368928,
+        "busyPercent": 98.23899371069183,
+        "iowaitPercent": 0.6289308176100629
+      },
+      {
+        "elapsedMs": 362331.809151,
+        "busyPercent": 98.625,
+        "iowaitPercent": 0.125
+      },
+      {
+        "elapsedMs": 363332.612432,
+        "busyPercent": 98.7468671679198,
+        "iowaitPercent": 0.12531328320802004
+      },
+      {
+        "elapsedMs": 364333.002244,
+        "busyPercent": 98.24780976220275,
+        "iowaitPercent": 1.0012515644555695
+      },
+      {
+        "elapsedMs": 365332.948569,
+        "busyPercent": 93.69482976040354,
+        "iowaitPercent": 4.791929382093317
+      },
+      {
+        "elapsedMs": 366332.437868,
+        "busyPercent": 99.24906132665832,
+        "iowaitPercent": 0.5006257822277848
+      },
+      {
+        "elapsedMs": 367332.78738399997,
+        "busyPercent": 98.7468671679198,
+        "iowaitPercent": 0.37593984962406013
+      },
+      {
+        "elapsedMs": 368332.60118399997,
+        "busyPercent": 98.36888331242159,
+        "iowaitPercent": 0.7528230865746549
+      },
+      {
+        "elapsedMs": 369332.531595,
+        "busyPercent": 98.11083123425692,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 370332.466616,
+        "busyPercent": 98.36888331242159,
+        "iowaitPercent": 0.25094102885821834
+      },
+      {
+        "elapsedMs": 371333.206344,
+        "busyPercent": 99.24906132665832,
+        "iowaitPercent": 0.2503128911138924
+      },
+      {
+        "elapsedMs": 372332.61302499997,
+        "busyPercent": 98.87076537013802,
+        "iowaitPercent": 0.12547051442910917
+      },
+      {
+        "elapsedMs": 373333.820471,
+        "busyPercent": 98.6198243412798,
+        "iowaitPercent": 0.37641154328732745
+      },
+      {
+        "elapsedMs": 374333.466767,
+        "busyPercent": 99.12170639899624,
+        "iowaitPercent": 0.12547051442910917
+      },
+      {
+        "elapsedMs": 375333.892288,
+        "busyPercent": 99.25093632958801,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 376333.34526,
+        "busyPercent": 98.61809045226131,
+        "iowaitPercent": 0.12562814070351758
+      },
+      {
+        "elapsedMs": 377333.886704,
+        "busyPercent": 98.74843554443054,
+        "iowaitPercent": 0.2503128911138924
+      },
+      {
+        "elapsedMs": 378334.57058,
+        "busyPercent": 97.74153074027603,
+        "iowaitPercent": 1.3801756587202008
+      },
+      {
+        "elapsedMs": 379335.24476599996,
+        "busyPercent": 99.875,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 380334.592256,
+        "busyPercent": 99.7496871088861,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 381334.396775,
+        "busyPercent": 99.7496871088861,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 382334.612392,
+        "busyPercent": 99.12170639899624,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 383334.86910899996,
+        "busyPercent": 98.49624060150376,
+        "iowaitPercent": 0.7518796992481203
+      },
+      {
+        "elapsedMs": 384334.65212499996,
+        "busyPercent": 99.24906132665832,
+        "iowaitPercent": 0.5006257822277848
+      },
+      {
+        "elapsedMs": 385343.406607,
+        "busyPercent": 97.38480697384807,
+        "iowaitPercent": 0.7471980074719801
+      },
+      {
+        "elapsedMs": 386344.05680799996,
+        "busyPercent": 97.8643216080402,
+        "iowaitPercent": 0.12562814070351758
+      },
+      {
+        "elapsedMs": 387343.947904,
+        "busyPercent": 97.74718397997496,
+        "iowaitPercent": 0.8760951188986232
+      },
+      {
+        "elapsedMs": 388344.180166,
+        "busyPercent": 98.50187265917603,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 389342.50145,
+        "busyPercent": 98.86934673366834,
+        "iowaitPercent": 0.12562814070351758
+      },
+      {
+        "elapsedMs": 390343.683201,
+        "busyPercent": 98.3729662077597,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 391343.952665,
+        "busyPercent": 98.99371069182389,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 392343.35543999996,
+        "busyPercent": 99.12280701754386,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 393343.4308,
+        "busyPercent": 95.35759096612296,
+        "iowaitPercent": 2.383939774153074
+      },
+      {
+        "elapsedMs": 394343.732853,
+        "busyPercent": 99.12280701754386,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 395344.07981799997,
+        "busyPercent": 98.87076537013802,
+        "iowaitPercent": 0.37641154328732745
+      },
+      {
+        "elapsedMs": 396343.580992,
+        "busyPercent": 98.49056603773585,
+        "iowaitPercent": 0.25157232704402516
+      },
+      {
+        "elapsedMs": 397343.38717199996,
+        "busyPercent": 98.6198243412798,
+        "iowaitPercent": 0.25094102885821834
+      },
+      {
+        "elapsedMs": 398343.48937799997,
+        "busyPercent": 97.98234552332913,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 399343.91086,
+        "busyPercent": 98.87076537013802,
+        "iowaitPercent": 0.25094102885821834
+      },
+      {
+        "elapsedMs": 400343.77421,
+        "busyPercent": 98.61635220125787,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 401344.30341399997,
+        "busyPercent": 97.85894206549118,
+        "iowaitPercent": 0.2518891687657431
+      },
+      {
+        "elapsedMs": 402344.619794,
+        "busyPercent": 99.24812030075188,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 403344.575387,
+        "busyPercent": 97.62202753441802,
+        "iowaitPercent": 0.37546933667083854
+      },
+      {
+        "elapsedMs": 404344.427738,
+        "busyPercent": 98.74213836477988,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 405344.753728,
+        "busyPercent": 91.93954659949623,
+        "iowaitPercent": 1.63727959697733
+      },
+      {
+        "elapsedMs": 406345.879064,
+        "busyPercent": 99.25,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 407345.739075,
+        "busyPercent": 99.12060301507537,
+        "iowaitPercent": 0.12562814070351758
+      },
+      {
+        "elapsedMs": 408346.32876,
+        "busyPercent": 99.12170639899624,
+        "iowaitPercent": 0.25094102885821834
+      },
+      {
+        "elapsedMs": 409346.690801,
+        "busyPercent": 99.24717691342535,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 410347.036991,
+        "busyPercent": 98.36477987421384,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 411346.372872,
+        "busyPercent": 98.74371859296483,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 412347.140891,
+        "busyPercent": 98.61635220125787,
+        "iowaitPercent": 0.12578616352201258
+      },
+      {
+        "elapsedMs": 413350.236085,
+        "busyPercent": 98.375,
+        "iowaitPercent": 0.125
+      },
+      {
+        "elapsedMs": 414349.575396,
+        "busyPercent": 97.61306532663316,
+        "iowaitPercent": 0.25125628140703515
+      },
+      {
+        "elapsedMs": 415350.480887,
+        "busyPercent": 98.1203007518797,
+        "iowaitPercent": 0.12531328320802004
+      },
+      {
+        "elapsedMs": 416350.662175,
+        "busyPercent": 99.2462311557789,
+        "iowaitPercent": 0.12562814070351758
+      },
+      {
+        "elapsedMs": 417351.32805099996,
+        "busyPercent": 99.49937421777221,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 418351.77313399996,
+        "busyPercent": 97.48427672955975,
+        "iowaitPercent": 0.12578616352201258
+      },
+      {
+        "elapsedMs": 419351.677476,
+        "busyPercent": 98.36683417085428,
+        "iowaitPercent": 0.25125628140703515
+      },
+      {
+        "elapsedMs": 420351.423324,
+        "busyPercent": 98.61635220125787,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 421351.589606,
+        "busyPercent": 98.87076537013802,
+        "iowaitPercent": 0.12547051442910917
+      },
+      {
+        "elapsedMs": 422352.018213,
+        "busyPercent": 99.11949685534591,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 423356.60469099996,
+        "busyPercent": 98.50187265917603,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 424356.92061599996,
+        "busyPercent": 98.61809045226131,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 425356.387304,
+        "busyPercent": 98.7468671679198,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 426356.658588,
+        "busyPercent": 99.75,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 427356.573505,
+        "busyPercent": 99.875,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 428356.691296,
+        "busyPercent": 99.37185929648241,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 429356.38516899996,
+        "busyPercent": 98.23455233291298,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 430356.417499,
+        "busyPercent": 98.11557788944724,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 431357.986988,
+        "busyPercent": 98.86934673366834,
+        "iowaitPercent": 0.12562814070351758
+      },
+      {
+        "elapsedMs": 432357.478214,
+        "busyPercent": 99.12060301507537,
+        "iowaitPercent": 0
+      },
+      {
+        "elapsedMs": 433357.515339,
+        "busyPercent": 95.83858764186633,
+        "iowaitPercent": 1.1349306431273645
+      },
+      {
+        "elapsedMs": 434357.30022,
+        "busyPercent": 94.44444444444444,
+        "iowaitPercent": 1.0101010101010102
+      },
+      {
+        "elapsedMs": 435358.436656,
+        "busyPercent": 90.13906447534767,
+        "iowaitPercent": 3.413400758533502
+      },
+      {
+        "elapsedMs": 436615.78696999996,
+        "busyPercent": 81.31868131868131,
+        "iowaitPercent": 5.694305694305695
+      },
+      {
+        "elapsedMs": 436663.49191599997,
+        "busyPercent": 89.74358974358974,
+        "iowaitPercent": 0
+      }
+    ]
+  },
+  "hostMemory": {
+    "sampleCount": 436,
+    "totalBytes": 33349062656,
+    "averageUsedPercent": 67.84426350110797,
+    "peakUsedPercent": 79.29403363678156,
+    "samples": [
+      {
+        "elapsedMs": 1000.938922,
+        "total": 33349062656,
+        "available": 29853843456,
+        "max": 10.480711964991787
+      },
+      {
+        "elapsedMs": 2000.900945,
+        "total": 33349062656,
+        "available": 29510213632,
+        "max": 11.51111521063796
+      },
+      {
+        "elapsedMs": 3000.8283069999998,
+        "total": 33349062656,
+        "available": 29316120576,
+        "max": 12.093119742525696
+      },
+      {
+        "elapsedMs": 4000.604555,
+        "total": 33349062656,
+        "available": 28772753408,
+        "max": 13.722452397553827
+      },
+      {
+        "elapsedMs": 5006.622079,
+        "total": 33349062656,
+        "available": 28566474752,
+        "max": 14.340996487166754
+      },
+      {
+        "elapsedMs": 6022.270465,
+        "total": 33349062656,
+        "available": 28407640064,
+        "max": 14.81727580463484
+      },
+      {
+        "elapsedMs": 7029.334409,
+        "total": 33349062656,
+        "available": 28304441344,
+        "max": 15.126725941403324
+      },
+      {
+        "elapsedMs": 8029.415734,
+        "total": 33349062656,
+        "available": 28077146112,
+        "max": 15.808290021163465
+      },
+      {
+        "elapsedMs": 9052.211522,
+        "total": 33349062656,
+        "available": 27839078400,
+        "max": 16.52215629817311
+      },
+      {
+        "elapsedMs": 10047.41041,
+        "total": 33349062656,
+        "available": 27654713344,
+        "max": 17.074990594902076
+      },
+      {
+        "elapsedMs": 11048.525475,
+        "total": 33349062656,
+        "available": 27415482368,
+        "max": 17.792345017926493
+      },
+      {
+        "elapsedMs": 12049.396118,
+        "total": 33349062656,
+        "available": 27233042432,
+        "max": 18.33940667864509
+      },
+      {
+        "elapsedMs": 13049.468091,
+        "total": 33349062656,
+        "available": 27024777216,
+        "max": 18.963907637332547
+      },
+      {
+        "elapsedMs": 14098.267803,
+        "total": 33349062656,
+        "available": 26857979904,
+        "max": 19.464063559915846
+      },
+      {
+        "elapsedMs": 15103.702623,
+        "total": 33349062656,
+        "available": 26674421760,
+        "max": 20.01447826240217
+      },
+      {
+        "elapsedMs": 16104.372658,
+        "total": 33349062656,
+        "available": 26572091392,
+        "max": 20.32132457186385
+      },
+      {
+        "elapsedMs": 17120.571771000003,
+        "total": 33349062656,
+        "available": 26468753408,
+        "max": 20.63119230357777
+      },
+      {
+        "elapsedMs": 18141.151562000003,
+        "total": 33349062656,
+        "available": 26390204416,
+        "max": 20.86672813500501
+      },
+      {
+        "elapsedMs": 19143.193524000002,
+        "total": 33349062656,
+        "available": 26186088448,
+        "max": 21.47878722075948
+      },
+      {
+        "elapsedMs": 20143.119655000002,
+        "total": 33349062656,
+        "available": 26058371072,
+        "max": 21.861758632332336
+      },
+      {
+        "elapsedMs": 21142.883612,
+        "total": 33349062656,
+        "available": 25983746048,
+        "max": 22.08552811206185
+      },
+      {
+        "elapsedMs": 22143.702220000003,
+        "total": 33349062656,
+        "available": 25865101312,
+        "max": 22.44129444116032
+      },
+      {
+        "elapsedMs": 23143.620980000003,
+        "total": 33349062656,
+        "available": 25777905664,
+        "max": 22.7027580058171
+      },
+      {
+        "elapsedMs": 24144.507709,
+        "total": 33349062656,
+        "available": 25647853568,
+        "max": 23.09273027382806
+      },
+      {
+        "elapsedMs": 25148.279426,
+        "total": 33349062656,
+        "available": 25500102656,
+        "max": 23.535773946521562
+      },
+      {
+        "elapsedMs": 26152.305878000003,
+        "total": 33349062656,
+        "available": 25343979520,
+        "max": 24.00392244475802
+      },
+      {
+        "elapsedMs": 27167.831978000002,
+        "total": 33349062656,
+        "available": 25215582208,
+        "max": 24.388932702240925
+      },
+      {
+        "elapsedMs": 28169.354295,
+        "total": 33349062656,
+        "available": 25052835840,
+        "max": 24.876941524793903
+      },
+      {
+        "elapsedMs": 29172.052469000002,
+        "total": 33349062656,
+        "available": 24901017600,
+        "max": 25.332181426334838
+      },
+      {
+        "elapsedMs": 30172.089730000003,
+        "total": 33349062656,
+        "available": 24725303296,
+        "max": 25.859075707629987
+      },
+      {
+        "elapsedMs": 31186.472152000002,
+        "total": 33349062656,
+        "available": 24546729984,
+        "max": 26.39454296751074
+      },
+      {
+        "elapsedMs": 32187.184877000003,
+        "total": 33349062656,
+        "available": 24438951936,
+        "max": 26.717724608661335
+      },
+      {
+        "elapsedMs": 33208.625747,
+        "total": 33349062656,
+        "available": 24252608512,
+        "max": 27.276491210056275
+      },
+      {
+        "elapsedMs": 34229.411145,
+        "total": 33349062656,
+        "available": 24067198976,
+        "max": 27.832457468875972
+      },
+      {
+        "elapsedMs": 35231.421745,
+        "total": 33349062656,
+        "available": 23914872832,
+        "max": 28.289220363747305
+      },
+      {
+        "elapsedMs": 36232.356794,
+        "total": 33349062656,
+        "available": 23746351104,
+        "max": 28.794547094331378
+      },
+      {
+        "elapsedMs": 37235.578907999996,
+        "total": 33349062656,
+        "available": 23568617472,
+        "max": 29.327496502335276
+      },
+      {
+        "elapsedMs": 38235.603049,
+        "total": 33349062656,
+        "available": 23412760576,
+        "max": 29.794846657293704
+      },
+      {
+        "elapsedMs": 39264.514835999995,
+        "total": 33349062656,
+        "available": 23264260096,
+        "max": 30.24013797336997
+      },
+      {
+        "elapsedMs": 40268.040324999994,
+        "total": 33349062656,
+        "available": 23067303936,
+        "max": 30.830727766047588
+      },
+      {
+        "elapsedMs": 41268.339272,
+        "total": 33349062656,
+        "available": 22891720704,
+        "max": 31.357229016805867
+      },
+      {
+        "elapsedMs": 42268.901793,
+        "total": 33349062656,
+        "available": 22711951360,
+        "max": 31.896282680335613
+      },
+      {
+        "elapsedMs": 43268.816602,
+        "total": 33349062656,
+        "available": 22545657856,
+        "max": 32.3949278917928
+      },
+      {
+        "elapsedMs": 44268.968517,
+        "total": 33349062656,
+        "available": 22397943808,
+        "max": 32.8378610246478
+      },
+      {
+        "elapsedMs": 45268.689775,
+        "total": 33349062656,
+        "available": 22249594880,
+        "max": 33.282697899165804
+      },
+      {
+        "elapsedMs": 46268.747588,
+        "total": 33349062656,
+        "available": 22097932288,
+        "max": 33.7374710769442
+      },
+      {
+        "elapsedMs": 47268.428145,
+        "total": 33349062656,
+        "available": 21951619072,
+        "max": 34.176203695936344
+      },
+      {
+        "elapsedMs": 48269.414626,
+        "total": 33349062656,
+        "available": 21779804160,
+        "max": 34.691405318759436
+      },
+      {
+        "elapsedMs": 49270.415188,
+        "total": 33349062656,
+        "available": 21610688512,
+        "max": 35.19851296896373
+      },
+      {
+        "elapsedMs": 50271.124994,
+        "total": 33349062656,
+        "available": 21457850368,
+        "max": 35.65681113936973
+      },
+      {
+        "elapsedMs": 51270.590686999996,
+        "total": 33349062656,
+        "available": 21303836672,
+        "max": 36.11863430240334
+      },
+      {
+        "elapsedMs": 52270.671011,
+        "total": 33349062656,
+        "available": 21220339712,
+        "max": 36.36900703659765
+      },
+      {
+        "elapsedMs": 53271.355867,
+        "total": 33349062656,
+        "available": 21058183168,
+        "max": 36.855247221734686
+      },
+      {
+        "elapsedMs": 54272.379009,
+        "total": 33349062656,
+        "available": 20950372352,
+        "max": 37.1785271205195
+      },
+      {
+        "elapsedMs": 55272.669437,
+        "total": 33349062656,
+        "available": 20812468224,
+        "max": 37.59204437413019
+      },
+      {
+        "elapsedMs": 56308.356583,
+        "total": 33349062656,
+        "available": 20726837248,
+        "max": 37.84881613675301
+      },
+      {
+        "elapsedMs": 57321.391704999995,
+        "total": 33349062656,
+        "available": 20638978048,
+        "max": 38.11226941850273
+      },
+      {
+        "elapsedMs": 58342.00303,
+        "total": 33349062656,
+        "available": 20545519616,
+        "max": 38.39251247349961
+      },
+      {
+        "elapsedMs": 59341.909129,
+        "total": 33349062656,
+        "available": 20495339520,
+        "max": 38.54298175810174
+      },
+      {
+        "elapsedMs": 60878.279738,
+        "total": 33349062656,
+        "available": 20404023296,
+        "max": 38.81680122026156
+      },
+      {
+        "elapsedMs": 61881.832196999996,
+        "total": 33349062656,
+        "available": 20392505344,
+        "max": 38.851338778689545
+      },
+      {
+        "elapsedMs": 62882.047271999996,
+        "total": 33349062656,
+        "available": 20260855808,
+        "max": 39.246101106368684
+      },
+      {
+        "elapsedMs": 63881.808188999996,
+        "total": 33349062656,
+        "available": 20066746368,
+        "max": 39.82815476707352
+      },
+      {
+        "elapsedMs": 64881.484214,
+        "total": 33349062656,
+        "available": 19859099648,
+        "max": 40.450801112915094
+      },
+      {
+        "elapsedMs": 65881.89322299999,
+        "total": 33349062656,
+        "available": 19595051008,
+        "max": 41.24257341165613
+      },
+      {
+        "elapsedMs": 66882.499185,
+        "total": 33349062656,
+        "available": 19325534208,
+        "max": 42.05074245310747
+      },
+      {
+        "elapsedMs": 67883.55209699999,
+        "total": 33349062656,
+        "available": 19109642240,
+        "max": 42.69811287615939
+      },
+      {
+        "elapsedMs": 68883.489987,
+        "total": 33349062656,
+        "available": 18988613632,
+        "max": 43.0610274481473
+      },
+      {
+        "elapsedMs": 69884.160301,
+        "total": 33349062656,
+        "available": 18910543872,
+        "max": 43.295126261674085
+      },
+      {
+        "elapsedMs": 70884.664551,
+        "total": 33349062656,
+        "available": 18800988160,
+        "max": 43.62363837948106
+      },
+      {
+        "elapsedMs": 71885.341265,
+        "total": 33349062656,
+        "available": 18691379200,
+        "max": 43.95231016594363
+      },
+      {
+        "elapsedMs": 72885.53208,
+        "total": 33349062656,
+        "available": 18566238208,
+        "max": 44.32755607102602
+      },
+      {
+        "elapsedMs": 73890.04304799999,
+        "total": 33349062656,
+        "available": 18462834688,
+        "max": 44.63762031800837
+      },
+      {
+        "elapsedMs": 74889.77116399999,
+        "total": 33349062656,
+        "available": 18338754560,
+        "max": 45.00968513218292
+      },
+      {
+        "elapsedMs": 75890.97684799999,
+        "total": 33349062656,
+        "available": 18221047808,
+        "max": 45.36263883650188
+      },
+      {
+        "elapsedMs": 76893.548823,
+        "total": 33349062656,
+        "available": 18078728192,
+        "max": 45.789396306323574
+      },
+      {
+        "elapsedMs": 77893.68605599999,
+        "total": 33349062656,
+        "available": 17932853248,
+        "max": 46.22681472945804
+      },
+      {
+        "elapsedMs": 78893.88862099999,
+        "total": 33349062656,
+        "available": 17828868096,
+        "max": 46.538623049447786
+      },
+      {
+        "elapsedMs": 79895.005202,
+        "total": 33349062656,
+        "available": 17691930624,
+        "max": 46.949241702849015
+      },
+      {
+        "elapsedMs": 80894.494973,
+        "total": 33349062656,
+        "available": 17523339264,
+        "max": 47.45477723090581
+      },
+      {
+        "elapsedMs": 81894.84535,
+        "total": 33349062656,
+        "available": 17333850112,
+        "max": 48.02297656518577
+      },
+      {
+        "elapsedMs": 82894.421823,
+        "total": 33349062656,
+        "available": 17107853312,
+        "max": 48.70064718618999
+      },
+      {
+        "elapsedMs": 83894.456674,
+        "total": 33349062656,
+        "available": 16895918080,
+        "max": 49.33615299990997
+      },
+      {
+        "elapsedMs": 84894.76878099999,
+        "total": 33349062656,
+        "available": 16657170432,
+        "max": 50.052058122829656
+      },
+      {
+        "elapsedMs": 85894.389534,
+        "total": 33349062656,
+        "available": 16450908160,
+        "max": 50.67055308362548
+      },
+      {
+        "elapsedMs": 86895.260081,
+        "total": 33349062656,
+        "available": 16215814144,
+        "max": 51.375502480329736
+      },
+      {
+        "elapsedMs": 87894.289984,
+        "total": 33349062656,
+        "available": 16079605760,
+        "max": 51.7839349013696
+      },
+      {
+        "elapsedMs": 88897.137237,
+        "total": 33349062656,
+        "available": 15865257984,
+        "max": 52.426674933408954
+      },
+      {
+        "elapsedMs": 89898.376978,
+        "total": 33349062656,
+        "available": 15583481856,
+        "max": 53.27160461226248
+      },
+      {
+        "elapsedMs": 90898.66323399999,
+        "total": 33349062656,
+        "available": 15355219968,
+        "max": 53.95606729223208
+      },
+      {
+        "elapsedMs": 91903.430379,
+        "total": 33349062656,
+        "available": 15084441600,
+        "max": 54.76801925260085
+      },
+      {
+        "elapsedMs": 92903.279703,
+        "total": 33349062656,
+        "available": 14758518784,
+        "max": 55.745326529155925
+      },
+      {
+        "elapsedMs": 93907.202779,
+        "total": 33349062656,
+        "available": 14345560064,
+        "max": 56.98361836440097
+      },
+      {
+        "elapsedMs": 94909.93801299999,
+        "total": 33349062656,
+        "available": 13798535168,
+        "max": 58.62391902784879
+      },
+      {
+        "elapsedMs": 95909.39913399999,
+        "total": 33349062656,
+        "available": 13587800064,
+        "max": 59.25582615571551
+      },
+      {
+        "elapsedMs": 96909.449496,
+        "total": 33349062656,
+        "available": 13507973120,
+        "max": 59.49519403487729
+      },
+      {
+        "elapsedMs": 97910.585989,
+        "total": 33349062656,
+        "available": 13379624960,
+        "max": 59.880056905908866
+      },
+      {
+        "elapsedMs": 99027.71573899999,
+        "total": 33349062656,
+        "available": 13277007872,
+        "max": 60.187762969669954
+      },
+      {
+        "elapsedMs": 100008.51366499999,
+        "total": 33349062656,
+        "available": 13129613312,
+        "max": 60.629738090591324
+      },
+      {
+        "elapsedMs": 101006.661211,
+        "total": 33349062656,
+        "available": 12852125696,
+        "max": 61.461808301566435
+      },
+      {
+        "elapsedMs": 102009.982896,
+        "total": 33349062656,
+        "available": 12637315072,
+        "max": 62.10593622268914
+      },
+      {
+        "elapsedMs": 103009.661851,
+        "total": 33349062656,
+        "available": 12368023552,
+        "max": 62.913429742905215
+      },
+      {
+        "elapsedMs": 104010.401236,
+        "total": 33349062656,
+        "available": 12104814592,
+        "max": 63.702684189769386
+      },
+      {
+        "elapsedMs": 105011.91574699999,
+        "total": 33349062656,
+        "available": 11858247680,
+        "max": 64.44203604065459
+      },
+      {
+        "elapsedMs": 106011.762235,
+        "total": 33349062656,
+        "available": 11602128896,
+        "max": 65.21002999191462
+      },
+      {
+        "elapsedMs": 107011.826258,
+        "total": 33349062656,
+        "available": 11344670720,
+        "max": 65.98204022397336
+      },
+      {
+        "elapsedMs": 108012.639295,
+        "total": 33349062656,
+        "available": 11103993856,
+        "max": 66.7037302651077
+      },
+      {
+        "elapsedMs": 109012.59692699999,
+        "total": 33349062656,
+        "available": 10854215680,
+        "max": 67.45271136414635
+      },
+      {
+        "elapsedMs": 110012.69463299999,
+        "total": 33349062656,
+        "available": 10591657984,
+        "max": 68.24001294053042
+      },
+      {
+        "elapsedMs": 111012.51893399999,
+        "total": 33349062656,
+        "available": 10369490944,
+        "max": 68.9061997005353
+      },
+      {
+        "elapsedMs": 112013.221961,
+        "total": 33349062656,
+        "available": 10097270784,
+        "max": 69.72247499680971
+      },
+      {
+        "elapsedMs": 113013.221095,
+        "total": 33349062656,
+        "available": 9853853696,
+        "max": 70.4523818326056
+      },
+      {
+        "elapsedMs": 114013.25954,
+        "total": 33349062656,
+        "available": 9607602176,
+        "max": 71.19078795376143
+      },
+      {
+        "elapsedMs": 115012.67120299999,
+        "total": 33349062656,
+        "available": 9292849152,
+        "max": 72.13460165925211
+      },
+      {
+        "elapsedMs": 116012.92144199999,
+        "total": 33349062656,
+        "available": 9196613632,
+        "max": 72.42317204874905
+      },
+      {
+        "elapsedMs": 117012.74445299999,
+        "total": 33349062656,
+        "available": 9036144640,
+        "max": 72.9043519657238
+      },
+      {
+        "elapsedMs": 118012.814488,
+        "total": 33349062656,
+        "available": 8934461440,
+        "max": 73.20925768690967
+      },
+      {
+        "elapsedMs": 119014.374531,
+        "total": 33349062656,
+        "available": 8796749824,
+        "max": 73.62219767691933
+      },
+      {
+        "elapsedMs": 120016.76147,
+        "total": 33349062656,
+        "available": 8674328576,
+        "max": 73.98928819836152
+      },
+      {
+        "elapsedMs": 121016.386627,
+        "total": 33349062656,
+        "available": 8550952960,
+        "max": 74.35924047340036
+      },
+      {
+        "elapsedMs": 122016.616706,
+        "total": 33349062656,
+        "available": 8498122752,
+        "max": 74.51765634416996
+      },
+      {
+        "elapsedMs": 123016.570099,
+        "total": 33349062656,
+        "available": 8339746816,
+        "max": 74.99256005475898
+      },
+      {
+        "elapsedMs": 124019.667471,
+        "total": 33349062656,
+        "available": 8177336320,
+        "max": 75.47956173656121
+      },
+      {
+        "elapsedMs": 125020.150567,
+        "total": 33349062656,
+        "available": 8091140096,
+        "max": 75.7380284433743
+      },
+      {
+        "elapsedMs": 126020.367933,
+        "total": 33349062656,
+        "available": 7860334592,
+        "max": 76.43011837220016
+      },
+      {
+        "elapsedMs": 127021.410904,
+        "total": 33349062656,
+        "available": 7865618432,
+        "max": 76.41427432868235
+      },
+      {
+        "elapsedMs": 128022.059807,
+        "total": 33349062656,
+        "available": 7928442880,
+        "max": 76.22588987947596
+      },
+      {
+        "elapsedMs": 129021.51138899999,
+        "total": 33349062656,
+        "available": 8000344064,
+        "max": 76.0102880655909
+      },
+      {
+        "elapsedMs": 130021.778705,
+        "total": 33349062656,
+        "available": 8041299968,
+        "max": 75.88747830502142
+      },
+      {
+        "elapsedMs": 131022.04096199998,
+        "total": 33349062656,
+        "available": 7966564352,
+        "max": 76.11157940426642
+      },
+      {
+        "elapsedMs": 132022.03774300002,
+        "total": 33349062656,
+        "available": 7856697344,
+        "max": 76.44102496959847
+      },
+      {
+        "elapsedMs": 133023.92259,
+        "total": 33349062656,
+        "available": 7746596864,
+        "max": 76.77117062057434
+      },
+      {
+        "elapsedMs": 134023.47657300002,
+        "total": 33349062656,
+        "available": 7717289984,
+        "max": 76.85904979217895
+      },
+      {
+        "elapsedMs": 135023.92233300002,
+        "total": 33349062656,
+        "available": 7732486144,
+        "max": 76.81348281430989
+      },
+      {
+        "elapsedMs": 136025.688968,
+        "total": 33349062656,
+        "available": 7747395584,
+        "max": 76.76877559074025
+      },
+      {
+        "elapsedMs": 137025.42957500002,
+        "total": 33349062656,
+        "available": 7735300096,
+        "max": 76.80504493997134
+      },
+      {
+        "elapsedMs": 138025.46641700002,
+        "total": 33349062656,
+        "available": 7741665280,
+        "max": 76.7859583945243
+      },
+      {
+        "elapsedMs": 139025.818475,
+        "total": 33349062656,
+        "available": 7739846656,
+        "max": 76.79141169322345
+      },
+      {
+        "elapsedMs": 140025.863767,
+        "total": 33349062656,
+        "available": 7753474048,
+        "max": 76.75054879959262
+      },
+      {
+        "elapsedMs": 141025.58772200003,
+        "total": 33349062656,
+        "available": 7725879296,
+        "max": 76.83329400980931
+      },
+      {
+        "elapsedMs": 142028.086126,
+        "total": 33349062656,
+        "available": 7729983488,
+        "max": 76.82098724112338
+      },
+      {
+        "elapsedMs": 143027.703906,
+        "total": 33349062656,
+        "available": 7706501120,
+        "max": 76.89140111824557
+      },
+      {
+        "elapsedMs": 144027.895376,
+        "total": 33349062656,
+        "available": 7714873344,
+        "max": 76.86629629270261
+      },
+      {
+        "elapsedMs": 145029.499994,
+        "total": 33349062656,
+        "available": 7714320384,
+        "max": 76.86795439028006
+      },
+      {
+        "elapsedMs": 146030.16968300001,
+        "total": 33349062656,
+        "available": 7714471936,
+        "max": 76.8674999487218
+      },
+      {
+        "elapsedMs": 147035.63729400001,
+        "total": 33349062656,
+        "available": 7734091776,
+        "max": 76.80866819023316
+      },
+      {
+        "elapsedMs": 148036.204292,
+        "total": 33349062656,
+        "available": 7687045120,
+        "max": 76.9497415885631
+      },
+      {
+        "elapsedMs": 149037.628556,
+        "total": 33349062656,
+        "available": 7696396288,
+        "max": 76.92170131619785
+      },
+      {
+        "elapsedMs": 150036.689485,
+        "total": 33349062656,
+        "available": 7705624576,
+        "max": 76.89402950996093
+      },
+      {
+        "elapsedMs": 151037.722811,
+        "total": 33349062656,
+        "available": 7705100288,
+        "max": 76.89560163210844
+      },
+      {
+        "elapsedMs": 152037.933712,
+        "total": 33349062656,
+        "available": 7708336128,
+        "max": 76.8858986907293
+      },
+      {
+        "elapsedMs": 153037.968639,
+        "total": 33349062656,
+        "available": 7707881472,
+        "max": 76.88726201540409
+      },
+      {
+        "elapsedMs": 154037.570848,
+        "total": 33349062656,
+        "available": 7690993664,
+        "max": 76.93790154363973
+      },
+      {
+        "elapsedMs": 155037.40168200003,
+        "total": 33349062656,
+        "available": 7649656832,
+        "max": 77.06185354920699
+      },
+      {
+        "elapsedMs": 156037.73881500002,
+        "total": 33349062656,
+        "available": 7654338560,
+        "max": 77.04781498971795
+      },
+      {
+        "elapsedMs": 157037.917485,
+        "total": 33349062656,
+        "available": 7667666944,
+        "max": 77.00784869699937
+      },
+      {
+        "elapsedMs": 158037.692183,
+        "total": 33349062656,
+        "available": 7669493760,
+        "max": 77.00237083389166
+      },
+      {
+        "elapsedMs": 159038.542954,
+        "total": 33349062656,
+        "available": 7672451072,
+        "max": 76.9935030824034
+      },
+      {
+        "elapsedMs": 160039.30505400003,
+        "total": 33349062656,
+        "available": 7674986496,
+        "max": 76.9859003979557
+      },
+      {
+        "elapsedMs": 161039.37883,
+        "total": 33349062656,
+        "available": 7677120512,
+        "max": 76.9795013695272
+      },
+      {
+        "elapsedMs": 162039.669231,
+        "total": 33349062656,
+        "available": 7669469184,
+        "max": 77.00244452711733
+      },
+      {
+        "elapsedMs": 163039.80847800002,
+        "total": 33349062656,
+        "available": 7584784384,
+        "max": 77.25637910055208
+      },
+      {
+        "elapsedMs": 164039.56522800002,
+        "total": 33349062656,
+        "available": 7652167680,
+        "max": 77.05432455798497
+      },
+      {
+        "elapsedMs": 165039.92304000002,
+        "total": 33349062656,
+        "available": 7670026240,
+        "max": 77.0007741473356
+      },
+      {
+        "elapsedMs": 166040.16476,
+        "total": 33349062656,
+        "available": 7523487744,
+        "max": 77.440182287563
+      },
+      {
+        "elapsedMs": 167040.35513900002,
+        "total": 33349062656,
+        "available": 7516114944,
+        "max": 77.46229025526227
+      },
+      {
+        "elapsedMs": 168040.93619500002,
+        "total": 33349062656,
+        "available": 7490940928,
+        "max": 77.53777668275103
+      },
+      {
+        "elapsedMs": 169041.124243,
+        "total": 33349062656,
+        "available": 7489531904,
+        "max": 77.54200176102245
+      },
+      {
+        "elapsedMs": 170040.512156,
+        "total": 33349062656,
+        "available": 7512317952,
+        "max": 77.47367585862742
+      },
+      {
+        "elapsedMs": 171040.54412200002,
+        "total": 33349062656,
+        "available": 7496241152,
+        "max": 77.52188351041612
+      },
+      {
+        "elapsedMs": 172041.30232100002,
+        "total": 33349062656,
+        "available": 7506653184,
+        "max": 77.49066214714301
+      },
+      {
+        "elapsedMs": 173041.638623,
+        "total": 33349062656,
+        "available": 7494578176,
+        "max": 77.52687008535271
+      },
+      {
+        "elapsedMs": 174042.17892,
+        "total": 33349062656,
+        "available": 7504494592,
+        "max": 77.49713486879719
+      },
+      {
+        "elapsedMs": 175043.212659,
+        "total": 33349062656,
+        "available": 7529828352,
+        "max": 77.42116943534162
+      },
+      {
+        "elapsedMs": 176042.566047,
+        "total": 33349062656,
+        "available": 7514685440,
+        "max": 77.46657674455508
+      },
+      {
+        "elapsedMs": 177043.518955,
+        "total": 33349062656,
+        "available": 7515959296,
+        "max": 77.46275697902482
+      },
+      {
+        "elapsedMs": 178045.86796,
+        "total": 33349062656,
+        "available": 7539159040,
+        "max": 77.39319057399776
+      },
+      {
+        "elapsedMs": 179045.571715,
+        "total": 33349062656,
+        "available": 7548092416,
+        "max": 77.36640308646881
+      },
+      {
+        "elapsedMs": 180046.13085500002,
+        "total": 33349062656,
+        "available": 7560740864,
+        "max": 77.32847563966027
+      },
+      {
+        "elapsedMs": 181047.608634,
+        "total": 33349062656,
+        "available": 7566880768,
+        "max": 77.31006461544848
+      },
+      {
+        "elapsedMs": 182047.55205300002,
+        "total": 33349062656,
+        "available": 7556796416,
+        "max": 77.34030340237939
+      },
+      {
+        "elapsedMs": 183047.48722100002,
+        "total": 33349062656,
+        "available": 7568564224,
+        "max": 77.30501662949048
+      },
+      {
+        "elapsedMs": 184048.01310200003,
+        "total": 33349062656,
+        "available": 7570440192,
+        "max": 77.29939137993145
+      },
+      {
+        "elapsedMs": 185047.675905,
+        "total": 33349062656,
+        "available": 7578898432,
+        "max": 77.27402862809866
+      },
+      {
+        "elapsedMs": 186047.53409200002,
+        "total": 33349062656,
+        "available": 7579463680,
+        "max": 77.27233368390839
+      },
+      {
+        "elapsedMs": 187048.32158800002,
+        "total": 33349062656,
+        "available": 7571984384,
+        "max": 77.29476098891888
+      },
+      {
+        "elapsedMs": 188048.682084,
+        "total": 33349062656,
+        "available": 7453564928,
+        "max": 77.64985179678209
+      },
+      {
+        "elapsedMs": 189049.07772200002,
+        "total": 33349062656,
+        "available": 7455633408,
+        "max": 77.64364928362201
+      },
+      {
+        "elapsedMs": 190049.254607,
+        "total": 33349062656,
+        "available": 7458271232,
+        "max": 77.63573954406738
+      },
+      {
+        "elapsedMs": 191051.303308,
+        "total": 33349062656,
+        "available": 7470284800,
+        "max": 77.59971583892184
+      },
+      {
+        "elapsedMs": 192052.00910400003,
+        "total": 33349062656,
+        "available": 7481028608,
+        "max": 77.56749961710229
+      },
+      {
+        "elapsedMs": 193051.936935,
+        "total": 33349062656,
+        "available": 7497756672,
+        "max": 77.51733909483349
+      },
+      {
+        "elapsedMs": 194051.61767200002,
+        "total": 33349062656,
+        "available": 7507599360,
+        "max": 77.48782495795494
+      },
+      {
+        "elapsedMs": 195053.60112200002,
+        "total": 33349062656,
+        "available": 7503962112,
+        "max": 77.49873155535325
+      },
+      {
+        "elapsedMs": 196055.215865,
+        "total": 33349062656,
+        "available": 7481581568,
+        "max": 77.56584151952484
+      },
+      {
+        "elapsedMs": 197054.616286,
+        "total": 33349062656,
+        "available": 7469076480,
+        "max": 77.60333908918366
+      },
+      {
+        "elapsedMs": 198055.264471,
+        "total": 33349062656,
+        "available": 7440379904,
+        "max": 77.68938821235096
+      },
+      {
+        "elapsedMs": 199055.148481,
+        "total": 33349062656,
+        "available": 7442210816,
+        "max": 77.68389806703897
+      },
+      {
+        "elapsedMs": 200056.00969,
+        "total": 33349062656,
+        "available": 7383171072,
+        "max": 77.86093375949307
+      },
+      {
+        "elapsedMs": 201055.497493,
+        "total": 33349062656,
+        "available": 7380234240,
+        "max": 77.86974009995996
+      },
+      {
+        "elapsedMs": 202055.47252500002,
+        "total": 33349062656,
+        "available": 7374749696,
+        "max": 77.88618597148735
+      },
+      {
+        "elapsedMs": 203055.471167,
+        "total": 33349062656,
+        "available": 7360647168,
+        "max": 77.92847360081436
+      },
+      {
+        "elapsedMs": 204056.23252400002,
+        "total": 33349062656,
+        "available": 7369007104,
+        "max": 77.90340562188423
+      },
+      {
+        "elapsedMs": 205057.16794400002,
+        "total": 33349062656,
+        "available": 7368589312,
+        "max": 77.90465840672053
+      },
+      {
+        "elapsedMs": 206056.840276,
+        "total": 33349062656,
+        "available": 7368400896,
+        "max": 77.90522338811728
+      },
+      {
+        "elapsedMs": 207056.599281,
+        "total": 33349062656,
+        "available": 7380475904,
+        "max": 77.86901544990758
+      },
+      {
+        "elapsedMs": 208057.54386900002,
+        "total": 33349062656,
+        "available": 7376842752,
+        "max": 77.87990976510162
+      },
+      {
+        "elapsedMs": 209057.57666000002,
+        "total": 33349062656,
+        "available": 7387705344,
+        "max": 77.84733735935802
+      },
+      {
+        "elapsedMs": 210058.061659,
+        "total": 33349062656,
+        "available": 7394492416,
+        "max": 77.8269857468704
+      },
+      {
+        "elapsedMs": 211056.762935,
+        "total": 33349062656,
+        "available": 7399493632,
+        "max": 77.81198917544772
+      },
+      {
+        "elapsedMs": 212057.55842000002,
+        "total": 33349062656,
+        "available": 7407304704,
+        "max": 77.78856701189078
+      },
+      {
+        "elapsedMs": 213057.880306,
+        "total": 33349062656,
+        "available": 7408537600,
+        "max": 77.78487006840328
+      },
+      {
+        "elapsedMs": 214058.01334900002,
+        "total": 33349062656,
+        "available": 7401492480,
+        "max": 77.80599545976037
+      },
+      {
+        "elapsedMs": 215057.779264,
+        "total": 33349062656,
+        "available": 7361388544,
+        "max": 77.92625052184016
+      },
+      {
+        "elapsedMs": 216058.40301600003,
+        "total": 33349062656,
+        "available": 7352614912,
+        "max": 77.95255900340229
+      },
+      {
+        "elapsedMs": 217059.163341,
+        "total": 33349062656,
+        "available": 7351656448,
+        "max": 77.9554330392032
+      },
+      {
+        "elapsedMs": 218059.214872,
+        "total": 33349062656,
+        "available": 7358533632,
+        "max": 77.93481121822148
+      },
+      {
+        "elapsedMs": 219059.14654100002,
+        "total": 33349062656,
+        "available": 7396827136,
+        "max": 77.81998489043231
+      },
+      {
+        "elapsedMs": 220058.509278,
+        "total": 33349062656,
+        "available": 7374995456,
+        "max": 77.8854490392307
+      },
+      {
+        "elapsedMs": 221059.401485,
+        "total": 33349062656,
+        "available": 7367684096,
+        "max": 77.90737277386583
+      },
+      {
+        "elapsedMs": 222059.684941,
+        "total": 33349062656,
+        "available": 7369043968,
+        "max": 77.90329508204574
+      },
+      {
+        "elapsedMs": 223059.516704,
+        "total": 33349062656,
+        "available": 7329034240,
+        "max": 78.02326765342714
+      },
+      {
+        "elapsedMs": 224060.631471,
+        "total": 33349062656,
+        "available": 7241424896,
+        "max": 78.28597172071593
+      },
+      {
+        "elapsedMs": 225060.664388,
+        "total": 33349062656,
+        "available": 7272837120,
+        "max": 78.19177949611274
+      },
+      {
+        "elapsedMs": 226060.943429,
+        "total": 33349062656,
+        "available": 7332352000,
+        "max": 78.01331906796247
+      },
+      {
+        "elapsedMs": 227060.72175000003,
+        "total": 33349062656,
+        "available": 7328919552,
+        "max": 78.02361155514691
+      },
+      {
+        "elapsedMs": 228061.586523,
+        "total": 33349062656,
+        "available": 7332401152,
+        "max": 78.01317168151114
+      },
+      {
+        "elapsedMs": 229061.434306,
+        "total": 33349062656,
+        "available": 7336460288,
+        "max": 78.00100001707226
+      },
+      {
+        "elapsedMs": 230061.59400500002,
+        "total": 33349062656,
+        "available": 7346057216,
+        "max": 77.97222281245038
+      },
+      {
+        "elapsedMs": 231061.426447,
+        "total": 33349062656,
+        "available": 7335575552,
+        "max": 78.00365297319618
+      },
+      {
+        "elapsedMs": 232062.237559,
+        "total": 33349062656,
+        "available": 7337508864,
+        "max": 77.99785577277726
+      },
+      {
+        "elapsedMs": 233066.68503000002,
+        "total": 33349062656,
+        "available": 7337017344,
+        "max": 77.99932963729054
+      },
+      {
+        "elapsedMs": 234143.62802300003,
+        "total": 33349062656,
+        "available": 7344459776,
+        "max": 77.97701287211855
+      },
+      {
+        "elapsedMs": 235143.68215900002,
+        "total": 33349062656,
+        "available": 7351054336,
+        "max": 77.95723852323198
+      },
+      {
+        "elapsedMs": 236143.43548100002,
+        "total": 33349062656,
+        "available": 7343726592,
+        "max": 77.9792113866842
+      },
+      {
+        "elapsedMs": 237143.67798100002,
+        "total": 33349062656,
+        "available": 7348207616,
+        "max": 77.96577465520474
+      },
+      {
+        "elapsedMs": 238143.552054,
+        "total": 33349062656,
+        "available": 7354982400,
+        "max": 77.94545988932997
+      },
+      {
+        "elapsedMs": 239143.580603,
+        "total": 33349062656,
+        "available": 7347384320,
+        "max": 77.9682433782645
+      },
+      {
+        "elapsedMs": 240146.319706,
+        "total": 33349062656,
+        "available": 7335628800,
+        "max": 78.00349330454057
+      },
+      {
+        "elapsedMs": 241146.761074,
+        "total": 33349062656,
+        "available": 7338622976,
+        "max": 77.9945150132138
+      },
+      {
+        "elapsedMs": 242146.94050700002,
+        "total": 33349062656,
+        "available": 7345430528,
+        "max": 77.97410198970482
+      },
+      {
+        "elapsedMs": 243146.89592600003,
+        "total": 33349062656,
+        "available": 7345831936,
+        "max": 77.97289833368562
+      },
+      {
+        "elapsedMs": 244146.85521500002,
+        "total": 33349062656,
+        "available": 7342440448,
+        "max": 77.9830679988273
+      },
+      {
+        "elapsedMs": 245147.88974500002,
+        "total": 33349062656,
+        "available": 7349460992,
+        "max": 77.96201630069586
+      },
+      {
+        "elapsedMs": 246147.391665,
+        "total": 33349062656,
+        "available": 7347404800,
+        "max": 77.96818196724311
+      },
+      {
+        "elapsedMs": 247148.19023,
+        "total": 33349062656,
+        "available": 7351517184,
+        "max": 77.95585063414863
+      },
+      {
+        "elapsedMs": 248147.44062500002,
+        "total": 33349062656,
+        "available": 7356588032,
+        "max": 77.94064526525324
+      },
+      {
+        "elapsedMs": 249147.574678,
+        "total": 33349062656,
+        "available": 7357194240,
+        "max": 77.93882749902019
+      },
+      {
+        "elapsedMs": 250147.532757,
+        "total": 33349062656,
+        "available": 7359283200,
+        "max": 77.93256357483872
+      },
+      {
+        "elapsedMs": 251147.46332500002,
+        "total": 33349062656,
+        "available": 7351734272,
+        "max": 77.95519967732193
+      },
+      {
+        "elapsedMs": 252147.842372,
+        "total": 33349062656,
+        "available": 7348244480,
+        "max": 77.96566411536625
+      },
+      {
+        "elapsedMs": 253147.881193,
+        "total": 33349062656,
+        "available": 7351230464,
+        "max": 77.95671038844804
+      },
+      {
+        "elapsedMs": 254147.68042800002,
+        "total": 33349062656,
+        "available": 7353286656,
+        "max": 77.95054472190081
+      },
+      {
+        "elapsedMs": 255147.518459,
+        "total": 33349062656,
+        "available": 7353212928,
+        "max": 77.95076580157779
+      },
+      {
+        "elapsedMs": 256147.522468,
+        "total": 33349062656,
+        "available": 7345221632,
+        "max": 77.97472838212296
+      },
+      {
+        "elapsedMs": 257147.45388500002,
+        "total": 33349062656,
+        "available": 7306686464,
+        "max": 78.09027935996451
+      },
+      {
+        "elapsedMs": 258147.97082400002,
+        "total": 33349062656,
+        "available": 7328026624,
+        "max": 78.02628907567937
+      },
+      {
+        "elapsedMs": 259147.94546100002,
+        "total": 33349062656,
+        "available": 7330443264,
+        "max": 78.01904257515572
+      },
+      {
+        "elapsedMs": 260147.416629,
+        "total": 33349062656,
+        "available": 7337488384,
+        "max": 77.99791718379863
+      },
+      {
+        "elapsedMs": 261147.619171,
+        "total": 33349062656,
+        "available": 7339057152,
+        "max": 77.9932130995604
+      },
+      {
+        "elapsedMs": 262148.13369,
+        "total": 33349062656,
+        "available": 7331332096,
+        "max": 78.01637733682753
+      },
+      {
+        "elapsedMs": 263147.77120699995,
+        "total": 33349062656,
+        "available": 7329198080,
+        "max": 78.02277636525605
+      },
+      {
+        "elapsedMs": 264148.283598,
+        "total": 33349062656,
+        "available": 7333928960,
+        "max": 78.00859041931568
+      },
+      {
+        "elapsedMs": 265147.805461,
+        "total": 33349062656,
+        "available": 7338110976,
+        "max": 77.99605028874849
+      },
+      {
+        "elapsedMs": 266147.833503,
+        "total": 33349062656,
+        "available": 7334088704,
+        "max": 78.00811141334887
+      },
+      {
+        "elapsedMs": 267147.796364,
+        "total": 33349062656,
+        "available": 7335714816,
+        "max": 78.00323537825075
+      },
+      {
+        "elapsedMs": 268148.142993,
+        "total": 33349062656,
+        "available": 7126863872,
+        "max": 78.62949269214987
+      },
+      {
+        "elapsedMs": 269148.181215,
+        "total": 33349062656,
+        "available": 7127220224,
+        "max": 78.62842414037775
+      },
+      {
+        "elapsedMs": 270146.748899,
+        "total": 33349062656,
+        "available": 7323385856,
+        "max": 78.04020481312564
+      },
+      {
+        "elapsedMs": 271148.30962799996,
+        "total": 33349062656,
+        "available": 7342583808,
+        "max": 77.98263812167758
+      },
+      {
+        "elapsedMs": 272149.805595,
+        "total": 33349062656,
+        "available": 7336931328,
+        "max": 77.99958756358036
+      },
+      {
+        "elapsedMs": 273150.254821,
+        "total": 33349062656,
+        "available": 7342297088,
+        "max": 77.98349787597701
+      },
+      {
+        "elapsedMs": 274150.92187099997,
+        "total": 33349062656,
+        "available": 7345942528,
+        "max": 77.97256671417014
+      },
+      {
+        "elapsedMs": 275151.19633299997,
+        "total": 33349062656,
+        "available": 7349821440,
+        "max": 77.96093546671946
+      },
+      {
+        "elapsedMs": 276150.571718,
+        "total": 33349062656,
+        "available": 7352233984,
+        "max": 77.95370124840008
+      },
+      {
+        "elapsedMs": 277151.338321,
+        "total": 33349062656,
+        "available": 7347265536,
+        "max": 77.96859956218854
+      },
+      {
+        "elapsedMs": 278151.915779,
+        "total": 33349062656,
+        "available": 7331164160,
+        "max": 78.01688090720292
+      },
+      {
+        "elapsedMs": 279151.66203099996,
+        "total": 33349062656,
+        "available": 7336505344,
+        "max": 78.00086491282521
+      },
+      {
+        "elapsedMs": 280151.549616,
+        "total": 33349062656,
+        "available": 7340032000,
+        "max": 77.9902899349424
+      },
+      {
+        "elapsedMs": 281151.696276,
+        "total": 33349062656,
+        "available": 7340756992,
+        "max": 77.9881159847853
+      },
+      {
+        "elapsedMs": 282151.58331099997,
+        "total": 33349062656,
+        "available": 7346130944,
+        "max": 77.97200173277338
+      },
+      {
+        "elapsedMs": 283152.458606,
+        "total": 33349062656,
+        "available": 7348371456,
+        "max": 77.96528336703365
+      },
+      {
+        "elapsedMs": 284152.646876,
+        "total": 33349062656,
+        "available": 7352123392,
+        "max": 77.95403286791557
+      },
+      {
+        "elapsedMs": 285152.694445,
+        "total": 33349062656,
+        "available": 7339585536,
+        "max": 77.99162869520863
+      },
+      {
+        "elapsedMs": 286153.31590399996,
+        "total": 33349062656,
+        "available": 7346409472,
+        "max": 77.97116654288251
+      },
+      {
+        "elapsedMs": 287153.89038399997,
+        "total": 33349062656,
+        "available": 7349886976,
+        "max": 77.96073895145102
+      },
+      {
+        "elapsedMs": 288154.371682,
+        "total": 33349062656,
+        "available": 7351836672,
+        "max": 77.954892622215
+      },
+      {
+        "elapsedMs": 289155.45175199996,
+        "total": 33349062656,
+        "available": 7314386944,
+        "max": 78.06718881592303
+      },
+      {
+        "elapsedMs": 290155.521181,
+        "total": 33349062656,
+        "available": 7292268544,
+        "max": 78.13351271902087
+      },
+      {
+        "elapsedMs": 291155.649482,
+        "total": 33349062656,
+        "available": 7271198720,
+        "max": 78.1966923778237
+      },
+      {
+        "elapsedMs": 292155.62444,
+        "total": 33349062656,
+        "available": 7257845760,
+        "max": 78.23673236376794
+      },
+      {
+        "elapsedMs": 293155.814862,
+        "total": 33349062656,
+        "available": 7227432960,
+        "max": 78.32792773052746
+      },
+      {
+        "elapsedMs": 294155.627706,
+        "total": 33349062656,
+        "available": 7242670080,
+        "max": 78.28223793061562
+      },
+      {
+        "elapsedMs": 295155.89632999996,
+        "total": 33349062656,
+        "available": 7255752704,
+        "max": 78.24300857015368
+      },
+      {
+        "elapsedMs": 296156.306796,
+        "total": 33349062656,
+        "available": 7262445568,
+        "max": 78.22293944836444
+      },
+      {
+        "elapsedMs": 297157.09012999997,
+        "total": 33349062656,
+        "available": 7365910528,
+        "max": 77.91269096831793
+      },
+      {
+        "elapsedMs": 298157.33239299996,
+        "total": 33349062656,
+        "available": 7313162240,
+        "max": 78.07086119500197
+      },
+      {
+        "elapsedMs": 299157.585906,
+        "total": 33349062656,
+        "available": 7314616320,
+        "max": 78.06650101248351
+      },
+      {
+        "elapsedMs": 300157.442722,
+        "total": 33349062656,
+        "available": 7314382848,
+        "max": 78.06720109812731
+      },
+      {
+        "elapsedMs": 301167.927105,
+        "total": 33349062656,
+        "available": 7302504448,
+        "max": 78.1028194905317
+      },
+      {
+        "elapsedMs": 302167.841832,
+        "total": 33349062656,
+        "available": 7304663040,
+        "max": 78.09634676887754
+      },
+      {
+        "elapsedMs": 303167.83450399997,
+        "total": 33349062656,
+        "available": 7304904704,
+        "max": 78.09562211882518
+      },
+      {
+        "elapsedMs": 304167.592504,
+        "total": 33349062656,
+        "available": 7289868288,
+        "max": 78.14071009072741
+      },
+      {
+        "elapsedMs": 305167.52104799997,
+        "total": 33349062656,
+        "available": 7175045120,
+        "max": 78.4850171232351
+      },
+      {
+        "elapsedMs": 306167.39769199997,
+        "total": 33349062656,
+        "available": 7201710080,
+        "max": 78.40505997338938
+      },
+      {
+        "elapsedMs": 307167.54115999996,
+        "total": 33349062656,
+        "available": 7202349056,
+        "max": 78.4031439495221
+      },
+      {
+        "elapsedMs": 308167.679648,
+        "total": 33349062656,
+        "available": 7228436480,
+        "max": 78.3249185904795
+      },
+      {
+        "elapsedMs": 309167.363217,
+        "total": 33349062656,
+        "available": 7222292480,
+        "max": 78.34334189689555
+      },
+      {
+        "elapsedMs": 310167.292351,
+        "total": 33349062656,
+        "available": 7215783936,
+        "max": 78.36285831949232
+      },
+      {
+        "elapsedMs": 311168.96903,
+        "total": 33349062656,
+        "available": 7247888384,
+        "max": 78.26659040236625
+      },
+      {
+        "elapsedMs": 312168.451955,
+        "total": 33349062656,
+        "available": 7233359872,
+        "max": 78.3101553809381
+      },
+      {
+        "elapsedMs": 313168.34924799995,
+        "total": 33349062656,
+        "available": 7230119936,
+        "max": 78.3198706045215
+      },
+      {
+        "elapsedMs": 314168.505557,
+        "total": 33349062656,
+        "available": 7220105216,
+        "max": 78.34990059397968
+      },
+      {
+        "elapsedMs": 315168.662425,
+        "total": 33349062656,
+        "available": 7212027904,
+        "max": 78.37412110081466
+      },
+      {
+        "elapsedMs": 316168.332834,
+        "total": 33349062656,
+        "available": 7206277120,
+        "max": 78.39136531562009
+      },
+      {
+        "elapsedMs": 317172.708435,
+        "total": 33349062656,
+        "available": 7206457344,
+        "max": 78.39082489863189
+      },
+      {
+        "elapsedMs": 318173.65541899996,
+        "total": 33349062656,
+        "available": 7197933568,
+        "max": 78.41638416573312
+      },
+      {
+        "elapsedMs": 319172.438835,
+        "total": 33349062656,
+        "available": 7191285760,
+        "max": 78.4363181832753
+      },
+      {
+        "elapsedMs": 320172.741524,
+        "total": 33349062656,
+        "available": 7194324992,
+        "max": 78.42720478770148
+      },
+      {
+        "elapsedMs": 321172.308339,
+        "total": 33349062656,
+        "available": 7191674880,
+        "max": 78.43515137386895
+      },
+      {
+        "elapsedMs": 322172.48217599996,
+        "total": 33349062656,
+        "available": 7194206208,
+        "max": 78.42756097162552
+      },
+      {
+        "elapsedMs": 323173.172853,
+        "total": 33349062656,
+        "available": 7196606464,
+        "max": 78.42036359991899
+      },
+      {
+        "elapsedMs": 324173.56084499997,
+        "total": 33349062656,
+        "available": 7207276544,
+        "max": 78.38836845777642
+      },
+      {
+        "elapsedMs": 325173.329644,
+        "total": 33349062656,
+        "available": 7207849984,
+        "max": 78.3866489491776
+      },
+      {
+        "elapsedMs": 326317.753254,
+        "total": 33349062656,
+        "available": 7203065856,
+        "max": 78.40099456377357
+      },
+      {
+        "elapsedMs": 327317.38461999997,
+        "total": 33349062656,
+        "available": 7202287616,
+        "max": 78.40332818258626
+      },
+      {
+        "elapsedMs": 328319.33184199996,
+        "total": 33349062656,
+        "available": 7201849344,
+        "max": 78.40464237844394
+      },
+      {
+        "elapsedMs": 329320.822215,
+        "total": 33349062656,
+        "available": 7203188736,
+        "max": 78.40062609764524
+      },
+      {
+        "elapsedMs": 330319.78947799996,
+        "total": 33349062656,
+        "available": 7195774976,
+        "max": 78.4228568873873
+      },
+      {
+        "elapsedMs": 331320.786801,
+        "total": 33349062656,
+        "available": 7198375936,
+        "max": 78.41505768767117
+      },
+      {
+        "elapsedMs": 332321.58035999996,
+        "total": 33349062656,
+        "available": 7199223808,
+        "max": 78.41251527138574
+      },
+      {
+        "elapsedMs": 333322.078213,
+        "total": 33349062656,
+        "available": 7168241664,
+        "max": 78.50541786453982
+      },
+      {
+        "elapsedMs": 334321.479995,
+        "total": 33349062656,
+        "available": 7150768128,
+        "max": 78.5578137479871
+      },
+      {
+        "elapsedMs": 335322.229189,
+        "total": 33349062656,
+        "available": 7149780992,
+        "max": 78.56077375921795
+      },
+      {
+        "elapsedMs": 336321.40321099997,
+        "total": 33349062656,
+        "available": 7153999872,
+        "max": 78.54812308881225
+      },
+      {
+        "elapsedMs": 337322.157894,
+        "total": 33349062656,
+        "available": 7160905728,
+        "max": 78.52741529240059
+      },
+      {
+        "elapsedMs": 338321.990288,
+        "total": 33349062656,
+        "available": 7141699584,
+        "max": 78.58500654825721
+      },
+      {
+        "elapsedMs": 339322.53659699997,
+        "total": 33349062656,
+        "available": 7141683200,
+        "max": 78.58505567707432
+      },
+      {
+        "elapsedMs": 340322.881112,
+        "total": 33349062656,
+        "available": 7142715392,
+        "max": 78.58196056159642
+      },
+      {
+        "elapsedMs": 341322.603735,
+        "total": 33349062656,
+        "available": 7143710720,
+        "max": 78.57897598595702
+      },
+      {
+        "elapsedMs": 342322.370588,
+        "total": 33349062656,
+        "available": 7146659840,
+        "max": 78.57013279887731
+      },
+      {
+        "elapsedMs": 343322.59720099997,
+        "total": 33349062656,
+        "available": 7143632896,
+        "max": 78.57920934783829
+      },
+      {
+        "elapsedMs": 344322.735862,
+        "total": 33349062656,
+        "available": 7129989120,
+        "max": 78.62012137028623
+      },
+      {
+        "elapsedMs": 345322.421184,
+        "total": 33349062656,
+        "available": 7128793088,
+        "max": 78.62370777393522
+      },
+      {
+        "elapsedMs": 346322.481803,
+        "total": 33349062656,
+        "available": 7128182784,
+        "max": 78.62553782237255
+      },
+      {
+        "elapsedMs": 347323.273607,
+        "total": 33349062656,
+        "available": 7132676096,
+        "max": 78.61206424428026
+      },
+      {
+        "elapsedMs": 348322.790535,
+        "total": 33349062656,
+        "available": 7147720704,
+        "max": 78.56695170796947
+      },
+      {
+        "elapsedMs": 349325.69477999996,
+        "total": 33349062656,
+        "available": 7132110848,
+        "max": 78.61375918847054
+      },
+      {
+        "elapsedMs": 350325.691028,
+        "total": 33349062656,
+        "available": 7132434432,
+        "max": 78.61278889433262
+      },
+      {
+        "elapsedMs": 351325.604167,
+        "total": 33349062656,
+        "available": 7130234880,
+        "max": 78.61938443802958
+      },
+      {
+        "elapsedMs": 352325.898667,
+        "total": 33349062656,
+        "available": 7134957568,
+        "max": 78.60522305649778
+      },
+      {
+        "elapsedMs": 353325.424872,
+        "total": 33349062656,
+        "available": 7131713536,
+        "max": 78.61495056228546
+      },
+      {
+        "elapsedMs": 354325.468948,
+        "total": 33349062656,
+        "available": 7161237504,
+        "max": 78.52642043385413
+      },
+      {
+        "elapsedMs": 355325.56551399996,
+        "total": 33349062656,
+        "available": 7163940864,
+        "max": 78.51831417903105
+      },
+      {
+        "elapsedMs": 356325.65395099996,
+        "total": 33349062656,
+        "available": 7160422400,
+        "max": 78.52886459250531
+      },
+      {
+        "elapsedMs": 357326.97138199996,
+        "total": 33349062656,
+        "available": 7161421824,
+        "max": 78.52586773466165
+      },
+      {
+        "elapsedMs": 358325.47231599997,
+        "total": 33349062656,
+        "available": 7164186624,
+        "max": 78.51757724677442
+      },
+      {
+        "elapsedMs": 359328.834828,
+        "total": 33349062656,
+        "available": 7164907520,
+        "max": 78.5154155788216
+      },
+      {
+        "elapsedMs": 360328.59905799996,
+        "total": 33349062656,
+        "available": 7165288448,
+        "max": 78.51427333382381
+      },
+      {
+        "elapsedMs": 361328.37089799996,
+        "total": 33349062656,
+        "available": 7170908160,
+        "max": 78.49742214955523
+      },
+      {
+        "elapsedMs": 362331.814861,
+        "total": 33349062656,
+        "available": 7159218176,
+        "max": 78.53247556056287
+      },
+      {
+        "elapsedMs": 363332.615542,
+        "total": 33349062656,
+        "available": 7165489152,
+        "max": 78.51367150581422
+      },
+      {
+        "elapsedMs": 364333.00528399996,
+        "total": 33349062656,
+        "available": 7168053248,
+        "max": 78.50598284593657
+      },
+      {
+        "elapsedMs": 365332.950999,
+        "total": 33349062656,
+        "available": 7171690496,
+        "max": 78.49507624853827
+      },
+      {
+        "elapsedMs": 366332.440768,
+        "total": 33349062656,
+        "available": 7173447680,
+        "max": 78.48980718290328
+      },
+      {
+        "elapsedMs": 367332.790834,
+        "total": 33349062656,
+        "available": 7141912576,
+        "max": 78.58436787363479
+      },
+      {
+        "elapsedMs": 368332.603884,
+        "total": 33349062656,
+        "available": 7136878592,
+        "max": 78.59946270269168
+      },
+      {
+        "elapsedMs": 369332.534485,
+        "total": 33349062656,
+        "available": 7145394176,
+        "max": 78.57392799999901
+      },
+      {
+        "elapsedMs": 370332.46942599997,
+        "total": 33349062656,
+        "available": 7151886336,
+        "max": 78.55446070621937
+      },
+      {
+        "elapsedMs": 371333.213084,
+        "total": 33349062656,
+        "available": 7145099264,
+        "max": 78.57481231870699
+      },
+      {
+        "elapsedMs": 372332.616095,
+        "total": 33349062656,
+        "available": 7147970560,
+        "max": 78.56620249350856
+      },
+      {
+        "elapsedMs": 373333.849622,
+        "total": 33349062656,
+        "available": 7145054208,
+        "max": 78.57494742295404
+      },
+      {
+        "elapsedMs": 374333.470057,
+        "total": 33349062656,
+        "available": 7142129664,
+        "max": 78.58371691680809
+      },
+      {
+        "elapsedMs": 375333.897558,
+        "total": 33349062656,
+        "available": 7140397056,
+        "max": 78.58891228921742
+      },
+      {
+        "elapsedMs": 376333.34768999997,
+        "total": 33349062656,
+        "available": 7138115584,
+        "max": 78.59575347699992
+      },
+      {
+        "elapsedMs": 377333.889584,
+        "total": 33349062656,
+        "available": 7141203968,
+        "max": 78.58649269497478
+      },
+      {
+        "elapsedMs": 378334.57388,
+        "total": 33349062656,
+        "available": 7086112768,
+        "max": 78.75168834250547
+      },
+      {
+        "elapsedMs": 379335.249066,
+        "total": 33349062656,
+        "available": 7073542144,
+        "max": 78.78938242743274
+      },
+      {
+        "elapsedMs": 380334.597386,
+        "total": 33349062656,
+        "available": 7029248000,
+        "max": 78.92220218448828
+      },
+      {
+        "elapsedMs": 381334.400585,
+        "total": 33349062656,
+        "available": 7025012736,
+        "max": 78.93490198371109
+      },
+      {
+        "elapsedMs": 382334.615842,
+        "total": 33349062656,
+        "available": 7028862976,
+        "max": 78.92335671169036
+      },
+      {
+        "elapsedMs": 383334.87260899995,
+        "total": 33349062656,
+        "available": 7030214656,
+        "max": 78.91930358427884
+      },
+      {
+        "elapsedMs": 384334.656045,
+        "total": 33349062656,
+        "available": 7030419456,
+        "max": 78.91868947406496
+      },
+      {
+        "elapsedMs": 385343.41000699997,
+        "total": 33349062656,
+        "available": 7035432960,
+        "max": 78.90365605602945
+      },
+      {
+        "elapsedMs": 386344.060988,
+        "total": 33349062656,
+        "available": 7031300096,
+        "max": 78.91604880014532
+      },
+      {
+        "elapsedMs": 387343.951804,
+        "total": 33349062656,
+        "available": 7033704448,
+        "max": 78.9088391462345
+      },
+      {
+        "elapsedMs": 388344.18385599996,
+        "total": 33349062656,
+        "available": 7029252096,
+        "max": 78.92218990228402
+      },
+      {
+        "elapsedMs": 389342.50628,
+        "total": 33349062656,
+        "available": 7028563968,
+        "max": 78.92425331260262
+      },
+      {
+        "elapsedMs": 390343.686851,
+        "total": 33349062656,
+        "available": 7020257280,
+        "max": 78.94916162287713
+      },
+      {
+        "elapsedMs": 391343.95647499996,
+        "total": 33349062656,
+        "available": 7025696768,
+        "max": 78.93285085559677
+      },
+      {
+        "elapsedMs": 392343.359781,
+        "total": 33349062656,
+        "available": 7032053760,
+        "max": 78.91378887455829
+      },
+      {
+        "elapsedMs": 393343.43429,
+        "total": 33349062656,
+        "available": 7024795648,
+        "max": 78.9355529405378
+      },
+      {
+        "elapsedMs": 394343.736463,
+        "total": 33349062656,
+        "available": 7024390144,
+        "max": 78.93676887876126
+      },
+      {
+        "elapsedMs": 395344.084188,
+        "total": 33349062656,
+        "available": 7023456256,
+        "max": 78.9395692213365
+      },
+      {
+        "elapsedMs": 396343.585102,
+        "total": 33349062656,
+        "available": 7026089984,
+        "max": 78.93167176398615
+      },
+      {
+        "elapsedMs": 397343.39077199996,
+        "total": 33349062656,
+        "available": 7024496640,
+        "max": 78.93644954145005
+      },
+      {
+        "elapsedMs": 398343.49287799996,
+        "total": 33349062656,
+        "available": 7024025600,
+        "max": 78.93786199494194
+      },
+      {
+        "elapsedMs": 399343.91459,
+        "total": 33349062656,
+        "available": 7018491904,
+        "max": 78.95445525292068
+      },
+      {
+        "elapsedMs": 400343.77751,
+        "total": 33349062656,
+        "available": 7015993344,
+        "max": 78.96194739752987
+      },
+      {
+        "elapsedMs": 401344.307314,
+        "total": 33349062656,
+        "available": 6974038016,
+        "max": 79.08775401594303
+      },
+      {
+        "elapsedMs": 402344.624304,
+        "total": 33349062656,
+        "available": 6970667008,
+        "max": 79.09786227006333
+      },
+      {
+        "elapsedMs": 403344.578527,
+        "total": 33349062656,
+        "available": 6975082496,
+        "max": 79.0846220538523
+      },
+      {
+        "elapsedMs": 404344.43164799997,
+        "total": 33349062656,
+        "available": 6956392448,
+        "max": 79.14066575196998
+      },
+      {
+        "elapsedMs": 405344.757878,
+        "total": 33349062656,
+        "available": 7185866752,
+        "max": 78.45256753953427
+      },
+      {
+        "elapsedMs": 406345.88424399996,
+        "total": 33349062656,
+        "available": 7197958144,
+        "max": 78.41631047250746
+      },
+      {
+        "elapsedMs": 407345.743135,
+        "total": 33349062656,
+        "available": 7204761600,
+        "max": 78.39590973120274
+      },
+      {
+        "elapsedMs": 408346.33293,
+        "total": 33349062656,
+        "available": 7203151872,
+        "max": 78.40073663748373
+      },
+      {
+        "elapsedMs": 409346.69689099997,
+        "total": 33349062656,
+        "available": 7207432192,
+        "max": 78.3879017340139
+      },
+      {
+        "elapsedMs": 410347.040711,
+        "total": 33349062656,
+        "available": 7214960640,
+        "max": 78.36532704255207
+      },
+      {
+        "elapsedMs": 411346.377802,
+        "total": 33349062656,
+        "available": 7202197504,
+        "max": 78.40359839108037
+      },
+      {
+        "elapsedMs": 412347.144731,
+        "total": 33349062656,
+        "available": 7205863424,
+        "max": 78.39260581825212
+      },
+      {
+        "elapsedMs": 413350.241565,
+        "total": 33349062656,
+        "available": 7203864576,
+        "max": 78.39859953393947
+      },
+      {
+        "elapsedMs": 414349.579026,
+        "total": 33349062656,
+        "available": 7202004992,
+        "max": 78.40417565468141
+      },
+      {
+        "elapsedMs": 415350.48522699997,
+        "total": 33349062656,
+        "available": 7186219008,
+        "max": 78.45151126996642
+      },
+      {
+        "elapsedMs": 416350.668985,
+        "total": 33349062656,
+        "available": 7170965504,
+        "max": 78.49725019869535
+      },
+      {
+        "elapsedMs": 417351.332281,
+        "total": 33349062656,
+        "available": 7144615936,
+        "max": 78.57626161881171
+      },
+      {
+        "elapsedMs": 418351.776494,
+        "total": 33349062656,
+        "available": 7148253184,
+        "max": 78.56535502141341
+      },
+      {
+        "elapsedMs": 419351.682376,
+        "total": 33349062656,
+        "available": 7149056000,
+        "max": 78.56294770937504
+      },
+      {
+        "elapsedMs": 420351.426634,
+        "total": 33349062656,
+        "available": 7147421696,
+        "max": 78.56784830888172
+      },
+      {
+        "elapsedMs": 421351.593266,
+        "total": 33349062656,
+        "available": 7153823744,
+        "max": 78.54865122359618
+      },
+      {
+        "elapsedMs": 422352.02787299996,
+        "total": 33349062656,
+        "available": 7158083584,
+        "max": 78.5358777311477
+      },
+      {
+        "elapsedMs": 423356.607951,
+        "total": 33349062656,
+        "available": 7124082688,
+        "max": 78.6378323088542
+      },
+      {
+        "elapsedMs": 424356.926706,
+        "total": 33349062656,
+        "available": 7096389632,
+        "max": 78.72087229197355
+      },
+      {
+        "elapsedMs": 425356.390664,
+        "total": 33349062656,
+        "available": 7039856640,
+        "max": 78.89039127540988
+      },
+      {
+        "elapsedMs": 426356.662118,
+        "total": 33349062656,
+        "available": 6997745664,
+        "max": 79.01666461758559
+      },
+      {
+        "elapsedMs": 427356.57673599996,
+        "total": 33349062656,
+        "available": 6960066560,
+        "max": 79.12964861473317
+      },
+      {
+        "elapsedMs": 428356.69450599997,
+        "total": 33349062656,
+        "available": 6951727104,
+        "max": 79.1546551826419
+      },
+      {
+        "elapsedMs": 429356.388169,
+        "total": 33349062656,
+        "available": 6938976256,
+        "max": 79.19288968455737
+      },
+      {
+        "elapsedMs": 430356.420729,
+        "total": 33349062656,
+        "available": 6949416960,
+        "max": 79.16158234585434
+      },
+      {
+        "elapsedMs": 431357.98992799997,
+        "total": 33349062656,
+        "available": 6954217472,
+        "max": 79.14718760244126
+      },
+      {
+        "elapsedMs": 432357.481684,
+        "total": 33349062656,
+        "available": 6965288960,
+        "max": 79.11398880427951
+      },
+      {
+        "elapsedMs": 433357.51811899996,
+        "total": 33349062656,
+        "available": 6944387072,
+        "max": 79.17666489270697
+      },
+      {
+        "elapsedMs": 434357.30423,
+        "total": 33349062656,
+        "available": 6934732800,
+        "max": 79.20561404818874
+      },
+      {
+        "elapsedMs": 435358.439746,
+        "total": 33349062656,
+        "available": 6930968576,
+        "max": 79.21690139391964
+      },
+      {
+        "elapsedMs": 436615.79050999996,
+        "total": 33349062656,
+        "available": 6905245696,
+        "max": 79.29403363678156
+      },
+      {
+        "elapsedMs": 436663.494626,
+        "total": 33349062656,
+        "available": 6906535936,
+        "max": 79.29016474243419
+      }
+    ]
+  },
+  "telemetry": [
+    {
+      "workerId": 1,
+      "organizationId": "000000000000000000000001",
+      "dbMemory": {
+        "nodeUsedPercent": 79.23119787969851,
+        "peakNodeUsedPercent": 79.30190652972337,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      }
+    },
+    {
+      "workerId": 2,
+      "organizationId": "000000000000000000000002",
+      "dbMemory": {
+        "nodeUsedPercent": 79.28031441460374,
+        "peakNodeUsedPercent": 79.28031441460374,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      }
+    },
+    {
+      "workerId": 3,
+      "organizationId": "000000000000000000000003",
+      "dbMemory": {
+        "nodeUsedPercent": 79.28031441460374,
+        "peakNodeUsedPercent": 79.28031441460374,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      }
+    },
+    {
+      "workerId": 4,
+      "organizationId": "000000000000000000000004",
+      "dbMemory": {
+        "nodeUsedPercent": 79.27591738547244,
+        "peakNodeUsedPercent": 79.28219359185817,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      }
+    },
+    {
+      "workerId": 5,
+      "organizationId": "000000000000000000000005",
+      "dbMemory": {
+        "nodeUsedPercent": 79.30658604955305,
+        "peakNodeUsedPercent": 79.30658604955305,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      }
+    },
+    {
+      "workerId": 6,
+      "organizationId": "000000000000000000000006",
+      "dbMemory": {
+        "nodeUsedPercent": 79.27958976455137,
+        "peakNodeUsedPercent": 79.27958976455137,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      }
+    },
+    {
+      "workerId": 7,
+      "organizationId": "000000000000000000000007",
+      "dbMemory": {
+        "nodeUsedPercent": 79.28398679368267,
+        "peakNodeUsedPercent": 79.28398679368267,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      }
+    },
+    {
+      "workerId": 8,
+      "organizationId": "000000000000000000000008",
+      "dbMemory": {
+        "nodeUsedPercent": 79.2221950239632,
+        "peakNodeUsedPercent": 79.28842066942681,
+        "pruning": true,
+        "pruneCycles": 3,
+        "branchesPruned": 3,
+        "lastPrune": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "correctness": {
+    "oneOrganizationPerWorker": true,
+    "allWorkersUsed": true,
+    "distinctWorkerProcesses": true,
+    "allRecordsAcknowledged": true,
+    "indexReadyOnAllWorkers": true,
+    "crudSamplesPassed": true
+  },
+  "completedAt": "2026-11-27T22:02:02.430Z",
+  "runContext": {
+    "capturedAt": "2026-11-27T21:53:34.641Z",
+    "branch": "dev",
+    "baseCommit": "001b147c2e808de4356eba327976e9fcf8b8987e",
+    "dirty": true,
+    "command": "node test/benchmarks/diagnostics/worker-affinity.mjs --workers=8 --total-records=1000000",
+    "orchestration": "parent is a load generator only and does not initialize DB; each child initializes its own local DB and owns one organization"
+  }
+}

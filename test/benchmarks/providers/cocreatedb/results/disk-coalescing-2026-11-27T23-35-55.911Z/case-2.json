@@ -1,0 +1,600 @@
+{
+  "status": "passed",
+  "records": 10000,
+  "mutations": 1000,
+  "fixtureHash": "767927150f41a6967e99ab0e05f11128ba4f408f1b9bfc5e1fc753a84119ac8f",
+  "concurrency": 32,
+  "threadpoolSize": 4,
+  "node": "v24.18.0",
+  "phases": [
+    {
+      "name": "bulkCreate",
+      "records": 10000,
+      "acknowledgementMs": 2474.76349,
+      "indexedMs": 2616.823989,
+      "storedMs": 4348.454557,
+      "requestsPendingAtIndexReady": 15219,
+      "submitted": {
+        "roots.read": {
+          "calls": 1,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "roots.write": {
+          "calls": 4,
+          "bytes": 1309,
+          "completed": 2,
+          "superseded": 2,
+          "cancelled": 0
+        },
+        "config.read": {
+          "calls": 4,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.write": {
+          "calls": 10003,
+          "bytes": 5024812,
+          "completed": 10003,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.write": {
+          "calls": 7034,
+          "bytes": 15327945,
+          "completed": 5276,
+          "superseded": 1758,
+          "cancelled": 0
+        },
+        "config.write": {
+          "calls": 13,
+          "bytes": 26597,
+          "completed": 4,
+          "superseded": 9,
+          "cancelled": 0
+        },
+        "leaf.has": {
+          "calls": 10000,
+          "bytes": 0,
+          "completed": 10000,
+          "superseded": 0,
+          "cancelled": 0
+        }
+      },
+      "physical": {
+        "config.readFile": {
+          "calls": 5,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.mkdir": {
+          "calls": 7,
+          "bytes": 0,
+          "completed": 7,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.writeFile": {
+          "calls": 6,
+          "bytes": 4694,
+          "completed": 6,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.writeFile": {
+          "calls": 10003,
+          "bytes": 5024812,
+          "completed": 10003,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.writeFile": {
+          "calls": 5276,
+          "bytes": 9403328,
+          "completed": 5276,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.access": {
+          "calls": 10000,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.rename": {
+          "calls": 6,
+          "bytes": 0,
+          "completed": 6,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.rename": {
+          "calls": 10003,
+          "bytes": 0,
+          "completed": 10003,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.rename": {
+          "calls": 5276,
+          "bytes": 0,
+          "completed": 5276,
+          "superseded": 0,
+          "cancelled": 0
+        }
+      },
+      "device": {
+        "name": "nvme0n1",
+        "writes": 31,
+        "reads": 116,
+        "bytesWritten": 7127040,
+        "bytesRead": 770048,
+        "operationsPerSecond": 33.80511353473022,
+        "writeMiBPerSecond": 1.5630553133086358,
+        "averageWriteMs": 5.806451612903226,
+        "busyPercent": 0.8968703590846793
+      }
+    },
+    {
+      "name": "singleCreate",
+      "records": 1000,
+      "acknowledgementMs": 3969.5165639999996,
+      "indexedMs": 3973.1766069999994,
+      "storedMs": 3991.9760129999995,
+      "requestsPendingAtIndexReady": 190,
+      "submitted": {
+        "roots.read": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "roots.write": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.read": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.write": {
+          "calls": 1000,
+          "bytes": 507606,
+          "completed": 1000,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.write": {
+          "calls": 51503,
+          "bytes": 243757563,
+          "completed": 7084,
+          "superseded": 44419,
+          "cancelled": 0
+        },
+        "config.write": {
+          "calls": 1000,
+          "bytes": 2530000,
+          "completed": 50,
+          "superseded": 950,
+          "cancelled": 0
+        },
+        "leaf.has": {
+          "calls": 1000,
+          "bytes": 0,
+          "completed": 1000,
+          "superseded": 0,
+          "cancelled": 0
+        }
+      },
+      "physical": {
+        "config.readFile": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.mkdir": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.writeFile": {
+          "calls": 50,
+          "bytes": 126500,
+          "completed": 50,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.writeFile": {
+          "calls": 1000,
+          "bytes": 507606,
+          "completed": 1000,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.writeFile": {
+          "calls": 7084,
+          "bytes": 31852071,
+          "completed": 7084,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.access": {
+          "calls": 1000,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.rename": {
+          "calls": 50,
+          "bytes": 0,
+          "completed": 50,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.rename": {
+          "calls": 1000,
+          "bytes": 0,
+          "completed": 1000,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.rename": {
+          "calls": 7084,
+          "bytes": 0,
+          "completed": 7084,
+          "superseded": 0,
+          "cancelled": 0
+        }
+      },
+      "device": {
+        "name": "nvme0n1",
+        "writes": 6928,
+        "reads": 5,
+        "bytesWritten": 57757696,
+        "bytesRead": 20480,
+        "operationsPerSecond": 1736.7338825239583,
+        "writeMiBPerSecond": 13.798186930638757,
+        "averageWriteMs": 0.9566974595842956,
+        "busyPercent": 21.593316121962385
+      }
+    },
+    {
+      "name": "singleUpdate",
+      "records": 1000,
+      "acknowledgementMs": 110.60526199999913,
+      "indexedMs": 155.6944939999994,
+      "storedMs": 271.07727200000045,
+      "requestsPendingAtIndexReady": 1062,
+      "submitted": {
+        "roots.read": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "roots.write": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.read": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.write": {
+          "calls": 1000,
+          "bytes": 507606,
+          "completed": 1000,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.write": {
+          "calls": 32,
+          "bytes": 52762,
+          "completed": 32,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.write": {
+          "calls": 1,
+          "bytes": 2530,
+          "completed": 1,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.has": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.delete": {
+          "calls": 29,
+          "bytes": 0,
+          "completed": 29,
+          "superseded": 0,
+          "cancelled": 0
+        }
+      },
+      "physical": {
+        "config.readFile": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.mkdir": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.writeFile": {
+          "calls": 1,
+          "bytes": 2530,
+          "completed": 1,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.writeFile": {
+          "calls": 1000,
+          "bytes": 507606,
+          "completed": 1000,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.writeFile": {
+          "calls": 32,
+          "bytes": 52762,
+          "completed": 32,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.access": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.rename": {
+          "calls": 1,
+          "bytes": 0,
+          "completed": 1,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.rename": {
+          "calls": 1000,
+          "bytes": 0,
+          "completed": 1000,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.rename": {
+          "calls": 32,
+          "bytes": 0,
+          "completed": 32,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.unlink": {
+          "calls": 29,
+          "bytes": 0,
+          "completed": 29,
+          "superseded": 0,
+          "cancelled": 0
+        }
+      },
+      "device": {
+        "name": "nvme0n1",
+        "writes": 1009,
+        "reads": 0,
+        "bytesWritten": 4153344,
+        "bytesRead": 0,
+        "operationsPerSecond": 3722.1859012953264,
+        "writeMiBPerSecond": 14.611839165918688,
+        "averageWriteMs": 0.8800792864222002,
+        "busyPercent": 26.191793755398233
+      }
+    },
+    {
+      "name": "singleDelete",
+      "records": 1000,
+      "acknowledgementMs": 47.9471999999987,
+      "indexedMs": 225.66161399999874,
+      "storedMs": 311.43512999999984,
+      "requestsPendingAtIndexReady": 1658,
+      "submitted": {
+        "roots.read": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "roots.write": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.read": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.write": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.write": {
+          "calls": 263,
+          "bytes": 680908,
+          "completed": 263,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.write": {
+          "calls": 1,
+          "bytes": 2525,
+          "completed": 1,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.has": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.delete": {
+          "calls": 394,
+          "bytes": 0,
+          "completed": 394,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.delete": {
+          "calls": 1000,
+          "bytes": 0,
+          "completed": 1000,
+          "superseded": 0,
+          "cancelled": 0
+        }
+      },
+      "physical": {
+        "config.readFile": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.mkdir": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.writeFile": {
+          "calls": 1,
+          "bytes": 2525,
+          "completed": 1,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.writeFile": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.writeFile": {
+          "calls": 263,
+          "bytes": 680908,
+          "completed": 263,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.access": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "config.rename": {
+          "calls": 1,
+          "bytes": 0,
+          "completed": 1,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.rename": {
+          "calls": 0,
+          "bytes": 0,
+          "completed": 0,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.rename": {
+          "calls": 263,
+          "bytes": 0,
+          "completed": 263,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "branch.unlink": {
+          "calls": 394,
+          "bytes": 0,
+          "completed": 394,
+          "superseded": 0,
+          "cancelled": 0
+        },
+        "leaf.unlink": {
+          "calls": 1000,
+          "bytes": 0,
+          "completed": 1000,
+          "superseded": 0,
+          "cancelled": 0
+        }
+      },
+      "device": {
+        "name": "nvme0n1",
+        "writes": 258,
+        "reads": 0,
+        "bytesWritten": 1372160,
+        "bytesRead": 0,
+        "operationsPerSecond": 828.4229206897762,
+        "writeMiBPerSecond": 4.201818047951111,
+        "averageWriteMs": 0.8953488372093024,
+        "busyPercent": 6.421883106122296
+      }
+    }
+  ],
+  "physicalCountersVerified": true,
+  "correctness": {
+    "indexedUpdates": true,
+    "coldIndexes": true,
+    "deletedFiles": true,
+    "finalRecords": 10000
+  }
+}

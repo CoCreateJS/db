@@ -87,9 +87,9 @@ try {
     result.memory.peakRssBytes = process.resourceUsage().maxRSS * 1024
     clearInterval(progress)
     result.pendingBeforeReadChecks = db.pendingIndexCount
-    if (process.env.BENCH_PRUNE_BEFORE_READS === '1') {
-        result.prunedBeforeReads = []
-        for (const { root } of states) result.prunedBeforeReads.push(await (await db.organizations.get(root.organization_id)).prune())
+    if (process.env.BENCH_HARVEST_BEFORE_READS === '1') {
+        result.harvestedBeforeReads = []
+        for (const { root } of states) result.harvestedBeforeReads.push(await (await db.organizations.get(root.organization_id)).harvest())
     }
     for (const { root } of states) {
         const read = checked(await db.send({ ...root, method: 'object.read', object: { uuid: benchmarkUuid(0) } }))

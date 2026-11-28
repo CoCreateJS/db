@@ -1,14 +1,14 @@
 import { Tree } from './tree/index.js'
 import { treeContexts } from './tree/internal.js'
 
-/** Execution-local Trees. The coordinator routes requests; this store owns engines. */
+/** Instance-local Trees, indexing, storage queues and harvesting. */
 export class Trees {
     constructor(options = {}) {
         this.options = options
         this.organizations = new Map()
-        this.pruning = false
-        this.pruneQueue = Promise.resolve()
-        this.pruned = 0
+        this.harvesting = false
+        this.harvestQueue = Promise.resolve()
+        this.harvested = 0
     }
 
     get pendingIndexCount() {
@@ -48,7 +48,7 @@ export class Trees {
     #idle(tree) {
         if ((this.options.diskFirst || treeContexts.get(tree).diskFirst) && treeContexts.get(tree).canDrop)
             this.organizations.get(tree.organizationId)?.delete(tree.uuid)
-        this.schedulePrune()
+        this.scheduleHarvest()
     }
 
     status(organizationId) {
@@ -63,11 +63,11 @@ export class Trees {
             }
         }
         return { trees, pendingIndexCount: trees.reduce((sum, tree) => sum + tree.pendingIndexCount, 0),
-            pendingDiskCount: trees.reduce((sum, tree) => sum + tree.pendingDiskCount, 0), pruned: this.pruned }
+            pendingDiskCount: trees.reduce((sum, tree) => sum + tree.pendingDiskCount, 0), harvested: this.harvested }
     }
 
-    prune({ organization_id, uuid, limit = Infinity } = {}) {
-        if (limit !== Infinity && (!Number.isInteger(limit) || limit < 0)) throw new TypeError('Pruning limit must be a non-negative integer')
+    harvest({ organization_id, uuid, limit = Infinity } = {}) {
+        if (limit !== Infinity && (!Number.isInteger(limit) || limit < 0)) throw new TypeError('Harvesting limit must be a non-negative integer')
         const candidates = uuid === undefined ? this.status(organization_id).trees.filter(tree => tree.canDrop)
             .sort((a, b) => a.weight - b.weight || a.uuid.localeCompare(b.uuid)) : [{ organization_id, uuid }]
         let count = 0
@@ -79,17 +79,17 @@ export class Trees {
             tables.delete(candidate.uuid)
             count++
         }
-        this.pruned += count
-        if (count) this.options.onPrune?.({ count })
+        this.harvested += count
+        if (count) this.options.onHarvest?.({ count })
         return { count }
     }
 
-    schedulePrune() {
-        if (!this.pruning || this.scheduled) return
+    scheduleHarvest() {
+        if (!this.harvesting || this.scheduled) return
         this.scheduled = true
-        this.pruneQueue = (async () => {
-            while (this.pruning) {
-                if (!this.prune({ limit: 1 }).count) break
+        this.harvestQueue = (async () => {
+            while (this.harvesting) {
+                if (!this.harvest({ limit: 1 }).count) break
                 await new Promise(resolve => setTimeout(resolve, 0))
             }
         })().catch(error => { this.error = error }).finally(() => { this.scheduled = false })
@@ -98,8 +98,8 @@ export class Trees {
     async execute({ operation, organization_id, uuid, config, request, uuids, roots, limit, active, diskFirst }) {
         if (diskFirst !== undefined) this.options.diskFirst = diskFirst
         if (operation === 'status') return this.status(organization_id)
-        if (operation === 'pressure') { this.pruning = active; this.schedulePrune(); return { success: true } }
-        if (operation === 'prune') return this.prune({ organization_id, uuid, limit })
+        if (operation === 'pressure') { this.harvesting = active; this.scheduleHarvest(); return { success: true } }
+        if (operation === 'harvest') return this.harvest({ organization_id, uuid, limit })
         if (operation === 'lookup') {
             const found = []
             const tables = this.organizations.get(organization_id)
@@ -114,7 +114,13 @@ export class Trees {
         if (operation === 'drop') { this.organizations.get(organization_id)?.delete(uuid); return }
         // Protect the owner before initialization/storage can yield.
         const pending = this.get(organization_id, uuid, config)
-        const tree = this.organizations.get(organization_id).get(uuid)
+        let tree = this.organizations.get(organization_id)?.get(uuid)
+        if (!tree) {
+            // Surface initialization failures instead of masking them with an active-counter TypeError.
+            await pending
+            tree = this.organizations.get(organization_id)?.get(uuid)
+            if (!tree) throw new Error(`Tree initialization did not register ${organization_id}/${uuid}`)
+        }
         tree.active++
         try {
             await pending
@@ -131,8 +137,8 @@ export class Trees {
     }
 
     async close(organizationId) {
-        if (organizationId === undefined) this.pruning = false
-        await this.pruneQueue
+        if (organizationId === undefined) this.harvesting = false
+        await this.harvestQueue
         if (this.error) throw this.error
         for (const [id, tables] of this.organizations) {
             if (organizationId !== undefined && id !== organizationId) continue

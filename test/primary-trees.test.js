@@ -36,7 +36,7 @@ test('organization routing creates independent primary Trees with no shared leaf
     } finally { await databaseRuntimes.get(db).close() }
 })
 
-test('pruning drops one owner without storage work or touching a nested or neighboring Tree', async () => {
+test('harvesting drops one owner without storage work or touching a nested or neighboring Tree', async () => {
     const disk = new MemoryDisk()
     const db = await DB.init({}, { prompt: false, disk, roots: { storage: { database: { array: { object: {}, child: { entry: {} } } } } } })
     try {
@@ -49,8 +49,8 @@ test('pruning drops one owner without storage work or touching a nested or neigh
         const primary = a.object[0].parent
         const first = org.trees.get(primary), second = org.trees.get(b.object[0].parent), child = org.trees.get(nested.entry[0].parent)
         const events = disk.events.length
-        first.close = () => { throw Error('Pruning must not walk or drain an already idle Tree') }
-        assert.deepEqual(await org.prune({ uuid: primary }), { count: 1 })
+        first.close = () => { throw Error('Harvesting must not walk or drain an already idle Tree') }
+        assert.deepEqual(await org.harvest({ uuid: primary }), { count: 1 })
         assert.equal(org.trees.has(primary), false)
         assert.equal(org.trees.get(second.uuid), second)
         assert.equal(org.trees.get(child.uuid), child)
@@ -64,12 +64,12 @@ test('pruning drops one owner without storage work or touching a nested or neigh
     } finally { await databaseRuntimes.get(db).close() }
 })
 
-test('a blocked primary storage cycle does not block its neighbor indexing or pruning', async () => {
+test('a blocked primary storage cycle does not block its neighbor indexing or harvesting', async () => {
     const disk = new MemoryDisk()
     let entered, release
     const started = new Promise(resolve => { entered = resolve })
     const blocked = new Promise(resolve => { release = resolve })
-    const persistence = { async execute(request) {
+    const persistence = { queue: {}, async execute(request) {
         if (request.operation === 'read') return undefined
         if (request.kind === 'leaf' && request.uuid === 'blocked') { entered(); await blocked }
         return request
@@ -82,14 +82,14 @@ test('a blocked primary storage cycle does not block its neighbor indexing or pr
         const org = await testOrganization(db, scope.organization_id)
         const first = await org.getTree(a.object[0].parent), second = await org.getTree(b.object[0].parent)
         await waitForIdle(treeContexts.get(second))
-        await waitForCondition(() => org.pruneCandidates.includes(second))
+        await waitForCondition(() => org.harvestCandidates.includes(second))
         assert.equal(treeContexts.get(first).pendingIndexCount, 0)
         assert.ok(treeContexts.get(first).pendingDiskCount > 0)
-        assert.deepEqual(await org.prune({ uuid: first.uuid }), { count: 0 })
-        assert.deepEqual(await org.prune({ uuid: second.uuid }), { count: 1 })
+        assert.deepEqual(await org.harvest({ uuid: first.uuid }), { count: 0 })
+        assert.deepEqual(await org.harvest({ uuid: second.uuid }), { count: 1 })
         release()
         await waitForIdle(org)
-        assert.deepEqual(await org.prune({ uuid: first.uuid }), { count: 1 })
+        assert.deepEqual(await org.harvest({ uuid: first.uuid }), { count: 1 })
     } finally { release(); await databaseRuntimes.get(db).close() }
 })
 
@@ -151,7 +151,7 @@ test('cold primary creation retains stored UUID and object identity uniqueness',
         const created = await create(db, 'first', { uuid: 'original', _id: 'same-identity', value: 1 })
         const org = await testOrganization(db, scope.organization_id)
         await waitForIdle(org)
-        assert.deepEqual(await org.prune({ uuid: created.object[0].parent }), { count: 1 })
+        assert.deepEqual(await org.harvest({ uuid: created.object[0].parent }), { count: 1 })
         const duplicate = await create(db, 'first', { uuid: 'different', _id: 'same-identity' })
         assert.equal(duplicate.success, false)
         assert.match(duplicate.error.join('; '), /duplicate identity/)
@@ -166,7 +166,7 @@ test('structural deletion checks the child table for direct and filtered request
         await waitForIdle(databaseRuntimes.get(db))
         const org = await testOrganization(db, scope.organization_id)
         const primary = record.object[0].parent
-        await org.prune({ uuid: primary })
+        await org.harvest({ uuid: primary })
         for (const selector of [{ array: { uuid: primary } }, { filter: { query: { name: 'first' } } }]) {
             const result = await db.send({ organization_id: scope.organization_id, storage: scope.storage, database: scope.database, method: 'array.delete', ...selector })
             assert.equal(result.success, false)
@@ -188,7 +188,7 @@ test('root edits protect ordinary rows even when their primary is cold', async (
         assert.equal(result.success, true)
         const org = await testOrganization(db, scope.organization_id)
         await waitForIdle(org)
-        await org.prune()
+        await org.harvest()
         await assert.rejects(org.roots.execute({ operation: 'set', path: 'object', data: undefined }), /occupied root/)
         await assert.rejects(org.roots.execute({ operation: 'set', path: 'object', data: { child: {} } }), /occupied root/)
         await org.roots.execute({ operation: 'set', path: 'unused', data: undefined })

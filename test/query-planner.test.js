@@ -53,7 +53,7 @@ test('index algebra and multi-field pagination agree with Utils, hot and cold', 
     ]
     try {
         for (const cold of [false, true]) for (const query of queries) {
-            if (cold) await tree.prune({ uuid: primary })
+            if (cold) await tree.harvest({ uuid: primary })
             const filter = { query, sort: [{ key: 'score', direction: 'desc' }, { key: 'label', direction: 'asc' }], index: 2, limit: 9 }
             const result = await read(tree, filter)
             assert.equal(result.success, true, result.error?.join('; '))
@@ -70,7 +70,7 @@ test('index algebra and multi-field pagination agree with Utils, hot and cold', 
 test('cold indexed query hydrates only the requested page and never writes or reindexes', async () => {
     const { tree, disk, values, primary } = await fixture(120)
     try {
-        await tree.prune({ uuid: primary })
+        await tree.harvest({ uuid: primary })
         const paths = new Set(values.map(value => leafPath(value.uuid)))
         const accessed = [], execute = disk.execute.bind(disk)
         disk.execute = async request => { accessed.push(request); return execute(request) }
@@ -89,20 +89,20 @@ test('cold indexed query hydrates only the requested page and never writes or re
 test('cold UUID reads leave the queue empty; later scalar updates and deletes keep stored indexes correct', async () => {
     const { tree, disk, primary, values } = await fixture(40)
     try {
-        await tree.prune({ uuid: primary })
+        await tree.harvest({ uuid: primary })
         const leaf = (await tree.execute({ ...scope, method: 'object.read', object: { uuid: values[3].uuid } })).object[0]
         assert.equal(tree.pendingIndexCount, 0)
         await leaf.setValue('rank', 500)
         await waitForIdle(tree)
         assert.equal((await read(tree, { query: { rank: 3 }, limit: 0 })).object.length, 0)
         assert.deepEqual(ids((await read(tree, { query: { rank: 500 }, limit: 0 })).object), [leaf.uuid])
-        await tree.prune({ uuid: primary })
+        await tree.harvest({ uuid: primary })
         const update = await tree.execute({ ...scope, method: 'object.update', object: { uuid: leaf.uuid, $update: { $set: { 'profile.city': 'Oslo' }, $unset: { optional: true }, $push: { tags: 9 } } } })
         assert.equal(update.success, true, update.error?.join('; '))
         await waitForIdle(tree)
         assert.equal((await read(tree, { query: { 'profile.city': 'Oslo' }, limit: 0 })).object.length, 1)
         assert.equal((await read(tree, { query: { 'profile.city': 'Lima', rank: 500 }, limit: 0 })).object.length, 0)
-        await tree.prune({ uuid: primary })
+        await tree.harvest({ uuid: primary })
         const deleted = await tree.execute({ ...scope, method: 'object.delete', object: { uuid: leaf.uuid } })
         assert.equal(deleted.success, true, deleted.error?.join('; '))
         await waitForIdle(tree)
@@ -115,7 +115,7 @@ test('active reads protect their primary Tree, concurrent counts release indepen
     const { tree, disk, primary, values } = await fixture(32)
     const neighbor = (await tree.execute({ ...scope, array: 'neighbor', method: 'object.create', object: { rank: 0 } })).object[0]
     await waitForIdle(tree)
-    await tree.prune({ uuid: primary })
+    await tree.harvest({ uuid: primary })
     const targetPath = leafPath(values[0].uuid)
     let release, entered
     const gate = new Promise(resolve => { release = resolve })
@@ -131,13 +131,13 @@ test('active reads protect their primary Tree, concurrent counts release indepen
         // Another read can complete without clearing the first read's protection.
         const other = await tree.execute({ ...scope, method: 'object.read', object: { uuid: values[1].uuid } })
         assert.equal(other.success, true)
-        assert.deepEqual(await tree.prune({ uuid: primary }), { count: 0 })
-        assert.deepEqual(await tree.prune({ uuid: neighbor.parent }), { count: 1 })
+        assert.deepEqual(await tree.harvest({ uuid: primary }), { count: 0 })
+        assert.deepEqual(await tree.harvest({ uuid: neighbor.parent }), { count: 1 })
         release()
         assert.equal((await slow).success, true)
         const invalid = await read(tree, { query: {}, index: -1, limit: 1 })
         assert.equal(invalid.success, false)
-        assert.deepEqual(await tree.prune({ uuid: primary }), { count: 1 })
+        assert.deepEqual(await tree.harvest({ uuid: primary }), { count: 1 })
     } finally { release(); await slow; await tree.close() }
 })
 
@@ -172,9 +172,9 @@ test('a partially consumed query stream holds its primary until the iterator clo
         const branch = await tree.getPrimaryBranch({ ...scope, method: 'object.read' })
         const stream = tree.getLeaves(tree.planner(branch, { team: 'blue' }))
         assert.equal((await stream.next()).done, false)
-        assert.deepEqual(await tree.prune({ uuid: primary }), { count: 0 })
+        assert.deepEqual(await tree.harvest({ uuid: primary }), { count: 0 })
         await stream.return()
-        assert.deepEqual(await tree.prune({ uuid: primary }), { count: 1 })
+        assert.deepEqual(await tree.harvest({ uuid: primary }), { count: 1 })
     } finally { await tree.close() }
 })
 
@@ -182,7 +182,7 @@ test('root-only and equality scans stop at their page without restoring other co
     const { tree, disk, primary, values } = await fixture(160)
     try {
         for (const query of [{}, { team: 'blue' }]) {
-            await tree.prune({ uuid: primary })
+            await tree.harvest({ uuid: primary })
             const files = new Set(values.map(value => leafPath(value.uuid)))
             const accessed = [], execute = disk.execute.bind(disk)
             disk.execute = async request => { accessed.push(request); return execute(request) }
@@ -205,7 +205,7 @@ test('mixed types, missing values, container sorting and search follow the Filte
             { query: { active: true }, search: { value: 'name-1', operator: 'or' }, sort: [{ key: 'rank', direction: 'desc' }], limit: 5 },
             { query: { team: 'red' }, sort: [{ key: 'profile.city', direction: 'asc' }, { key: 'rank', direction: 'desc' }], limit: 5 }
         ]) {
-            await tree.prune({ uuid: primary })
+            await tree.harvest({ uuid: primary })
             const result = await read(tree, filter)
             assert.equal(result.success, true, result.error?.join('; '))
             assert.deepEqual(ids(result.object), ids(expected(values, filter)))
@@ -217,7 +217,7 @@ test('mixed types, missing values, container sorting and search follow the Filte
 test('filtered update and delete use ordered pages and keep old indexed values out', async () => {
     const { tree, primary, values } = await fixture(32)
     try {
-        await tree.prune({ uuid: primary })
+        await tree.harvest({ uuid: primary })
         const filter = { query: { team: 'blue' }, sort: [{ key: 'rank', direction: 'desc' }], index: 1, limit: 2 }
         const targets = ids(expected(values, filter))
         const update = await tree.execute({ ...scope, method: 'object.update', filter, object: { $update: { $set: { team: 'changed' }, $inc: { score: 100 } } } })
@@ -247,14 +247,14 @@ test('empty containers remain distinct from missing fields for indexed predicate
             { cell: { $exists: true } }, { cell: { $exists: false } }, { cell: { $gte: 0 } },
             { cell: { $lt: 1 } }, { cell: [] }, { cell: {} }, { cell: { $eq: {} } }, { cell: { $ne: null } }
         ]) {
-            await tree.prune({ uuid: primary })
+            await tree.harvest({ uuid: primary })
             const filter = { query, sort: [{ key: 'cell', direction: 'asc' }], limit: 0 }
             const result = await read(tree, filter)
             assert.equal(result.success, true, result.error?.join('; '))
             assert.deepEqual(ids(result.object), ids(expected(values, filter)), JSON.stringify(query))
             assert.equal(tree.pendingIndexCount, 0)
         }
-        await tree.prune({ uuid: primary })
+        await tree.harvest({ uuid: primary })
         const changed = await tree.execute({ ...scope, method: 'object.update', object: { uuid: 'empty-0', $update: { $push: { cell: 3 } } } })
         assert.equal(changed.success, true, changed.error?.join('; '))
         await waitForIdle(tree)
@@ -267,7 +267,7 @@ test('empty containers remain distinct from missing fields for indexed predicate
 test('filtered mutations retain their UUID selection while background indexing moves their driving values', async () => {
     const { tree, disk, primary, values } = await fixture(40)
     try {
-        await tree.prune({ uuid: primary })
+        await tree.harvest({ uuid: primary })
         const execute = disk.execute.bind(disk)
         const leaves = new Set(values.map(value => leafPath(value.uuid)))
         disk.execute = async request => {

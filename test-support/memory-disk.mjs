@@ -1,13 +1,16 @@
+import { createStorage } from '../../disk/src/core.js'
+
 export const leafPath = (uuid, organizationId) => `${organizationId === undefined ? '' : `${encodeURIComponent(organizationId).replaceAll('.', '%2E')}/`}leaves/${Buffer.from(uuid).toString('hex')}.json`
 
 export class MemoryDisk {
     constructor(config) {
+        Object.assign(this, createStorage(request => this.access(request)))
         this.files = new Map()
         this.events = []
         if (config !== undefined) this.files.set('config.json', JSON.stringify(config))
     }
 
-    async execute({ operation, kind, path, data }) {
+    async access({ operation, kind, path, data }) {
         if (operation === 'clear') {
             this.files.clear()
             return true
@@ -20,7 +23,6 @@ export class MemoryDisk {
                 .map(file => file.slice(prefix.length))
         }
 
-        if (kind !== 'file') throw new Error(`Unexpected memory disk kind: ${kind}`)
         const resource = path.endsWith('/config.json') || path === 'config.json' ? 'config' : path.includes('/branches/') || path.startsWith('branches/') ? 'branch' : 'leaf'
         const action = `${resource}-${operation}`
         this.events.push(action)

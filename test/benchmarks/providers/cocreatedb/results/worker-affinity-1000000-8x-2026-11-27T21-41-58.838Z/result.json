@@ -1,0 +1,596 @@
+{
+  "status": "failed",
+  "startedAt": "2026-11-27T21:41:58.839Z",
+  "totalRecords": 1000000,
+  "workerCount": 8,
+  "organizationCount": 8,
+  "batchSize": 1000,
+  "crudOperationsPerOrganization": 10000,
+  "processModel": "one DB instance and one organization per worker process; benchmark driver has no DB; organization affinity is pinned for the run",
+  "disk": "no-op adapter; no physical disk I/O",
+  "node": "v24.18.0",
+  "host": {
+    "architecture": "x64",
+    "logicalCpus": 8,
+    "availableParallelism": 8,
+    "totalMemoryBytes": 33349062656
+  },
+  "assignments": [
+    {
+      "workerId": 1,
+      "organizationId": "000000000000000000000001",
+      "records": 125000
+    },
+    {
+      "workerId": 2,
+      "organizationId": "000000000000000000000002",
+      "records": 125000
+    },
+    {
+      "workerId": 3,
+      "organizationId": "000000000000000000000003",
+      "records": 125000
+    },
+    {
+      "workerId": 4,
+      "organizationId": "000000000000000000000004",
+      "records": 125000
+    },
+    {
+      "workerId": 5,
+      "organizationId": "000000000000000000000005",
+      "records": 125000
+    },
+    {
+      "workerId": 6,
+      "organizationId": "000000000000000000000006",
+      "records": 125000
+    },
+    {
+      "workerId": 7,
+      "organizationId": "000000000000000000000007",
+      "records": 125000
+    },
+    {
+      "workerId": 8,
+      "organizationId": "000000000000000000000008",
+      "records": 125000
+    }
+  ],
+  "workers": [],
+  "operations": {
+    "sampleCrud": {
+      "create": {
+        "requests": 80000,
+        "records": 80000,
+        "acknowledgementWallMs": 67989.25992,
+        "requestsPerSecond": 1176.6564321207868,
+        "recordsPerSecond": 1176.6564321207868,
+        "requestConcurrency": 8,
+        "perWorkerConcurrency": 1,
+        "acknowledgement": {
+          "count": 80000,
+          "totalMs": 541605.1711370001,
+          "averageMs": 6.770064639212501,
+          "minMs": 0.31765599999926053,
+          "maxMs": 362.1878230000002,
+          "p50Ms": 7.182830999998259,
+          "p95Ms": 14.733572000011918,
+          "p99Ms": 34.026396000001114
+        },
+        "indexDrainMs": 1.359874999994645,
+        "pendingIndexBefore": 0,
+        "pendingIndexAfterAcknowledgement": 0,
+        "pendingDiskAfterAcknowledgement": 0,
+        "pendingIndexAfterDrain": 0,
+        "pendingDiskAfterDrain": 0,
+        "workers": [
+          {
+            "workerId": 1,
+            "organizationId": "000000000000000000000001",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 67744.239447,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 67718.05638200085,
+              "averageMs": 6.771805638200085,
+              "minMs": 0.34141700000327546,
+              "maxMs": 239.02283300001,
+              "p50Ms": 7.1332820000025094,
+              "p95Ms": 14.499429000003147,
+              "p99Ms": 33.13669800000207
+            }
+          },
+          {
+            "workerId": 2,
+            "organizationId": "000000000000000000000002",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 67974.333239,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 67950.4939849999,
+              "averageMs": 6.795049398499991,
+              "minMs": 0.31765599999926053,
+              "maxMs": 175.01542199999676,
+              "p50Ms": 7.217085000003863,
+              "p95Ms": 16.047696000008727,
+              "p99Ms": 32.95642900001258
+            }
+          },
+          {
+            "workerId": 3,
+            "organizationId": "000000000000000000000003",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 67694.747818,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 67670.6842610007,
+              "averageMs": 6.76706842610007,
+              "minMs": 0.35278699999616947,
+              "maxMs": 362.1878230000002,
+              "p50Ms": 7.175923000002513,
+              "p95Ms": 13.004260000001523,
+              "p99Ms": 33.80130499999359
+            }
+          },
+          {
+            "workerId": 4,
+            "organizationId": "000000000000000000000004",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 67765.055647,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 67739.88492300017,
+              "averageMs": 6.773988492300017,
+              "minMs": 0.3906669999996666,
+              "maxMs": 296.6553840000124,
+              "p50Ms": 7.143863999997848,
+              "p95Ms": 13.400116000004346,
+              "p99Ms": 33.95504499999515
+            }
+          },
+          {
+            "workerId": 5,
+            "organizationId": "000000000000000000000005",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 67879.31176799999,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 67855.49507599996,
+              "averageMs": 6.785549507599996,
+              "minMs": 0.3824870000098599,
+              "maxMs": 210.95530899999721,
+              "p50Ms": 7.207864000010886,
+              "p95Ms": 13.939337999996496,
+              "p99Ms": 35.9676679999975
+            }
+          },
+          {
+            "workerId": 6,
+            "organizationId": "000000000000000000000006",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 66887.428757,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 66864.23557499981,
+              "averageMs": 6.686423557499981,
+              "minMs": 0.361626999991131,
+              "maxMs": 248.63686499999312,
+              "p50Ms": 7.143852000001061,
+              "p95Ms": 14.584996999998111,
+              "p99Ms": 34.013758999994025
+            }
+          },
+          {
+            "workerId": 7,
+            "organizationId": "000000000000000000000007",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 67945.19376200001,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 67921.63379599957,
+              "averageMs": 6.792163379599957,
+              "minMs": 0.36557699998957105,
+              "maxMs": 204.13118299999041,
+              "p50Ms": 7.167815999986487,
+              "p95Ms": 15.939247999995132,
+              "p99Ms": 35.30219400000351
+            }
+          },
+          {
+            "workerId": 8,
+            "organizationId": "000000000000000000000008",
+            "requests": 10000,
+            "records": 10000,
+            "acknowledgementWallMs": 67907.249651,
+            "requestLatency": {
+              "count": 10000,
+              "totalMs": 67884.68713899926,
+              "averageMs": 6.788468713899926,
+              "minMs": 0.36368700000457466,
+              "maxMs": 261.00895799999853,
+              "p50Ms": 7.2965450000046985,
+              "p95Ms": 15.330398000005516,
+              "p99Ms": 32.57641700000386
+            }
+          }
+        ]
+      }
+    }
+  },
+  "memory": {
+    "aggregatePeakObservedRssBytes": 21522976768,
+    "workers": {
+      "1": {
+        "currentRssBytes": 2694955008,
+        "peakRssBytes": 2694955008,
+        "heapUsedBytes": 1542007936
+      },
+      "2": {
+        "currentRssBytes": 2694967296,
+        "peakRssBytes": 2694967296,
+        "heapUsedBytes": 1507320928
+      },
+      "3": {
+        "currentRssBytes": 2692591616,
+        "peakRssBytes": 2692591616,
+        "heapUsedBytes": 1439602856
+      },
+      "4": {
+        "currentRssBytes": 2687070208,
+        "peakRssBytes": 2687070208,
+        "heapUsedBytes": 1454635216
+      },
+      "5": {
+        "currentRssBytes": 2689277952,
+        "peakRssBytes": 2689277952,
+        "heapUsedBytes": 1442065712
+      },
+      "6": {
+        "currentRssBytes": 2689789952,
+        "peakRssBytes": 2689789952,
+        "heapUsedBytes": 1429914928
+      },
+      "7": {
+        "currentRssBytes": 2683109376,
+        "peakRssBytes": 2683109376,
+        "heapUsedBytes": 806654904
+      },
+      "8": {
+        "currentRssBytes": 2691215360,
+        "peakRssBytes": 2691215360,
+        "heapUsedBytes": 1506027584
+      }
+    }
+  },
+  "initializationMs": 217,
+  "bulkCreate": {
+    "requests": 1000,
+    "records": 1000000,
+    "acknowledgementWallMs": 46537.61266,
+    "fixtureGenerationMs": 16655.936490999982,
+    "acknowledgementWallMsExcludingFixtureGeneration": 29881.676169000017,
+    "requestsPerSecond": 21.487995254632384,
+    "recordsPerSecond": 21487.995254632384,
+    "requestLatency": {
+      "count": 1000,
+      "totalMs": 347853.0822270002,
+      "averageMs": 347.8530822270002,
+      "minMs": 171.99860399999994,
+      "maxMs": 1249.1750810000012,
+      "p50Ms": 333.2969599999997,
+      "p95Ms": 470.582948999996,
+      "p99Ms": 754.6036530000019
+    },
+    "workers": [
+      {
+        "workerId": 1,
+        "organizationId": "000000000000000000000001",
+        "pid": 102747,
+        "records": 125000,
+        "fixtureGenerationMs": 2007.757396999991,
+        "fixtureHash": "81faf77fcc1e681a7973316090b2cab9959dfe5013214eb96e59820e360e9a72",
+        "createAcknowledgementWallMs": 45788.411082,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 43773.59285900001,
+          "averageMs": 350.1887428720001,
+          "minMs": 194.717351,
+          "maxMs": 1003.9488729999975,
+          "p50Ms": 334.31498099999953,
+          "p95Ms": 474.38936200000035,
+          "p99Ms": 778.5908179999999
+        }
+      },
+      {
+        "workerId": 2,
+        "organizationId": "000000000000000000000002",
+        "pid": 102748,
+        "records": 125000,
+        "fixtureGenerationMs": 2047.2338970000023,
+        "fixtureHash": "f7221c0b9573d38334bc1ae4bdba594264fe7089fc1b4864825b05343a099561",
+        "createAcknowledgementWallMs": 46370.430890999996,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 44307.60353400001,
+          "averageMs": 354.4608282720001,
+          "minMs": 195.15942399999767,
+          "maxMs": 1208.899555,
+          "p50Ms": 335.69143899999835,
+          "p95Ms": 465.32039399999485,
+          "p99Ms": 762.3454070000007
+        }
+      },
+      {
+        "workerId": 3,
+        "organizationId": "000000000000000000000003",
+        "pid": 102749,
+        "records": 125000,
+        "fixtureGenerationMs": 2068.445353999971,
+        "fixtureHash": "6fb5c2dc035520cfd00d2680b1def5faecee1c4695216cfce9bc70f2000a150b",
+        "createAcknowledgementWallMs": 45691.8359,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 43613.66177100001,
+          "averageMs": 348.90929416800003,
+          "minMs": 221.25527499999953,
+          "maxMs": 774.8775290000012,
+          "p50Ms": 334.97206500000175,
+          "p95Ms": 442.5694680000015,
+          "p99Ms": 753.752414999999
+        }
+      },
+      {
+        "workerId": 4,
+        "organizationId": "000000000000000000000004",
+        "pid": 102755,
+        "records": 125000,
+        "fixtureGenerationMs": 2125.506190999987,
+        "fixtureHash": "c2bb7e61b024b7b690c4c9adffc95e04e31a822a95589798801ac3bbfb045e73",
+        "createAcknowledgementWallMs": 45050.88594,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 42912.644025,
+          "averageMs": 343.3011522,
+          "minMs": 207.201642,
+          "maxMs": 803.0384909999993,
+          "p50Ms": 329.5278449999996,
+          "p95Ms": 462.9086210000005,
+          "p99Ms": 629.6216409999979
+        }
+      },
+      {
+        "workerId": 5,
+        "organizationId": "000000000000000000000005",
+        "pid": 102761,
+        "records": 125000,
+        "fixtureGenerationMs": 2044.311306000015,
+        "fixtureHash": "8d86768affc2653e2ef9201abff9fe78e3478b74d41bc7dff4e18ae292a08008",
+        "createAcknowledgementWallMs": 45636.747106999996,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 43578.124199,
+          "averageMs": 348.624993592,
+          "minMs": 233.2102759999998,
+          "maxMs": 773.0144110000001,
+          "p50Ms": 336.69966900000145,
+          "p95Ms": 497.5511489999999,
+          "p99Ms": 575.5477089999986
+        }
+      },
+      {
+        "workerId": 6,
+        "organizationId": "000000000000000000000006",
+        "pid": 102762,
+        "records": 125000,
+        "fixtureGenerationMs": 2111.966837999985,
+        "fixtureHash": "76704911bc683237f1d44c99c6f260d68be7914803cd6b028e7fd785d1529e48",
+        "createAcknowledgementWallMs": 45477.60866,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 43360.809863,
+          "averageMs": 346.886478904,
+          "minMs": 171.99860399999994,
+          "maxMs": 1249.1750810000012,
+          "p50Ms": 327.0153549999959,
+          "p95Ms": 519.617127000005,
+          "p99Ms": 585.3369990000028
+        }
+      },
+      {
+        "workerId": 7,
+        "organizationId": "000000000000000000000007",
+        "pid": 102768,
+        "records": 125000,
+        "fixtureGenerationMs": 2140.4952170000042,
+        "fixtureHash": "ea5c1bc7a302796b102223e6cba2813efc800f171542fefa17629af2f95b8d44",
+        "createAcknowledgementWallMs": 45693.74064,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 43534.132201000015,
+          "averageMs": 348.2730576080001,
+          "minMs": 194.5692680000011,
+          "maxMs": 1010.7743469999987,
+          "p50Ms": 328.70855799999845,
+          "p95Ms": 467.3167999999996,
+          "p99Ms": 638.0624800000005
+        }
+      },
+      {
+        "workerId": 8,
+        "organizationId": "000000000000000000000008",
+        "pid": 102774,
+        "records": 125000,
+        "fixtureGenerationMs": 2110.2202910000256,
+        "fixtureHash": "081caeffdd02a0afac36272cb4ddbc1df198aab7e7956e12d8f18a2b5973d28c",
+        "createAcknowledgementWallMs": 44897.615291999995,
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 125,
+          "totalMs": 42772.513775000014,
+          "averageMs": 342.1801102000001,
+          "minMs": 204.89489099999992,
+          "maxMs": 916.7457080000022,
+          "p50Ms": 333.8841919999977,
+          "p95Ms": 444.6426039999999,
+          "p99Ms": 554.9988779999985
+        }
+      }
+    ]
+  },
+  "pendingIndexAfterAcknowledgement": 0,
+  "pendingDiskAfterAcknowledgement": 0,
+  "indexDrainMs": 3.4714290000047185,
+  "createAndIndexMs": 46562.078008000004,
+  "pendingIndexAtIndexReady": 0,
+  "pendingDiskAtIndexReady": 0,
+  "indexDrainByWorker": [
+    {
+      "workerId": 1,
+      "organizationId": "000000000000000000000001",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 0,
+      "drainMs": 0.32268699999985984,
+      "dbMemory": {
+        "nodeUsedPercent": 34.53188404960488,
+        "peakNodeUsedPercent": 34.53188404960488,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 2,
+      "organizationId": "000000000000000000000002",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 0,
+      "drainMs": 0.3230669999975362,
+      "dbMemory": {
+        "nodeUsedPercent": 34.78317794911999,
+        "peakNodeUsedPercent": 34.78317794911999,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 3,
+      "organizationId": "000000000000000000000003",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 0,
+      "drainMs": 0.3594870000015362,
+      "dbMemory": {
+        "nodeUsedPercent": 34.48230079093711,
+        "peakNodeUsedPercent": 34.48230079093711,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 4,
+      "organizationId": "000000000000000000000004",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 0,
+      "drainMs": 0.3388970000014524,
+      "dbMemory": {
+        "nodeUsedPercent": 34.684134253827224,
+        "peakNodeUsedPercent": 34.684134253827224,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 5,
+      "organizationId": "000000000000000000000005",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 0,
+      "drainMs": 0.31299700000090525,
+      "dbMemory": {
+        "nodeUsedPercent": 34.458399621413335,
+        "peakNodeUsedPercent": 34.458399621413335,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 6,
+      "organizationId": "000000000000000000000006",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 0,
+      "drainMs": 0.32263699999748496,
+      "dbMemory": {
+        "nodeUsedPercent": 34.563080848469404,
+        "peakNodeUsedPercent": 34.563080848469404,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 7,
+      "organizationId": "000000000000000000000007",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 0,
+      "drainMs": 0.3167159999939031,
+      "dbMemory": {
+        "nodeUsedPercent": 34.5140625711984,
+        "peakNodeUsedPercent": 34.5140625711984,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    },
+    {
+      "workerId": 8,
+      "organizationId": "000000000000000000000008",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 0,
+      "drainMs": 0.3225170000005164,
+      "dbMemory": {
+        "nodeUsedPercent": 34.73472465324574,
+        "peakNodeUsedPercent": 34.73472465324574,
+        "pruning": false,
+        "pruneCycles": 0,
+        "branchesPruned": 0
+      }
+    }
+  ],
+  "failure": {
+    "message": "readByUuid returns one record per request\n\n0 !== 1\n",
+    "stack": "AssertionError [ERR_ASSERTION]: readByUuid returns one record per request\n\n0 !== 1\n\n    at file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/diagnostics/worker-affinity.mjs:305:24\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async Promise.all (index 2)\n    at async runCrudPhase (file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/diagnostics/worker-affinity.mjs:293:27)\n    at async file:///home/ubuntu/Dev/CoCreateJS/modules/db/test/benchmarks/diagnostics/worker-affinity.mjs:343:5"
+  },
+  "completedAt": "2026-11-27T21:43:55.411Z",
+  "runContext": {
+    "capturedAt": "2026-11-27T21:41:58.878Z",
+    "branch": "dev",
+    "baseCommit": "001b147c2e808de4356eba327976e9fcf8b8987e",
+    "dirty": true,
+    "command": "node test/benchmarks/diagnostics/worker-affinity.mjs --workers=8 --total-records=1000000",
+    "orchestration": "parent is a load generator only and does not initialize DB; each child initializes its own local DB and owns one organization"
+  }
+}

@@ -5,7 +5,7 @@ import { LeafTier } from './leaves.js'
 import { LocalTier } from './local-core.js'
 import { createManager } from './manager.js'
 import { updateLeaf } from './leaf.js'
-import { executeDisk, emptyStorage } from '../disk.js'
+import { executeDisk, emptyStorage, storageRequest } from '../disk.js'
 
 const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 /**
@@ -65,17 +65,13 @@ export class Tree {
             tree: new Map(),
             readExternal: undefined
         }
-        if (this.#disk && !this.#database.local) this.#attachDisk()
+        if ((this.#disk || this.#persistence) && !this.#database.local) this.#attachStorage()
         this.#manager = await createManager({
             db: this.#database,
             owner: this,
             size: this.#size,
             leafSize: this.#leafSize,
-            write: operation => executeDisk(this, operation),
-            persist: operation => this.persistence.execute({ ...operation, ...(this.organizationId === undefined ? {} : { organization_id: this.organizationId }) }),
-            onIdle: async () => {
-                this.#onIndexed?.()
-            }
+            onIdle: () => this.#onIndexed?.()
         })
         this.leaves = Object.freeze({
             get: async uuid => {
@@ -89,7 +85,7 @@ export class Tree {
         treeContexts.set(this, {
             leaves: { get: this.#manager.getLeaf, has: this.#manager.hasLeaf },
             branches: this.#branches,
-            get canDrop() { return !!tree.#disk && !tree.active && !tree.#manager.pendingIndex.size && !tree.#manager.disk.size },
+            get canDrop() { return !!tree.#disk && !tree.active && !tree.#manager.pendingIndex.size && !tree.disk.queue[tree.uuid] && !tree.persistence.queue[tree.uuid] && !tree.#manager.storage.size },
             get diskFirst() { return tree.#diskFirst },
             get leafCount() { return tree.#database.leaves.size },
             referenceLeaf: uuid => Map.prototype.get.call(tree.#database.leaves, uuid) ?? tree.#database.deleted.get(uuid),
@@ -99,8 +95,7 @@ export class Tree {
             hasRoot: this.#manager.hasRoot,
             get planner() { return tree.planner },
             get pendingIndexCount() { return tree.#manager.pendingIndex.size },
-            get pendingDiskCount() { return tree.#manager.disk.size },
-            get pendingDisk() { return tree.#manager.disk },
+            get pendingDiskCount() { return tree.#manager.storage.size },
             getPrimaryBranch: this.#getPrimaryBranch.bind(this),
             range: this.#range.bind(this),
             rangeLeaves: this.#rangeLeaves.bind(this),
@@ -126,28 +121,29 @@ export class Tree {
 
     get persistence() { return this.#persistence ?? emptyStorage }
     set persistence(resource) {
-        if (resource !== undefined && resource !== null && typeof resource.execute !== 'function')
-            throw new TypeError('Tree persistence must expose execute(operation)')
+        if (resource !== undefined && resource !== null && (typeof resource.execute !== 'function' || !resource.queue))
+            throw new TypeError('Tree persistence must expose execute(operation) and queue')
         this.#persistence = resource ?? undefined
+        if (this.#persistence && this.#manager && !this.#database.local) this.#attachStorage()
         this.#setExternalRead()
     }
 
     #setExternalRead() {
         if (!this.#manager) return
         this.#manager.setReadExternal(this.#persistence
-            ? uuid => this.#persistence.execute({ operation: 'read', kind: 'leaf', uuid, ...(this.organizationId === undefined ? {} : { organization_id: this.organizationId }) })
+            ? uuid => this.#persistence.execute(storageRequest(this, { operation: 'read', kind: 'leaf', uuid }))
             : undefined)
     }
 
     get disk() { return this.#disk ?? emptyStorage }
     set disk(disk) {
-        if (disk !== undefined && disk !== null && typeof disk.execute !== 'function')
-            throw new TypeError('Tree disk must expose execute(operation)')
+        if (disk !== undefined && disk !== null && (typeof disk.execute !== 'function' || !disk.queue))
+            throw new TypeError('Tree disk must expose execute(operation) and queue')
         this.#disk = disk ?? undefined
-        if (this.#disk && this.#manager && !this.#database.local) this.#attachDisk()
+        if (this.#disk && this.#manager && !this.#database.local) this.#attachStorage()
     }
 
-    #attachDisk() {
+    #attachStorage() {
         const local = new LocalTier(executeDisk.bind(null, this), undefined, {
             referenceLeaf: id => this.#database.leaves.reference(id) ?? this.#database.deleted?.get(id),
             resolveLeaf: async id => await this.#database.leaves.get(id) ?? this.#database.deleted?.get(id)

@@ -71,46 +71,21 @@ test('DB composes a custom execution function onto each selected primary Tree', 
     await index.close()
 })
 
-test('worker DB forwards requests through the supplied Server send primitive', async () => {
-    const sent = []
-    const worker = await createRuntime(Object.assign(new EventEmitter(), {
-        isPrimary: false,
-        isWorker: true,
-        async send(envelope) {
-            sent.push(envelope)
-            return { uuid: envelope.uuid, result: { success: true, object: [{ uuid: 'from-primary' }] } }
-        }
-    }))
-    const request = { ...envelope, method: 'object.read', object: { uuid: 'from-primary' } }
-
-    assert.deepEqual(await worker.send(request), { success: true, object: [{ uuid: 'from-primary' }] })
-    assert.equal(sent.length, 1)
-    assert.equal(sent[0].method, 'db.forward')
-    assert.equal(sent[0].request, request)
-    assert.equal(sent[0].primary, true)
-    assert.equal(sent[0].broadcast, false)
-})
-
-test('primary DB handles db.forward requests and unregisters its listener on close', async () => {
-    const server = new EventEmitter()
-    server.isPrimary = true
-    server.id = 'primary-db-test'
-    server.emitAsync = async (event, payload) => {
-        let result
-        for (const listener of server.listeners(event)) result = await listener(payload)
-        return result
+test('DB executes locally regardless of Server process role and unregisters telemetry on close', async () => {
+    for (const isPrimary of [false, true]) {
+        const server = new EventEmitter()
+        Object.assign(server, { isPrimary, isWorker: true,
+            send() { throw new Error('DB must not use Server transport') } })
+        const db = await createRuntime(server)
+        try {
+            assert.deepEqual(server.eventNames(), ['telemetry'])
+            const response = await db.send({ ...envelope, method: 'object.create', object: { value: 'local' } })
+            assert.equal(response.success, true)
+            const tree = await db.trees.get(envelope.organization_id, response.object[0].parent)
+            assert.equal((await tree.leaves.get(response.object[0].uuid)).value, 'local')
+        } finally { await db.close() }
+        assert.deepEqual(server.eventNames(), [])
     }
-    const db = await createRuntime(server)
-    const response = await server.emitAsync('db.forward', {
-        uuid: 'forwarded-create',
-        request: { ...envelope, method: 'object.create', object: { value: 'primary-db' } }
-    })
-
-    assert.equal(response.uuid, 'forwarded-create')
-    assert.equal(response.result.success, true, response.result.error?.join('; '))
-    assert.equal(server.listenerCount('db.forward'), 1)
-    await db.close()
-    assert.equal(server.listenerCount('db.forward'), 0)
 })
 
 test('shared package entry dynamically composes server disk and restores leaves after restart', async () => {
@@ -162,7 +137,7 @@ test('DB attaches the Disk resource to Tree and Tree can replace it', async () =
     assert.ok(requests.some(request => request.operation === 'write' && request.path.includes('leaves/')))
     assert.ok(requests.some(request => request.operation === 'write' && request.path.includes('branches/')))
     const leaf = await (await treeFor(index)).getLeaf(created.object[0].uuid)
-    await (await treeFor(index)).prune({ uuid: leaf.parent })
+    await (await treeFor(index)).harvest({ uuid: leaf.parent })
     const read = await index.send({ ...envelope, method: 'object.read', object: { uuid: leaf.uuid } })
     assert.equal(read.success, true, read.error?.join('; '))
     assert.equal(read.object[0].value, 'disk-hook')
@@ -170,7 +145,7 @@ test('DB attaches the Disk resource to Tree and Tree can replace it', async () =
 
     const resident = await (await treeFor(index)).leaves.get(leaf.uuid)
     await waitForIdle(index)
-    await (await treeFor(index)).prune({ uuid: resident.parent })
+    await (await treeFor(index)).harvest({ uuid: resident.parent })
     const updated = await index.send({ ...envelope, method: 'object.update', object: { uuid: leaf.uuid, value: 'updated-from-disk' } })
     assert.equal(updated.success, true, updated.error?.join('; '))
     assert.equal(updated.object[0].value, 'updated-from-disk')
@@ -178,14 +153,14 @@ test('DB attaches the Disk resource to Tree and Tree can replace it', async () =
 
     const updatedResident = await (await treeFor(index)).leaves.get(leaf.uuid)
     await waitForIdle(index)
-    await (await treeFor(index)).prune({ uuid: updatedResident.parent })
+    await (await treeFor(index)).harvest({ uuid: updatedResident.parent })
     const deleted = await index.send({ ...envelope, method: 'object.delete', object: { uuid: leaf.uuid } })
     assert.equal(deleted.success, true, deleted.error?.join('; '))
     await waitForIdle(index)
     assert.equal(disk.hasLeaf(leaf.uuid), false)
 
     const replacementRequests = []
-    index.disk = { async execute(request) { replacementRequests.push(request); return await execute(request) } }
+    index.disk = { queue: disk.queue, async execute(request) { replacementRequests.push(request); return await execute(request) } }
     const replacement = await index.send({ ...envelope, method: 'object.create', object: { value: 'replacement-disk' } })
     assert.equal(replacement.success, true, replacement.error?.join('; '))
     await waitForIdle(index)
@@ -199,13 +174,13 @@ test('DB without an attached disk operates in memory', async () => {
     assert.equal(created.success, true, created.error?.join('; '))
     assert.equal(db.disk, undefined)
     assert.equal(db.mode, 'adaptive')
-    assert.deepEqual(db.config.memory, { pruneAt: 75, retainAt: 50 })
+    assert.deepEqual(db.config.memory, { harvestAt: 75, retainAt: 50 })
     assert.equal((await db.send({ ...envelope, method: 'object.read', object: { uuid: created.object[0].uuid } })).success, true)
     await waitForIdle(db)
     await db.close()
 })
 
-test('create acknowledges the resident leaf before the queued local disk write, then persists leaves before index branches', async () => {
+test('create acknowledges the resident leaf before the queued local disk write, and hands off all changed files without disk ordering barriers', async () => {
     const disk = new MemoryDisk()
     let beginWrite
     let releaseWrite
@@ -234,11 +209,11 @@ test('create acknowledges the resident leaf before the queued local disk write, 
     assert.deepEqual(events, [], 'disk work starts only after the create response has been returned')
     assert.equal((await (await treeFor(index)).leaves.get(response.object[0].uuid)).value, 'ack-first')
     await writeStarted
-    assert.ok(events.length > 0 && events.every(event => event === 'leaf-write-start'), 'leaf writes begin only after the create response has been returned')
+    assert.ok(events.includes('leaf-write-start'), 'leaf writes begin after acknowledgement')
 
     releaseWrite()
     await waitForIdle(index)
-    assert.ok(events.indexOf('leaf-write-end') < events.indexOf('branch-write'), 'leaf write finishes before index branches are written')
+    assert.ok(events.includes('leaf-write-end') && events.includes('branch-write'), 'both file kinds complete through the adapter')
     await index.close()
 })
 
@@ -312,7 +287,7 @@ test('UUID reads resolve resident memory, local disk, then external persistence 
     const index = await createDatabase({
         disk,
         config: { roots: { storage: { database: { array: { object: {} } } } } },
-        persistence: {
+        persistence: { queue: {},
             async execute(operation) {
                 requests.push(operation)
                 return operation.operation === 'read' && operation.uuid === externalLeaf.uuid
@@ -340,10 +315,10 @@ test('UUID reads resolve resident memory, local disk, then external persistence 
     await index.close()
 })
 
-test('Tree queues changed leaf and branch IDs to Persistence after local index writes', async () => {
+test('Tree sends serialized changes independently to Disk and Persistence after indexing', async () => {
     const sent = []
     const disk = new MemoryDisk()
-    const persistence = {
+    const persistence = { queue: {},
         async execute(operation) { sent.push(operation); return { success: true } },
         async persist() { return { success: true, count: sent.length } }
     }
@@ -363,22 +338,22 @@ test('Tree queues changed leaf and branch IDs to Persistence after local index w
     assert.equal(leafOperations()[0].operation, 'write')
     assert.equal(leafOperations()[0].kind, 'leaf')
     assert.equal(leafOperations()[0].organization_id, envelope.organization_id)
-    assert.equal(Object.hasOwn(leafOperations()[0], 'data'), false, 'Persistence receives an ID notification, not a leaf snapshot')
+    assert.equal(JSON.parse(leafOperations()[0].data).object.value, 'persist-me', 'Persistence receives serialized file data')
     const branchOperations = () => sent.filter(operation => operation.kind === 'branch')
-    assert.ok(branchOperations().some(operation => operation.operation === 'write' && !Object.hasOwn(operation, 'data')),
+    assert.ok(branchOperations().some(operation => operation.operation === 'write' && typeof operation.data === 'string'),
         'the indexer notifies Persistence about changed branch IDs after writing their local files')
-    assert.ok(branchOperations().every(operation => !Object.hasOwn(operation, 'data')))
-    const notificationsBeforePrune = sent.length
-    const pruned = await (await treeFor(index)).prune({ limit: 1 })
-    assert.equal(pruned.count, 1)
-    assert.equal(sent.length, notificationsBeforePrune, 'pruning does not resend already persisted branch records')
+    assert.ok(branchOperations().every(operation => typeof operation.data === 'string'))
+    const notificationsBeforeHarvest = sent.length
+    const harvested = await (await treeFor(index)).harvest({ limit: 1 })
+    assert.equal(harvested.count, 1)
+    assert.equal(sent.length, notificationsBeforeHarvest, 'harvesting does not resend already persisted branch records')
 
     await index.send({ ...envelope, method: 'object.update', object: { uuid: leaf.uuid, value: 'updated' } })
     assert.equal(leafOperations().length, 1, 'Persistence is not notified before the update is indexed')
     await waitForIdle(index)
     assert.equal(leafOperations().length, 2)
     assert.equal(leafOperations()[1].operation, 'write')
-    assert.equal(Object.hasOwn(leafOperations()[1], 'data'), false)
+    assert.equal(JSON.parse(leafOperations()[1].data).object.value, 'updated')
 
     const flushed = await (await (await testOrganization(index, envelope.organization_id)).getTree(leaf.parent)).persist()
     assert.equal(flushed.success, true)

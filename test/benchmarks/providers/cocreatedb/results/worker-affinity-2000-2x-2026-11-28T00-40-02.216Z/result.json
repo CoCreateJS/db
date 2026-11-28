@@ -1,0 +1,1602 @@
+{
+  "status": "passed",
+  "startedAt": "2026-11-28T00:40:02.217Z",
+  "totalRecords": 2000,
+  "workerCount": 2,
+  "organizationCount": 2,
+  "batchSize": 1000,
+  "crudOperationsPerOrganization": 20,
+  "processModel": "one DB instance and one organization per worker process; benchmark driver has no DB; organization affinity is pinned for the run",
+  "disk": "local @cocreate/disk adapter enabled",
+  "node": "v24.18.0",
+  "host": {
+    "architecture": "x64",
+    "logicalCpus": 8,
+    "availableParallelism": 8,
+    "totalMemoryBytes": 33349062656
+  },
+  "assignments": [
+    {
+      "workerId": 1,
+      "organizationId": "000000000000000000000001",
+      "records": 1000
+    },
+    {
+      "workerId": 2,
+      "organizationId": "000000000000000000000002",
+      "records": 1000
+    }
+  ],
+  "workers": [],
+  "operations": {
+    "sampleCrud": {
+      "create": {
+        "requests": 40,
+        "records": 40,
+        "acknowledgementWallMs": 114.757339,
+        "requestsPerSecond": 348.56158524205586,
+        "recordsPerSecond": 348.56158524205586,
+        "requestConcurrency": 2,
+        "perWorkerConcurrency": 1,
+        "acknowledgement": {
+          "count": 40,
+          "totalMs": 226.17627099999982,
+          "averageMs": 5.6544067749999956,
+          "minMs": 3.444389000000001,
+          "maxMs": 12.743655999999987,
+          "p50Ms": 4.690773999999919,
+          "p95Ms": 11.053651999999943,
+          "p99Ms": 12.743655999999987
+        },
+        "indexDrainPerformed": true,
+        "indexDrainMs": 2.395889000000011,
+        "pendingIndexBefore": 0,
+        "pendingIndexAfterAcknowledgement": 0,
+        "pendingDiskAfterAcknowledgement": 2633,
+        "pendingIndexAfterDrain": 0,
+        "pendingDiskAfterDrain": 2618,
+        "workers": [
+          {
+            "workerId": 1,
+            "organizationId": "000000000000000000000001",
+            "requests": 20,
+            "records": 20,
+            "acknowledgementWallMs": 112.36035100000004,
+            "requestLatency": {
+              "count": 20,
+              "totalMs": 112.12014700000009,
+              "averageMs": 5.606007350000004,
+              "minMs": 3.444389000000001,
+              "maxMs": 12.743655999999987,
+              "p50Ms": 4.443399999999997,
+              "p95Ms": 9.195754999999963,
+              "p99Ms": 12.743655999999987
+            },
+            "memoryBefore": {
+              "rss": 110981120,
+              "heapTotal": 54689792,
+              "heapUsed": 27446784,
+              "external": 2726227,
+              "arrayBuffers": 482101
+            },
+            "memoryAfterAcknowledgement": {
+              "rss": 114913280,
+              "heapTotal": 58359808,
+              "heapUsed": 31888672,
+              "external": 2882614,
+              "arrayBuffers": 644009
+            },
+            "memoryAfterIndexDrain": {
+              "rss": 114913280,
+              "heapTotal": 58359808,
+              "heapUsed": 32128776,
+              "external": 2893986,
+              "arrayBuffers": 653205
+            },
+            "pendingDiskBefore": 1469,
+            "pendingDiskAfterAcknowledgement": 1316,
+            "pendingDiskAfterIndexDrain": 1303
+          },
+          {
+            "workerId": 2,
+            "organizationId": "000000000000000000000002",
+            "requests": 20,
+            "records": 20,
+            "acknowledgementWallMs": 114.22324800000001,
+            "requestLatency": {
+              "count": 20,
+              "totalMs": 114.05612399999973,
+              "averageMs": 5.702806199999986,
+              "minMs": 3.5763409999999567,
+              "maxMs": 12.161363999999935,
+              "p50Ms": 5.170804000000089,
+              "p95Ms": 11.053651999999943,
+              "p99Ms": 12.161363999999935
+            },
+            "memoryBefore": {
+              "rss": 111529984,
+              "heapTotal": 53903360,
+              "heapUsed": 27836328,
+              "external": 2718320,
+              "arrayBuffers": 474197
+            },
+            "memoryAfterAcknowledgement": {
+              "rss": 115462144,
+              "heapTotal": 58359808,
+              "heapUsed": 32427768,
+              "external": 2887084,
+              "arrayBuffers": 648387
+            },
+            "memoryAfterIndexDrain": {
+              "rss": 115462144,
+              "heapTotal": 58359808,
+              "heapUsed": 32512112,
+              "external": 2891384,
+              "arrayBuffers": 650511
+            },
+            "pendingDiskBefore": 1472,
+            "pendingDiskAfterAcknowledgement": 1317,
+            "pendingDiskAfterIndexDrain": 1315
+          }
+        ]
+      },
+      "readByUuid": {
+        "requests": 40,
+        "records": 40,
+        "acknowledgementWallMs": 47.990095999999994,
+        "requestsPerSecond": 833.50531326297,
+        "recordsPerSecond": 833.50531326297,
+        "requestConcurrency": 2,
+        "perWorkerConcurrency": 1,
+        "acknowledgement": {
+          "count": 40,
+          "totalMs": 93.27265599999987,
+          "averageMs": 2.3318163999999966,
+          "minMs": 0.6081019999999171,
+          "maxMs": 6.18569500000001,
+          "p50Ms": 2.0599919999999656,
+          "p95Ms": 4.444038999999975,
+          "p99Ms": 6.18569500000001
+        },
+        "indexDrainPerformed": false,
+        "indexDrainMs": 0,
+        "pendingIndexBefore": 0,
+        "pendingIndexAfterAcknowledgement": 0,
+        "pendingDiskAfterAcknowledgement": 2361,
+        "pendingIndexAfterDrain": 0,
+        "pendingDiskAfterDrain": 2361,
+        "workers": [
+          {
+            "workerId": 1,
+            "organizationId": "000000000000000000000001",
+            "requests": 20,
+            "records": 20,
+            "acknowledgementWallMs": 47.90967499999999,
+            "requestLatency": {
+              "count": 20,
+              "totalMs": 47.64899799999978,
+              "averageMs": 2.382449899999989,
+              "minMs": 0.8340969999999288,
+              "maxMs": 6.18569500000001,
+              "p50Ms": 1.975439999999935,
+              "p95Ms": 5.256375000000048,
+              "p99Ms": 6.18569500000001
+            },
+            "memoryBefore": {
+              "rss": 114913280,
+              "heapTotal": 58359808,
+              "heapUsed": 32343888,
+              "external": 2903519,
+              "arrayBuffers": 660527
+            },
+            "memoryAfterAcknowledgement": {
+              "rss": 114913280,
+              "heapTotal": 58359808,
+              "heapUsed": 34756400,
+              "external": 3049321,
+              "arrayBuffers": 802313
+            },
+            "pendingDiskBefore": 1289,
+            "pendingDiskAfterAcknowledgement": 1174,
+            "pendingDiskAfterIndexDrain": 1174
+          },
+          {
+            "workerId": 2,
+            "organizationId": "000000000000000000000002",
+            "requests": 20,
+            "records": 20,
+            "acknowledgementWallMs": 45.72559000000001,
+            "requestLatency": {
+              "count": 20,
+              "totalMs": 45.62365800000009,
+              "averageMs": 2.2811829000000046,
+              "minMs": 0.6081019999999171,
+              "maxMs": 4.242574999999988,
+              "p50Ms": 2.3813780000000406,
+              "p95Ms": 3.4878099999999677,
+              "p99Ms": 4.242574999999988
+            },
+            "memoryBefore": {
+              "rss": 115462144,
+              "heapTotal": 58359808,
+              "heapUsed": 32818008,
+              "external": 2904869,
+              "arrayBuffers": 661785
+            },
+            "memoryAfterAcknowledgement": {
+              "rss": 115724288,
+              "heapTotal": 58359808,
+              "heapUsed": 35166296,
+              "external": 3048175,
+              "arrayBuffers": 801075
+            },
+            "pendingDiskBefore": 1299,
+            "pendingDiskAfterAcknowledgement": 1187,
+            "pendingDiskAfterIndexDrain": 1187
+          }
+        ]
+      },
+      "indexedRead": {
+        "requests": 40,
+        "records": 40,
+        "acknowledgementWallMs": 56.58876799999996,
+        "requestsPerSecond": 706.8540527335748,
+        "recordsPerSecond": 706.8540527335748,
+        "requestConcurrency": 2,
+        "perWorkerConcurrency": 1,
+        "acknowledgement": {
+          "count": 40,
+          "totalMs": 112.07342500000016,
+          "averageMs": 2.801835625000004,
+          "minMs": 1.3155470000000378,
+          "maxMs": 9.282265999999936,
+          "p50Ms": 2.0886219999999867,
+          "p95Ms": 6.432148999999981,
+          "p99Ms": 9.282265999999936
+        },
+        "indexDrainPerformed": false,
+        "indexDrainMs": 0,
+        "pendingIndexBefore": 0,
+        "pendingIndexAfterAcknowledgement": 0,
+        "pendingDiskAfterAcknowledgement": 2124,
+        "pendingIndexAfterDrain": 0,
+        "pendingDiskAfterDrain": 2124,
+        "workers": [
+          {
+            "workerId": 1,
+            "organizationId": "000000000000000000000001",
+            "requests": 20,
+            "records": 20,
+            "acknowledgementWallMs": 56.545357999999965,
+            "requestLatency": {
+              "count": 20,
+              "totalMs": 56.445876,
+              "averageMs": 2.8222937999999997,
+              "minMs": 1.4448189999999386,
+              "maxMs": 6.858998000000042,
+              "p50Ms": 2.087001999999984,
+              "p95Ms": 6.280485999999996,
+              "p99Ms": 6.858998000000042
+            },
+            "memoryBefore": {
+              "rss": 114913280,
+              "heapTotal": 58359808,
+              "heapUsed": 34933488,
+              "external": 3057987,
+              "arrayBuffers": 808803
+            },
+            "memoryAfterAcknowledgement": {
+              "rss": 116748288,
+              "heapTotal": 60719104,
+              "heapUsed": 28375616,
+              "external": 2850174,
+              "arrayBuffers": 611661
+            },
+            "pendingDiskBefore": 1164,
+            "pendingDiskAfterAcknowledgement": 1064,
+            "pendingDiskAfterIndexDrain": 1064
+          },
+          {
+            "workerId": 2,
+            "organizationId": "000000000000000000000002",
+            "requests": 20,
+            "records": 20,
+            "acknowledgementWallMs": 55.75237200000004,
+            "requestLatency": {
+              "count": 20,
+              "totalMs": 55.62754900000016,
+              "averageMs": 2.781377450000008,
+              "minMs": 1.3155470000000378,
+              "maxMs": 9.282265999999936,
+              "p50Ms": 2.0886219999999867,
+              "p95Ms": 6.432148999999981,
+              "p99Ms": 9.282265999999936
+            },
+            "memoryBefore": {
+              "rss": 115724288,
+              "heapTotal": 58359808,
+              "heapUsed": 35504512,
+              "external": 3062665,
+              "arrayBuffers": 813389
+            },
+            "memoryAfterAcknowledgement": {
+              "rss": 117821440,
+              "heapTotal": 60194816,
+              "heapUsed": 29162016,
+              "external": 2868953,
+              "arrayBuffers": 629980
+            },
+            "pendingDiskBefore": 1168,
+            "pendingDiskAfterAcknowledgement": 1060,
+            "pendingDiskAfterIndexDrain": 1060
+          }
+        ]
+      },
+      "update": {
+        "requests": 40,
+        "records": 40,
+        "acknowledgementWallMs": 45.12383800000009,
+        "requestsPerSecond": 886.4494194842185,
+        "recordsPerSecond": 886.4494194842185,
+        "requestConcurrency": 2,
+        "perWorkerConcurrency": 1,
+        "acknowledgement": {
+          "count": 40,
+          "totalMs": 84.82720599999982,
+          "averageMs": 2.1206801499999957,
+          "minMs": 1.2778559999999288,
+          "maxMs": 5.524651000000063,
+          "p50Ms": 1.7859650000000329,
+          "p95Ms": 4.173933999999917,
+          "p99Ms": 5.524651000000063
+        },
+        "indexDrainPerformed": true,
+        "indexDrainMs": 1.5653219999999237,
+        "pendingIndexBefore": 0,
+        "pendingIndexAfterAcknowledgement": 0,
+        "pendingDiskAfterAcknowledgement": 1912,
+        "pendingIndexAfterDrain": 0,
+        "pendingDiskAfterDrain": 1899,
+        "workers": [
+          {
+            "workerId": 1,
+            "organizationId": "000000000000000000000001",
+            "requests": 20,
+            "records": 20,
+            "acknowledgementWallMs": 45.08148700000004,
+            "requestLatency": {
+              "count": 20,
+              "totalMs": 44.99286399999994,
+              "averageMs": 2.249643199999997,
+              "minMs": 1.4044779999999264,
+              "maxMs": 5.524651000000063,
+              "p50Ms": 1.8250870000001669,
+              "p95Ms": 4.173933999999917,
+              "p99Ms": 5.524651000000063
+            },
+            "memoryBefore": {
+              "rss": 116748288,
+              "heapTotal": 60719104,
+              "heapUsed": 28517624,
+              "external": 2856760,
+              "arrayBuffers": 616071
+            },
+            "memoryAfterAcknowledgement": {
+              "rss": 117796864,
+              "heapTotal": 61243392,
+              "heapUsed": 31962472,
+              "external": 2984014,
+              "arrayBuffers": 739309
+            },
+            "memoryAfterIndexDrain": {
+              "rss": 117796864,
+              "heapTotal": 61243392,
+              "heapUsed": 32110496,
+              "external": 2991656,
+              "arrayBuffers": 744761
+            },
+            "pendingDiskBefore": 1060,
+            "pendingDiskAfterAcknowledgement": 972,
+            "pendingDiskAfterIndexDrain": 966
+          },
+          {
+            "workerId": 2,
+            "organizationId": "000000000000000000000002",
+            "requests": 20,
+            "records": 20,
+            "acknowledgementWallMs": 39.92182300000002,
+            "requestLatency": {
+              "count": 20,
+              "totalMs": 39.83434199999988,
+              "averageMs": 1.991717099999994,
+              "minMs": 1.2778559999999288,
+              "maxMs": 5.09536300000002,
+              "p50Ms": 1.7023349999999482,
+              "p95Ms": 3.0065799999999854,
+              "p99Ms": 5.09536300000002
+            },
+            "memoryBefore": {
+              "rss": 117821440,
+              "heapTotal": 60194816,
+              "heapUsed": 29273512,
+              "external": 2874915,
+              "arrayBuffers": 633766
+            },
+            "memoryAfterAcknowledgement": {
+              "rss": 118083584,
+              "heapTotal": 60719104,
+              "heapUsed": 33194744,
+              "external": 3020889,
+              "arrayBuffers": 775724
+            },
+            "memoryAfterIndexDrain": {
+              "rss": 118083584,
+              "heapTotal": 60719104,
+              "heapUsed": 33319992,
+              "external": 3027491,
+              "arrayBuffers": 780136
+            },
+            "pendingDiskBefore": 1055,
+            "pendingDiskAfterAcknowledgement": 940,
+            "pendingDiskAfterIndexDrain": 933
+          }
+        ]
+      },
+      "delete": {
+        "requests": 40,
+        "records": 40,
+        "acknowledgementWallMs": 70.39716599999997,
+        "requestsPerSecond": 568.2046916490931,
+        "recordsPerSecond": 568.2046916490931,
+        "requestConcurrency": 2,
+        "perWorkerConcurrency": 1,
+        "acknowledgement": {
+          "count": 40,
+          "totalMs": 134.43621699999994,
+          "averageMs": 3.3609054249999986,
+          "minMs": 1.2923560000001544,
+          "maxMs": 10.885508999999956,
+          "p50Ms": 3.074692000000141,
+          "p95Ms": 4.398887999999943,
+          "p99Ms": 10.885508999999956
+        },
+        "indexDrainPerformed": true,
+        "indexDrainMs": 1.8086060000000543,
+        "pendingIndexBefore": 0,
+        "pendingIndexAfterAcknowledgement": 0,
+        "pendingDiskAfterAcknowledgement": 1682,
+        "pendingIndexAfterDrain": 0,
+        "pendingDiskAfterDrain": 1657,
+        "workers": [
+          {
+            "workerId": 1,
+            "organizationId": "000000000000000000000001",
+            "requests": 20,
+            "records": 20,
+            "acknowledgementWallMs": 70.07360000000017,
+            "requestLatency": {
+              "count": 20,
+              "totalMs": 69.9631989999998,
+              "averageMs": 3.49815994999999,
+              "minMs": 2.086911999999984,
+              "maxMs": 8.5651620000001,
+              "p50Ms": 3.1658739999998033,
+              "p95Ms": 4.398887999999943,
+              "p99Ms": 8.5651620000001
+            },
+            "memoryBefore": {
+              "rss": 118198272,
+              "heapTotal": 61243392,
+              "heapUsed": 33549816,
+              "external": 3081059,
+              "arrayBuffers": 749946
+            },
+            "memoryAfterAcknowledgement": {
+              "rss": 119771136,
+              "heapTotal": 95322112,
+              "heapUsed": 35040864,
+              "external": 2864965,
+              "arrayBuffers": 546585
+            },
+            "memoryAfterIndexDrain": {
+              "rss": 119160832,
+              "heapTotal": 95322112,
+              "heapUsed": 35123456,
+              "external": 2869311,
+              "arrayBuffers": 548710
+            },
+            "pendingDiskBefore": 954,
+            "pendingDiskAfterAcknowledgement": 870,
+            "pendingDiskAfterIndexDrain": 868
+          },
+          {
+            "workerId": 2,
+            "organizationId": "000000000000000000000002",
+            "requests": 20,
+            "records": 20,
+            "acknowledgementWallMs": 64.57349999999997,
+            "requestLatency": {
+              "count": 20,
+              "totalMs": 64.47301800000014,
+              "averageMs": 3.223650900000007,
+              "minMs": 1.2923560000001544,
+              "maxMs": 10.885508999999956,
+              "p50Ms": 2.7877260000000206,
+              "p95Ms": 3.8157370000001265,
+              "p99Ms": 10.885508999999956
+            },
+            "memoryBefore": {
+              "rss": 118484992,
+              "heapTotal": 60719104,
+              "heapUsed": 34881152,
+              "external": 3121886,
+              "arrayBuffers": 790313
+            },
+            "memoryAfterAcknowledgement": {
+              "rss": 120057856,
+              "heapTotal": 95584256,
+              "heapUsed": 36082608,
+              "external": 2945885,
+              "arrayBuffers": 627319
+            },
+            "memoryAfterIndexDrain": {
+              "rss": 120057856,
+              "heapTotal": 95584256,
+              "heapUsed": 36541752,
+              "external": 2965207,
+              "arrayBuffers": 644420
+            },
+            "pendingDiskBefore": 916,
+            "pendingDiskAfterAcknowledgement": 812,
+            "pendingDiskAfterIndexDrain": 789
+          }
+        ]
+      }
+    },
+    "overall": {
+      "requests": 202,
+      "recordOperations": 2200,
+      "acknowledgementWallMs": 844.038133,
+      "indexDrainMs": 11.017652999999996,
+      "endToEndMs": 858.712369,
+      "requestsPerSecond": 239.32567985053348,
+      "recordOperationsPerSecond": 2606.5173053028398
+    }
+  },
+  "memory": {
+    "aggregatePeakObservedRssBytes": 239828992,
+    "workers": {
+      "1": {
+        "currentRssBytes": 119160832,
+        "peakRssBytes": 119771136,
+        "heapUsedBytes": 36666120
+      },
+      "2": {
+        "currentRssBytes": 120320000,
+        "peakRssBytes": 120320000,
+        "heapUsedBytes": 38225424
+      }
+    },
+    "workerPeakRssSumBytes": 239960064,
+    "driver": {
+      "rss": 62947328,
+      "heapTotal": 16232448,
+      "heapUsed": 9228880,
+      "external": 3442815,
+      "arrayBuffers": 245698
+    }
+  },
+  "initializationMs": 157,
+  "bulkCreate": {
+    "requests": 2,
+    "records": 2000,
+    "acknowledgementWallMs": 509.180926,
+    "fixtureGenerationMs": 22.770588000000032,
+    "acknowledgementWallMsExcludingFixtureGeneration": 486.41033799999997,
+    "requestsPerSecond": 3.9278769055854226,
+    "recordsPerSecond": 3927.8769055854227,
+    "requestLatency": {
+      "count": 2,
+      "totalMs": 527.5865160000001,
+      "averageMs": 263.79325800000004,
+      "minMs": 257.260847,
+      "maxMs": 270.32566900000006,
+      "p50Ms": 257.260847,
+      "p95Ms": 270.32566900000006,
+      "p99Ms": 270.32566900000006
+    },
+    "workers": [
+      {
+        "workerId": 1,
+        "organizationId": "000000000000000000000001",
+        "pid": 143216,
+        "records": 1000,
+        "fixtureGenerationMs": 9.956050000000005,
+        "memoryAtStart": {
+          "rss": 61345792,
+          "heapTotal": 11776000,
+          "heapUsed": 6934792,
+          "external": 2192737,
+          "arrayBuffers": 168803
+        },
+        "fixtureHash": "987c258fb66e106c99ac9f5b5adef9c65d3189bb49f4afe4965c54cd58047c36",
+        "createAcknowledgementWallMs": 281.30725099999995,
+        "snapshotAfterAcknowledgement": {
+          "workerId": 1,
+          "organizationId": "000000000000000000000001",
+          "pid": 143216,
+          "pendingIndexCount": 0,
+          "pendingDiskCount": 1514,
+          "memory": {
+            "rss": 110567424,
+            "heapTotal": 54689792,
+            "heapUsed": 26510416,
+            "external": 2651100,
+            "arrayBuffers": 453896
+          },
+          "peakRssBytes": 110567424,
+          "cpuUsage": {
+            "user": 663201,
+            "system": 142246
+          },
+          "dbMemory": {
+            "nodeUsedPercent": 0,
+            "peakNodeUsedPercent": 0,
+            "harvesting": false,
+            "harvestCycles": 0,
+            "treesHarvested": 0
+          },
+          "diskRequests": {
+            "submittedRequests": 2522,
+            "fulfilledRequests": 1003,
+            "failedRequests": 5,
+            "outstandingRequests": 1514,
+            "submittedWriteBytes": 1428765,
+            "submittedRequestsByKind": {
+              "roots.read": 1,
+              "roots.write": 4,
+              "config.read": 4,
+              "leaf.write": 1003,
+              "branch.write": 506,
+              "config.write": 4,
+              "leaf.has": 1000
+            },
+            "submittedWriteBytesByKind": {
+              "roots.write": 1309,
+              "leaf.write": 501712,
+              "branch.write": 921745,
+              "config.write": 3999
+            },
+            "outstandingRequestsByKind": {
+              "roots.read": 0,
+              "roots.write": 1,
+              "config.read": 0,
+              "leaf.write": 1003,
+              "branch.write": 506,
+              "config.write": 4,
+              "leaf.has": 0
+            },
+            "supersededRequestsByKind": {
+              "roots.write": 2
+            },
+            "cancelledRequestsByKind": {},
+            "failures": {
+              "roots.read:ENOENT": 1,
+              "config.read:ENOENT": 4
+            }
+          },
+          "filesystem": {
+            "config.readFile": {
+              "startedCalls": 4,
+              "payloadBytesStarted": 0,
+              "payloadBytesCompleted": 0,
+              "completedCalls": 0,
+              "failedCalls": 4
+            },
+            "config.mkdir": {
+              "startedCalls": 6,
+              "payloadBytesStarted": 0,
+              "payloadBytesCompleted": 0,
+              "completedCalls": 5,
+              "failedCalls": 0
+            },
+            "config.writeFile": {
+              "startedCalls": 3,
+              "payloadBytesStarted": 1116,
+              "payloadBytesCompleted": 192,
+              "completedCalls": 1,
+              "failedCalls": 0
+            },
+            "leaf.writeFile": {
+              "startedCalls": 3,
+              "payloadBytesStarted": 345,
+              "payloadBytesCompleted": 345,
+              "completedCalls": 3,
+              "failedCalls": 0
+            },
+            "branch.writeFile": {
+              "startedCalls": 8,
+              "payloadBytesStarted": 2153,
+              "payloadBytesCompleted": 1578,
+              "completedCalls": 6,
+              "failedCalls": 0
+            },
+            "leaf.access": {
+              "startedCalls": 1000,
+              "payloadBytesStarted": 0,
+              "payloadBytesCompleted": 0,
+              "completedCalls": 0,
+              "failedCalls": 1000
+            },
+            "config.rename": {
+              "startedCalls": 1,
+              "payloadBytesStarted": 0,
+              "payloadBytesCompleted": 0,
+              "completedCalls": 1,
+              "failedCalls": 0
+            },
+            "leaf.rename": {
+              "startedCalls": 3,
+              "payloadBytesStarted": 0,
+              "payloadBytesCompleted": 0,
+              "completedCalls": 0,
+              "failedCalls": 0
+            },
+            "branch.rename": {
+              "startedCalls": 6,
+              "payloadBytesStarted": 0,
+              "payloadBytesCompleted": 0,
+              "completedCalls": 0,
+              "failedCalls": 0
+            }
+          }
+        },
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 1,
+          "totalMs": 270.32566900000006,
+          "averageMs": 270.32566900000006,
+          "minMs": 270.32566900000006,
+          "maxMs": 270.32566900000006,
+          "p50Ms": 270.32566900000006,
+          "p95Ms": 270.32566900000006,
+          "p99Ms": 270.32566900000006
+        }
+      },
+      {
+        "workerId": 2,
+        "organizationId": "000000000000000000000002",
+        "pid": 143217,
+        "records": 1000,
+        "fixtureGenerationMs": 12.814538000000027,
+        "memoryAtStart": {
+          "rss": 61349888,
+          "heapTotal": 11776000,
+          "heapUsed": 6934408,
+          "external": 2192737,
+          "arrayBuffers": 168803
+        },
+        "fixtureHash": "0e99b29fba57227502fb3d411aeda00a2de4c7d15d7b7b533350277ba87e8d8e",
+        "createAcknowledgementWallMs": 270.243688,
+        "snapshotAfterAcknowledgement": {
+          "workerId": 2,
+          "organizationId": "000000000000000000000002",
+          "pid": 143217,
+          "pendingIndexCount": 0,
+          "pendingDiskCount": 1508,
+          "memory": {
+            "rss": 111116288,
+            "heapTotal": 53903360,
+            "heapUsed": 26744656,
+            "external": 2649852,
+            "arrayBuffers": 452648
+          },
+          "peakRssBytes": 111116288,
+          "cpuUsage": {
+            "user": 682658,
+            "system": 141567
+          },
+          "dbMemory": {
+            "nodeUsedPercent": 0,
+            "peakNodeUsedPercent": 0,
+            "harvesting": false,
+            "harvestCycles": 0,
+            "treesHarvested": 0
+          },
+          "diskRequests": {
+            "submittedRequests": 2522,
+            "fulfilledRequests": 1009,
+            "failedRequests": 5,
+            "outstandingRequests": 1508,
+            "submittedWriteBytes": 1428765,
+            "submittedRequestsByKind": {
+              "roots.read": 1,
+              "roots.write": 4,
+              "config.read": 4,
+              "leaf.write": 1003,
+              "branch.write": 506,
+              "config.write": 4,
+              "leaf.has": 1000
+            },
+            "submittedWriteBytesByKind": {
+              "roots.write": 1309,
+              "leaf.write": 501712,
+              "branch.write": 921745,
+              "config.write": 3999
+            },
+            "outstandingRequestsByKind": {
+              "roots.read": 0,
+              "roots.write": 1,
+              "config.read": 0,
+              "leaf.write": 1001,
+              "branch.write": 502,
+              "config.write": 4,
+              "leaf.has": 0
+            },
+            "supersededRequestsByKind": {
+              "roots.write": 2
+            },
+            "cancelledRequestsByKind": {},
+            "failures": {
+              "roots.read:ENOENT": 1,
+              "config.read:ENOENT": 4
+            }
+          },
+          "filesystem": {
+            "config.readFile": {
+              "startedCalls": 4,
+              "payloadBytesStarted": 0,
+              "payloadBytesCompleted": 0,
+              "completedCalls": 0,
+              "failedCalls": 4
+            },
+            "config.mkdir": {
+              "startedCalls": 6,
+              "payloadBytesStarted": 0,
+              "payloadBytesCompleted": 0,
+              "completedCalls": 6,
+              "failedCalls": 0
+            },
+            "config.writeFile": {
+              "startedCalls": 4,
+              "payloadBytesStarted": 1684,
+              "payloadBytesCompleted": 760,
+              "completedCalls": 2,
+              "failedCalls": 0
+            },
+            "leaf.writeFile": {
+              "startedCalls": 3,
+              "payloadBytesStarted": 345,
+              "payloadBytesCompleted": 345,
+              "completedCalls": 3,
+              "failedCalls": 0
+            },
+            "branch.writeFile": {
+              "startedCalls": 8,
+              "payloadBytesStarted": 2153,
+              "payloadBytesCompleted": 1325,
+              "completedCalls": 5,
+              "failedCalls": 0
+            },
+            "leaf.access": {
+              "startedCalls": 1000,
+              "payloadBytesStarted": 0,
+              "payloadBytesCompleted": 0,
+              "completedCalls": 0,
+              "failedCalls": 1000
+            },
+            "config.rename": {
+              "startedCalls": 2,
+              "payloadBytesStarted": 0,
+              "payloadBytesCompleted": 0,
+              "completedCalls": 1,
+              "failedCalls": 0
+            },
+            "leaf.rename": {
+              "startedCalls": 3,
+              "payloadBytesStarted": 0,
+              "payloadBytesCompleted": 0,
+              "completedCalls": 2,
+              "failedCalls": 0
+            },
+            "branch.rename": {
+              "startedCalls": 5,
+              "payloadBytesStarted": 0,
+              "payloadBytesCompleted": 0,
+              "completedCalls": 4,
+              "failedCalls": 0
+            }
+          }
+        },
+        "pendingAfterAcknowledgement": 0,
+        "batchRequestLatency": {
+          "count": 1,
+          "totalMs": 257.260847,
+          "averageMs": 257.260847,
+          "minMs": 257.260847,
+          "maxMs": 257.260847,
+          "p50Ms": 257.260847,
+          "p95Ms": 257.260847,
+          "p99Ms": 257.260847
+        }
+      }
+    ]
+  },
+  "pendingIndexAfterAcknowledgement": 0,
+  "pendingDiskAfterAcknowledgement": 2974,
+  "indexDrainMs": 5.247836000000007,
+  "createAndIndexMs": 518.085345,
+  "pendingIndexAtIndexReady": 0,
+  "pendingDiskAtIndexReady": 2966,
+  "indexDrainByWorker": [
+    {
+      "workerId": 1,
+      "organizationId": "000000000000000000000001",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 1472,
+      "drainMs": 0.6628930000000537,
+      "processMemory": {
+        "rss": 110981120,
+        "heapTotal": 54689792,
+        "heapUsed": 27328848,
+        "external": 2720271,
+        "arrayBuffers": 478316
+      },
+      "peakRssBytes": 110981120,
+      "dbMemory": {
+        "nodeUsedPercent": 0,
+        "peakNodeUsedPercent": 0,
+        "harvesting": false,
+        "harvestCycles": 0,
+        "treesHarvested": 0
+      }
+    },
+    {
+      "workerId": 2,
+      "organizationId": "000000000000000000000002",
+      "pendingBeforeDrain": 0,
+      "pendingIndexAfterDrain": 0,
+      "pendingDiskAtIndexReady": 1494,
+      "drainMs": 0.4624590000000808,
+      "processMemory": {
+        "rss": 111398912,
+        "heapTotal": 53903360,
+        "heapUsed": 27202168,
+        "external": 2705293,
+        "arrayBuffers": 463340
+      },
+      "peakRssBytes": 111398912,
+      "dbMemory": {
+        "nodeUsedPercent": 0,
+        "peakNodeUsedPercent": 0,
+        "harvesting": false,
+        "harvestCycles": 0,
+        "treesHarvested": 0
+      }
+    }
+  ],
+  "diskRequestsAtIndexReady": {
+    "submittedRequests": 5044,
+    "fulfilledRequests": 2068,
+    "failedRequests": 10,
+    "outstandingRequests": 2966,
+    "submittedWriteBytes": 2857530,
+    "submittedRequestsByKind": {
+      "roots.read": 2,
+      "roots.write": 8,
+      "config.read": 8,
+      "leaf.write": 2006,
+      "branch.write": 1012,
+      "config.write": 8,
+      "leaf.has": 2000
+    },
+    "submittedWriteBytesByKind": {
+      "roots.write": 2618,
+      "leaf.write": 1003424,
+      "branch.write": 1843490,
+      "config.write": 7998
+    },
+    "outstandingRequestsByKind": {
+      "roots.read": 0,
+      "roots.write": 0,
+      "config.read": 0,
+      "leaf.write": 1968,
+      "branch.write": 996,
+      "config.write": 2,
+      "leaf.has": 0
+    },
+    "supersededRequestsByKind": {
+      "roots.write": 4
+    },
+    "cancelledRequestsByKind": {},
+    "failures": {
+      "roots.read:ENOENT": 2,
+      "config.read:ENOENT": 8
+    }
+  },
+  "filesystemAtIndexReady": {
+    "config.readFile": {
+      "startedCalls": 8,
+      "payloadBytesStarted": 0,
+      "payloadBytesCompleted": 0,
+      "completedCalls": 0,
+      "failedCalls": 8
+    },
+    "config.mkdir": {
+      "startedCalls": 12,
+      "payloadBytesStarted": 0,
+      "payloadBytesCompleted": 0,
+      "completedCalls": 12,
+      "failedCalls": 0
+    },
+    "config.writeFile": {
+      "startedCalls": 10,
+      "payloadBytesStarted": 4338,
+      "payloadBytesCompleted": 4338,
+      "completedCalls": 10,
+      "failedCalls": 0
+    },
+    "leaf.writeFile": {
+      "startedCalls": 63,
+      "payloadBytesStarted": 29360,
+      "payloadBytesCompleted": 21216,
+      "completedCalls": 47,
+      "failedCalls": 0
+    },
+    "branch.writeFile": {
+      "startedCalls": 16,
+      "payloadBytesStarted": 4306,
+      "payloadBytesCompleted": 4306,
+      "completedCalls": 16,
+      "failedCalls": 0
+    },
+    "leaf.access": {
+      "startedCalls": 2000,
+      "payloadBytesStarted": 0,
+      "payloadBytesCompleted": 0,
+      "completedCalls": 0,
+      "failedCalls": 2000
+    },
+    "config.rename": {
+      "startedCalls": 10,
+      "payloadBytesStarted": 0,
+      "payloadBytesCompleted": 0,
+      "completedCalls": 10,
+      "failedCalls": 0
+    },
+    "leaf.rename": {
+      "startedCalls": 47,
+      "payloadBytesStarted": 0,
+      "payloadBytesCompleted": 0,
+      "completedCalls": 38,
+      "failedCalls": 0
+    },
+    "branch.rename": {
+      "startedCalls": 16,
+      "payloadBytesStarted": 0,
+      "payloadBytesCompleted": 0,
+      "completedCalls": 16,
+      "failedCalls": 0
+    }
+  },
+  "diskWriteAccountingAtIndexReady": {
+    "leaf": {
+      "submittedWriteRequests": 2006,
+      "submittedWriteBytes": 1003424,
+      "supersededWriteRequests": 0,
+      "cancelledWriteRequests": 0,
+      "outstandingWriteRequests": 1968,
+      "filesystemWritesStarted": 63,
+      "filesystemWritesCompleted": 47,
+      "filesystemWritePayloadBytesCompleted": 21216,
+      "fileReplacementsCompleted": 38
+    },
+    "branch": {
+      "submittedWriteRequests": 1012,
+      "submittedWriteBytes": 1843490,
+      "supersededWriteRequests": 0,
+      "cancelledWriteRequests": 0,
+      "outstandingWriteRequests": 996,
+      "filesystemWritesStarted": 16,
+      "filesystemWritesCompleted": 16,
+      "filesystemWritePayloadBytesCompleted": 4306,
+      "fileReplacementsCompleted": 16
+    },
+    "config": {
+      "submittedWriteRequests": 16,
+      "submittedWriteBytes": 10616,
+      "supersededWriteRequests": 4,
+      "cancelledWriteRequests": 0,
+      "outstandingWriteRequests": 2,
+      "filesystemWritesStarted": 10,
+      "filesystemWritesCompleted": 10,
+      "filesystemWritePayloadBytesCompleted": 4338,
+      "fileReplacementsCompleted": 10
+    }
+  },
+  "finalWorkers": [
+    {
+      "workerId": 1,
+      "organizationId": "000000000000000000000001",
+      "pid": 143216,
+      "pendingIndexCount": 0,
+      "pendingDiskCount": 856,
+      "memory": {
+        "rss": 119160832,
+        "heapTotal": 95322112,
+        "heapUsed": 36381536,
+        "external": 2946837,
+        "arrayBuffers": 621721
+      },
+      "peakRssBytes": 119771136,
+      "cpuUsage": {
+        "user": 1051529,
+        "system": 397606
+      },
+      "dbMemory": {
+        "nodeUsedPercent": 0,
+        "peakNodeUsedPercent": 0,
+        "harvesting": false,
+        "harvestCycles": 0,
+        "treesHarvested": 0
+      },
+      "diskRequests": {
+        "submittedRequests": 4043,
+        "fulfilledRequests": 3182,
+        "failedRequests": 5,
+        "outstandingRequests": 856,
+        "submittedWriteBytes": 7421019,
+        "submittedRequestsByKind": {
+          "roots.read": 1,
+          "roots.write": 4,
+          "config.read": 4,
+          "leaf.write": 1043,
+          "branch.write": 1906,
+          "config.write": 45,
+          "leaf.has": 1020,
+          "leaf.delete": 20
+        },
+        "submittedWriteBytesByKind": {
+          "roots.write": 1309,
+          "leaf.write": 522144,
+          "branch.write": 6790580,
+          "config.write": 106986
+        },
+        "outstandingRequestsByKind": {
+          "roots.read": 0,
+          "roots.write": 0,
+          "config.read": 0,
+          "leaf.write": 337,
+          "branch.write": 498,
+          "config.write": 1,
+          "leaf.has": 0,
+          "leaf.delete": 20
+        },
+        "supersededRequestsByKind": {
+          "roots.write": 2,
+          "branch.write": 1400,
+          "config.write": 41,
+          "leaf.write": 40
+        },
+        "cancelledRequestsByKind": {},
+        "failures": {
+          "roots.read:ENOENT": 1,
+          "config.read:ENOENT": 4
+        }
+      },
+      "filesystem": {
+        "config.readFile": {
+          "startedCalls": 4,
+          "payloadBytesStarted": 0,
+          "payloadBytesCompleted": 0,
+          "completedCalls": 0,
+          "failedCalls": 4
+        },
+        "config.mkdir": {
+          "startedCalls": 6,
+          "payloadBytesStarted": 0,
+          "payloadBytesCompleted": 0,
+          "completedCalls": 6,
+          "failedCalls": 0
+        },
+        "config.writeFile": {
+          "startedCalls": 5,
+          "payloadBytesStarted": 2169,
+          "payloadBytesCompleted": 2169,
+          "completedCalls": 5,
+          "failedCalls": 0
+        },
+        "leaf.writeFile": {
+          "startedCalls": 680,
+          "payloadBytesStarted": 339791,
+          "payloadBytesCompleted": 333818,
+          "completedCalls": 668,
+          "failedCalls": 0
+        },
+        "branch.writeFile": {
+          "startedCalls": 8,
+          "payloadBytesStarted": 2153,
+          "payloadBytesCompleted": 2153,
+          "completedCalls": 8,
+          "failedCalls": 0
+        },
+        "leaf.access": {
+          "startedCalls": 1020,
+          "payloadBytesStarted": 0,
+          "payloadBytesCompleted": 0,
+          "completedCalls": 0,
+          "failedCalls": 1020
+        },
+        "config.rename": {
+          "startedCalls": 5,
+          "payloadBytesStarted": 0,
+          "payloadBytesCompleted": 0,
+          "completedCalls": 5,
+          "failedCalls": 0
+        },
+        "leaf.rename": {
+          "startedCalls": 668,
+          "payloadBytesStarted": 0,
+          "payloadBytesCompleted": 0,
+          "completedCalls": 666,
+          "failedCalls": 0
+        },
+        "branch.rename": {
+          "startedCalls": 8,
+          "payloadBytesStarted": 0,
+          "payloadBytesCompleted": 0,
+          "completedCalls": 8,
+          "failedCalls": 0
+        }
+      }
+    },
+    {
+      "workerId": 2,
+      "organizationId": "000000000000000000000002",
+      "pid": 143217,
+      "pendingIndexCount": 0,
+      "pendingDiskCount": 768,
+      "memory": {
+        "rss": 120188928,
+        "heapTotal": 95584256,
+        "heapUsed": 37932440,
+        "external": 2981773,
+        "arrayBuffers": 656471
+      },
+      "peakRssBytes": 120188928,
+      "cpuUsage": {
+        "user": 1083229,
+        "system": 406623
+      },
+      "dbMemory": {
+        "nodeUsedPercent": 0,
+        "peakNodeUsedPercent": 0,
+        "harvesting": false,
+        "harvestCycles": 0,
+        "treesHarvested": 0
+      },
+      "diskRequests": {
+        "submittedRequests": 4043,
+        "fulfilledRequests": 3270,
+        "failedRequests": 5,
+        "outstandingRequests": 768,
+        "submittedWriteBytes": 7421019,
+        "submittedRequestsByKind": {
+          "roots.read": 1,
+          "roots.write": 4,
+          "config.read": 4,
+          "leaf.write": 1043,
+          "branch.write": 1906,
+          "config.write": 45,
+          "leaf.has": 1020,
+          "leaf.delete": 20
+        },
+        "submittedWriteBytesByKind": {
+          "roots.write": 1309,
+          "leaf.write": 522144,
+          "branch.write": 6790580,
+          "config.write": 106986
+        },
+        "outstandingRequestsByKind": {
+          "roots.read": 0,
+          "roots.write": 0,
+          "config.read": 0,
+          "leaf.write": 249,
+          "branch.write": 498,
+          "config.write": 1,
+          "leaf.has": 0,
+          "leaf.delete": 20
+        },
+        "supersededRequestsByKind": {
+          "roots.write": 2,
+          "branch.write": 1400,
+          "config.write": 41,
+          "leaf.write": 40
+        },
+        "cancelledRequestsByKind": {},
+        "failures": {
+          "roots.read:ENOENT": 1,
+          "config.read:ENOENT": 4
+        }
+      },
+      "filesystem": {
+        "config.readFile": {
+          "startedCalls": 4,
+          "payloadBytesStarted": 0,
+          "payloadBytesCompleted": 0,
+          "completedCalls": 0,
+          "failedCalls": 4
+        },
+        "config.mkdir": {
+          "startedCalls": 6,
+          "payloadBytesStarted": 0,
+          "payloadBytesCompleted": 0,
+          "completedCalls": 6,
+          "failedCalls": 0
+        },
+        "config.writeFile": {
+          "startedCalls": 5,
+          "payloadBytesStarted": 2169,
+          "payloadBytesCompleted": 2169,
+          "completedCalls": 5,
+          "failedCalls": 0
+        },
+        "leaf.writeFile": {
+          "startedCalls": 765,
+          "payloadBytesStarted": 382520,
+          "payloadBytesCompleted": 379413,
+          "completedCalls": 759,
+          "failedCalls": 0
+        },
+        "branch.writeFile": {
+          "startedCalls": 8,
+          "payloadBytesStarted": 2153,
+          "payloadBytesCompleted": 2153,
+          "completedCalls": 8,
+          "failedCalls": 0
+        },
+        "leaf.access": {
+          "startedCalls": 1020,
+          "payloadBytesStarted": 0,
+          "payloadBytesCompleted": 0,
+          "completedCalls": 0,
+          "failedCalls": 1020
+        },
+        "config.rename": {
+          "startedCalls": 5,
+          "payloadBytesStarted": 0,
+          "payloadBytesCompleted": 0,
+          "completedCalls": 5,
+          "failedCalls": 0
+        },
+        "leaf.rename": {
+          "startedCalls": 759,
+          "payloadBytesStarted": 0,
+          "payloadBytesCompleted": 0,
+          "completedCalls": 754,
+          "failedCalls": 0
+        },
+        "branch.rename": {
+          "startedCalls": 8,
+          "payloadBytesStarted": 0,
+          "payloadBytesCompleted": 0,
+          "completedCalls": 8,
+          "failedCalls": 0
+        }
+      }
+    }
+  ],
+  "diskRequestsAtEnd": {
+    "submittedRequests": 8086,
+    "fulfilledRequests": 6452,
+    "failedRequests": 10,
+    "outstandingRequests": 1624,
+    "submittedWriteBytes": 14842038,
+    "submittedRequestsByKind": {
+      "roots.read": 2,
+      "roots.write": 8,
+      "config.read": 8,
+      "leaf.write": 2086,
+      "branch.write": 3812,
+      "config.write": 90,
+      "leaf.has": 2040,
+      "leaf.delete": 40
+    },
+    "submittedWriteBytesByKind": {
+      "roots.write": 2618,
+      "leaf.write": 1044288,
+      "branch.write": 13581160,
+      "config.write": 213972
+    },
+    "outstandingRequestsByKind": {
+      "roots.read": 0,
+      "roots.write": 0,
+      "config.read": 0,
+      "leaf.write": 586,
+      "branch.write": 996,
+      "config.write": 2,
+      "leaf.has": 0,
+      "leaf.delete": 40
+    },
+    "supersededRequestsByKind": {
+      "roots.write": 4,
+      "branch.write": 2800,
+      "config.write": 82,
+      "leaf.write": 80
+    },
+    "cancelledRequestsByKind": {},
+    "failures": {
+      "roots.read:ENOENT": 2,
+      "config.read:ENOENT": 8
+    }
+  },
+  "filesystemAtEnd": {
+    "config.readFile": {
+      "startedCalls": 8,
+      "payloadBytesStarted": 0,
+      "payloadBytesCompleted": 0,
+      "completedCalls": 0,
+      "failedCalls": 8
+    },
+    "config.mkdir": {
+      "startedCalls": 12,
+      "payloadBytesStarted": 0,
+      "payloadBytesCompleted": 0,
+      "completedCalls": 12,
+      "failedCalls": 0
+    },
+    "config.writeFile": {
+      "startedCalls": 10,
+      "payloadBytesStarted": 4338,
+      "payloadBytesCompleted": 4338,
+      "completedCalls": 10,
+      "failedCalls": 0
+    },
+    "leaf.writeFile": {
+      "startedCalls": 1445,
+      "payloadBytesStarted": 722311,
+      "payloadBytesCompleted": 713231,
+      "completedCalls": 1427,
+      "failedCalls": 0
+    },
+    "branch.writeFile": {
+      "startedCalls": 16,
+      "payloadBytesStarted": 4306,
+      "payloadBytesCompleted": 4306,
+      "completedCalls": 16,
+      "failedCalls": 0
+    },
+    "leaf.access": {
+      "startedCalls": 2040,
+      "payloadBytesStarted": 0,
+      "payloadBytesCompleted": 0,
+      "completedCalls": 0,
+      "failedCalls": 2040
+    },
+    "config.rename": {
+      "startedCalls": 10,
+      "payloadBytesStarted": 0,
+      "payloadBytesCompleted": 0,
+      "completedCalls": 10,
+      "failedCalls": 0
+    },
+    "leaf.rename": {
+      "startedCalls": 1427,
+      "payloadBytesStarted": 0,
+      "payloadBytesCompleted": 0,
+      "completedCalls": 1420,
+      "failedCalls": 0
+    },
+    "branch.rename": {
+      "startedCalls": 16,
+      "payloadBytesStarted": 0,
+      "payloadBytesCompleted": 0,
+      "completedCalls": 16,
+      "failedCalls": 0
+    }
+  },
+  "diskWriteAccountingAtEnd": {
+    "leaf": {
+      "submittedWriteRequests": 2086,
+      "submittedWriteBytes": 1044288,
+      "supersededWriteRequests": 80,
+      "cancelledWriteRequests": 0,
+      "outstandingWriteRequests": 586,
+      "filesystemWritesStarted": 1445,
+      "filesystemWritesCompleted": 1427,
+      "filesystemWritePayloadBytesCompleted": 713231,
+      "fileReplacementsCompleted": 1420
+    },
+    "branch": {
+      "submittedWriteRequests": 3812,
+      "submittedWriteBytes": 13581160,
+      "supersededWriteRequests": 2800,
+      "cancelledWriteRequests": 0,
+      "outstandingWriteRequests": 996,
+      "filesystemWritesStarted": 16,
+      "filesystemWritesCompleted": 16,
+      "filesystemWritePayloadBytesCompleted": 4306,
+      "fileReplacementsCompleted": 16
+    },
+    "config": {
+      "submittedWriteRequests": 98,
+      "submittedWriteBytes": 216590,
+      "supersededWriteRequests": 86,
+      "cancelledWriteRequests": 0,
+      "outstandingWriteRequests": 2,
+      "filesystemWritesStarted": 10,
+      "filesystemWritesCompleted": 10,
+      "filesystemWritePayloadBytesCompleted": 4338,
+      "fileReplacementsCompleted": 10
+    }
+  },
+  "hostCpu": {
+    "sampleCount": 1,
+    "averageBusyPercentAcrossLogicalCpus": 47.61255115961801,
+    "peakBusyPercentAcrossLogicalCpus": 47.61255115961801,
+    "averageIowaitPercent": 0,
+    "samples": [
+      {
+        "elapsedMs": 906.5972229999999,
+        "busyPercent": 47.61255115961801,
+        "iowaitPercent": 0
+      }
+    ]
+  },
+  "hostMemory": {
+    "sampleCount": 1,
+    "totalBytes": 33349062656,
+    "averageUsedPercent": 7.294671328827648,
+    "peakUsedPercent": 7.294671328827648,
+    "samples": [
+      {
+        "elapsedMs": 906.6234129999999,
+        "total": 33349062656,
+        "available": 30916358144,
+        "max": 7.294671328827648
+      }
+    ]
+  },
+  "telemetry": [
+    {
+      "workerId": 1,
+      "organizationId": "000000000000000000000001",
+      "dbMemory": {
+        "nodeUsedPercent": 0,
+        "peakNodeUsedPercent": 0,
+        "harvesting": false,
+        "harvestCycles": 0,
+        "treesHarvested": 0
+      }
+    },
+    {
+      "workerId": 2,
+      "organizationId": "000000000000000000000002",
+      "dbMemory": {
+        "nodeUsedPercent": 0,
+        "peakNodeUsedPercent": 0,
+        "harvesting": false,
+        "harvestCycles": 0,
+        "treesHarvested": 0
+      }
+    }
+  ],
+  "correctness": {
+    "oneOrganizationPerWorker": true,
+    "allWorkersUsed": true,
+    "distinctWorkerProcesses": true,
+    "allRecordsAcknowledged": true,
+    "indexReadyOnAllWorkers": true,
+    "crudSamplesPassed": true
+  },
+  "completedAt": "2026-11-28T00:40:03.376Z",
+  "runContext": {
+    "capturedAt": "2026-11-28T00:40:02.231Z",
+    "branch": "dev",
+    "baseCommit": "001b147c2e808de4356eba327976e9fcf8b8987e",
+    "dirty": true,
+    "command": "node test/benchmarks/diagnostics/worker-affinity.mjs --workers=2 --total-records=2000",
+    "orchestration": "parent is a load generator only and does not initialize DB; each child initializes its own local DB and owns one organization"
+  }
+}

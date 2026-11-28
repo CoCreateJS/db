@@ -1,5 +1,5 @@
 import { uuid, getValueFromObject, dotNotationToObject, sortData } from '@cocreate/utils'
-import { executeDisk, emptyStorage } from './disk.js'
+import { executeDisk, emptyStorage, storageRequest } from './disk.js'
 
 const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const newUuid = () => uuid().replaceAll('-', '')
@@ -44,7 +44,6 @@ export class Organization {
         this.#options = options
         this.disk = options.disk ?? emptyStorage
         this.persistence = options.persistence ?? emptyStorage
-        this.owners = new Map()
         this.dispatch = options.dispatch
         this.roots = Object.freeze({
             get: path => structuredClone(path ? getValueFromObject(this.#config.roots, path) : this.#config.roots),
@@ -73,7 +72,7 @@ export class Organization {
                 }
                 this.#config.roots = roots
                 const saved = this.#save()
-                for (const uuid of this.owners.keys()) {
+                for (const { uuid } of (await this.dispatch({ operation: 'status' })).trees) {
                     const top = Object.entries(this.#config.top).find(([, id]) => id === uuid)
                     const definitions = top ? { [top[0]]: roots[top[0]] } : this.#definition(uuid)
                     if (definitions && (!top || definitions[top[0]] !== undefined))
@@ -119,12 +118,10 @@ export class Organization {
     #save() {
         this.#dirty = true
         const data = JSON.stringify(this.#config)
-        const task = this.#writes.then(async () => {
-            await Promise.all([
-                executeDisk(this, { operation: 'write', kind: 'roots', data }),
-                this.persistence.execute({ operation: 'write', kind: 'roots', organization_id: this.organizationId, data })
-            ])
-        })
+        const task = (async () => {
+            const request = storageRequest(this, { operation: 'write', kind: 'roots', data })
+            await Promise.all([this.disk.execute(request), this.persistence.execute(request)])
+        })()
         this.#writes = task
         task.then(() => {
             if (this.#writes === task) { this.#dirty = false }
@@ -211,7 +208,7 @@ export class Organization {
         if (!leaf) {
             const data = await executeDisk(this, { operation: 'read', kind: 'leaf', uuid: id })
             if (data) leaf = JSON.parse(data).object
-            else leaf = await this.persistence.execute({ operation: 'read', kind: 'leaf', uuid: id, organization_id: this.organizationId })
+            else leaf = await this.persistence.execute(storageRequest(this, { operation: 'read', kind: 'leaf', uuid: id }))
         }
         if (!leaf || leaf.root !== target || !this.#matches(leaf.parent, payload)) return undefined
         return leaf.parent ?? this.#config.top[target]
@@ -300,7 +297,6 @@ export class Organization {
                 if (operation === 'delete') {
                     delete this.#config.leaves[leaf.uuid]
                     await this.dispatch({ operation: 'drop', uuid: leaf.uuid })
-                    this.owners.delete(leaf.uuid)
                     this.#names.delete(key(leaf.parent, leaf.root, leaf.name))
                     this.#save()
                 } else this.#register(leaf)
@@ -317,16 +313,15 @@ export class Organization {
             throw new Error('Cannot delete a root that still has child leaves')
     }
 
-    async prune({ uuid, limit = Infinity } = {}) {
-        if (limit !== Infinity && (!Number.isInteger(limit) || limit < 0)) throw new TypeError('Pruning limit must be a non-negative integer')
+    async harvest({ uuid, limit = Infinity } = {}) {
+        if (limit !== Infinity && (!Number.isInteger(limit) || limit < 0)) throw new TypeError('Harvesting limit must be a non-negative integer')
         if (this.#dirty || this.#error) return { count: 0 }
-        return await this.dispatch({ operation: 'prune', uuid, ...(limit === Infinity ? {} : { limit }) })
+        return await this.dispatch({ operation: 'harvest', uuid, ...(limit === Infinity ? {} : { limit }) })
     }
 
     async close() {
         await this.dispatch({ operation: 'close' })
         await this.#writes
         if (this.#error) throw this.#error
-        this.owners.clear()
     }
 }

@@ -14,7 +14,7 @@ export function defaultConfiguration() {
         },
         indexes: [],
         leaves: {},
-        memory: { pruneAt: 75, retainAt: 50 }
+        memory: { harvestAt: 75, retainAt: 50 }
     }
 }
 
@@ -39,7 +39,7 @@ export async function createRuntime(server = {}, options = {}) {
         throw new Error('Initialize Disk with the directory and pass it as server.disk or options.disk')
     const mode = options.mode ?? options.config?.mode ?? (isNode || !disk ? 'adaptive' : 'disk-first')
     if (!modes.has(mode)) throw new Error(`Unsupported database mode: ${mode}`)
-    if (mode === 'disk-cache' && server.isPrimary !== false) {
+    if (mode === 'disk-cache') {
         if (!disk) throw new Error('disk-cache mode requires a disk handler')
         await disk.execute({ operation: 'clear', kind: 'directory' })
     }
@@ -59,7 +59,7 @@ export async function createRuntime(server = {}, options = {}) {
 
 export async function init(server = {}, options = {}) {
     let config = options.config
-    if (config === undefined && options.prompt !== false && server.isPrimary !== false) {
+    if (config === undefined && options.prompt !== false) {
         const { default: Config } = await import('@cocreate/config')
         const result = await Config.prompt(options.questions ?? { db: {} }, true, options.questions !== undefined)
         config = result?.db
@@ -76,11 +76,8 @@ export async function init(server = {}, options = {}) {
 
 class DB {
     #server
-    #worker
-    #remote
     #organizations = new Map()
-    #listeners = new Map()
-    #nextWorker = 0
+    #telemetryListener
     #disk
     #persistence
     #treeOptions
@@ -94,107 +91,40 @@ class DB {
         const configuredMemory = options.memory ?? config.memory ?? {}
         if (!isRecord(configuredMemory)) throw new TypeError('memory must describe node thresholds')
         const policy = { ...defaultConfiguration().memory, ...config.memory, ...configuredMemory }
-        if (!Number.isFinite(policy.pruneAt) || !Number.isFinite(policy.retainAt) ||
-            policy.retainAt < 0 || policy.pruneAt > 100 || policy.retainAt >= policy.pruneAt)
-            throw new TypeError('memory requires 0 <= retainAt < pruneAt <= 100')
+        if (!Number.isFinite(policy.harvestAt) || !Number.isFinite(policy.retainAt) ||
+            policy.retainAt < 0 || policy.harvestAt > 100 || policy.retainAt >= policy.harvestAt)
+            throw new TypeError('memory requires 0 <= retainAt < harvestAt <= 100')
         config.memory = policy
         this.initialConfig = config
         this.mode = mode
         this.planner = plan
         this.#server = server
-        this.#worker = server.isPrimary === false
-        this.#remote = server.isPrimary === true && server.isWorker === false
         this.#disk = disk
         this.#persistence = persistence
         this.#treeOptions = { ...options.treeOptions,
             size: options.treeOptions?.size ?? options.size,
             leafSize: options.treeOptions?.leafSize ?? options.leafSize }
-        this.memory = { nodeUsedPercent: 0, peakNodeUsedPercent: 0, pruning: false,
-            pruneCycles: 0, branchesPruned: 0, pruneError: undefined, lastPrune: undefined }
+        this.memory = { nodeUsedPercent: 0, peakNodeUsedPercent: 0, harvesting: false,
+            harvestCycles: 0, treesHarvested: 0, harvestError: undefined, lastHarvest: undefined }
         this.trees = new Trees({ disk, persistence, planner: plan, execute: options.execute, diskFirst: mode === 'disk-first',
-            onPrune: result => {
-                this.memory.pruneCycles++
-                this.memory.branchesPruned += result.count
-                this.memory.lastPrune = result
+            onHarvest: result => {
+                this.memory.harvestCycles++
+                this.memory.treesHarvested += result.count
+                this.memory.lastHarvest = result
             } })
         this.organizations = Object.freeze({ get: this.#getOrganization.bind(this) })
-        if (this.#worker) {
-            this.forward = options.forward ?? (async request => {
-                return await this.#request({ method: 'db.forward', request, primary: true, broadcast: false, server: server.id })
-            })
-            this.#listen('db.tree', async message => {
-                try { return { uuid: message.uuid, result: await this.trees.execute(message.tree) } }
-                catch (error) { return { uuid: message.uuid, success: false, error: error.message } }
-            })
-        } else if (server.isPrimary) {
-            this.#listen('db.forward', async message => {
-                try { return { uuid: message.uuid, result: await this.send(message.request) } }
-                catch (error) { return { uuid: message.uuid, success: false, error: error.message } }
-            })
-            this.#listen('telemetry', message => this.#onTelemetry(message.data))
+        if (server.on) {
+            this.#telemetryListener = message => this.#onTelemetry(message.data)
+            server.on('telemetry', this.#telemetryListener)
         }
-    }
-
-    #listen(event, listener) {
-        this.#listeners.set(event, listener)
-        this.#server.on(event, listener)
-    }
-
-    async #request(message) {
-        const response = await this.#server.send(message)
-        if (response.success === false || response.error) throw new Error(response.error || 'Database execution failed')
-        return response.result
-    }
-
-    #workerIds() { return [...this.#server.workers.keys()] }
-
-    #owner(organization, uuid) {
-        if (organization.owners.has(uuid)) return organization.owners.get(uuid)
-        let owner = this.#server.workerId ?? 0
-        if (this.#remote) {
-            const workers = this.#workerIds()
-            if (!workers.length) throw new Error('No DB workers are available')
-            owner = workers[this.#nextWorker++ % workers.length]
-        }
-        organization.owners.set(uuid, owner)
-        return owner
-    }
-
-    async #dispatch(organization, command) {
-        const tree = { ...command, organization_id: organization.organizationId, diskFirst: this.trees.options.diskFirst }
-        if (!this.#remote) {
-            if (command.uuid !== undefined && !['drop', 'prune'].includes(command.operation)) this.#owner(organization, command.uuid)
-            return await this.trees.execute(tree)
-        }
-        const send = worker => this.#request({ method: 'db.tree', tree, server: this.#server.id,
-            worker, primary: false, broadcast: false })
-        if (command.uuid !== undefined) {
-            const owner = ['prune', 'drop', 'configure'].includes(command.operation)
-                ? organization.owners.get(command.uuid) : this.#owner(organization, command.uuid)
-            if (owner === undefined) return command.operation === 'prune' ? { count: 0 } : undefined
-            return await send(owner)
-        }
-        const workers = [...new Set(organization.owners.values())]
-        if (command.operation === 'prune') {
-            let count = 0
-            for (const worker of workers) {
-                if (count >= (command.limit ?? Infinity)) break
-                tree.limit = command.limit === undefined ? undefined : command.limit - count
-                count += (await send(worker)).count
-            }
-            return { count }
-        }
-        const results = await Promise.all(workers.map(send))
-        return command.operation === 'lookup' ? results.flat() : results
     }
 
     async #getOrganization(id) {
-        if (this.#worker) throw new Error('Organization routing is owned by the primary; execution Trees reside in workers')
         if (typeof id !== 'string' || !id) throw new TypeError('organization_id is required to select a database')
         let pending = this.#organizations.get(id)
         if (!pending) {
             const organization = new Organization(id, { disk: this.#disk, persistence: this.#persistence,
-                treeOptions: this.#treeOptions, dispatch: command => this.#dispatch(organization, command) })
+                treeOptions: this.#treeOptions, dispatch: command => this.trees.execute({ ...command, organization_id: id }) })
             pending = organization.init(this.initialConfig)
             this.#organizations.set(id, pending)
             pending.catch(() => { if (this.#organizations.get(id) === pending) this.#organizations.delete(id) })
@@ -208,18 +138,12 @@ class DB {
         const memory = this.memory
         memory.nodeUsedPercent = sample.memory.max
         memory.peakNodeUsedPercent = Math.max(memory.peakNodeUsedPercent, sample.memory.max)
-        let active = memory.pruning
-        if (sample.memory.max >= this.initialConfig.memory.pruneAt) active = true
+        let active = memory.harvesting
+        if (sample.memory.max >= this.initialConfig.memory.harvestAt) active = true
         else if (sample.memory.max <= this.initialConfig.memory.retainAt) active = false
-        if (active === memory.pruning) return
-        memory.pruning = active
-        this.#pressure(active).catch(error => { memory.pruneError = error })
-    }
-
-    async #pressure(active) {
-        if (!this.#remote) return await this.trees.execute({ operation: 'pressure', active })
-        await Promise.all(this.#workerIds().map(worker => this.#request({ method: 'db.tree', server: this.#server.id,
-            worker, primary: false, broadcast: false, tree: { operation: 'pressure', active } })))
+        if (active === memory.harvesting) return
+        memory.harvesting = active
+        this.trees.execute({ operation: 'pressure', active }).catch(error => { memory.harvestError = error })
     }
 
     get config() { return structuredClone(this.initialConfig) }
@@ -238,7 +162,6 @@ class DB {
     }
 
     async send(request) {
-        if (this.#worker) return await this.forward(request)
         const object = request?.object
         const organizationId = request?.organization_id ?? object?.organization_id ??
             (Array.isArray(object) ? object.find(item => item?.organization_id)?.organization_id : undefined)
@@ -246,35 +169,25 @@ class DB {
         catch (error) { return { ...request, success: false, error: [error.message] } }
     }
 
-    // Internal observation is asynchronous across processes; never an index barrier in CRUD.
-    async status() {
-        if (!this.#remote) return this.trees.status()
-        const workers = await Promise.all(this.#workerIds().map(async workerId => ({ workerId,
-            ...await this.#request({ method: 'db.tree', server: this.#server.id, worker: workerId,
-                primary: false, broadcast: false, tree: { operation: 'status' } }) })))
-        return { workers, trees: workers.flatMap(worker => worker.trees.map(tree => ({ ...tree, workerId: worker.workerId }))),
-            pendingIndexCount: workers.reduce((sum, worker) => sum + worker.pendingIndexCount, 0),
-            pendingDiskCount: workers.reduce((sum, worker) => sum + worker.pendingDiskCount, 0) }
-    }
-
-    get pendingIndexCount() {
-        if (this.#remote) throw new Error('Worker queue observation requires await runtime.status()')
-        return this.trees.pendingIndexCount
-    }
-
+    // Internal diagnostics only; CRUD never waits for either queue.
+    async status() { return { ...this.trees.status(), pendingDiskCount: this.pendingDiskCount } }
+    get pendingIndexCount() { return this.trees.pendingIndexCount }
     get pendingDiskCount() {
-        if (this.#remote) throw new Error('Worker queue observation requires await runtime.status()')
-        return this.trees.pendingDiskCount
+        let count = this.trees.pendingDiskCount
+        for (const id of this.#organizations.keys()) count += (this.#disk?.queue[id]?.size ?? 0) + (this.#persistence?.queue[id]?.size ?? 0)
+        return count
     }
 
     async close() {
-        for (const [event, listener] of this.#listeners) this.#server.off(event, listener)
-        this.#listeners.clear()
-        await this.#pressure(false)
+        if (this.#telemetryListener) {
+            this.#server.off('telemetry', this.#telemetryListener)
+            this.#telemetryListener = undefined
+        }
+        await this.trees.execute({ operation: 'pressure', active: false })
         for (const pending of this.#organizations.values()) await (await pending).close()
         this.#organizations.clear()
         await this.trees.close()
-        if (this.memory.pruneError) throw this.memory.pruneError
+        if (this.memory.harvestError) throw this.memory.harvestError
     }
 }
 

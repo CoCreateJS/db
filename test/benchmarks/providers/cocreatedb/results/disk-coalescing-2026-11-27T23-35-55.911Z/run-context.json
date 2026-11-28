@@ -1,0 +1,38 @@
+{
+  "dbRevision": "001b147c2e808de4356eba327976e9fcf8b8987e",
+  "diskRevision": "898e5c92f7fb12e5e294d3522391cbaf3ef5fda9",
+  "worktrees": "Current uncommitted DB and Disk changes; no production code changed for this investigation",
+  "processes": "One fresh Node process per case, one organization and one data table; cases run sequentially",
+  "caseOrder": [
+    [
+      16,
+      4
+    ],
+    [
+      32,
+      4
+    ],
+    [
+      16,
+      8
+    ],
+    [
+      32,
+      8
+    ],
+    [
+      16,
+      4
+    ],
+    [
+      8,
+      4
+    ],
+    [
+      8,
+      4
+    ]
+  ],
+  "storageBudget": "User-reported 3000 IOPS / 125 MiB/s; not verified through AWS API",
+  "time": "2026-11-27T23:39:45.809316+00:00"
+}

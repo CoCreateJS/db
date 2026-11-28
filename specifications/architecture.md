@@ -6,28 +6,23 @@
 `config`, `organizations`, and `send(payload)`. Tree is also exported for standalone
 composition. There is no separate clustered DB API or compatibility execution path.
 
-The primary owns organization routing. `db.organizations.get(id)` returns the
-organization context, which owns its root schema, structural identity catalog and
-`owners`, a Map from primary UUID to logical worker ID. Root discovery uses this
-metadata, without creating or hydrating a Tree on the primary. Create/upsert can
-establish missing named ancestors; concurrent discovery shares pending creation.
+Each initialized DB instance owns organization routing and all of its Trees.
+The host initializes DB in worker processes; DB does not inspect process roles,
+forward requests, assign workers or coordinate other instances. Network affinity
+and distributed delivery belong to the host.
 
-The coordinator assigns each newly encountered primary UUID to a worker in round
-robin order across the available Server worker IDs. Later requests reuse that
-assignment. Selection happens once per ownership assignment, not once per request.
-Pruning does not remove placement. Rehydration goes to the same owner.
+`db.organizations.get(id)` returns the local organization context, with its roots
+schema and structural identity catalog. It resolves a request's primary branch
+UUID from configuration and executes against the corresponding local Tree.
+Create/upsert can establish missing named ancestors; concurrent discovery shares
+pending creation. Each primary branch has an independent Tree, with its own
+leaves, indexes, index queue, disk queue, execution and storage resources. Nested
+tables remain separate Trees. Primary here identifies a branch, not a process.
 
-Workers own complete Tree instances: local leaves, indexes, CRUD, planning,
-index queues and storage. No worker Tree references another Tree or the primary's
-organization catalog. Nested tables remain independent Trees. A structural row
-lives in its parent's table; configuration identifies the child table. Parentless
-categories have primary UUIDs in `organization.config.top`.
-
-`organization.configuration(primaryUuid)` describes one engine without creating
-it. `organization.execute(payload)` routes within that organization, and
-`organization.prune({ uuid, limit })` asks owners to prune eligible Trees.
-Organization no longer exposes `getTree()` or a resident `trees` Map. Actual
-engines live in the execution process's internal store.
+`organization.configuration(primaryUuid)` describes an engine without creating
+it. `organization.execute(payload)` routes locally, and `organization.harvest()`
+removes eligible local engines. Internal runtime diagnostics expose the local
+Tree registry and both queue counts; they never wait for queues in CRUD.
 
 A standalone engine remains directly composable:
 
@@ -39,104 +34,59 @@ await tree.init({ uuid: primaryUuid, parent: primaryUuid, roots: { object: {} },
 await tree.execute({ method: 'object.create', object: { value: 1 } })
 ```
 
-Combined primary/worker instances and standalone `{}` server contexts use that
-same execution store locally. A primary with `isWorker: false` only orchestrates;
-it never substitutes a local Tree when workers are unavailable. The Server owns
-worker availability. Production cluster startup ordering is outside this change;
-tests start workers before sending DB requests.
+## Instance-local harvesting
 
-## Existing IPC transport
+Harvesting removes whole Trees. Pruning is reserved for future branch/leaf removal and is not implemented.
 
-DB uses Server's existing `send()` and event interface; it introduces no IPC
-transport, serialization format, pending-promise map or process management.
+Each instance consumes its supplied host's Telemetry `memory.max` percentage.
+At 75% it starts harvesting its own lowest-weight eligible Trees; at 50% it stops.
+There is no collection of weights, placement registry or pressure broadcast
+between DB instances. Standalone hosts without telemetry retain explicit control.
 
-- Worker ingress uses `db.forward` to reach the primary router.
-- Primary dispatch uses `db.tree`, targeting `worker`, with `primary: false`,
-  `broadcast: false`, and `server` restricted to this node.
-- The internal command is nested under `tree`; its CRUD envelope is under
-  `tree.request`. Keeping organization data off the transport envelope avoids
-  IPC's separate organization/socket delivery path.
-- First execution carries the primary's local configuration. The worker creates
-  and initializes its engine once, then executes. Later execution reuses it;
-  the same configuration permits recreation after pruning.
+Active requests and query iterators protect their engine. Both pending/in-flight
+queues protect reconciliation, local writes and attached Persistence responses.
+Storage completion schedules another harvesting pass while pressure remains active.
+No secondary leaf cleanup or partial branch eviction is introduced.
 
-The primary receives ordinary transported values. Live leaf prototypes/references
-stay in the execution process. Custom planner/execute functions and initialized
-Disk/Persistence resources belong in each execution worker's composition; they
-are not serialized from the primary.
-
-Full-scope requests go to one owner. Partial queries coordinate multiple tables
-and merge results before final pagination. Supplied UUID uniqueness and unscoped
-UUID lookup can consult worker-resident metadata; disk/persistence can identify
-cold UUID ancestry. These addressing checks are outside the stateless Tree CRUD.
-Multi-table fanout, response serialization and aggregation still consume primary
-CPU. A single hot Tree still belongs to one worker. Round robin balances counts,
-not measured load; placement migration and other balancing strategies are deferred.
-
-## Worker-local pruning
-
-The primary consumes Telemetry's trusted node-wide `memory.max` percentage. At
-75% it sends a pruning-active control to workers; at 50% it sends a stop control.
-It does not collect weights or select eviction candidates across workers.
-
-Each worker measures weights and selects its own lowest-weight eligible Trees.
-There is no global coldest-Tree guarantee. Between removals it yields for requests
-and stop controls. Index/storage completion schedules another local pass while
-pressure remains active. No leaf-only cleanup or partial branch eviction exists.
-
-Active requests and query iterators protect their engine. Pending/in-flight index
-records protect reconciliation; the independent disk queue protects changed leaf,
-branch/config writes and attached Persistence responses. Partial batch completion never makes
-a still-busy engine eligible. Workers recheck eligibility before removal.
-
-Removal is one Map deletion, without walking branches/leaves, draining busy queues
-or deleting files. Neighboring/nested Trees remain independent. JavaScript GC
-reclaims unreferenced graphs; application-held references can retain old graphs.
-Local Disk is required for eviction; memory-only engines retain their only copy.
-Persistence notifications alone do not establish complete reloadable indexes.
-Explicit disk-first residency uses the same eligible-engine removal lifecycle.
-
-Internal `runtime.status()` explicitly requests worker diagnostics, including queue
-counts. It is asynchronous across processes and is used by tests/benchmarks.
-It is not part of CRUD, does not drain indexing and is not a production weight
-reporting protocol. Local runtime queue observation remains synchronous.
+Removal is one local registry deletion without traversing indexes/leaves or
+deleting files. Saved configuration supports selective hydration into a fresh
+engine on later requests. Local Disk is required for eviction; memory-only
+engines retain their only copy. Disk-first uses the same eligible-engine removal
+lifecycle. JavaScript GC reclaims graphs once references are no longer retained.
 
 ## Storage lifecycle
 
-Successful mutations acknowledge the owning worker's in-memory change. The reply
-travels back through the primary to the requester without awaiting index/disk
-completion. The worker reconciles queued indexes in batches and hands changed
-leaves, branches and config to its independent disk queue. Indexing never awaits
-that queue. The queue writes leaves, branches and config, applies deletions, then
-notifies Persistence. It serializes batches within each Tree, with up to 16 disk
-operations across all Trees in one worker.
-Repeated index changes coalesce per leaf. Pending disk operations coalesce per
-UUID, grouped under the primary UUID as `leaves` and `branches` objects, plus
-optional config. File bytes are captured at handoff; the writer does not look
-back into live Tree nodes. New changes accumulate separately from an active batch.
-A failed write leaves the storage batch pending and surfaces from close; there is
-no automatic retry layer. Memory acknowledgement does not certify
-disk durability. No public flush endpoints exist.
+Successful mutations acknowledge the owning instance's in-memory change without
+awaiting indexing or storage. Indexing reconciles batched changes, then submits
+serialized leaf, branch and configuration requests to Disk and Persistence
+independently. Each adapter exposes `execute` and its own `queue`, grouped by
+primary UUID into leaves, branches and files. Queue membership covers pending
+and in-flight work and determines harvesting eligibility along with active operations,
+indexing and outstanding request completions. DB keeps no duplicate storage queue.
 
-Organization metadata writes belong to the primary; engine leaf/index/config
-writes belong to their owning worker. Initialize resources in each process with
-the same DB base namespace. The UUID layout under an encoded organization is:
+Adapters own coalescing and write concurrency. Disk serializes writes/deletes to
+the same path and bounds concurrent I/O across groups. A pending request can be
+cancelled; a request already taken by the writer finishes normally. The adapters
+are independent: neither waits for or triggers the other. Memory acknowledgement
+does not certify durability; no public flush endpoints exist.
+
+Organization metadata and engine leaf/index/config writes are owned by the
+local DB instance. Disk namespace selection remains the adapter/composer
+responsibility; shared-disk coordination is outside this change. The UUID layout under an encoded organization is:
 
 - `config.json`: organization roots, structural identities and top primary IDs.
 - `trees/<primary UUID>/config.json`: that engine's definitions and index catalog.
 - `leaves/<hex encoded leaf UUID>.json`: payloads.
 - `branches/<branch UUID>.json`: index nodes.
 
-Only one worker owns an engine's writes. Root metadata is not duplicated into
-worker-owned organization routers. Closing drains owned work and removes DB event
-handlers. Worker loss/reassignment, cross-node ownership, migration and durability
-coordination remain external/future work. The configuration layout has no legacy
+Closing drains local work and removes the telemetry listener. Cross-instance
+placement, replication, migration and durability coordination remain external work. The configuration layout has no legacy
 migration reader.
 
 ## Integration boundary
 
-Disk/Persistence expose `execute(request)`; empty ports complete calls without
-storage. Persistence owns grouping/timing/provider selection. `tree.persist()`
+Disk/Persistence expose `execute(request)` and `queue`; empty ports expose an empty map and
+complete calls without storage. Persistence owns grouping/timing/provider selection. `tree.persist()`
 delegates to its optional `persist()`. Shared browser/Node engines do not import
 Node cluster; the existing Server capability supplies transport.
 

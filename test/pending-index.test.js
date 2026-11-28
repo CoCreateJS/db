@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { emptyStorage } from '../src/disk.js'
 import { createManager } from '../src/tree/manager.js'
 import { createConfiguration } from '../src/runtime.js'
 import { Tree as IndexTree } from '../src/tree/btree.js'
@@ -8,9 +9,9 @@ import { waitForIdle } from './benchmarks/shared/wait-for-index.mjs'
 async function setup() {
     const db = { config: createConfiguration({ roots: { object: {} }, parent: 'primary' }), leaves: new Map(), tree: new Map() }
     const parent = { uuid: 'primary' }
-    const manager = await createManager({ db, owner: { uuid: parent.uuid, active: 0, weight: 0 } })
+    const manager = await createManager({ db, owner: { uuid: parent.uuid, active: 0, weight: 0, disk: emptyStorage, persistence: emptyStorage } })
     const leaves = await manager.createMany('object', [{ status: 'initial', score: 0 }, { status: 'deleted' }])
-    const resource = { get pendingIndexCount() { return manager.pendingIndex.size }, get pendingDiskCount() { return manager.disk.size } }
+    const resource = { get pendingIndexCount() { return manager.pendingIndex.size }, get pendingDiskCount() { return manager.storage.size } }
     await waitForIdle(resource)
     return { db, manager, parent, leaves, resource }
 }

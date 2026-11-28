@@ -25,6 +25,7 @@
     "benchmark:weighted-eviction": "node test/benchmarks/diagnostics/weighted-eviction.mjs",
     "benchmark:deferred-indexing": "node test/benchmarks/diagnostics/deferred-indexing.mjs",
     "benchmark:index-lifecycle": "node test/benchmarks/diagnostics/index-lifecycle.mjs",
+    "benchmark:worker-affinity": "node test/benchmarks/diagnostics/worker-affinity.mjs",
     "benchmark:system-capacity": "node test/benchmarks/diagnostics/system-capacity.mjs",
     "benchmark:continuous": "node test/benchmarks/diagnostics/continuous.mjs"
   },

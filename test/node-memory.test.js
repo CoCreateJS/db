@@ -10,7 +10,8 @@ import { waitForCondition, waitForIdle } from './benchmarks/shared/wait-for-inde
 
 function host() {
     const server = new EventEmitter()
-    server.isPrimary = true
+    server.isPrimary = false
+    server.isWorker = true
     server.id = 'node-memory-test'
     let timestamp = 0
     return { server, sample(max) { server.emit('telemetry', { data: { serverId: server.id, workerId: 1, timestamp: ++timestamp, memory: { max } } }) } }
@@ -31,25 +32,25 @@ test('node pressure starts at 75%, removes the locally lowest-weight table, and 
         // Rank data tables, keeping structural tables hot for this assertion.
         for (const org of [hot, cold]) for (const table of org.trees.values()) if (table.uuid !== hotLeaf.parent && table.uuid !== coldLeaf.parent) table.weight = 100
         const removals = []
-        const prune = runtime.trees.prune.bind(runtime.trees)
-        runtime.trees.prune = options => {
+        const harvest = runtime.trees.harvest.bind(runtime.trees)
+        runtime.trees.harvest = options => {
             const before = runtime.trees.status().trees
-            const result = prune(options)
+            const result = harvest(options)
             const remaining = new Set(runtime.trees.status().trees.map(tree => tree.uuid))
             for (const tree of before) if (!remaining.has(tree.uuid)) removals.push({ organization: tree.organization_id, uuid: tree.uuid })
             if (result.count) sample(50)
             return result
         }
         sample(74.9)
-        assert.equal(runtime.memory.pruning, false)
+        assert.equal(runtime.memory.harvesting, false)
         sample(75)
-        await waitForCondition(() => runtime.memory.pruneCycles === 1)
+        await waitForCondition(() => runtime.memory.harvestCycles === 1)
         assert.deepEqual(removals, [{ organization: 'cold', uuid: coldLeaf.parent }])
-        assert.equal(runtime.memory.pruning, false)
+        assert.equal(runtime.memory.harvesting, false)
         sample(74)
-        assert.equal(runtime.memory.pruning, false, 'recovery requires a fresh 75% crossing')
+        assert.equal(runtime.memory.harvesting, false, 'recovery requires a fresh 75% crossing')
         assert.equal(await (await hot.getTree(hotLeaf.parent)).leaves.get(hotLeaf.uuid), hotLeaf)
-        assert.deepEqual(db.config.memory, { pruneAt: 75, retainAt: 50 })
+        assert.deepEqual(db.config.memory, { harvestAt: 75, retainAt: 50 })
         assert.equal(hotTree.config.diskFirst, false)
     } finally { await runtime.close() }
 })
@@ -60,7 +61,7 @@ test('a queued group remains protected through storage, then becomes eligible wi
     const started = new Promise(resolve => { stored = resolve })
     const gate = new Promise(resolve => { release = resolve })
     let held = false
-    const persistence = { async execute(request) {
+    const persistence = { queue: {}, async execute(request) {
         if (!held && request.operation === 'write' && request.kind === 'leaf') {
             held = true
             stored()
@@ -75,34 +76,34 @@ test('a queued group remains protected through storage, then becomes eligible wi
         const leaf = (await create(tree, 'items', 1030)).object[0]
         await started
         sample(75)
-        assert.equal(tree.pruneCandidates.some(candidate => candidate.uuid === leaf.parent), false)
+        assert.equal(tree.harvestCandidates.some(candidate => candidate.uuid === leaf.parent), false)
         for (const table of tree.trees.values()) if (table.uuid !== leaf.parent) table.active++
-        assert.deepEqual(await tree.prune({ uuid: leaf.parent }), { count: 0 })
+        assert.deepEqual(await tree.harvest({ uuid: leaf.parent }), { count: 0 })
         sample(60)
-        assert.equal(runtime.memory.pruning, true)
+        assert.equal(runtime.memory.harvesting, true)
         const updated = await tree.execute({ ...envelope, method: 'object.update', object: { uuid: leaf.uuid, score: 2000 } })
         assert.equal(updated.success, true)
-        assert.deepEqual(await tree.prune({ uuid: leaf.parent }), { count: 0 }, 'an update arriving during storage remains protected')
-        const prune = runtime.trees.prune.bind(runtime.trees)
-        const pruned = []
-        runtime.trees.prune = options => {
+        assert.deepEqual(await tree.harvest({ uuid: leaf.parent }), { count: 0 }, 'an update arriving during storage remains protected')
+        const harvest = runtime.trees.harvest.bind(runtime.trees)
+        const harvested = []
+        runtime.trees.harvest = options => {
             const before = runtime.trees.status().trees
-            const result = prune(options)
+            const result = harvest(options)
             if (result.count) {
                 const remaining = new Set(runtime.trees.status().trees.map(table => table.uuid))
                 for (const table of before) if (!remaining.has(table.uuid)) {
                     assert.equal(table.pendingIndexCount, 0, 'indexing is complete')
                     assert.equal(table.pendingDiskCount, 0, 'storage is complete')
-                    pruned.push(table.uuid)
+                    harvested.push(table.uuid)
                 }
                 sample(50)
             }
             return result
         }
         release()
-        await waitForCondition(() => runtime.memory.branchesPruned === 1)
-        assert.deepEqual(pruned, [leaf.parent])
-        assert.equal(runtime.memory.pruning, false)
+        await waitForCondition(() => runtime.memory.treesHarvested === 1)
+        assert.deepEqual(harvested, [leaf.parent])
+        assert.equal(runtime.memory.harvesting, false)
         assert.equal((await (await tree.getTree(leaf.parent)).leaves.get(leaf.uuid)).score, 2000)
     } finally { release(); await runtime.close() }
 })
@@ -112,7 +113,7 @@ test('dropping below the low watermark while storage is pending prevents evictio
     let release, stored
     const gate = new Promise(resolve => { release = resolve })
     const started = new Promise(resolve => { stored = resolve })
-    const persistence = { async execute(request) {
+    const persistence = { queue: {}, async execute(request) {
         if (request.kind === 'leaf') { stored(); await gate }
         return request
     } }
@@ -127,7 +128,7 @@ test('dropping below the low watermark while storage is pending prevents evictio
         release()
         await waitForIdle(tree)
         assert.equal(await (await tree.getTree(leaf.parent)).leaves.get(leaf.uuid), leaf)
-        assert.equal(runtime.memory.branchesPruned, 0)
+        assert.equal(runtime.memory.treesHarvested, 0)
     } finally { release(); await runtime.close() }
 })
 
@@ -141,10 +142,10 @@ test('memory-only trees retain their only copy under pressure and pressure never
         await waitForIdle(tree)
         sample(95)
         await new Promise(resolve => setTimeout(resolve, 5))
-        assert.equal(runtime.memory.pruning, true)
-        assert.equal(runtime.memory.branchesPruned, 0)
+        assert.equal(runtime.memory.harvesting, true)
+        assert.equal(runtime.memory.treesHarvested, 0)
         assert.equal((await tree.getTree(leaf.parent)).config.diskFirst, false)
         assert.equal(await (await tree.getTree(leaf.parent)).leaves.get(leaf.uuid), leaf)
-        assert.equal(runtime.memory.pruneError, undefined)
+        assert.equal(runtime.memory.harvestError, undefined)
     } finally { await runtime.close() }
 })

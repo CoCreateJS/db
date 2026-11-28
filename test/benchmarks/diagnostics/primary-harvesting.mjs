@@ -35,11 +35,11 @@ assert.equal(checkpointRemainder, 0)
 const roots = Object.fromEntries(Array.from({ length: primaryTreeCount }, (_, i) => [`primary_${String(i + 1).padStart(2, '0')}`, {}]))
 const rootNames = Object.keys(roots)
 const runId = new Date().toISOString()
-const output = resolve(process.env.BENCH_OUTPUT_DIR ?? `test/benchmarks/providers/cocreatedb/results/primary-pruning-${runId.replaceAll(':', '-')}`)
+const output = resolve(process.env.BENCH_OUTPUT_DIR ?? `test/benchmarks/providers/cocreatedb/results/primary-harvesting-${runId.replaceAll(':', '-')}`)
 const worktreeStatus = execFileSync('git', ['status', '--short', '--untracked-files=all'], { encoding: 'utf8' }).trimEnd().split('\n')
 const trackedDiff = execFileSync('git', ['diff', '--binary', 'HEAD'])
 await mkdir(output, { recursive: true })
-const directory = await mkdtemp(join(tmpdir(), 'cocreatedb-primary-pruning-'))
+const directory = await mkdtemp(join(tmpdir(), 'cocreatedb-primary-harvesting-'))
 const result = {
     status: 'running', startedAt: runId, organizationCount: 1, primaryTreeCount,
     recordsPerPrimaryTree: recordsPerTree, totalRecords, coldTreeCount,
@@ -60,11 +60,11 @@ const result = {
         status: worktreeStatus
     },
     primaryTrees: rootNames.map((name, index) => ({ name, index, expectedRecords: recordsPerTree, phaseRecords: [] })),
-    phases: [], pruningTimeline: []
+    phases: [], harvestingTimeline: []
 }
 
 let db, telemetry, progress, organization, phaseName = 'initializing', acknowledgedRecords = 0
-let peakResidentPrimaryTrees = 0, maximumPruneCandidates = 0
+let peakResidentPrimaryTrees = 0, maximumHarvestCandidates = 0
 const treeSnapshot = () => db.trees.status(organizationId)
 const residentPrimaryTreeCount = () => treeSnapshot().trees.length
 const checked = response => {
@@ -75,7 +75,7 @@ const checked = response => {
 try {
     const disk = await Disk.init({ directory })
     const server = new EventEmitter()
-    server.id = 'primary-pruning-benchmark'
+    server.id = 'primary-harvesting-benchmark'
     server.isPrimary = true
     db = await createRuntime(server, { disk, size: 64, roots })
     result.configuration.memory = db.config.memory
@@ -87,23 +87,23 @@ try {
         } })
         const status = treeSnapshot()
         peakResidentPrimaryTrees = Math.max(peakResidentPrimaryTrees, status.trees.length)
-        maximumPruneCandidates = Math.max(maximumPruneCandidates, status.trees.filter(tree => tree.canDrop).length)
-        const last = result.pruningTimeline.at(-1)
+        maximumHarvestCandidates = Math.max(maximumHarvestCandidates, status.trees.filter(tree => tree.canDrop).length)
+        const last = result.harvestingTimeline.at(-1)
         const snapshot = {
             elapsedMs: result.workStartedAt ? Math.round(performance.now() - result.workStartedAt) : 0,
             phase: phaseName, acknowledgedRecords,
             nodeUsedPercent: db.memory.nodeUsedPercent,
-            pruning: db.memory.pruning,
-            pruneCycles: db.memory.pruneCycles,
-            treesPruned: db.memory.branchesPruned,
+            harvesting: db.memory.harvesting,
+            harvestCycles: db.memory.harvestCycles,
+            treesHarvested: db.memory.treesHarvested,
             residentPrimaryTrees: status.trees.length,
-            pruneCandidates: status.trees.filter(tree => tree.canDrop).length
+            harvestCandidates: status.trees.filter(tree => tree.canDrop).length
         }
-        if (!last || last.phase !== snapshot.phase || last.pruning !== snapshot.pruning ||
-            last.pruneCycles !== snapshot.pruneCycles || last.residentPrimaryTrees !== snapshot.residentPrimaryTrees ||
+        if (!last || last.phase !== snapshot.phase || last.harvesting !== snapshot.harvesting ||
+            last.harvestCycles !== snapshot.harvestCycles || last.residentPrimaryTrees !== snapshot.residentPrimaryTrees ||
             snapshot.elapsedMs - last.elapsedMs >= 10000 ||
             (last.acknowledgedRecords < checkpoint && snapshot.acknowledgedRecords >= checkpoint))
-            result.pruningTimeline.push(snapshot)
+            result.harvestingTimeline.push(snapshot)
     }
     sample()
     telemetry = setInterval(sample, 100)
@@ -114,7 +114,7 @@ try {
     progress = setInterval(() => console.log(
         `BENCH_PROGRESS phase=${phaseName} elapsedMs=${Math.round(performance.now() - start)} ` +
         `acknowledged=${acknowledgedRecords}/${totalRecords} trees=${residentPrimaryTreeCount()}/${primaryTreeCount} ` +
-        `pendingIndex=${db.pendingIndexCount} pendingDisk=${db.pendingDiskCount} pruning=${db.memory.pruning} pruned=${db.memory.branchesPruned} ` +
+        `pendingIndex=${db.pendingIndexCount} pendingDisk=${db.pendingDiskCount} harvesting=${db.memory.harvesting} harvested=${db.memory.treesHarvested} ` +
         `rssMiB=${Math.round(process.memoryUsage().rss / 1048576)}`
     ), 10000)
 
@@ -176,7 +176,7 @@ try {
     result.checkpointPending = db.pendingIndexCount
     result.checkpointDiskPending = db.pendingDiskCount
     result.checkpointTreesResident = residentPrimaryTreeCount()
-    result.checkpointTreesPruned = db.memory.branchesPruned
+    result.checkpointTreesHarvested = db.memory.treesHarvested
 
     await runPhase('final third', activeTrees.map(index => [index, checkpointAdds.get(index), recordsPerTree - checkpointAdds.get(index)]))
     assert.equal(acknowledgedRecords, totalRecords)
@@ -191,9 +191,9 @@ try {
     result.pendingBeforeReadChecks = db.pendingIndexCount
     result.pendingDiskBeforeReadChecks = db.pendingDiskCount
     result.residentPrimaryTreesAtIngestEnd = residentPrimaryTreeCount()
-    result.primaryTreesPrunedAtIngestEnd = db.memory.branchesPruned
+    result.primaryTreesHarvestedAtIngestEnd = db.memory.treesHarvested
     result.peakResidentPrimaryTrees = peakResidentPrimaryTrees
-    result.maximumPruneCandidates = maximumPruneCandidates
+    result.maximumHarvestCandidates = maximumHarvestCandidates
     result.memory.loaded = process.memoryUsage()
     result.memory.peakRssBytes = process.resourceUsage().maxRSS * 1024
     clearInterval(progress)
@@ -236,17 +236,17 @@ try {
     if (db) await db.close().catch(error => { result.closeError = error.message })
     result.completedAt = new Date().toISOString()
     await writeFile(join(output, 'result.json'), JSON.stringify(result, null, 2) + '\n')
-    const report = `# One organization, ${totalRecords.toLocaleString()} records with natural primary-tree pruning\n\n` +
+    const report = `# One organization, ${totalRecords.toLocaleString()} records with natural primary-tree harvesting\n\n` +
         `Status: ${result.status}. One organization, ${primaryTreeCount} primary trees, ${recordsPerTree.toLocaleString()} records each (${totalRecords.toLocaleString()} total). ` +
         `Cold set: first ${coldTreeCount} trees (${(coldTreeCount * recordsPerTree).toLocaleString()} records) filled and indexed before writes move to the remaining ${primaryTreeCount - coldTreeCount}. ` +
-        `At the two-thirds checkpoint (${checkpoint.toLocaleString()} records), writes remain on that active subset. No prune call is made by the benchmark.\n\n` +
+        `At the two-thirds checkpoint (${checkpoint.toLocaleString()} records), writes remain on that active subset. No harvest call is made by the benchmark.\n\n` +
         `Create + index wall time: ${result.createAndIndexMs ? (result.createAndIndexMs / 1000).toFixed(2) : 'n/a'} s. ` +
         `Storage complete: ${result.createAndStorageMs ? (result.createAndStorageMs / 1000).toFixed(2) : 'n/a'} s, ` +
         `pending disk work at index readiness: ${result.pendingDiskAtIndexReady ?? 'n/a'}. ` +
         `Throughput: ${result.recordsPerSecond?.toFixed(0) ?? 'n/a'} records/s. ` +
         `Peak process RSS: ${result.memory?.peakRssBytes ? (result.memory.peakRssBytes / 1048576).toFixed(1) : 'n/a'} MiB.\n\n` +
-        `Natural pruning triggered: ${result.telemetry?.pruneCycles > 0 ? 'yes' : 'no'}. ` +
-        `Trees pruned by ingest end: ${result.primaryTreesPrunedAtIngestEnd ?? 'n/a'}. ` +
+        `Natural harvesting triggered: ${result.telemetry?.harvestCycles > 0 ? 'yes' : 'no'}. ` +
+        `Trees harvested by ingest end: ${result.primaryTreesHarvestedAtIngestEnd ?? 'n/a'}. ` +
         `Peak Node memory: ${result.telemetry?.peakNodeUsedPercent?.toFixed(2) ?? 'n/a'}%. ` +
         `Pending before validation: ${result.pendingBeforeReadChecks ?? 'n/a'}.\n\n` +
         `| Phase | Records | Cumulative acknowledged | Elapsed (s) |\n| --- | ---: | ---: | ---: |\n` +
@@ -260,6 +260,6 @@ console.log(JSON.stringify({
     status: result.status, totalRecords, primaryTreeCount,
     createAndIndexMs: result.createAndIndexMs, createAndStorageMs: result.createAndStorageMs,
     pendingDiskAtIndexReady: result.pendingDiskAtIndexReady, recordsPerSecond: result.recordsPerSecond,
-    pruningCycles: result.telemetry?.pruneCycles, treesPruned: result.primaryTreesPrunedAtIngestEnd,
+    harvestingCycles: result.telemetry?.harvestCycles, treesHarvested: result.primaryTreesHarvestedAtIngestEnd,
     output, failure: result.failure
 }))

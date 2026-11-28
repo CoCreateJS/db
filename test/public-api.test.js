@@ -1,6 +1,5 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { EventEmitter } from 'node:events'
 import DB, { Tree } from '@cocreate/db'
 import * as api from '@cocreate/db'
 import { Organization } from '../src/organization.js'
@@ -21,6 +20,10 @@ test('DB.init is the only DB constructor and returns the thin public interface',
         assert.deepEqual(Object.keys(db.organizations), ['get'])
         const tree = await db.organizations.get(payload.organization_id)
         assert.ok(tree instanceof Organization)
+        assert.equal(typeof tree.harvest, 'function')
+        assert.equal('prune' in tree, false)
+        assert.equal(db.config.memory.harvestAt, 75)
+        assert.equal('pruneAt' in db.config.memory, false)
         assert.equal(tree, await db.organizations.get(payload.organization_id))
         const created = await db.send({ ...payload, method: 'object.create', object: { value: 1 } })
         assert.equal(created.success, true)
@@ -65,7 +68,7 @@ test('standalone Tree executes CRUD, exposes configuration flags, and delegates 
     const tree = new Tree()
     tree.disk = new MemoryDisk()
     let persisted = 0
-    tree.persistence = {
+    tree.persistence = { queue: {},
         async execute(request) { return request.operation === 'read' ? undefined : request },
         async persist() { persisted++; return { success: true } }
     }
@@ -86,26 +89,30 @@ test('standalone Tree executes CRUD, exposes configuration flags, and delegates 
     } finally { await tree.close() }
 })
 
-test('combined primary/worker uses local Tree execution; worker forwards through Server', async () => {
-    const server = new EventEmitter()
-    server.isPrimary = true
-    server.isWorker = true
-    server.send = () => { throw Error('Combined instance should not forward') }
-    const primary = await DB.init(server, { prompt: false })
-    const worker = await DB.init(Object.assign(new EventEmitter(), {
-        isPrimary: false,
-        async send(message) {
-            const [handler] = server.listeners(message.method)
-            return structuredClone(await handler(structuredClone(message)))
-        }
-    }))
+test('each worker context owns an independent local DB through the thin API', async () => {
+    const instances = await Promise.all(Array.from({ length: 3 }, () => DB.init({
+        isPrimary: false, isWorker: true,
+        send() { throw Error('DB must not forward') }
+    }, { prompt: false })))
     try {
-        assert.deepEqual(Object.keys(worker).sort(), ['config', 'organizations', 'send'])
-        const created = await worker.send({ ...payload, method: 'object.create', object: { value: 'forwarded' } })
-        assert.equal(created.success, true)
-        const read = await primary.send({ ...payload, method: 'object.read', object: { uuid: created.object[0].uuid } })
-        assert.equal(read.object[0].value, 'forwarded')
-    } finally { await databaseRuntimes.get(primary).close() }
+        const organizations = []
+        for (const [value, db] of instances.entries()) {
+            assert.deepEqual(Object.keys(db).sort(), ['config', 'organizations', 'send'])
+            const created = await db.send({ ...payload, method: 'object.create', object: { uuid: 'same-id', value } })
+            assert.equal(created.success, true)
+            const organization = await db.organizations.get(payload.organization_id)
+            organizations.push(organization)
+            const tree = await databaseRuntimes.get(db).trees.get(payload.organization_id, created.object[0].parent)
+            assert.ok(tree instanceof Tree)
+            assert.equal((await tree.leaves.get('same-id')).value, value)
+        }
+        assert.equal(new Set(organizations).size, 3)
+        await databaseRuntimes.get(instances[0]).close()
+        for (const value of [1, 2]) {
+            const read = await instances[value].send({ ...payload, method: 'object.read', object: { uuid: 'same-id' } })
+            assert.equal(read.object[0].value, value)
+        }
+    } finally { await Promise.all(instances.map(db => databaseRuntimes.get(db).close())) }
 })
 
 test('concurrent organization lookups reuse one router and closing clears its resident Trees', async () => {
@@ -124,7 +131,9 @@ test('Tree read ports and standalone close work as detached function references'
     const close = tree.close
     try {
         assert.throws(() => { tree.disk = {} }, /must expose execute/)
-        assert.throws(() => { tree.persistence = {} }, /must expose execute/)
+        assert.throws(() => { tree.disk = { async execute() {} } }, /queue/)
+        assert.throws(() => { tree.persistence = { async execute() {} } }, /queue/)
+        assert.throws(() => { tree.persistence = { queue: {},} }, /must expose execute/)
         assert.equal((await tree.execute({ method: 'object.create', object: [null] })).success, false)
         const created = await tree.execute({ method: 'object.create', object: { value: 'direct' } })
         const get = tree.leaves.get
